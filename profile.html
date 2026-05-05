@@ -5,56 +5,170 @@
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BloxVerse</title>
-  <script type="module" crossorigin src="/assets/main-Jpb2rNyv.js"></script>
-  <link rel="modulepreload" crossorigin href="/assets/firebase-BGgYK--4.js">
-  <link rel="modulepreload" crossorigin href="/assets/friends-DZXfDII8.js">
+  <title>BloxVerse - Profile</title>
+  <style>
+    .profile-page {
+      max-width: 600px;
+      width: 100%;
+      padding: 24px;
+      padding-top: 72px;
+    }
+
+    .profile-banner {
+      background: linear-gradient(135deg, #0d69ac, #00b06f);
+      border-radius: 12px;
+      padding: 32px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+
+    .profile-avatar-large {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #1a1c1e, #393b3d);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      font-weight: 700;
+      flex-shrink: 0;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .profile-info h1 {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .profile-info .profile-email {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 14px;
+    }
+
+    .profile-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .profile-stat-card {
+      background-color: #393b3d;
+      border-radius: 10px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .profile-stat-card .stat-value {
+      font-size: 22px;
+      font-weight: 700;
+      color: #f2cd37;
+    }
+
+    .profile-stat-card .stat-label {
+      font-size: 12px;
+      color: #8a8c8e;
+      margin-top: 4px;
+    }
+
+    .profile-section {
+      background-color: #393b3d;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .profile-section h2 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .profile-section .empty {
+      color: #8a8c8e;
+      font-size: 13px;
+      text-align: center;
+      padding: 12px;
+    }
+
+    .profile-friends-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 8px;
+    }
+
+    .profile-friend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      transition: background-color 0.15s ease;
+      cursor: pointer;
+    }
+
+    .profile-friend-item:hover {
+      background-color: rgba(255, 255, 255, 0.06);
+    }
+
+    .profile-friend-item .friend-avatar-small {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #0d69ac, #00b06f);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .profile-friend-item .friend-name-small {
+      font-size: 12px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .profile-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #8a8c8e;
+      text-decoration: none;
+      font-size: 13px;
+      margin-bottom: 20px;
+    }
+
+    .profile-back:hover {
+      color: #fff;
+    }
+  </style>
+  <script type="module" crossorigin src="/assets/profile-DDcm61tL.js"></script>
   <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-CXK8biUa.js">
-  <link rel="modulepreload" crossorigin href="/assets/games-CnyHPNxu.js">
+  <link rel="modulepreload" crossorigin href="/assets/firebase-BGgYK--4.js">
+  <link rel="stylesheet" crossorigin href="/assets/auth-Bj9aSrwM.css">
   <link rel="stylesheet" crossorigin href="/assets/main-CmOemkj0.css">
 </head>
 
 <body>
-  <!-- Navbar -->
   <nav class="navbar">
     <div class="nav-left">
-      <div class="logo" onclick="window.location.reload()">
+      <div class="logo" onclick="window.location.href='/index.html'">
         <div class="logo-icon"></div>
         <span class="logo-text">BloxVerse</span>
       </div>
     </div>
-    <div class="nav-center" id="navCenter"></div>
-    <div class="nav-right" id="navRight">
-      <button class="login-btn" onclick="window.location.href='/auth.html'">Login / Sign Up</button>
-    </div>
+    <div class="nav-right" id="navRight"></div>
   </nav>
 
-  <!-- Main Content -->
-  <main class="main-content">
-    <!-- Friends Section (only when logged in) -->
-    <section class="game-section" id="friendsSection" style="display:none;">
-      <h2>Friends</h2>
-      <div id="friendRequests"></div>
-      <div class="friends-grid" id="friendsGrid"></div>
-    </section>
-
-    <!-- Games Section -->
-    <section class="game-section">
-      <h2>Games</h2>
-      <div class="game-grid" id="gameGrid"></div>
-    </section>
-  </main>
-
-  <!-- Loading Screen -->
-  <div class="loading-screen" id="loadingScreen">
-    <div class="loading-content">
-      <div class="logo-large"></div>
-      <h2 id="loadingTitle">Loading...</h2>
-      <div class="loading-bar">
-        <div class="loading-bar-fill" id="loadingBarFill"></div>
-      </div>
-    </div>
-  </div>
+  <div class="profile-page" id="profilePage"></div>
 
 </body>
 
