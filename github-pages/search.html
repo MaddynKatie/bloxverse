@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/bloxverse/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BloxVerse - Player Search</title>
+  <script type="module" crossorigin src="/bloxverse/assets/search-CWtzPOcU.js"></script>
+  <link rel="modulepreload" crossorigin href="/bloxverse/assets/firebase-BGgYK--4.js">
+  <link rel="modulepreload" crossorigin href="/bloxverse/assets/friends-DZXfDII8.js">
+  <link rel="modulepreload" crossorigin href="/bloxverse/assets/modulepreload-polyfill-CXK8biUa.js">
+  <link rel="stylesheet" crossorigin href="/bloxverse/assets/search-DwslJBUf.css">
+  <link rel="stylesheet" crossorigin href="/bloxverse/assets/main-CmOemkj0.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-left">
+      <div class="logo" onclick="window.location.href='./'">
+        <div class="logo-icon"></div>
+        <span class="logo-text">BloxVerse</span>
+      </div>
+    </div>
+    <div class="nav-center">
+      <div class="player-search-bar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.35-4.35" />
+        </svg>
+        <input type="text" id="searchInput" placeholder="Search players..." autocomplete="off" />
+      </div>
+    </div>
+    <div class="nav-right" id="navRight">
+      <button class="login-btn" onclick="window.location.href='./auth.html'">Login / Sign Up</button>
+    </div>
+  </nav>
+
+  <main class="search-main">
+    <div class="search-results" id="searchResults">
+      <div class="search-empty">
+        <h2>Search for players</h2>
+        <p>Type at least 3 characters to search</p>
+      </div>
+    </div>
+  </main>
+
+</body>
+</html>

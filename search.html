@@ -2,15 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/bloxverse/favicon.svg" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BloxVerse - Player Search</title>
-  <script type="module" crossorigin src="/bloxverse/assets/search-CWtzPOcU.js"></script>
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/firebase-BGgYK--4.js">
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/friends-DZXfDII8.js">
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/modulepreload-polyfill-CXK8biUa.js">
-  <link rel="stylesheet" crossorigin href="/bloxverse/assets/search-DwslJBUf.css">
-  <link rel="stylesheet" crossorigin href="/bloxverse/assets/main-CmOemkj0.css">
+  <link rel="stylesheet" href="/src/main.css" />
+  <link rel="stylesheet" href="/src/search.css" />
 </head>
 <body>
   <nav class="navbar">
@@ -43,5 +39,120 @@
     </div>
   </main>
 
+  <script type="module">
+    import { auth } from './src/firebase.js';
+    import { onAuthStateChanged } from 'firebase/auth';
+    import { searchUsers } from './src/friends.js';
+
+    const searchInput = document.getElementById('searchInput');
+    const searchResults = document.getElementById('searchResults');
+    const navRight = document.getElementById('navRight');
+
+    // Handle auth state
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        navRight.innerHTML = `
+          <div class="user-info">
+            <div class="avatar-circle">${(user.displayName || 'P').charAt(0).toUpperCase()}</div>
+          </div>
+        `;
+      }
+    });
+
+    // Auto-search on input
+    let debounceTimer;
+    searchInput.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      const val = searchInput.value.trim();
+      
+      if (val.length < 3) {
+        searchResults.innerHTML = `
+          <div class="search-empty">
+            <h2>Search for players</h2>
+            <p>Type at least 3 characters to search</p>
+          </div>
+        `;
+        return;
+      }
+
+      debounceTimer = setTimeout(async () => {
+        searchResults.innerHTML = `
+          <div class="search-loading">
+            <div class="loading-spinner"></div>
+            <p>Searching...</p>
+          </div>
+        `;
+
+        const users = await searchUsers(val);
+        renderResults(users, val);
+      }, 300);
+    });
+
+    // Allow Enter key to focus search
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        searchInput.blur();
+      }
+    });
+
+    // Read query from URL
+    const params = new URLSearchParams(window.location.search);
+    const query = params.get('q');
+    if (query) {
+      searchInput.value = query;
+      searchInput.dispatchEvent(new Event('input'));
+    }
+
+    function renderResults(users, searchTerm) {
+      if (users.length === 0) {
+        searchResults.innerHTML = `
+          <div class="search-empty">
+            <h2>No players found</h2>
+            <p>No players match "${searchTerm}"</p>
+          </div>
+        `;
+        return;
+      }
+
+      searchResults.innerHTML = `
+        <div class="results-header">
+          <h2>Found ${users.length} player${users.length !== 1 ? 's' : ''}</h2>
+        </div>
+        <div class="player-grid">
+          ${users.map(u => `
+            <div class="player-card" onclick="window.location.href='./profile.html?user=${u.id}'">
+              <div class="player-avatar">${(u.username || '?').charAt(0).toUpperCase()}</div>
+              <div class="player-info">
+                <div class="player-name">${u.username}</div>
+                <div class="player-join-date">Joined ${new Date(u.createdAt || Date.now()).toLocaleDateString()}</div>
+              </div>
+              <div class="player-action">
+                ${u.id === auth.currentUser?.uid ? '' : `<button class="add-friend-btn" onclick="event.stopPropagation(); window._addFriend('${u.id}','${u.username}',this)">+ Add Friend</button>`}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    window._addFriend = async (targetId, targetUsername, btn) => {
+      if (!auth.currentUser) {
+        window.location.href = './auth.html';
+        return;
+      }
+      btn.textContent = 'Sending...';
+      btn.disabled = true;
+      try {
+        const { sendFriendRequest } = await import('./src/friends.js');
+        await sendFriendRequest(auth.currentUser.uid, targetId, targetUsername);
+        btn.textContent = 'Sent';
+        btn.classList.add('sent');
+      } catch (e) {
+        console.error(e);
+        btn.textContent = 'Error';
+        btn.disabled = false;
+      }
+    };
+  </script>
 </body>
 </html>

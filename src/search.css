@@ -1,0 +1,169 @@
+.search-main {
+  max-width: 960px;
+  margin: 24px auto;
+  padding: 0 16px;
+}
+
+.player-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #2a2a3a;
+  border: 1px solid #3a3a4a;
+  border-radius: 8px;
+  padding: 8px 12px;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.player-search-bar svg {
+  flex-shrink: 0;
+  color: #8a8c8e;
+}
+
+.player-search-bar input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-size: 14px;
+  outline: none;
+}
+
+.player-search-bar input::placeholder {
+  color: #8a8c8e;
+}
+
+.search-results {
+  margin-top: 24px;
+}
+
+.search-empty {
+  text-align: center;
+  padding: 64px 20px;
+  color: #8a8c8e;
+}
+
+.search-empty h2 {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #ccc;
+}
+
+.search-empty p {
+  font-size: 14px;
+}
+
+.search-loading {
+  text-align: center;
+  padding: 48px 20px;
+  color: #8a8c8e;
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #3a3a4a;
+  border-top-color: #60a5fa;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.results-header {
+  margin-bottom: 16px;
+}
+
+.results-header h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #ccc;
+}
+
+.player-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.player-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #2a2a3a;
+  border: 1px solid #3a3a4a;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.player-card:hover {
+  background: #3a3a4a;
+}
+
+.player-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #60a5fa, #3b82f6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.player-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.player-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 2px;
+}
+
+.player-join-date {
+  font-size: 12px;
+  color: #8a8c8e;
+}
+
+.player-action {
+  flex-shrink: 0;
+}
+
+.add-friend-btn {
+  padding: 6px 16px;
+  background: #2e7d32;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.add-friend-btn:hover {
+  background: #388e3c;
+}
+
+.add-friend-btn.sent {
+  background: #555;
+  cursor: default;
+}
+
+.add-friend-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

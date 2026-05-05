@@ -3,14 +3,10 @@
 
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/bloxverse/favicon.svg" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BloxVerse - Play</title>
-  <script type="module" crossorigin src="/bloxverse/assets/game-DJNpOkgQ.js"></script>
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/modulepreload-polyfill-CXK8biUa.js">
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/firebase-BGgYK--4.js">
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/games-BMmdm68D.js">
-  <link rel="stylesheet" crossorigin href="/bloxverse/assets/game-BLCgOqlc.css">
+  <link rel="stylesheet" href="/src/style.css" />
 </head>
 
 <body>
@@ -67,6 +63,163 @@
     </div>
   </div>
 
+  <script type="module" src="/src/bloxverse-engine.js"></script>
+  <script type="module">
+    import { games } from './src/games.js';
+    import { auth, trackPresence } from './src/firebase.js';
+    import { connectMultiplayer, sendLocalTransform, disconnectMultiplayer, sendChat } from './src/multiplayer.js';
+
+    const params = new URLSearchParams(window.location.search);
+    const gameId = params.get('game');
+    const game = games.find(g => g.id === gameId);
+
+    // Chat UI logic
+    const chatContainer = document.getElementById('chatContainer');
+    const chatMessages = document.getElementById('chatMessages');
+    const chatInput = document.getElementById('chatInput');
+    const btnSendChat = document.getElementById('btnSendChat');
+    const btnChatToggle = document.getElementById('btnChat');
+
+    btnChatToggle.addEventListener('click', () => {
+      chatContainer.classList.toggle('visible');
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === '/' && document.activeElement !== chatInput) {
+        e.preventDefault();
+        chatContainer.classList.add('visible');
+        chatInput.focus();
+      }
+    });
+
+    chatInput.addEventListener('focus', () => { window._chatFocused = true; });
+    chatInput.addEventListener('blur', () => { window._chatFocused = false; });
+
+    const NAME_COLORS = ['#60a5fa','#34d399','#f87171','#fbbf24','#a78bfa','#fb923c','#f472b6'];
+    function nameColor(name) {
+        let h = 0;
+        for (const c of name) h = (h * 31 + c.charCodeAt(0)) & 0xFFFF;
+        return NAME_COLORS[h % NAME_COLORS.length];
+    }
+
+    function appendChatMessage(data) {
+      const msgEl = document.createElement('div');
+      msgEl.className = 'chat-message';
+      if (data.system) {
+        msgEl.innerHTML = `<span class="chat-system"><i>${data.message}</i></span>`;
+      } else {
+        const userColor = nameColor(data.username);
+        msgEl.innerHTML = `<span class="chat-username" style="color:${userColor}">${data.username}</span><span style="color:white"> : </span><span class="chat-text">${data.message}</span>`;
+      }
+      chatMessages.appendChild(msgEl);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function doSendChat() {
+      const val = chatInput.value.trim();
+      if (val) {
+        sendChat(val, auth.currentUser?.displayName || 'Player');
+        chatInput.value = '';
+        chatInput.blur();
+      }
+    }
+
+    btnSendChat.addEventListener('click', doSendChat);
+    chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') doSendChat(); });
+
+    // Leaderboard UI
+    const lbList = document.getElementById('lbList');
+
+    function renderLeaderboard(players) {
+      if (players.length === 0) {
+        lbList.innerHTML = '<div style="padding:8px 12px;color:#babbbe;font-size:12px;">No players</div>';
+        return;
+      }
+      lbList.innerHTML = players.map(p => `
+        <div class="leaderboard-item">
+          <span class="lb-name">${p.username}</span>
+        </div>
+      `).join('');
+    }
+
+    // Settings UI
+    const btnSettings = document.getElementById('btnSettings');
+    const settingsModal = document.getElementById('settingsModal');
+    const btnCloseSettings = document.getElementById('btnCloseSettings');
+    const sensSlider = document.getElementById('sensSlider');
+    const sensValue = document.getElementById('sensValue');
+
+    btnSettings.addEventListener('click', () => {
+      settingsModal.style.display = 'flex';
+      if (document.pointerLockElement) document.exitPointerLock();
+    });
+
+    btnCloseSettings.addEventListener('click', () => {
+      settingsModal.style.display = 'none';
+      if (window._bloxverse) window._bloxverse.requestLock();
+    });
+
+    sensSlider.addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value);
+      sensValue.textContent = val.toFixed(1);
+      if (window._bloxverse) window._bloxverse.setSens(val);
+    });
+
+    // Load map
+    if (game) {
+      window.addEventListener('load', () => {
+        const poll = setInterval(() => {
+          if (window._bloxverse) {
+            clearInterval(poll);
+            if (game.mapPath) {
+              const spawn = game.spawn || {};
+              window._bloxverse.loadMap(game.mapPath, spawn.x ?? 0, 0, spawn.z ?? 0);
+              window._bloxverse.setSens(parseFloat(sensSlider.value));
+            }
+          }
+        }, 50);
+      });
+    }
+
+    // Connect Multiplayer
+    auth.onAuthStateChanged((user) => {
+      if (user && gameId) {
+        const presence = trackPresence(user.uid);
+        presence.setInGame(true);
+
+        const username = user.displayName || 'Player';
+
+        connectMultiplayer(gameId, user.uid, username, 
+          (id, x, y, z, ry, moving, grounded, climbState) => {
+            if (window._bloxverse) window._bloxverse.updateOtherPlayer(id, x, y, z, ry, moving, grounded, climbState);
+          }, 
+          (id) => {
+            if (window._bloxverse) window._bloxverse.removeOtherPlayer(id);
+          },
+          (players) => {
+            renderLeaderboard(players);
+          },
+          (chatData) => {
+            appendChatMessage(chatData);
+          }
+        );
+
+        window._mpUpdate = (dt) => {
+            window._mpTimer = (window._mpTimer || 0) + dt;
+            if (window._mpTimer >= 0.1 && window._bloxverse) {
+                window._mpTimer = 0;
+                const loc = window._bloxverse.getLocalTransform();
+                if (loc) sendLocalTransform(loc.x, loc.y, loc.z, loc.ry, loc.moving, loc.grounded, loc.climbState);
+            }
+        };
+
+        window.addEventListener('beforeunload', () => {
+          presence.goOffline();
+          disconnectMultiplayer();
+        });
+      }
+    });
+  </script>
 </body>
 
 </html>
