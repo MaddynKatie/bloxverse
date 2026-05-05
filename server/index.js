@@ -14,7 +14,7 @@ const games = new Map();
 
 wss.on('connection', (ws, req) => {
   const parsedUrl = url.parse(req.url, true);
-  const { gameId, userId } = parsedUrl.query;
+  const { gameId, userId, username } = parsedUrl.query;
 
   if (!gameId || !userId) {
     ws.close(1008, 'Missing gameId or userId');
@@ -23,20 +23,41 @@ wss.on('connection', (ws, req) => {
 
   ws.gameId = gameId;
   ws.userId = userId;
+  ws.username = username || 'Player';
 
   if (!games.has(gameId)) {
     games.set(gameId, new Set());
   }
-  games.get(gameId).add(ws);
+  const room = games.get(gameId);
+  room.add(ws);
 
-  console.log(`User ${userId} joined game ${gameId}. Total in game: ${games.get(gameId).size}`);
+  function broadcastPlayerList(targetRoom) {
+    const players = Array.from(targetRoom).map(c => ({ userId: c.userId, username: c.username }));
+    const msg = JSON.stringify({ type: 'playerList', players });
+    for (const client of targetRoom) {
+      if (client.readyState === 1) client.send(msg);
+    }
+  }
+
+  console.log(`User ${userId} joined game ${gameId}. Total in game: ${room.size}`);
+  
+  broadcastPlayerList(room);
+  const joinMsg = JSON.stringify({ type: 'chat', system: true, message: `${ws.username} joined.` });
+  for (const client of room) {
+    if (client.readyState === 1) client.send(joinMsg);
+  }
 
   ws.on('message', (message) => {
-    const room = games.get(gameId);
-    if (room) {
-      for (const client of room) {
-        // Broadcast to all other players in the room
-        if (client !== ws && client.readyState === 1 /* OPEN */) {
+    const currentRoom = games.get(gameId);
+    if (currentRoom) {
+      let isChat = false;
+      try {
+        const data = JSON.parse(message);
+        if (data.type === 'chat') isChat = true;
+      } catch (e) {}
+
+      for (const client of currentRoom) {
+        if ((client !== ws || isChat) && client.readyState === 1) {
           client.send(message);
         }
       }
@@ -44,19 +65,21 @@ wss.on('connection', (ws, req) => {
   });
 
   ws.on('close', () => {
-    const room = games.get(gameId);
-    if (room) {
-      room.delete(ws);
-      if (room.size === 0) {
+    const currentRoom = games.get(gameId);
+    if (currentRoom) {
+      currentRoom.delete(ws);
+      if (currentRoom.size === 0) {
         games.delete(gameId);
       } else {
-        // Tell others that this user left so they can remove their mesh
         const leaveMsg = JSON.stringify({ type: 'leave', userId });
-        for (const client of room) {
+        const chatMsg = JSON.stringify({ type: 'chat', system: true, message: `${ws.username} left.` });
+        for (const client of currentRoom) {
           if (client.readyState === 1) {
             client.send(leaveMsg);
+            client.send(chatMsg);
           }
         }
+        broadcastPlayerList(currentRoom);
       }
     }
     console.log(`User ${userId} left game ${gameId}.`);
