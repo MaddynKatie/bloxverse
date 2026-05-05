@@ -24,7 +24,7 @@ import{s as e}from"./friends-DZXfDII8.js";import"./modulepreload-polyfill-CXK8bi
         </div>
         <div class="player-grid">
           ${e.map(e=>`
-            <div class="player-card" onclick="window.location.href='/profile.html?user=${e.id}'">
+            <div class="player-card" onclick="window.location.href='./profile.html?user=${e.id}'">
               <div class="player-avatar">${(e.username||`?`).charAt(0).toUpperCase()}</div>
               <div class="player-info">
                 <div class="player-name">${e.username}</div>
@@ -36,4 +36,4 @@ import{s as e}from"./friends-DZXfDII8.js";import"./modulepreload-polyfill-CXK8bi
             </div>
           `).join(``)}
         </div>
-      `}window._addFriend=async(e,n,r)=>{if(!t.currentUser){window.location.href=`/auth.html`;return}r.textContent=`Sending...`,r.disabled=!0;try{let{sendFriendRequest:i}=await o(async()=>{let{sendFriendRequest:e}=await import(`./friends-DZXfDII8.js`).then(e=>e.r);return{sendFriendRequest:e}},__vite__mapDeps([0,1]),import.meta.url);await i(t.currentUser.uid,e,n),r.textContent=`Sent`,r.classList.add(`sent`)}catch(e){console.error(e),r.textContent=`Error`,r.disabled=!1}};
+      `}window._addFriend=async(e,n,r)=>{if(!t.currentUser){window.location.href=`./auth.html`;return}r.textContent=`Sending...`,r.disabled=!0;try{let{sendFriendRequest:i}=await o(async()=>{let{sendFriendRequest:e}=await import(`./friends-DZXfDII8.js`).then(e=>e.r);return{sendFriendRequest:e}},__vite__mapDeps([0,1]),import.meta.url);await i(t.currentUser.uid,e,n),r.textContent=`Sent`,r.classList.add(`sent`)}catch(e){console.error(e),r.textContent=`Error`,r.disabled=!1}};

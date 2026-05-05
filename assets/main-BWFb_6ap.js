@@ -12,7 +12,7 @@ import{a as e,c as t,i as n,n as r,o as i,s as a,t as o}from"./friends-DZXfDII8.
         <div class="game-info">
           <h3>${e.name}</h3>
         </div>
-      `,v.appendChild(t)}s.forEach(S);function C(e){let t=document.getElementById(`loadingScreen`),n=document.getElementById(`loadingBarFill`),r=document.getElementById(`loadingTitle`);r.textContent=`Loading `+(s.find(t=>t.id===e)?.name||`experience`)+`...`,t.style.display=`flex`;let i=0,a=setInterval(()=>{i+=Math.random()*15,i>=100&&(i=100,clearInterval(a),window.location.href=`/game.html?game=`+e),n.style.width=i+`%`},200)}window.launchGame=C;var w=null,T=new Set,E=null,D=null,O=null;function k(){return`
+      `,v.appendChild(t)}s.forEach(S);function C(e){let t=document.getElementById(`loadingScreen`),n=document.getElementById(`loadingBarFill`),r=document.getElementById(`loadingTitle`);r.textContent=`Loading `+(s.find(t=>t.id===e)?.name||`experience`)+`...`,t.style.display=`flex`;let i=0,a=setInterval(()=>{i+=Math.random()*15,i>=100&&(i=100,clearInterval(a),window.location.href=`./game.html?game=`+e),n.style.width=i+`%`},200)}window.launchGame=C;var w=null,T=new Set,E=null,D=null,O=null;function k(){return`
         <div class="friend-search-wrapper">
           <div class="friend-search-bar">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -70,7 +70,7 @@ import{a as e,c as t,i as n,n as r,o as i,s as a,t as o}from"./friends-DZXfDII8.
                   <span class="dropdown-name">${t}</span>
                   <span class="dropdown-email">${e.email}</span>
                 </div>
-                <button class="dropdown-item" onclick="window.location.href='/profile.html'">
+                <button class="dropdown-item" onclick="window.location.href='./profile.html'">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                     <circle cx="12" cy="7" r="4" />
@@ -88,4 +88,4 @@ import{a as e,c as t,i as n,n as r,o as i,s as a,t as o}from"./friends-DZXfDII8.
               </div>
             </div>
           </div>
-        `;let a=document.querySelector(`#userDropdown .avatar-circle`),o=document.getElementById(`userDropdown`);a.addEventListener(`click`,e=>{e.stopPropagation(),R(o)}),E=d(e.uid,e=>{let t=document.getElementById(i);t&&(t.textContent=e.toLocaleString())},t,e.email),y.style.display=`block`,L()}else w=null,g.innerHTML=``,_.innerHTML=`<button class="login-btn" onclick="window.location.href='/auth.html'">Login / Sign Up</button>`,y.style.display=`none`,O&&=(O.classList.remove(`open`),null)}),window._logout=async()=>{E&&=(E(),null),D&&=(D.goOffline(),null),await m(p),window.location.reload()},document.addEventListener(`click`,e=>{let t=document.getElementById(`friendSearchResults`);t&&!e.target.closest(`.friend-search-wrapper`)&&t.classList.remove(`visible`),O&&!O.contains(e.target)&&(O.classList.remove(`open`),O=null)});
+        `;let a=document.querySelector(`#userDropdown .avatar-circle`),o=document.getElementById(`userDropdown`);a.addEventListener(`click`,e=>{e.stopPropagation(),R(o)}),E=d(e.uid,e=>{let t=document.getElementById(i);t&&(t.textContent=e.toLocaleString())},t,e.email),y.style.display=`block`,L()}else w=null,g.innerHTML=``,_.innerHTML=`<button class="login-btn" onclick="window.location.href='./auth.html'">Login / Sign Up</button>`,y.style.display=`none`,O&&=(O.classList.remove(`open`),null)}),window._logout=async()=>{E&&=(E(),null),D&&=(D.goOffline(),null),await m(p),window.location.href=`./index.html`},document.addEventListener(`click`,e=>{let t=document.getElementById(`friendSearchResults`);t&&!e.target.closest(`.friend-search-wrapper`)&&t.classList.remove(`visible`),O&&!O.contains(e.target)&&(O.classList.remove(`open`),O=null)});
