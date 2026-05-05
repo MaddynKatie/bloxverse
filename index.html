@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BloxVerse</title>
+  <script type="module" crossorigin src="/assets/index-BFKsPCUk.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-CmOemkj0.css">
+</head>
+
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="nav-left">
+      <div class="logo" onclick="window.location.reload()">
+        <div class="logo-icon"></div>
+        <span class="logo-text">BloxVerse</span>
+      </div>
+    </div>
+    <div class="nav-center" id="navCenter"></div>
+    <div class="nav-right" id="navRight">
+      <button class="login-btn" onclick="window.location.href='/auth.html'">Login / Sign Up</button>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- Friends Section (only when logged in) -->
+    <section class="game-section" id="friendsSection" style="display:none;">
+      <h2>Friends</h2>
+      <div id="friendRequests"></div>
+      <div class="friends-grid" id="friendsGrid"></div>
+    </section>
+
+    <!-- Games Section -->
+    <section class="game-section">
+      <h2>Games</h2>
+      <div class="game-grid" id="gameGrid"></div>
+    </section>
+  </main>
+
+  <!-- Loading Screen -->
+  <div class="loading-screen" id="loadingScreen">
+    <div class="loading-content">
+      <div class="logo-large"></div>
+      <h2 id="loadingTitle">Loading...</h2>
+      <div class="loading-bar">
+        <div class="loading-bar-fill" id="loadingBarFill"></div>
+      </div>
+    </div>
+  </div>
+
+</body>
+
+</html>
