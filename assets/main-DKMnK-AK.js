@@ -31,7 +31,7 @@ import{a as e,c as t,i as n,n as r,o as i,s as a,t as o}from"./friends-DZXfDII8.
             ${e.id===w?``:T.has(e.id)?`<span class="add-friend-btn sent">Sent</span>`:`<button class="add-friend-btn" onclick="window._addFriend('${e.id}','${e.username}',this)">+ Add</button>`}
           </div>
         `).join(``),n.classList.add(`visible`)}async function j(e,n,r){try{await t(w,e,n),T.add(e),r.textContent=`Sent`,r.classList.add(`sent`),r.onclick=null}catch(e){console.error(e)}}window._addFriend=j;async function M(e){try{let t=await f(c(u,`presence`,e));if(t.exists()){let e=t.data();if(e.inGame)return`in-game`;if(e.online)return`online`}}catch{}return`offline`}async function N(e){let t=await Promise.all(e.map(e=>M(e.id)));return e.map((e,n)=>({...e,status:t[n]}))}function P(e){return e===`in-game`?`In Game`:e===`online`?`Online`:`Offline`}function F(e){if(e.length===0){b.innerHTML=`<p style="color:#8a8c8e;font-size:13px;padding:8px 0;">No friends yet. Search players above to add friends!</p>`;return}b.innerHTML=e.map(e=>`
-        <div class="friend-card" onclick="window.location.href='/profile.html?user=${e.id}'" style="cursor:pointer;">
+                <div class="friend-card" onclick="window.location.href='./profile.html?user=${e.id}'" style="cursor:pointer;">
           <div class="avatar-with-status">
             <div class="friend-avatar">${e.username.charAt(0).toUpperCase()}</div>
             <div class="status-dot ${e.status}"></div>
