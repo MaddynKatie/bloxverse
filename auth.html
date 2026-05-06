@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/bloxverse/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BloxVerse - Login</title>
+  <script type="module" crossorigin src="/bloxverse/assets/auth-D47sibfV.js"></script>
+  <link rel="modulepreload" crossorigin href="/bloxverse/assets/modulepreload-polyfill-CXK8biUa.js">
+  <link rel="modulepreload" crossorigin href="/bloxverse/assets/firebase-BGgYK--4.js">
+  <link rel="stylesheet" crossorigin href="/bloxverse/assets/auth-Bj9aSrwM.css">
+</head>
+
+<body>
+  <div class="auth-container">
+    <div class="auth-header">
+      <div class="auth-logo"></div>
+      <h1>BloxVerse</h1>
+      <p id="authSubtitle">Sign in to continue</p>
+    </div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchTab('login')">Login</button>
+      <button class="auth-tab" onclick="switchTab('signup')">Sign Up</button>
+    </div>
+
+    <div class="auth-success" id="authSuccess"></div>
+
+    <!-- Login Form -->
+    <form class="auth-form active" id="loginForm">
+      <div class="form-group">
+        <label for="loginEmail">Email</label>
+        <input type="email" id="loginEmail" placeholder="Enter your email" required />
+      </div>
+      <div class="form-group">
+        <label for="loginPassword">Password</label>
+        <input type="password" id="loginPassword" placeholder="Enter your password" required />
+      </div>
+      <div class="form-error" id="loginError"></div>
+      <button type="submit" class="auth-submit" id="loginBtn">Login</button>
+    </form>
+
+    <!-- Signup Form -->
+    <form class="auth-form" id="signupForm">
+      <div class="form-group">
+        <label for="signupUsername">Username</label>
+        <input type="text" id="signupUsername" placeholder="Choose a username" required minlength="3" maxlength="20" />
+      </div>
+      <div class="form-group">
+        <label for="signupEmail">Email</label>
+        <input type="email" id="signupEmail" placeholder="Enter your email" required />
+      </div>
+      <div class="form-group">
+        <label for="signupPassword">Password</label>
+        <input type="password" id="signupPassword" placeholder="Create a password" required minlength="6" />
+        <div class="password-strength" id="passwordStrength">
+          <div class="strength-bar"></div>
+          <div class="strength-bar"></div>
+          <div class="strength-bar"></div>
+          <div class="strength-bar"></div>
+        </div>
+        <div class="strength-text" id="strengthText"></div>
+      </div>
+      <div class="form-group">
+        <label for="signupConfirm">Confirm Password</label>
+        <input type="password" id="signupConfirm" placeholder="Confirm your password" required />
+      </div>
+      <div class="form-error" id="signupError"></div>
+      <button type="submit" class="auth-submit" id="signupBtn">Sign Up</button>
+    </form>
+
+    <a href="/bloxverse/" class="back-link">← Back to home</a>
+  </div>
+
+</body>
+
+</html>
