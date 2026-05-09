@@ -226,6 +226,34 @@
             background: rgba(124, 92, 252, 0.65);
         }
 
+        /* Smooth scrolling */
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(124, 92, 252, 0.3);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(124, 92, 252, 0.5);
+        }
+
+        /* Active sidebar link */
+        .sidebar a.active {
+            background: rgba(124, 92, 252, 0.18);
+            color: #d0d0f0;
+            border-left-color: #7c5cfc;
+        }
+
         @media (max-width: 768px) {
             .sidebar {
                 display: none;
@@ -401,6 +429,7 @@
 
                 const headings = document.querySelectorAll('#content h2, #content h3, #content h4');
                 const sidebar = document.getElementById('sidebar');
+                const tocLinks = [];
                 headings.forEach(heading => {
                     const level = heading.tagName === 'H2' ? 'toc-h2' : heading.tagName === 'H3' ? 'toc-h3' : 'toc-h4';
                     const id = 'section-' + Math.random().toString(36).slice(2, 8);
@@ -410,7 +439,28 @@
                     link.textContent = heading.textContent;
                     link.className = level;
                     sidebar.appendChild(link);
+                    tocLinks.push(link);
                 });
+
+                // Active section highlight + auto-scroll sidebar
+                let lastActiveId = null;
+                function updateActiveSection() {
+                    let currentId = null;
+                    const scrollPos = window.scrollY + 100;
+                    headings.forEach(h => {
+                        if (h.offsetTop <= scrollPos) currentId = h.id;
+                    });
+                    if (currentId && currentId !== lastActiveId) {
+                        lastActiveId = currentId;
+                        tocLinks.forEach(link => {
+                            link.classList.toggle('active', link.getAttribute('href') === '#' + currentId);
+                        });
+                        const activeLink = tocLinks.find(link => link.getAttribute('href') === '#' + currentId);
+                        if (activeLink) activeLink.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                    }
+                }
+                window.addEventListener('scroll', updateActiveSection, { passive: true });
+                updateActiveSection();
             })
             .catch(err => {
                 document.getElementById('content').innerHTML =
