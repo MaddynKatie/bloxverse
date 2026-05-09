@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BloxVerse Script Editor</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0f1419;
+            color: #e0e0e0;
+            font-family: 'Cascadia Code', 'Courier New', monospace;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: rgba(15, 20, 34, 0.95);
+            backdrop-filter: blur(24px);
+            border-bottom: 1px solid rgba(88, 101, 242, 0.3);
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .header h1 {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: rgba(88, 101, 242, 0.74);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: rgba(88, 101, 242, 0.9);
+            transform: translateY(-1px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .save-btn {
+            background: rgba(76, 175, 80, 0.74);
+        }
+
+        .save-btn:hover {
+            background: rgba(76, 175, 80, 0.9);
+        }
+
+        .save-btn.dirty {
+            background: rgba(255, 193, 7, 0.74);
+        }
+
+        .save-btn.dirty:hover {
+            background: rgba(255, 193, 7, 0.9);
+        }
+
+        .docs-link {
+            color: rgba(88, 101, 242, 0.8);
+            text-decoration: none;
+            font-size: 14px;
+            padding: 8px 16px;
+            border: 1px solid rgba(88, 101, 242, 0.3);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .docs-link:hover {
+            color: rgba(88, 101, 242, 1);
+            border-color: rgba(88, 101, 242, 0.6);
+        }
+
+        .editor-container {
+            display: flex;
+            flex: 1;
+            gap: 0;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            background: rgba(10, 16, 30, 0.5);
+            border-right: 1px solid rgba(88, 101, 242, 0.2);
+            width: 240px;
+            padding: 16px;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+
+        .sidebar h3 {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: rgba(88, 101, 242, 0.8);
+            margin-bottom: 8px;
+            margin-top: 12px;
+        }
+
+        .sidebar h3:first-child {
+            margin-top: 0;
+        }
+
+        .script-item {
+            background: rgba(88, 101, 242, 0.15);
+            border: 1px solid rgba(88, 101, 242, 0.3);
+            border-radius: 4px;
+            padding: 8px 10px;
+            margin-bottom: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s;
+        }
+
+        .script-item:hover {
+            background: rgba(88, 101, 242, 0.25);
+            border-color: rgba(88, 101, 242, 0.5);
+        }
+
+        .script-item.active {
+            background: rgba(88, 101, 242, 0.4);
+            border-color: rgba(88, 101, 242, 0.7);
+        }
+
+        .script-item .script-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            padding: 2px 4px;
+            border-radius: 2px;
+        }
+
+        .script-item .rename-input {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(88, 101, 242, 0.6);
+            color: #e0e0e0;
+            padding: 4px 6px;
+            border-radius: 2px;
+            font-family: inherit;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .script-delete {
+            background: none;
+            border: none;
+            color: rgba(200, 40, 40, 0.7);
+            cursor: pointer;
+            padding: 0;
+            font-size: 16px;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 3px;
+        }
+
+        .script-delete:hover {
+            color: rgba(200, 40, 40, 1);
+            background: rgba(200, 40, 40, 0.15);
+            transform: none;
+        }
+
+        .editor-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .editor-tabs {
+            background: rgba(10, 16, 30, 0.3);
+            border-bottom: 1px solid rgba(88, 101, 242, 0.2);
+            display: flex;
+            overflow-x: auto;
+            padding: 8px 12px;
+            gap: 4px;
+        }
+
+        .editor-tab {
+            background: rgba(88, 101, 242, 0.15);
+            border: 1px solid rgba(88, 101, 242, 0.3);
+            border-bottom: none;
+            padding: 6px 12px;
+            cursor: pointer;
+            border-radius: 4px 4px 0 0;
+            font-size: 13px;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .editor-tab:hover {
+            background: rgba(88, 101, 242, 0.25);
+        }
+
+        .editor-tab.active {
+            background: rgba(88, 101, 242, 0.4);
+            border-color: rgba(88, 101, 242, 0.6);
+        }
+
+        .code-editor {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .line-numbers {
+            background: rgba(0, 0, 0, 0.2);
+            color: rgba(200, 200, 200, 0.5);
+            padding: 12px 8px;
+            text-align: right;
+            font-size: 13px;
+            line-height: 1.5;
+            border-right: 1px solid rgba(88, 101, 242, 0.2);
+            user-select: none;
+            overflow: hidden;
+            white-space: pre;
+            flex-shrink: 0;
+            max-width: 60px;
+            min-width: 40px;
+        }
+
+        .editor-area {
+            flex: 1;
+            overflow: auto;
+            position: relative;
+        }
+
+        #codeEditor {
+            font-family: 'Cascadia Code', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            padding: 12px 16px;
+            white-space: pre;
+            tab-size: 4;
+            outline: none;
+            min-height: 100%;
+            color: #abb2bf;
+            word-wrap: normal;
+            letter-spacing: 0;
+            word-spacing: 0;
+            text-rendering: optimizeSpeed;
+        }
+
+        .bottom-panel {
+            background: rgba(10, 16, 30, 0.5);
+            border-top: 1px solid rgba(88, 101, 242, 0.2);
+            padding: 12px 16px;
+            max-height: 150px;
+            overflow-y: auto;
+            display: none;
+            font-size: 12px;
+        }
+
+        .bottom-panel.active {
+            display: block;
+        }
+
+        .output-line {
+            padding: 2px 0;
+            white-space: pre-wrap;
+            word-break: break-all;
+            font-size: 12px;
+        }
+
+        .output-error {
+            color: rgba(244, 67, 54, 0.9);
+        }
+
+        .output-warn {
+            color: rgba(255, 193, 7, 0.9);
+        }
+
+        .output-info {
+            color: rgba(76, 175, 80, 0.9);
+        }
+
+        .new-script-input {
+            background: rgba(88, 101, 242, 0.15);
+            border: 1px solid rgba(88, 101, 242, 0.4);
+            color: #e0e0e0;
+            padding: 8px 10px;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 13px;
+            width: 100%;
+            margin-bottom: 8px;
+        }
+
+        .new-script-input:focus {
+            outline: none;
+            border-color: rgba(88, 101, 242, 0.8);
+            background: rgba(88, 101, 242, 0.25);
+        }
+
+        .new-script-input::placeholder {
+            color: rgba(200, 200, 200, 0.5);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .button-group button {
+            flex: 1;
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .error-mark {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            height: 1.5em;
+            background: rgba(244, 67, 54, 0.15);
+            border-left: 3px solid rgba(244, 67, 54, 0.8);
+            pointer-events: none;
+            z-index: 3;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                display: none;
+            }
+
+            .editor-container {
+                flex-direction: column;
+            }
+
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .header-controls {
+                width: 100%;
+            }
+
+            button, .docs-link {
+                flex: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>BloxVerse Script Editor</h1>
+        <div class="header-controls">
+            <button id="saveBtn" class="save-btn">💾 Save</button>
+            <a href="/bloxverse/docs.html" target="_blank" class="docs-link">📚 Docs</a>
+        </div>
+    </div>
+
+    <div class="editor-container">
+        <div class="sidebar">
+            <h3>📝 Scripts</h3>
+            <div id="scriptList"></div>
+
+            <div class="button-group">
+                <button id="newScriptBtn" style="background: rgba(88, 101, 242, 0.5); flex: 1;">+ New Script</button>
+            </div>
+
+            <input type="text" class="new-script-input" id="newScriptInput" placeholder="Script name..." style="display: none;">
+            <div class="button-group" id="newScriptActions" style="display: none;">
+                <button id="confirmNewBtn" style="background: rgba(76, 175, 80, 0.5); flex: 1;">Create</button>
+                <button id="cancelNewBtn" style="background: rgba(244, 67, 54, 0.5); flex: 1;">Cancel</button>
+            </div>
+        </div>
+
+        <div class="editor-main">
+            <div class="editor-tabs" id="editorTabs"></div>
+
+            <div class="code-editor">
+                <div class="line-numbers" id="lineNumbers"></div>
+                <div class="editor-area" id="editorArea">
+                    <div id="codeEditor" contenteditable="true" spellcheck="false"></div>
+                </div>
+            </div>
+
+            <div class="bottom-panel" id="bottomPanel">
+                <div id="outputContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script type="module" src="src/create.js"></script>
+</body>
+</html>
