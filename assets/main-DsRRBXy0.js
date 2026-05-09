@@ -1,4 +1,4 @@
-import{a as e,c as t,i as n,l as r,n as i,s as a,t as o}from"./friends-8s15ntHU.js";import"./modulepreload-polyfill-CXK8biUa.js";/* empty css             */import{t as s}from"./games-9A7CUPpe.js";import{E as c,S as l,d as u,n as d,o as f,s as p,t as m,w as h}from"./firebase-oY_yUpcG.js";var g=document.getElementById(`navCenter`),_=document.getElementById(`navRight`),v=document.getElementById(`gameGrid`),y=document.getElementById(`friendsSection`),b=document.getElementById(`friendsGrid`),x=document.getElementById(`friendRequests`);function S(e){let t=document.createElement(`div`);t.className=`game-card`,t.onclick=()=>C(e.id),t.innerHTML=`
+import{a as e,c as t,i as n,l as r,n as i,s as a,t as o}from"./friends-8s15ntHU.js";import"./modulepreload-polyfill-CXK8biUa.js";/* empty css             */import{t as s}from"./games-DdxpaqPp.js";import{E as c,S as l,d as u,n as d,o as f,s as p,t as m,w as h}from"./firebase-oY_yUpcG.js";var g=document.getElementById(`navCenter`),_=document.getElementById(`navRight`),v=document.getElementById(`gameGrid`),y=document.getElementById(`friendsSection`),b=document.getElementById(`friendsGrid`),x=document.getElementById(`friendRequests`);function S(e){let t=document.createElement(`div`);t.className=`game-card`,t.onclick=()=>C(e.id),t.innerHTML=`
         <div class="game-thumbnail">
           <img src="${e.icon}" alt="${e.name}" />
           <div class="play-overlay">
@@ -57,6 +57,7 @@ style="cursor:pointer;">
             </div>
           </div>
         `).join(``)+`</div>`}window._acceptRequest=async(e,t,n)=>{await o(e,t,n),L()},window._declineRequest=async e=>{await i(e),L()},window._removeFriend=async e=>{confirm(`Remove this friend?`)&&(await a(w,e),L())};async function L(){if(!w)return;let[t,r]=await Promise.all([e(w),n(w)]),i=await N(t);for(let e of r)try{let t=await u(l(d,`users`,e.from));e.fromUsername=t.exists()?t.data().username:`Unknown`}catch{e.fromUsername=`Unknown`}F(i),I(r)}function R(e){O&&O!==e&&O.classList.remove(`open`),e.classList.toggle(`open`),O=e.classList.contains(`open`)?e:null}h(m,async e=>{if(E&&=(E(),null),D&&=(D.goOffline(),null),e){w=e.uid;let t=e.displayName||`Player`,n=0;try{let r=await u(l(d,`users`,e.uid));if(r.exists()){let e=r.data();t=e.username||t,n=e.bux||0}}catch{}D=p(e.uid);let r=t.charAt(0).toUpperCase();g.innerHTML=k(),document.getElementById(`friendSearchInput`).addEventListener(`input`,A);let i=`buxValue`;_.innerHTML=`
+          <button class="create-btn" onclick="window.location.href='/bloxverse/create.html'">✨ Create</button>
           <div class="user-info">
             <button class="bux-btn">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -77,6 +78,13 @@ style="cursor:pointer;">
                     <circle cx="12" cy="7" r="4" />
                   </svg>
                   Profile
+                </button>
+                <button class="dropdown-item" onclick="window.location.href='/bloxverse/create.html'">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                  </svg>
+                  Create Scripts
                 </button>
                 <button class="dropdown-item" onclick="window._logout()">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

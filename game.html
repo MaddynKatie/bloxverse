@@ -6,12 +6,12 @@
   <link rel="icon" type="image/svg+xml" href="/bloxverse/favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BloxVerse - Play</title>
-  <script type="module" crossorigin src="/bloxverse/assets/game-DGp7HNVe.js"></script>
+  <script type="module" crossorigin src="/bloxverse/assets/game-9Xp8gPjK.js"></script>
   <link rel="modulepreload" crossorigin href="/bloxverse/assets/firebase-oY_yUpcG.js">
   <link rel="modulepreload" crossorigin href="/bloxverse/assets/friends-8s15ntHU.js">
   <link rel="modulepreload" crossorigin href="/bloxverse/assets/modulepreload-polyfill-CXK8biUa.js">
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/games-9A7CUPpe.js">
-  <link rel="stylesheet" crossorigin href="/bloxverse/assets/game-qyezS7Ob.css">
+  <link rel="modulepreload" crossorigin href="/bloxverse/assets/games-DdxpaqPp.js">
+  <link rel="stylesheet" crossorigin href="/bloxverse/assets/game-CHD6VAtG.css">
 </head>
 
 <body>
@@ -39,6 +39,9 @@
     </div>
   </div>
 
+  <!-- Script GUI Layer -->
+  <div id="scriptGuiContainer" style="position:fixed;inset:0;pointer-events:none;z-index:500;overflow:hidden;"></div>
+
   <!-- Leaderboard -->
   <div class="leaderboard visible" id="leaderboard">
     <div class="leaderboard-header">
@@ -62,6 +65,15 @@
           <div class="setting-control">
             <input type="range" id="sensSlider" min="0.1" max="3" step="0.1" value="1" />
             <span id="sensValue">1.0</span>
+          </div>
+        </div>
+        <div class="setting-row">
+          <label>Shift Lock</label>
+          <div class="setting-control">
+            <label class="toggle-switch">
+              <input type="checkbox" id="shiftlockToggle" checked />
+              <span class="toggle-slider"></span>
+            </label>
           </div>
         </div>
       </div>
