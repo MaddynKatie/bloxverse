@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BloxVerse Studio Documentation</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #0f1419; color: #e0e0e0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.7; }
+        .header { background: rgba(15,20,34,0.95); backdrop-filter: blur(24px); border-bottom: 1px solid rgba(124,92,252,0.3); padding: 20px 40px; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { font-size: 24px; color: rgba(124,92,252,0.9); }
+        .header a { color: rgba(124,92,252,0.8); text-decoration: none; transition: color 0.2s; }
+        .header a:hover { color: rgba(124,92,252,1); }
+        .container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
+        .sidebar { position: fixed; left: 0; top: 60px; width: 250px; height: calc(100vh - 60px); background: rgba(10,16,30,0.5); border-right: 1px solid rgba(124,92,252,0.15); overflow-y: auto; padding: 20px; }
+        .sidebar a { display: block; padding: 6px 12px; margin: 2px 0; color: #8a8c9e; text-decoration: none; border-radius: 4px; font-size: 13px; transition: all 0.2s; border-left: 2px solid transparent; }
+        .sidebar a:hover { background: rgba(124,92,252,0.1); color: #c0c0e0; border-left-color: rgba(124,92,252,0.4); }
+        .sidebar a.toc-h2 { font-weight: 500; color: #b0b0c0; }
+        .sidebar a.toc-h3 { padding-left: 24px; font-size: 12px; color: #707080; }
+        .sidebar a.toc-h4 { padding-left: 36px; font-size: 11px; color: #505060; }
+        .content { margin-left: 270px; }
+        .content h1 { color: #7c5cfc; font-size: 32px; margin-top: 0; margin-bottom: 16px; border-left: 4px solid #7c5cfc; padding-left: 16px; }
+        .content h2 { color: #5b9cfc; font-size: 24px; margin-top: 36px; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 2px solid rgba(91,156,252,0.25); }
+        .content h3 { color: #4cd4a0; font-size: 18px; margin-top: 28px; margin-bottom: 12px; }
+        .content h4 { color: #fcb45c; font-size: 15px; margin-top: 20px; margin-bottom: 10px; }
+        .content p { margin-bottom: 14px; color: rgba(210,210,220,0.9); }
+        .content ul, .content ol { margin-left: 24px; margin-bottom: 14px; }
+        .content li { margin-bottom: 6px; color: rgba(210,210,220,0.9); }
+        .content code { background: rgba(200,80,120,0.15); color: #e06c75; padding: 2px 7px; border-radius: 4px; font-family: 'Cascadia Code', 'Courier New', monospace; font-size: 13px; }
+        .content pre { background: #1a1d2e; border: 1px solid rgba(124,92,252,0.2); border-left: 4px solid #7c5cfc; border-radius: 0 6px 6px 0; padding: 16px; overflow-x: auto; margin: 16px 0; }
+        .content pre code { background: none; color: #c8d0e0; padding: 0; border-radius: 0; font-size: 13px; line-height: 1.6; }
+        .content blockquote { border-left: 4px solid #fcb45c; background: rgba(252,180,92,0.06); padding: 12px 18px; margin: 16px 0; border-radius: 0 6px 6px 0; color: rgba(220,200,170,0.9); }
+        .content blockquote strong { color: #fcb45c; }
+        .content hr { border: none; height: 1px; background: linear-gradient(90deg, transparent, rgba(124,92,252,0.3), transparent); margin: 32px 0; }
+        .content a { color: #5b9cfc; text-decoration: none; transition: color 0.2s; }
+        .content a:hover { color: #7cbcfc; text-decoration: underline; }
+        .content strong { color: #e0d0f0; }
+        .back-to-editor { display: inline-block; margin-bottom: 20px; padding: 10px 18px; background: rgba(124,92,252,0.4); color: white; text-decoration: none; border-radius: 6px; transition: background 0.2s; font-size: 14px; }
+        .back-to-editor:hover { background: rgba(124,92,252,0.65); }
+        html { scroll-behavior: smooth; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(124,92,252,0.3); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(124,92,252,0.5); }
+        .sidebar a.active { background: rgba(124,92,252,0.18); color: #d0d0f0; border-left-color: #7c5cfc; }
+        @media (max-width: 768px) { .sidebar { display: none; } .content { margin-left: 0; } .header { flex-direction: column; gap: 10px; text-align: center; } }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>BloxVerse Studio Documentation</h1>
+        <a href="/bloxverse/create.html">← Back to Studio</a>
+    </div>
+    <div class="sidebar" id="sidebar"></div>
+    <div class="container">
+        <div class="content" id="content"></div>
+    </div>
+    <script>
+        function escapeHtml(str) {
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+        function renderMarkdown(md) {
+            const lines = md.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+            let html = '', inCodeBlock = false, codeLang = '', codeContent = '', listType = null;
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                const isCodeFence = /^\s*```/.test(line);
+                if (isCodeFence) {
+                    if (inCodeBlock) {
+                        html += '<pre><code>' + escapeHtml(codeContent.replace(/\n$/, '')) + '</code></pre>\n';
+                        codeContent = ''; inCodeBlock = false;
+                    } else { inCodeBlock = true; codeLang = line.replace(/^\s*```/, '').trim(); }
+                    continue;
+                }
+                if (inCodeBlock) { codeContent += line + '\n'; continue; }
+                if (line.trim() === '') { if (listType) { html += '</' + listType + '>\n'; listType = null; } continue; }
+                const h4Match = line.match(/^#### (.+)/);
+                if (h4Match) { if (listType) { html += '</' + listType + '>\n'; listType = null; } html += '<h4>' + inlineFormat(h4Match[1]) + '</h4>\n'; continue; }
+                const h3Match = line.match(/^### (.+)/);
+                if (h3Match) { if (listType) { html += '</' + listType + '>\n'; listType = null; } html += '<h3>' + inlineFormat(h3Match[1]) + '</h3>\n'; continue; }
+                const h2Match = line.match(/^## (.+)/);
+                if (h2Match) { if (listType) { html += '</' + listType + '>\n'; listType = null; } html += '<h2>' + inlineFormat(h2Match[1]) + '</h2>\n'; continue; }
+                const h1Match = line.match(/^# (.+)/);
+                if (h1Match) { if (listType) { html += '</' + listType + '>\n'; listType = null; } html += '<h1>' + inlineFormat(h1Match[1]) + '</h1>\n'; continue; }
+                const hrMatch = line.match(/^---$/);
+                if (hrMatch) { if (listType) { html += '</' + listType + '>\n'; listType = null; } html += '<hr>\n'; continue; }
+                const ulMatch = line.match(/^- (.+)/);
+                if (ulMatch) { if (listType !== 'ul') { if (listType) html += '</' + listType + '>\n'; html += '<ul>\n'; listType = 'ul'; } html += '<li>' + inlineFormat(ulMatch[1]) + '</li>\n'; continue; }
+                const olMatch = line.match(/^\d+\.\s+(.+)/);
+                if (olMatch) { if (listType !== 'ol') { if (listType) html += '</' + listType + '>\n'; html += '<ol>\n'; listType = 'ol'; } html += '<li>' + inlineFormat(olMatch[1]) + '</li>\n'; continue; }
+                if (listType) { html += '</' + listType + '>\n'; listType = null; }
+                html += '<p>' + inlineFormat(line) + '</p>\n';
+            }
+            if (inCodeBlock) html += '<pre><code>' + escapeHtml(codeContent.replace(/\n$/, '')) + '</code></pre>\n';
+            if (listType) html += '</' + listType + '>\n';
+            return html;
+        }
+        function inlineFormat(text) {
+            return text.replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>');
+        }
+        const STUDIO_MD = `# BloxVerse Studio
+
+BloxVerse Studio is the built-in 3D editor for creating and editing game worlds. It works alongside the Script Editor on the Create page.
+
+---
+
+## Getting Started
+
+Open the **Studio** tab on the [Create](/bloxverse/create.html) page. The 3D viewport shows your game world. Use the Explorer on the left to see all parts, and the Properties panel on the right to edit the selected part.
+
+### Default Map
+
+When you open a new project, the world contains:
+- **Baseplate** — A large green anchored block
+- **Spawn** — A blue anchored block where players appear
+
+---
+
+## Tools
+
+The toolbar at the top of the viewport provides these tools:
+
+| Tool | Icon | Shortcut | Behavior |
+|------|------|----------|----------|
+| Select | Click (cursor) | **Q** | Click any part to select it |
+| Move | Cross-arrows | **W** | Drag arrows to move a part along X/Y/Z |
+| Rotate | Circle | **E** | Drag rings to rotate a part |
+| Scale | Square with arrows | **R** | Drag handles to resize a part |
+
+When using Move, Rotate, or Scale, click and drag the colored handles on the **gizmo** (the 3D widget) to transform the part. The red/green/blue handles correspond to X/Y/Z axes.
+
+**Note:** In Move/Rotate/Scale mode, clicking on a different part in the viewport will **not** change your selection — you must switch to Select mode (Q) to pick a different part.
+
+---
+
+## Explorer Panel
+
+The Explorer (left sidebar) has two sections:
+
+### Parts
+Lists every part in the world. Right-click a part to:
+- **Delete** — Remove the part from the world
+- **Add Object** → **Block / Sphere / Cylinder** — Create a new part
+
+Left-click a part name to select it. Double-click to focus the camera on it.
+
+### Scripts
+Lists all scripts attached to the game. Right-click a script to:
+- **Open** — Switch to the Script Editor tab and load the script
+- **Rename** — Rename the script (names must start with a letter or underscore, and contain only letters, numbers, and underscores)
+- **Delete** — Remove the script (asks for confirmation)
+- **Add Object** → **Script** — Create a new empty script
+
+Double-click a script to open it in the Script Editor.
+
+---
+
+## Properties Panel
+
+The Properties panel (right sidebar) shows settings for the currently selected part:
+
+| Property | Description |
+|----------|-------------|
+| **Name** | The part's name (must be unique) |
+| **Shape** | Block, Sphere, or Cylinder |
+| **Color** | RGB color of the part |
+| **Transparency** | Slider from 0 (opaque) to 1 (invisible) |
+| **Anchored** | When checked, the part is fixed in place and won't fall |
+| **CanCollide** | When checked, players and other parts collide with this part |
+| **Size** | Width, Height, and Depth in studs |
+| **Position** | X, Y, Z world position (center of the part) |
+| **Rotation** | Rotation in degrees around each axis |
+
+---
+
+## Undo / Redo
+
+- **Ctrl+Z** — Undo the last action (part creation, deletion, move, resize, etc.)
+- **Ctrl+Y** — Redo the last undone action
+
+Undo history is maintained separately for the Studio and the Script Editor.
+
+---
+
+## Camera Controls
+
+| Action | Mouse / Keyboard |
+|--------|-----------------|
+| Orbit | Left-click and drag on empty space |
+| Pan | Right-click and drag |
+| Zoom | Scroll wheel |
+| Frame selected | Press **F** with a part selected |
+
+When no part is selected, press **F** to frame the entire scene.
+
+---
+
+## Import / Export
+
+- **Import** — Load a \`.json\` map file from your computer into the editor
+- **Export** — Save the current map as a \`.json\` file
+
+Map JSON format:
+\`\`\`json
+[
+  {
+    "Name": "Baseplate",
+    "Type": "Part",
+    "Shape": "Block",
+    "Position": [0, -1.6, 0],
+    "Size": [320, 3.2, 320],
+    "Rotation": [0, 0, 0],
+    "Color": [0.3, 0.72, 0.29],
+    "Anchored": true,
+    "CanCollide": true,
+    "Transparency": 0
+  }
+]
+\`\`\`
+
+---
+
+## Publishing
+
+Click **Publish** in the toolbar to share your game with the world:
+
+1. Enter a **Name** for your game
+2. Select a **Genre**
+3. Write a **Description**
+4. Choose a **Thumbnail** — pick from preset images or upload your own
+5. Click **Publish**
+
+Your game will appear on the home page under **Community Games** and will be playable by anyone.
+
+### Updating a Published Game
+
+On the [game detail page](/bloxverse/game-detail.html), the author can:
+- **Edit** — Change the name, description, genre, and thumbnail (re-uploads map data if it changed)
+- **Delete** — Permanently remove the game
+
+---
+
+## Version History
+
+All changes are tracked per script file with basic undo/redo. The studio uses a **full-snapshot** undo system — every modification saves the complete state of all parts.
+
+---
+
+## Keyboard Shortcuts Summary
+
+| Shortcut | Action |
+|----------|--------|
+| **Q** | Select tool |
+| **W** | Move tool |
+| **E** | Rotate tool |
+| **R** | Scale tool |
+| **F** | Frame selected (or whole scene) |
+| **Ctrl+Z** | Undo |
+| **Ctrl+Y** | Redo |
+| **Delete** | Delete selected part |
+
+---
+
+## Tips
+
+- Use **Anchored** parts for terrain, buildings, and static objects
+- Use **un-anchored** parts for physics objects that can fall and collide
+- The **Spawn** part with the name \`SpawnLocation\` determines where players appear when the game starts
+- **CanCollide = false** is useful for trigger zones, decorations, or invisible barriers
+- Name your parts descriptively to keep the Explorer organized
+`;
+        const html = renderMarkdown(STUDIO_MD);
+        document.getElementById('content').innerHTML = '<a href="/bloxverse/create.html" class="back-to-editor">← Back to Studio</a>' + html;
+        const headings = document.querySelectorAll('#content h2, #content h3, #content h4');
+        const sidebar = document.getElementById('sidebar');
+        const tocLinks = [];
+        headings.forEach(heading => {
+            const level = heading.tagName === 'H2' ? 'toc-h2' : heading.tagName === 'H3' ? 'toc-h3' : 'toc-h4';
+            const id = 'section-' + Math.random().toString(36).slice(2, 8);
+            heading.id = id;
+            const link = document.createElement('a');
+            link.href = '#' + id; link.textContent = heading.textContent; link.className = level;
+            sidebar.appendChild(link); tocLinks.push(link);
+        });
+        let lastActiveId = null;
+        function updateActiveSection() {
+            let currentId = null;
+            const scrollPos = window.scrollY + 100;
+            headings.forEach(h => { if (h.offsetTop <= scrollPos) currentId = h.id; });
+            if (currentId && currentId !== lastActiveId) {
+                lastActiveId = currentId;
+                tocLinks.forEach(link => link.classList.toggle('active', link.getAttribute('href') === '#' + currentId));
+                const activeLink = tocLinks.find(link => link.getAttribute('href') === '#' + currentId);
+                if (activeLink) activeLink.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
+        }
+        window.addEventListener('scroll', updateActiveSection, { passive: true });
+        updateActiveSection();
+    </script>
+</body>
+</html>

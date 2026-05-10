@@ -1,4 +1,4 @@
-import"./modulepreload-polyfill-DfS4ul37.js";/* empty css             */import{E as e,S as t,d as n,n as r,t as i,w as a}from"./firebase-Em72dDyo.js";/* empty css             */var o=document.getElementById(`navRight`),s=document.getElementById(`profilePage`),c=new URLSearchParams(window.location.search).get(`user`);a(i,async e=>{if(!e){window.location.href=`/bloxverse/auth.html`;return}let i=c||e.uid,a=i===e.uid,l=await n(t(r,`users`,i));if(!l.exists()){s.innerHTML=`<p style="text-align:center;color:#8a8c8e;padding:48px;">User not found</p>`;return}let u=l.data(),d=u.username||`Unknown`,f=u.email||``,p=u.bux||0,m=u.friends||[],h=u.followers||[],g=u.following||[],_=u.createdAt?new Date(u.createdAt).toLocaleDateString():`Unknown`,v=await n(t(r,`presence`,i)),y=`offline`;v.exists()&&(y=v.data().inGame?`in-game`:`online`);let b=d.charAt(0).toUpperCase(),x=[];for(let e of m.slice(0,12))try{let i=await n(t(r,`users`,e));if(i.exists()){let t=i.data();x.push({id:e,username:t.username||`Unknown`})}}catch{}let S=[];for(let e of h.slice(0,12))try{let i=await n(t(r,`users`,e));if(i.exists()){let t=i.data();S.push({id:e,username:t.username||`Unknown`})}}catch{}s.innerHTML=`
+import"./modulepreload-polyfill-EeOZK34R.js";/* empty css             */import{N as e,S as t,g as n,n as r,t as i,v as a}from"./firebase-FzcSUUQW.js";/* empty css             */var o=document.getElementById(`navRight`),s=document.getElementById(`profilePage`),c=new URLSearchParams(window.location.search).get(`user`);n(i,async n=>{if(!n){window.location.href=`/bloxverse/auth.html`;return}let i=c||n.uid,a=i===n.uid,l=await t(e(r,`users`,i));if(!l.exists()){s.innerHTML=`<p style="text-align:center;color:#8a8c8e;padding:48px;">User not found</p>`;return}let u=l.data(),d=u.username||`Unknown`,f=u.email||``,p=u.bux||0,m=u.friends||[],h=u.followers||[],g=u.following||[],_=u.createdAt?new Date(u.createdAt).toLocaleDateString():`Unknown`,v=await t(e(r,`presence`,i)),y=`offline`;v.exists()&&(y=v.data().inGame?`in-game`:`online`);let b=d.charAt(0).toUpperCase(),x=[];for(let n of m.slice(0,12))try{let i=await t(e(r,`users`,n));if(i.exists()){let e=i.data();x.push({id:n,username:e.username||`Unknown`})}}catch{}let S=[];for(let n of h.slice(0,12))try{let i=await t(e(r,`users`,n));if(i.exists()){let e=i.data();S.push({id:n,username:e.username||`Unknown`})}}catch{}s.innerHTML=`
          <a href="/bloxverse/" class="profile-back">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M19 12H5M12 19l-7-7 7-7" />
@@ -67,7 +67,7 @@ import"./modulepreload-polyfill-DfS4ul37.js";/* empty css             */import{E
             </div>
           `}
         </div>
-      `;let C=a?u:await n(t(r,`users`,e.uid)).then(e=>e.exists()?e.data():{}),w=C.bux||0,T=(C.username||`P`).charAt(0).toUpperCase();o.innerHTML=`
+      `;let C=a?u:await t(e(r,`users`,n.uid)).then(e=>e.exists()?e.data():{}),w=C.bux||0,T=(C.username||`P`).charAt(0).toUpperCase();o.innerHTML=`
         <div class="user-info">
           <button class="bux-btn">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -80,7 +80,7 @@ import"./modulepreload-polyfill-DfS4ul37.js";/* empty css             */import{E
             <div class="dropdown-menu">
               <div class="dropdown-header">
                 <span class="dropdown-name">${C.username||`Player`}</span>
-                <span class="dropdown-email">${e.email}</span>
+                <span class="dropdown-email">${n.email}</span>
               </div>
               <button class="dropdown-item" onclick="window.location.href='/bloxverse/profile.html'">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -100,4 +100,4 @@ import"./modulepreload-polyfill-DfS4ul37.js";/* empty css             */import{E
             </div>
           </div>
         </div>
-      `;let E=o.querySelector(`.avatar-circle`),D=o.querySelector(`.avatar-dropdown`);E.addEventListener(`click`,e=>{e.stopPropagation(),D.classList.toggle(`open`)}),document.addEventListener(`click`,e=>{D.contains(e.target)||D.classList.remove(`open`)})}),window._logout=async()=>{await e(i),window.location.href=`/bloxverse/auth.html`};
+      `;let E=o.querySelector(`.avatar-circle`),D=o.querySelector(`.avatar-dropdown`);E.addEventListener(`click`,e=>{e.stopPropagation(),D.classList.toggle(`open`)}),document.addEventListener(`click`,e=>{D.contains(e.target)||D.classList.remove(`open`)})}),window._logout=async()=>{await a(i),window.location.href=`/bloxverse/auth.html`};

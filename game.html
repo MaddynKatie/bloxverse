@@ -6,16 +6,27 @@
   <link rel="icon" type="image/svg+xml" href="/bloxverse/favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BloxVerse - Play</title>
-  <script type="module" crossorigin src="/bloxverse/assets/game-z5EX397m.js"></script>
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/firebase-Em72dDyo.js">
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/friends-5E0U1xWh.js">
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/modulepreload-polyfill-DfS4ul37.js">
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/games-CnRz6IyJ.js">
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/scriptRuntime-CMrmZLej.js">
-  <link rel="stylesheet" crossorigin href="/bloxverse/assets/game-CHD6VAtG.css">
+  <script type="module" crossorigin src="/bloxverse/assets/game-BaoVeDgv.js"></script>
+  <link rel="modulepreload" crossorigin href="/bloxverse/assets/modulepreload-polyfill-EeOZK34R.js">
+  <link rel="modulepreload" crossorigin href="/bloxverse/assets/firebase-FzcSUUQW.js">
+  <link rel="modulepreload" crossorigin href="/bloxverse/assets/scriptRuntime-DcoVeha2.js">
+  <link rel="modulepreload" crossorigin href="/bloxverse/assets/friends-DJGT6qIQ.js">
+  <link rel="modulepreload" crossorigin href="/bloxverse/assets/games-DVyCEGX8.js">
+  <link rel="stylesheet" crossorigin href="/bloxverse/assets/game-C4w5O7xD.css">
 </head>
 
 <body>
+  <!-- Loading Screen -->
+  <div class="loading-screen" id="loadingScreen" style="display:flex;">
+    <div class="loading-content">
+      <div class="logo-large"></div>
+      <h2 id="loadingTitle">Loading experience...</h2>
+      <div class="loading-bar">
+        <div class="loading-bar-fill" id="loadingBarFill"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Top Left Tools -->
   <div class="top-bar">
     <button class="top-btn" id="btnSettings" title="Settings">
