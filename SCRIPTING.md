@@ -323,29 +323,109 @@ end
 
 ---
 
-<a id="partobject-system"></a>
-## Part/Object System
+Parts are physical objects in your game. In BloxVerse, everything is organized in a hierarchical tree starting from the `game` object.
 
-Parts are physical objects in your game. You can interact with them through scripts.
+### The Instance Tree
 
-### `game:GetPart(name)`
-Find a part by name.
+Objects are organized in a hierarchy (Parent/Child relationship).
 
 ```lua
-local platform = game:GetPart("Platform1")
-if platform then
-    print("Position:", platform.x, platform.y, platform.z)
-end
+game.Workspace           -- Container for physical objects
+game.Lighting            -- Container for environmental settings
+game.ReplicatedStorage   -- Data shared between server and client
+game.StarterGui          -- UI templates for players
+game.Players             -- List of connected players
 ```
 
-### `game:GetAllParts()`
-Get all parts in the game.
+### Navigating the Hierarchy
+
+You can use dot notation to traverse the tree, just like in Roblox:
 
 ```lua
-local parts = game:GetAllParts()
-for _, part in ipairs(parts) do
-    print(part.name)
-end
+local myPart = game.Workspace.Part1
+local sky = game.Lighting.Sky
+```
+
+### Common Properties
+
+All objects (Instances) have these properties:
+
+- `Name`: The name of the object.
+- `Parent`: The parent object in the tree.
+- `ClassName`: The type of the object (e.g., "Part", "Script", "Folder").
+
+```lua
+print(game.Workspace.Name) -- "Workspace"
+game.Workspace.Part1.Name = "NewName"
+```
+
+### Classes and Properties
+
+#### `Part`
+A physical 3D object in the world.
+
+- `Position`: Vector3 position.
+- `Size`: Vector3 size.
+- `Color`: The color of the part.
+- `Anchored`: If true, the part stays in place and isn't affected by physics.
+- `CanCollide`: If true, other objects will collide with this part.
+- `Transparency`: 0 (opaque) to 1 (invisible).
+
+```lua
+local part = game.Workspace.Part
+part.Color = Color3.fromRGB(255, 0, 0)
+part.Anchored = true
+```
+
+#### `Lighting` Services
+
+##### `Sky`
+Controls the skybox and sun.
+
+- `SkyboxColor`: The color of the sky background.
+- `SunColor`: The color of the sun light.
+- `Brightness`: The intensity of the sun light.
+- `SunPosition`: The position of the sun in the sky.
+
+```lua
+local sky = game.Lighting.Sky
+sky.SunColor = Color3.fromRGB(255, 200, 150)
+sky.Brightness = 2.5
+```
+
+##### `Atmosphere`
+Controls the fog and air effects.
+
+- `Density`: How thick the fog is (0 to 1).
+- `FogColor`: The color of the fog.
+- `Offset`: Vertical offset for the fog effect.
+
+```lua
+local atm = game.Lighting.Atmosphere
+atm.Density = 0.5
+atm.FogColor = Color3.fromRGB(200, 200, 255)
+```
+
+#### Other Classes
+
+- `Folder`: Used to organize objects in the explorer.
+- `Sound`: Represents an audio track. Properties: `SoundId`, `Volume`, `Playing`, `Looped`.
+- `PointLight`: A light source that shines in all directions. Properties: `Color`, `Brightness`, `Range`, `Shadows`.
+- `Script`: A script object containing code.
+- `SpawnLocation`: A special Part where players spawn.
+
+### Creating Objects
+
+Use `Instance.new(className)` to create a new object:
+
+```lua
+local folder = Instance.new("Folder")
+folder.Name = "MyFolder"
+folder.Parent = game.Workspace
+
+local part = Instance.new("Part")
+part.Name = "NewPart"
+part.Parent = folder
 ```
 
 ### Part Methods
@@ -990,43 +1070,6 @@ return {
 
 ---
 
-<a id="faq"></a>
-## FAQ
-
-### Q: Can I run scripts on the client (player's browser)?
-**A:** Not yet. All scripts currently run on the server. Client-side scripting is planned for future versions.
-
-### Q: How often does `onUpdate` run?
-**A:** Approximately 60 times per second (60 FPS). The `dt` parameter tells you the actual delta time.
-
-### Q: Are there data limits?
-**A:** Yes. Keep properties reasonably sized. Storing massive amounts of data in properties can cause performance issues.
-
-### Q: Can I use external APIs or HTTP requests?
-**A:** Not from Lua scripts. For server-side integrations, contact the BloxVerse team.
-
-### Q: What happens if my script has an error?
-**A:** The script stops executing, and an error is logged. Other scripts continue running.
-
-### Q: Can I delete or modify parts with scripts?
-**A:** Modifying part properties (position, velocity) is supported. Creating/deleting parts requires engine support (planned).
-
-### Q: How do I debug my scripts?
-**A:** Use `print()` and `warn()` to output to the server console. Check the bottom panel in the script editor for output.
-
-### Q: Can scripts communicate with each other?
-**A:** Yes! Use `game:Fire()` and `game:On()` for custom events between scripts.
-
-### Q: What's the difference between BloxVerse and Roblox scripting?
-**A:** 
-- BloxVerse uses fewer APIs for simplicity
-- No `Instance` objects; properties are key-value pairs
-- Player and part objects are simpler
-- No GUI/ScreenGui system (UI is HTML/CSS based)
-- Networking is automatically handled
-
----
-
 ## Performance Tips
 
 1. **Cache frequently used values:**
@@ -1377,31 +1420,45 @@ return {
 
 ---
 
-## Troubleshooting
+---
 
-### Script won't save
-- Make sure your script name has no special characters (only letters, numbers, underscores)
-- Check that you're logged in
+<a id="performance-tips"></a>
+## Performance Tips
 
-### `onUpdate` not running
-- Verify your script exports the function correctly in the `return` table
-- Check the output panel for syntax errors
+1. **Cache frequently used values:**
+   ```lua
+   local players = game:GetPlayers()  -- Cache this
+   for _, player in ipairs(players) do
+       -- Use cached players list
+   end
+   ```
 
-### Player data not persisting
-- Player properties are per-session and reset when the game restarts
-- Use `game:SetProperty()` for global data that should persist for the round
+2. **Avoid expensive operations in onUpdate:**
+   ```lua
+   local lastCheck = 0
+   local function onUpdate(dt)
+       lastCheck = lastCheck + dt
+       if lastCheck >= 1 then  -- Check every second
+           lastCheck = 0
+           -- Do expensive check
+       end
+   end
+   ```
 
-### "Unexpected end" error
-- Every `function`, `if`, `for`, `while`, and `do` must have a matching `end`
-- Use the Lua linter in the script editor to find missing `end` statements
-
-### Script runs but doesn't do anything
-- Use `print()` statements to debug execution flow
-- Check the output panel for error messages
-- Make sure your script is assigned to the correct game
+3. **Use local variables for closures:**
+   ```lua
+   local players = game:GetPlayers()
+   spawn(function()
+       wait(5)
+       for _, player in ipairs(players) do
+           -- Use captured players list
+       end
+   end)
+   ```
 
 ---
 
+<a id="performance-advanced"></a>
 ## Performance Tips (Advanced)
 
 ### Object Pooling
@@ -1466,6 +1523,70 @@ end
 
 ---
 
+<a id="troubleshooting"></a>
+## Troubleshooting
+
+### Script won't save
+- Make sure your script name has no special characters (only letters, numbers, underscores)
+- Check that you're logged in
+
+### `onUpdate` not running
+- Verify your script exports the function correctly in the `return` table
+- Check the output panel for syntax errors
+
+### Player data not persisting
+- Player properties are per-session and reset when the game restarts
+- Use `game:SetProperty()` for global data that should persist for the round
+
+### "Unexpected end" error
+- Every `function`, `if`, `for`, `while`, and `do` must have a matching `end`
+- Use the Lua linter in the script editor to find missing `end` statements
+
+### Script runs but doesn't do anything
+- Use `print()` statements to debug execution flow
+- Check the output panel for error messages
+- Make sure your script is assigned to the correct game
+
+---
+
+<a id="faq"></a>
+## FAQ
+
+### Q: Can I run scripts on the client (player's browser)?
+**A:** Not yet. All scripts currently run on the server. Client-side scripting is planned for future versions.
+
+### Q: How often does `onUpdate` run?
+**A:** Approximately 60 times per second (60 FPS). The `dt` parameter tells you the actual delta time.
+
+### Q: Are there data limits?
+**A:** Yes. Keep properties reasonably sized. Storing massive amounts of data in properties can cause performance issues.
+
+### Q: Can I use external APIs or HTTP requests?
+**A:** Not from Lua scripts. For server-side integrations, contact the BloxVerse team.
+
+### Q: What happens if my script has an error?
+**A:** The script stops executing, and an error is logged. Other scripts continue running.
+
+### Q: Can I delete or modify parts with scripts?
+**A:** Modifying part properties (position, velocity) is supported. Creating/deleting parts requires engine support (planned).
+
+### Q: How do I debug my scripts?
+**A:** Use `print()` and `warn()` to output to the server console. Check the bottom panel in the script editor for output.
+
+### Q: Can scripts communicate with each other?
+**A:** Yes! Use `game:Fire()` and `game:On()` for custom events between scripts.
+
+### Q: What's the difference between BloxVerse and Roblox scripting?
+**A:** 
+- BloxVerse uses fewer APIs for simplicity
+- No `Instance` objects; properties are key-value pairs
+- Player and part objects are simpler
+- No GUI/ScreenGui system (UI is HTML/CSS based)
+- Networking is automatically handled
+
+---
+
+<a id="getting-help"></a>
 ## Getting Help
 
 - Check the **View Scripting Docs** link in the script editor

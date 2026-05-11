@@ -3,9 +3,11 @@
 
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/bloxverse/favicon.svg" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BloxVerse - Profile</title>
+  <link rel="stylesheet" href="/src/auth.css" />
+  <link rel="stylesheet" href="/src/main.css" />
   <style>
     .profile-page {
       max-width: 600px;
@@ -150,11 +152,6 @@
       color: #fff;
     }
   </style>
-  <script type="module" crossorigin src="/bloxverse/assets/profile-DHYpnRRq.js"></script>
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/modulepreload-polyfill-EeOZK34R.js">
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/firebase-FzcSUUQW.js">
-  <link rel="stylesheet" crossorigin href="/bloxverse/assets/auth-Bj9aSrwM.css">
-  <link rel="stylesheet" crossorigin href="/bloxverse/assets/main-C5c_W7U6.css">
 </head>
 
 <body>
@@ -170,6 +167,316 @@
 
   <div class="profile-page" id="profilePage"></div>
 
+  <script type="module">
+    import { auth, db, calculateAge, addTrustedFriend, removeTrustedFriend } from './src/firebase.js';
+    import { onAuthStateChanged, signOut } from 'firebase/auth';
+    import { doc, getDoc, setDoc, collection, getDocs, query, where } from 'firebase/firestore';
+
+    const navRight = document.getElementById('navRight');
+    const profilePage = document.getElementById('profilePage');
+    const urlParams = new URLSearchParams(window.location.search);
+    const profileUserId = urlParams.get('user');
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.href = '/bloxverse/auth.html';
+        return;
+      }
+
+      const viewingUserId = profileUserId || user.uid;
+      const isOwnProfile = viewingUserId === user.uid;
+
+      const userDoc = await getDoc(doc(db, 'users', viewingUserId));
+      if (!userDoc.exists()) {
+        profilePage.innerHTML = '<p style="text-align:center;color:#8a8c8e;padding:48px;">User not found</p>';
+        return;
+      }
+
+      const userData = userDoc.data();
+      const username = userData.username || 'Unknown';
+      const email = userData.email || '';
+      const bux = userData.bux || 0;
+      const friendIds = userData.friends || [];
+      const followerIds = userData.followers || [];
+      const followingIds = userData.following || [];
+      const createdAt = userData.createdAt ? new Date(userData.createdAt).toLocaleDateString() : 'Unknown';
+      const birthday = userData.birthday || '';
+
+      // Determine online status
+      const statusDoc = await getDoc(doc(db, 'presence', viewingUserId));
+      let status = 'offline';
+      if (statusDoc.exists()) {
+        const presence = statusDoc.data();
+        const lastSeen = presence.lastSeen?.toMillis?.() ?? presence.lastSeen;
+        const twoMinAgo = Date.now() - 120000;
+        if (lastSeen && lastSeen < twoMinAgo) {
+          status = 'offline';
+        } else {
+          status = presence.inGame ? 'in-game' : 'online';
+        }
+      }
+
+      const initial = username.charAt(0).toUpperCase();
+      const age = calculateAge(birthday);
+      const isThirteenPlus = age >= 13;
+      const trustedFriendIds = userData.trustedFriends || [];
+
+      // Fetch trusted friends
+      let trustedFriendsList = [];
+      for (const fid of trustedFriendIds.slice(0, 12)) {
+        try {
+          const fDoc = await getDoc(doc(db, 'users', fid));
+          if (fDoc.exists()) {
+            const fData = fDoc.data();
+            trustedFriendsList.push({ id: fid, username: fData.username || 'Unknown' });
+          }
+        } catch {}
+      }
+
+      // Fetch friends
+      let friendsList = [];
+      for (const fid of friendIds.slice(0, 12)) {
+        try {
+          const fDoc = await getDoc(doc(db, 'users', fid));
+          if (fDoc.exists()) {
+            const fData = fDoc.data();
+            friendsList.push({ id: fid, username: fData.username || 'Unknown' });
+          }
+        } catch {}
+      }
+
+      // Fetch followers
+      let followersList = [];
+      for (const fid of followerIds.slice(0, 12)) {
+        try {
+          const fDoc = await getDoc(doc(db, 'users', fid));
+          if (fDoc.exists()) {
+            const fData = fDoc.data();
+            followersList.push({ id: fid, username: fData.username || 'Unknown' });
+          }
+        } catch {}
+      }
+
+      profilePage.innerHTML = `
+         <a href="/bloxverse/" class="profile-back">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5M12 19l-7-7 7-7" />
+          </svg>
+          ${isOwnProfile ? 'Back to home' : 'Back'}
+        </a>
+
+        <div class="profile-banner">
+          <div class="avatar-with-status">
+            <div class="profile-avatar-large">${initial}</div>
+            <div class="status-dot ${status}"></div>
+          </div>
+          <div class="profile-info">
+            <h1>${username}</h1>
+            <div class="profile-email">${isOwnProfile ? email : ''}</div>
+          </div>
+        </div>
+
+        <div class="profile-stats">
+          <div class="profile-stat-card">
+            <div class="stat-value">${bux.toLocaleString()}</div>
+            <div class="stat-label">Bux</div>
+          </div>
+          <div class="profile-stat-card">
+            <div class="stat-value">${friendIds.length}</div>
+            <div class="stat-label">Friends</div>
+          </div>
+          <div class="profile-stat-card">
+            <div class="stat-value">${followerIds.length}</div>
+            <div class="stat-label">Followers</div>
+          </div>
+          <div class="profile-stat-card">
+            <div class="stat-value">${followingIds.length}</div>
+            <div class="stat-label">Following</div>
+          </div>
+          <div class="profile-stat-card">
+            <div class="stat-value">${createdAt}</div>
+            <div class="stat-label">Joined</div>
+          </div>
+          ${isOwnProfile ? `
+          <div class="profile-stat-card" id="birthdayCard">
+            <div class="stat-value" id="birthdayValue">${birthday ? new Date(birthday).toLocaleDateString() : '—'}</div>
+            <div class="stat-label">Birthday <span id="editBirthdayBtn" style="cursor:pointer;color:#5b9cfc;font-size:11px;margin-left:4px;">✏️</span></div>
+          </div>` : ''}
+        </div>
+
+        <div class="profile-section">
+          <h2>Friends</h2>
+          ${friendsList.length === 0 ? '<div class="empty">No friends yet</div>' : `
+            <div class="profile-friends-grid">
+              ${friendsList.map(f => `
+                <div class="profile-friend-item" onclick="window.location.href='/bloxverse/profile.html?user=${f.id}'">
+                  <div class="friend-avatar-small">${f.username.charAt(0).toUpperCase()}</div>
+                  <span class="friend-name-small">${f.username}</span>
+                </div>
+              `).join('')}
+            </div>
+          `}
+        </div>
+
+        <div class="profile-section">
+          <h2>Followers</h2>
+          ${followersList.length === 0 ? '<div class="empty">No followers yet</div>' : `
+            <div class="profile-friends-grid">
+              ${followersList.map(f => `
+                <div class="profile-friend-item" onclick="window.location.href='/bloxverse/profile.html?user=${f.id}'">
+                  <div class="friend-avatar-small">${f.username.charAt(0).toUpperCase()}</div>
+                  <span class="friend-name-small">${f.username}</span>
+                </div>
+              `).join('')}
+            </div>
+          `}
+        </div>
+
+        ${isOwnProfile && isThirteenPlus ? `
+        <div class="profile-section" id="trustedFriendsSection">
+          <h2>Trusted Friends <span style="color:#8a8c8e;font-weight:400;font-size:12px;">(mutual, unfiltered chat)</span></h2>
+          ${trustedFriendsList.length === 0 ? '<div class="empty">No trusted friends yet. Add trusted friends from your friends list below.</div>' : `
+            <div class="profile-friends-grid">
+              ${trustedFriendsList.map(f => `
+                <div class="profile-friend-item" style="display:flex;align-items:center;gap:8px;">
+                  <div class="friend-avatar-small">${f.username.charAt(0).toUpperCase()}</div>
+                  <span class="friend-name-small" style="flex:1;">${f.username}</span>
+                  <button class="trust-btn remove" data-id="${f.id}" data-username="${f.username}" style="background:rgba(239,68,68,0.2);color:#ef4444;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px;">Remove</button>
+                </div>
+              `).join('')}
+            </div>
+          `}
+          ${friendsList.filter(f => !trustedFriendIds.includes(f.id)).length > 0 ? `
+            <details style="margin-top:8px;">
+              <summary style="cursor:pointer;color:#5b9cfc;font-size:12px;">Add trusted friend from friends list</summary>
+              <div style="margin-top:6px;">
+                ${friendsList.filter(f => !trustedFriendIds.includes(f.id)).map(f => `
+                  <div class="profile-friend-item" style="display:flex;align-items:center;gap:8px;">
+                    <div class="friend-avatar-small">${f.username.charAt(0).toUpperCase()}</div>
+                    <span class="friend-name-small" style="flex:1;">${f.username}</span>
+                    <button class="trust-btn add" data-id="${f.id}" data-username="${f.username}" style="background:rgba(34,197,94,0.2);color:#22c55e;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px;">Trust</button>
+                  </div>
+                `).join('')}
+              </div>
+            </details>
+          ` : ''}
+        </div>
+        ` : ''}
+
+      `;
+
+      // Birthday edit and Trusted Friends event handlers
+      if (isOwnProfile) {
+        const editBtn = document.getElementById('editBirthdayBtn');
+        if (editBtn) {
+          editBtn.addEventListener('click', () => {
+            const valEl = document.getElementById('birthdayValue');
+            const current = userData.birthday || '';
+            valEl.innerHTML = '<input type="date" id="birthdayInput" value="' + current + '" style="background:#1a1d2e;border:1px solid rgba(124,92,252,0.3);color:#fff;border-radius:4px;padding:2px 6px;font-size:12px;width:130px;"> <button id="saveBirthdayBtn" style="background:rgba(124,92,252,0.4);color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px;">Save</button>';
+            document.getElementById('saveBirthdayBtn').addEventListener('click', async () => {
+              const newVal = document.getElementById('birthdayInput').value;
+              if (!newVal) return;
+              try {
+                await setDoc(doc(db, 'users', viewingUserId), { birthday: newVal }, { merge: true });
+                document.getElementById('birthdayValue').textContent = new Date(newVal).toLocaleDateString();
+              } catch (e) {
+                console.error('Error saving birthday:', e);
+              }
+            });
+          });
+        }
+
+        // Trusted Friends button handlers
+        document.querySelectorAll('.trust-btn.add').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            const friendId = btn.dataset.id;
+            const friendName = btn.dataset.username;
+            try {
+              await addTrustedFriend(viewingUserId, friendId);
+              btn.textContent = 'Added!';
+              btn.style.background = 'rgba(34,197,94,0.4)';
+              btn.disabled = true;
+            } catch (e) {
+              console.error('Error adding trusted friend:', e);
+            }
+          });
+        });
+        document.querySelectorAll('.trust-btn.remove').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            const friendId = btn.dataset.id;
+            try {
+              await removeTrustedFriend(viewingUserId, friendId);
+              const item = btn.closest('.profile-friend-item');
+              if (item) item.style.opacity = '0.3';
+              btn.textContent = 'Removed';
+              btn.disabled = true;
+            } catch (e) {
+              console.error('Error removing trusted friend:', e);
+            }
+          });
+        });
+      }
+
+      // Nav
+      const ownUserData = isOwnProfile ? userData : await getDoc(doc(db, 'users', user.uid)).then(d => d.exists() ? d.data() : {});
+      const ownBux = ownUserData.bux || 0;
+      const ownInitial = (ownUserData.username || 'P').charAt(0).toUpperCase();
+
+      navRight.innerHTML = `
+        <div class="user-info">
+          <button class="bux-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <text x="12" y="17" text-anchor="middle" font-size="14" font-weight="bold">B</text>
+            </svg>
+            <span>${ownBux.toLocaleString()}</span>
+          </button>
+          <div class="avatar-dropdown">
+            <div class="avatar-circle">${ownInitial}</div>
+            <div class="dropdown-menu">
+              <div class="dropdown-header">
+                <span class="dropdown-name">${ownUserData.username || 'Player'}</span>
+                <span class="dropdown-email">${user.email}</span>
+              </div>
+              <button class="dropdown-item" onclick="window.location.href='/bloxverse/profile.html'">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+                Profile
+              </button>
+              <button class="dropdown-item" onclick="window._logout()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+                Log Out
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Make dropdown clickable
+      const avatarCircle = navRight.querySelector('.avatar-circle');
+      const dropdown = navRight.querySelector('.avatar-dropdown');
+      avatarCircle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dropdown.classList.toggle('open');
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!dropdown.contains(e.target)) {
+          dropdown.classList.remove('open');
+        }
+      });
+    });
+
+    window._logout = async () => {
+      await signOut(auth);
+        window.location.href = '/bloxverse/auth.html';
+    };
+  </script>
 </body>
 
 </html>
