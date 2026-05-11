@@ -1,0 +1,1 @@
+import{c as e}from"./friends-Bo4P1ful.js";export{e as sendFriendRequest};

@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/bloxverse/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BloxVerse - Avatar Editor</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    html, body { height: 100%; margin: 0; background: #1a1a2e; overflow: hidden; }
+
+    .editor-page {
+      display: flex;
+      height: 100vh;
+      width: 100%;
+    }
+
+    .editor-panel {
+      width: 340px;
+      background: #16213e;
+      border-right: 1px solid #0f3460;
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+      overflow-y: auto;
+      z-index: 10;
+    }
+
+    .editor-panel h2 {
+      color: #e2e2e2;
+      font-size: 20px;
+      margin: 0 0 4px 0;
+      font-weight: 600;
+    }
+
+    .editor-panel .subtitle {
+      color: #8a8ba0;
+      font-size: 13px;
+      margin-bottom: 20px;
+    }
+
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #8a8ba0;
+      text-decoration: none;
+      font-size: 14px;
+      margin-bottom: 16px;
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+    }
+    .back-btn:hover { color: #e2e2e2; }
+
+    .color-group {
+      margin-bottom: 20px;
+      background: #1a1a3e;
+      border-radius: 8px;
+      padding: 14px 16px;
+    }
+
+    .color-group-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .color-group-label span {
+      color: #c8c8d4;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .color-input-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .color-input-wrap input[type="color"] {
+      width: 36px;
+      height: 36px;
+      border: 2px solid #2a2a5a;
+      border-radius: 6px;
+      background: none;
+      cursor: pointer;
+      padding: 2px;
+    }
+
+    .color-input-wrap input[type="color"]::-webkit-color-swatch-wrapper {
+      padding: 0;
+    }
+
+    .color-input-wrap input[type="color"]::-webkit-color-swatch {
+      border: none;
+      border-radius: 4px;
+    }
+
+    .color-hex {
+      color: #8a8ba0;
+      font-size: 12px;
+      font-family: monospace;
+      min-width: 60px;
+    }
+
+    .editor-actions {
+      margin-top: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-top: 20px;
+    }
+
+    .btn-save {
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      background: #4a7dff;
+      color: #fff;
+      transition: background 0.2s;
+    }
+    .btn-save:hover { background: #3d6ae0; }
+
+    .btn-reset {
+      padding: 12px;
+      border: 1px solid #3a3a5a;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      background: transparent;
+      color: #c8c8d4;
+      transition: all 0.2s;
+    }
+    .btn-reset:hover { background: #2a2a4a; border-color: #5a5a7a; }
+
+    .viewer-container {
+      flex: 1;
+      position: relative;
+      background: radial-gradient(ellipse at center bottom, #1a1a4e 0%, #0a0a1e 60%);
+      overflow: hidden;
+    }
+
+    .viewer-container canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    .viewer-hint {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #5a5a7a;
+      font-size: 13px;
+      user-select: none;
+      pointer-events: none;
+    }
+
+    .save-toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #2a6a3a;
+      color: #c8f0d0;
+      padding: 10px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      z-index: 100;
+    }
+    .save-toast.show { opacity: 1; }
+
+    .editor-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 16px;
+      background: #1a1a3e;
+      border-radius: 8px;
+      padding: 3px;
+    }
+
+    .editor-tab {
+      flex: 1;
+      padding: 8px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      background: transparent;
+      color: #6a6a8a;
+      transition: all 0.2s;
+    }
+
+    .editor-tab.active {
+      background: #2a2a5a;
+      color: #e2e2e2;
+    }
+
+    .editor-tab:hover:not(.active) {
+      color: #8a8aaa;
+    }
+
+    .tab-content {
+      flex: 1;
+      overflow-y: auto;
+      display: none;
+    }
+    .tab-content.active { display: block; }
+
+    .accessories-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .acc-item {
+      background: #1a1a3e;
+      border: 2px solid transparent;
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .acc-item:hover { border-color: #3a3a6a; }
+    .acc-item.equipped { border-color: #4a7dff; background: #1a2a4e; }
+    .acc-item-icon {
+      width: 100%;
+      aspect-ratio: 1;
+      background: #2a2a4a;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      margin-bottom: 6px;
+      overflow: hidden;
+    }
+    .acc-item-icon img { width: 100%; height: 100%; object-fit: contain; }
+    .acc-item-name {
+      color: #c8c8d4;
+      font-size: 12px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .acc-item-category {
+      color: #6a6a8a;
+      font-size: 10px;
+    }
+    .acc-empty {
+      color: #5a5a7a;
+      font-size: 13px;
+      text-align: center;
+      padding: 30px 10px;
+      grid-column: 1 / -1;
+    }
+  </style>
+  <script type="module" crossorigin src="/bloxverse/assets/avatar-Cq06shK9.js"></script>
+  <link rel="modulepreload" crossorigin href="/bloxverse/assets/modulepreload-polyfill-N-DOuI4P.js">
+  <link rel="modulepreload" crossorigin href="/bloxverse/assets/three.module-V6uBajPx.js">
+  <link rel="modulepreload" crossorigin href="/bloxverse/assets/player-CbBnpI80.js">
+  <link rel="modulepreload" crossorigin href="/bloxverse/assets/firebase-XHjplP5n.js">
+  <link rel="modulepreload" crossorigin href="/bloxverse/assets/OrbitControls-1sKqppGP.js">
+  <link rel="stylesheet" crossorigin href="/bloxverse/assets/main-C5c_W7U6.css">
+</head>
+<body>
+  <div class="editor-page">
+    <div class="editor-panel">
+      <button class="back-btn" id="backBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="15 18 9 12 15 6" />
+        </svg>
+        Back
+      </button>
+
+      <h2>Avatar Editor</h2>
+      <p class="subtitle">Customize your character</p>
+
+      <div class="editor-tabs">
+        <button class="editor-tab active" data-tab="color">Color</button>
+        <button class="editor-tab" data-tab="accessories">Accessories</button>
+      </div>
+
+      <div class="tab-content active" id="tabColor">
+        <div class="color-groups" id="colorGroups"></div>
+      </div>
+
+      <div class="tab-content" id="tabAccessories">
+        <div class="accessories-grid" id="accGrid"></div>
+      </div>
+
+      <div class="editor-actions">
+        <button class="btn-save" id="btnSave">Save</button>
+        <button class="btn-reset" id="btnReset">Reset to Defaults</button>
+      </div>
+    </div>
+
+    <div class="viewer-container" id="viewerContainer">
+      <div class="viewer-hint">Drag to rotate &bull; Scroll to zoom</div>
+    </div>
+  </div>
+
+  <div class="save-toast" id="saveToast">Avatar saved!</div>
+
+</body>
+</html>

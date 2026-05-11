@@ -133,116 +133,51 @@ When using Move, Rotate, or Scale, click and drag the colored handles on the **g
 
 ---
 
+---
+
 ## Explorer Panel
 
-The Explorer (left sidebar) has two sections:
+The Explorer (left sidebar) shows the complete hierarchy of your game:
 
-### Parts
-Lists every part in the world. Right-click a part to:
-- **Delete** — Remove the part from the world
-- **Add Object** → **Block / Sphere / Cylinder** — Create a new part
+### Hierarchy Services
+- **Workspace** — Container for all physical objects (Parts, Lights, Spawns). Only objects here are visible in the 3D viewport.
+- **Lighting** — Container for environmental effects like the **Sky** and **Atmosphere**.
+- **ReplicatedStorage** — Used for storing assets (like Parts or Scripts) that should be shared but not necessarily visible in the world.
+- **StarterGui** — Container for your 2D user interfaces (**ScreenGui**).
 
-Left-click a part name to select it. Double-click to focus the camera on it.
+### Common Objects
+- **Folder** — Use these to organize your parts and scripts.
+- **Part** — Basic building blocks (Block, Sphere, Cylinder).
+- **Sound** — Audio objects. Paste a URL into the **SoundId** property to play music or effects.
+- **PointLight** — Localized light sources. Control **Range**, **Brightness**, and **Color**.
+- **ScreenGui** / **SurfaceGui** — Containers for 2D UI elements like **Frame**, **TextLabel**, and **TextButton**.
 
-### Scripts
-Lists all scripts attached to the game. Right-click a script to:
-- **Open** — Switch to the Script Editor tab and load the script
-- **Rename** — Rename the script (names must start with a letter or underscore, and contain only letters, numbers, and underscores)
-- **Delete** — Remove the script (asks for confirmation)
-- **Add Object** → **Script** — Create a new empty script
-
-Double-click a script to open it in the Script Editor.
+### Actions
+Right-click any object in the Explorer to:
+- **Rename** — Edit the name inline.
+- **Delete** — Remove the object.
+- **Add Object** — Add a child object (Parts, Scripts, Folders, etc.).
 
 ---
 
 ## Properties Panel
 
-The Properties panel (right sidebar) shows settings for the currently selected part:
+The Properties panel (right sidebar) dynamically updates based on the selected object:
 
-| Property | Description |
-|----------|-------------|
-| **Name** | The part's name (must be unique) |
-| **Shape** | Block, Sphere, or Cylinder |
-| **Color** | RGB color of the part |
-| **Transparency** | Slider from 0 (opaque) to 1 (invisible) |
-| **Anchored** | When checked, the part is fixed in place and won't fall |
-| **CanCollide** | When checked, players and other parts collide with this part |
-| **Size** | Width, Height, and Depth in studs |
-| **Position** | X, Y, Z world position (center of the part) |
-| **Rotation** | Rotation in degrees around each axis |
+| Object Type | Key Properties |
+|-------------|----------------|
+| **Part** | Position, Size, Color, Anchored, CanCollide |
+| **Sound** | SoundId, Volume, Playing, Looped |
+| **PointLight** | Color, Brightness, Range, Shadows |
+| **TextLabel** | Text, TextColor, BackgroundColor, FontSize |
+| **ScreenGui** | Enabled |
 
 ---
 
 ## Undo / Redo
 
-- **Ctrl+Z** — Undo the last action (part creation, deletion, move, resize, etc.)
+- **Ctrl+Z** — Undo the last action
 - **Ctrl+Y** — Redo the last undone action
-
-Undo history is maintained separately for the Studio and the Script Editor.
-
----
-
-## Camera Controls
-
-| Action | Mouse / Keyboard |
-|--------|-----------------|
-| Orbit | Left-click and drag on empty space |
-| Pan | Right-click and drag |
-| Zoom | Scroll wheel |
-| Frame selected | Press **F** with a part selected |
-
-When no part is selected, press **F** to frame the entire scene.
-
----
-
-## Import / Export
-
-- **Import** — Load a \`.json\` map file from your computer into the editor
-- **Export** — Save the current map as a \`.json\` file
-
-Map JSON format:
-\`\`\`json
-[
-  {
-    "Name": "Baseplate",
-    "Type": "Part",
-    "Shape": "Block",
-    "Position": [0, -1.6, 0],
-    "Size": [320, 3.2, 320],
-    "Rotation": [0, 0, 0],
-    "Color": [0.3, 0.72, 0.29],
-    "Anchored": true,
-    "CanCollide": true,
-    "Transparency": 0
-  }
-]
-\`\`\`
-
----
-
-## Publishing
-
-Click **Publish** in the toolbar to share your game with the world:
-
-1. Enter a **Name** for your game
-2. Select a **Genre**
-3. Write a **Description**
-4. Choose a **Thumbnail** — pick from preset images or upload your own
-5. Click **Publish**
-
-Your game will appear on the home page under **Community Games** and will be playable by anyone.
-
-### Updating a Published Game
-
-On the [game detail page](/bloxverse/game-detail.html), the author can:
-- **Edit** — Change the name, description, genre, and thumbnail (re-uploads map data if it changed)
-- **Delete** — Permanently remove the game
-
----
-
-## Version History
-
-All changes are tracked per script file with basic undo/redo. The studio uses a **full-snapshot** undo system — every modification saves the complete state of all parts.
 
 ---
 
@@ -254,20 +189,27 @@ All changes are tracked per script file with basic undo/redo. The studio uses a 
 | **W** | Move tool |
 | **E** | Rotate tool |
 | **R** | Scale tool |
-| **F** | Frame selected (or whole scene) |
-| **Ctrl+Z** | Undo |
-| **Ctrl+Y** | Redo |
-| **Delete** | Delete selected part |
+| **F** | Frame selected |
+| **Enter** | Finish renaming in Explorer |
+| **Escape** | Cancel renaming in Explorer |
+| **Delete** | Delete selected object |
 
 ---
 
-## Tips
+## FAQ & Tips
 
-- Use **Anchored** parts for terrain, buildings, and static objects
-- Use **un-anchored** parts for physics objects that can fall and collide
-- The **Spawn** part with the name \`SpawnLocation\` determines where players appear when the game starts
-- **CanCollide = false** is useful for trigger zones, decorations, or invisible barriers
-- Name your parts descriptively to keep the Explorer organized
+### FAQ
+- **Q: Why can't I see my part in the viewport?**
+  - A: Ensure the part is a descendant of **Workspace**. Objects in other services are hidden.
+- **Q: How do I play sounds?**
+  - A: Add a **Sound** object, paste a valid audio URL into **SoundId**, and check the **Playing** property.
+- **Q: How do I make a UI?**
+  - A: Add a **ScreenGui** to **StarterGui**, then add **Frames** or **Labels** inside it.
+
+### Tips
+- Name your objects descriptively to keep your hierarchy organized.
+- Use **Folders** to group related parts (e.g., "House", "Forest").
+- **Anchored** parts are essential for static structures; uncheck it for physics objects.
 `;
         const html = renderMarkdown(STUDIO_MD);
         document.getElementById('content').innerHTML = '<a href="/bloxverse/create.html" class="back-to-editor">← Back to Studio</a>' + html;

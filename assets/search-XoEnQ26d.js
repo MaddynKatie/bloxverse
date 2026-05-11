@@ -1,24 +1,24 @@
-const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/friends-UmvAgaV-.js","assets/friends-DJGT6qIQ.js","assets/firebase-FzcSUUQW.js"])))=>i.map(i=>d[i]);
-import"./modulepreload-polyfill-EeOZK34R.js";/* empty css             */import{g as e,t}from"./firebase-FzcSUUQW.js";import{s as n}from"./friends-DJGT6qIQ.js";import{t as r}from"./preload-helper-CYJHeU-z.js";var i=document.getElementById(`searchInput`),a=document.getElementById(`searchResults`),o=document.getElementById(`navRight`);e(t,e=>{e&&(o.innerHTML=`
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/friends-D7Wi-_np.js","assets/friends-Bo4P1ful.js","assets/firebase-XHjplP5n.js"])))=>i.map(i=>d[i]);
+import"./modulepreload-polyfill-N-DOuI4P.js";/* empty css             */import{T as e,n as t,r as n}from"./firebase-XHjplP5n.js";import{s as r}from"./friends-Bo4P1ful.js";import{t as i}from"./preload-helper-D40adSEE.js";var a=document.getElementById(`searchInput`),o=document.getElementById(`searchResults`),s=document.getElementById(`navRight`);e(t,async e=>{if(e){if(await n(e.uid))return;s.innerHTML=`
           <div class="user-info">
             <div class="avatar-circle">${(e.displayName||`P`).charAt(0).toUpperCase()}</div>
           </div>
-        `)});var s;i.addEventListener(`input`,()=>{clearTimeout(s);let e=i.value.trim();if(e.length<3){a.innerHTML=`
+        `}});var c;a.addEventListener(`input`,()=>{clearTimeout(c);let e=a.value.trim();if(e.length<3){o.innerHTML=`
           <div class="search-empty">
             <h2>Search for players</h2>
             <p>Type at least 3 characters to search</p>
           </div>
-        `;return}s=setTimeout(async()=>{a.innerHTML=`
+        `;return}c=setTimeout(async()=>{o.innerHTML=`
           <div class="search-loading">
             <div class="loading-spinner"></div>
             <p>Searching...</p>
           </div>
-        `,l(await n(e),e)},300)}),i.addEventListener(`keydown`,e=>{e.key===`Enter`&&i.blur()});var c=new URLSearchParams(window.location.search).get(`q`);c&&(i.value=c,i.dispatchEvent(new Event(`input`)));function l(e,n){if(e.length===0){a.innerHTML=`
+        `,u(await r(e),e)},300)}),a.addEventListener(`keydown`,e=>{e.key===`Enter`&&a.blur()});var l=new URLSearchParams(window.location.search).get(`q`);l&&(a.value=l,a.dispatchEvent(new Event(`input`)));function u(e,n){if(e.length===0){o.innerHTML=`
           <div class="search-empty">
             <h2>No players found</h2>
             <p>No players match "${n}"</p>
           </div>
-        `;return}a.innerHTML=`
+        `;return}o.innerHTML=`
         <div class="results-header">
           <h2>Found ${e.length} player${e.length===1?``:`s`}</h2>
         </div>
@@ -36,4 +36,4 @@ import"./modulepreload-polyfill-EeOZK34R.js";/* empty css             */import{g
             </div>
           `).join(``)}
         </div>
-      `}window._addFriend=async(e,n,i)=>{if(!t.currentUser){window.location.href=`/bloxverse/auth.html`;return}i.textContent=`Sending...`,i.disabled=!0;try{let{sendFriendRequest:a}=await r(async()=>{let{sendFriendRequest:e}=await import(`./friends-UmvAgaV-.js`);return{sendFriendRequest:e}},__vite__mapDeps([0,1,2]));await a(t.currentUser.uid,e,n),i.textContent=`Sent`,i.classList.add(`sent`)}catch(e){console.error(e),i.textContent=`Error`,i.disabled=!1}};
+      `}window._addFriend=async(e,n,r)=>{if(!t.currentUser){window.location.href=`/bloxverse/auth.html`;return}r.textContent=`Sending...`,r.disabled=!0;try{let{sendFriendRequest:a}=await i(async()=>{let{sendFriendRequest:e}=await import(`./friends-D7Wi-_np.js`);return{sendFriendRequest:e}},__vite__mapDeps([0,1,2]));await a(t.currentUser.uid,e,n),r.textContent=`Sent`,r.classList.add(`sent`)}catch(e){console.error(e),r.textContent=`Error`,r.disabled=!1}};
