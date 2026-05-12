@@ -1,0 +1,116 @@
+{
+  "parts": [
+    {
+      "Name": "Baseplate",
+      "Type": "Part",
+      "Shape": "Block",
+      "Position": [
+        0,
+        -1.6,
+        0
+      ],
+      "Size": [
+        320,
+        3.2,
+        320
+      ],
+      "Rotation": [
+        0,
+        0,
+        0
+      ],
+      "Color": [
+        0.0722718506743852,
+        0.4232676699760063,
+        0.06847816983662762
+      ],
+      "Transparency": 0,
+      "Anchored": true,
+      "CanCollide": true
+    },
+    {
+      "Name": "SpawnLocation",
+      "Type": "Part",
+      "Shape": "Block",
+      "Position": [
+        0,
+        0.5,
+        10
+      ],
+      "Size": [
+        8,
+        1,
+        8
+      ],
+      "Rotation": [
+        0,
+        0,
+        0
+      ],
+      "Color": [
+        0.004024717016506897,
+        0.14126329113044458,
+        0.4178850708380236
+      ],
+      "Transparency": 0,
+      "Anchored": true,
+      "CanCollide": true
+    },
+    {
+      "Name": "Baseplate",
+      "Type": "Part",
+      "Shape": "Block",
+      "Position": [
+        0,
+        -1.6,
+        0
+      ],
+      "Size": [
+        320,
+        3.2,
+        320
+      ],
+      "Rotation": [
+        0,
+        0,
+        0
+      ],
+      "Color": [
+        0.3,
+        0.72,
+        0.29
+      ],
+      "Transparency": 0,
+      "Anchored": true,
+      "CanCollide": true
+    },
+    {
+      "Name": "Spawner",
+      "Type": "Part",
+      "Shape": "Block",
+      "Position": [
+        -9.110052627868116,
+        5.9446023447988345,
+        0
+      ],
+      "Size": [
+        4,
+        4,
+        4
+      ],
+      "Rotation": [
+        0,
+        0,
+        0
+      ],
+      "Color": [
+        0.21586050010324417,
+        0.21586050010324417,
+        0.21586050010324417
+      ],
+      "Transparency": 0.55,
+      "Anchored": true,
+      "CanCollide": false
+    }
+  ]
+}
