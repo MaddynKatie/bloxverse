@@ -1,5 +1,5 @@
-const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/friends-D7Wi-_np.js","assets/friends-Bo4P1ful.js","assets/firebase-XHjplP5n.js"])))=>i.map(i=>d[i]);
-import"./modulepreload-polyfill-N-DOuI4P.js";/* empty css             */import{T as e,n as t,r as n}from"./firebase-XHjplP5n.js";import{s as r}from"./friends-Bo4P1ful.js";import{t as i}from"./preload-helper-D40adSEE.js";var a=document.getElementById(`searchInput`),o=document.getElementById(`searchResults`),s=document.getElementById(`navRight`);e(t,async e=>{if(e){if(await n(e.uid))return;s.innerHTML=`
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/friends-DU0j2RhQ.js","assets/friends-DstcNzDe.js","assets/firebase-HvCPFqZQ.js"])))=>i.map(i=>d[i]);
+import"./modulepreload-polyfill-Ke7zwH0v.js";/* empty css             */import{T as e,n as t,r as n}from"./firebase-HvCPFqZQ.js";import{s as r}from"./friends-DstcNzDe.js";import{t as i}from"./preload-helper-B5DiT7NQ.js";var a=document.getElementById(`searchInput`),o=document.getElementById(`searchResults`),s=document.getElementById(`navRight`);e(t,async e=>{if(e){if(await n(e.uid))return;s.innerHTML=`
           <div class="user-info">
             <div class="avatar-circle">${(e.displayName||`P`).charAt(0).toUpperCase()}</div>
           </div>
@@ -36,4 +36,4 @@ import"./modulepreload-polyfill-N-DOuI4P.js";/* empty css             */import{T
             </div>
           `).join(``)}
         </div>
-      `}window._addFriend=async(e,n,r)=>{if(!t.currentUser){window.location.href=`/bloxverse/auth.html`;return}r.textContent=`Sending...`,r.disabled=!0;try{let{sendFriendRequest:a}=await i(async()=>{let{sendFriendRequest:e}=await import(`./friends-D7Wi-_np.js`);return{sendFriendRequest:e}},__vite__mapDeps([0,1,2]));await a(t.currentUser.uid,e,n),r.textContent=`Sent`,r.classList.add(`sent`)}catch(e){console.error(e),r.textContent=`Error`,r.disabled=!1}};
+      `}window._addFriend=async(e,n,r)=>{if(!t.currentUser){window.location.href=`/bloxverse/auth.html`;return}r.textContent=`Sending...`,r.disabled=!0;try{let{sendFriendRequest:a}=await i(async()=>{let{sendFriendRequest:e}=await import(`./friends-DU0j2RhQ.js`);return{sendFriendRequest:e}},__vite__mapDeps([0,1,2]));await a(t.currentUser.uid,e,n),r.textContent=`Sent`,r.classList.add(`sent`)}catch(e){console.error(e),r.textContent=`Error`,r.disabled=!1}};
