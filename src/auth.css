@@ -1,0 +1,251 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Gotham SSm', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background-color: #232527;
+  color: #fff;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-container {
+  width: 100%;
+  max-width: 420px;
+  padding: 24px;
+}
+
+.auth-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.auth-logo {
+  width: 64px;
+  height: 64px;
+  background: linear-gradient(135deg, #00b06f, #00d4aa);
+  border-radius: 14px;
+  margin: 0 auto 16px;
+  position: relative;
+}
+
+.auth-logo::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 22px;
+  height: 22px;
+  background: #fff;
+  border-radius: 5px;
+}
+
+.auth-header h1 {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.auth-header p {
+  color: #8a8c8e;
+  font-size: 14px;
+}
+
+.auth-tabs {
+  display: flex;
+  background-color: #393b3d;
+  border-radius: 8px;
+  padding: 4px;
+  margin-bottom: 24px;
+}
+
+.auth-tab {
+  flex: 1;
+  padding: 10px;
+  text-align: center;
+  background: none;
+  border: none;
+  color: #8a8c8e;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.auth-tab.active {
+  background-color: #00b06f;
+  color: #fff;
+}
+
+.auth-form {
+  display: none;
+}
+
+.auth-form.active {
+  display: block;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: #babbbe;
+  margin-bottom: 6px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 12px 14px;
+  background-color: #393b3d;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.form-group input:focus {
+  border-color: #00b06f;
+}
+
+.form-group input::placeholder {
+  color: #6b6c6e;
+}
+
+.form-error {
+  color: #e74c3c;
+  font-size: 12px;
+  margin-top: 6px;
+  display: none;
+}
+
+.form-error.visible {
+  display: block;
+}
+
+.auth-submit {
+  width: 100%;
+  padding: 12px;
+  background-color: #00b06f;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  margin-top: 8px;
+}
+
+.auth-submit:hover {
+  background-color: #009b61;
+}
+
+.auth-submit:disabled {
+  background-color: #6b6c6e;
+  cursor: not-allowed;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  margin: 20px 0;
+  color: #6b6c6e;
+  font-size: 12px;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.auth-divider span {
+  padding: 0 12px;
+}
+
+.password-strength {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.strength-bar {
+  flex: 1;
+  height: 3px;
+  background-color: #393b3d;
+  border-radius: 2px;
+  transition: background-color 0.15s ease;
+}
+
+.strength-bar.weak { background-color: #e74c3c; }
+.strength-bar.medium { background-color: #f39c12; }
+.strength-bar.strong { background-color: #00b06f; }
+
+.strength-text {
+  font-size: 11px;
+  color: #8a8c8e;
+  margin-top: 4px;
+}
+
+.avatar-with-status {
+  position: relative;
+  display: inline-block;
+}
+
+.status-dot {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid #393b3d;
+}
+
+.status-dot.offline { background-color: #6b6c6e; }
+.status-dot.online { background-color: #0d69ac; }
+.status-dot.in-game { background-color: #00b06f; }
+
+.back-link {
+  display: block;
+  text-align: center;
+  margin-top: 20px;
+  color: #8a8c8e;
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.back-link:hover {
+  color: #fff;
+}
+
+.auth-success {
+  background-color: rgba(0, 176, 111, 0.1);
+  border: 1px solid #00b06f;
+  border-radius: 8px;
+  padding: 12px;
+  color: #00b06f;
+  font-size: 13px;
+  text-align: center;
+  margin-bottom: 16px;
+  display: none;
+}
+
+.auth-success.visible {
+  display: block;
+}

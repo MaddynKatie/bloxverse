@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin Panel – BloxVerse</title>
-  <link rel="icon" type="image/svg+xml" href="/bloxverse/favicon.svg" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -95,10 +95,6 @@
     .tag.developer { background: rgba(155,89,182,.18); color: #9b59b6; }
     #loading { text-align:center; color:#555; padding: 48px; font-size:14px; }
   </style>
-  <script type="module" crossorigin src="/bloxverse/assets/admin-CBxgyzyV.js"></script>
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/modulepreload-polyfill-Ke7zwH0v.js">
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/preload-helper-B5DiT7NQ.js">
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/firebase-CcrBuBby.js">
 </head>
 <body>
 
@@ -228,5 +224,269 @@
   </main>
 </div><!-- /adminRoot -->
 
+<script type="module">
+  import { auth, db, getRoles, banGuard } from './src/firebase.js';
+  import { doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs, Timestamp, arrayUnion, arrayRemove, onSnapshot } from 'firebase/firestore';
+  import { signOut } from 'firebase/auth';
+
+  // ─── Access guard ────────────────────────────────────────────────────────────
+  auth.onAuthStateChanged(async (user) => {
+    document.getElementById('loading').style.display = 'none';
+    if (!user) { window.location.href = '/bloxverse/auth.html'; return; }
+    if (await banGuard(user.uid)) return;
+    // ── Real-time ban listener ──────────────────────────────────────
+    onSnapshot(doc(db, 'bans', user.uid), (snap) => {
+      if (snap.exists() && snap.data().banned) {
+        window.location.href = '/bloxverse/ban';
+      }
+    });
+    // ────────────────────────────────────────────────────────────────
+    const roles = await getRoles(user.uid);
+    if (!roles.includes('admin')) {
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('loading').textContent = '⛔ Access denied. Admins only.';
+      return;
+    }
+    document.getElementById('adminRoot').style.display = 'flex';
+  });
+
+  // ─── Helpers ─────────────────────────────────────────────────────────────────
+  function showStatus(id, msg, ok = true) {
+    const el = document.getElementById(id);
+    el.textContent = msg;
+    el.className = 'status ' + (ok ? 'ok' : 'err');
+  }
+
+  function durationToTimestamp(val) {
+    if (val === 'permanent') return null;
+    const map = { '1h': 3600, '6h': 21600, '1d': 86400, '3d': 259200, '7d': 604800, '30d': 2592000 };
+    const secs = map[val] || 86400;
+    return Timestamp.fromMillis(Date.now() + secs * 1000);
+  }
+
+  function roleBadge(role) {
+    if (!role) return '';
+    const cfg = {
+      admin:     { label: 'Admin',     cls: 'admin' },
+      mod:       { label: 'Mod',       cls: 'mod' },
+      developer: { label: 'Developer', cls: 'developer' },
+    }[role] || { label: role, cls: 'admin' };
+    return `<span class="tag ${cfg.cls}">${cfg.label}</span>`;
+  }
+
+  // ─── Lookup ──────────────────────────────────────────────────────────────────
+  let _foundUid = null;
+
+  document.getElementById('btnLookup').addEventListener('click', async () => {
+    const raw = document.getElementById('lookupInput').value.trim();
+    if (!raw) return;
+    const statusEl = document.getElementById('lookupStatus');
+    const card     = document.getElementById('userCard');
+    card.style.display = 'none'; _foundUid = null;
+
+    try {
+      // Try as UID first, then search by username
+      let uid = raw, userData = null;
+      const directSnap = await getDoc(doc(db, 'users', raw));
+      if (directSnap.exists()) {
+        userData = directSnap.data();
+      } else {
+        const q = query(collection(db, 'users'), where('username', '==', raw));
+        const snap = await getDocs(q);
+        if (!snap.empty) { uid = snap.docs[0].id; userData = snap.docs[0].data(); }
+      }
+
+      if (!userData) { showStatus('lookupStatus', 'User not found.', false); return; }
+
+      _foundUid = uid;
+      document.getElementById('banUid').value  = uid;
+      document.getElementById('roleUid').value = uid;
+
+      const roles   = await getRoles(uid);
+      const banSnap = await getDoc(doc(db, 'bans', uid));
+      const isBanned = banSnap.exists() && banSnap.data().banned;
+
+      document.getElementById('ucName').textContent = userData.username || '(no username)';
+      document.getElementById('ucId').textContent   = uid;
+      document.getElementById('ucRole').innerHTML   = roles.map(r => roleBadge(r)).join(' ');
+      document.getElementById('ucBanBadge').innerHTML = isBanned
+        ? '<span class="tag admin">BANNED</span>' : '';
+
+      card.style.display = 'block';
+      statusEl.style.display = 'none';
+    } catch (e) {
+      console.error('[Admin] Lookup error:', e);
+      showStatus('lookupStatus', 'Permission Error: Could not access user data. Check Firestore rules.', false);
+    }
+  });
+
+  // ─── Ban preset → custom field ───────────────────────────────────────────────
+  document.getElementById('banReasonPreset').addEventListener('change', (e) => {
+    const custom = document.getElementById('banReasonCustom');
+    custom.style.display = e.target.value === 'Custom…' ? 'block' : 'none';
+  });
+
+  function getBanReason() {
+    const preset = document.getElementById('banReasonPreset').value;
+    if (preset === 'Custom…') return document.getElementById('banReasonCustom').value.trim();
+    return preset || 'Terms of Service Violation';
+  }
+
+  // ─── Ban ─────────────────────────────────────────────────────────────────────
+  document.getElementById('btnBan').addEventListener('click', async () => {
+    const uid = document.getElementById('banUid').value.trim();
+    if (!uid) { showStatus('banStatus', 'Enter a user ID.', false); return; }
+    const reason    = getBanReason();
+    const detail    = document.getElementById('banDetail').value.trim() || null;
+    const note      = document.getElementById('banNote').value.trim() || null;
+    const expiresAt = durationToTimestamp(document.getElementById('banDuration').value);
+
+    try {
+      await setDoc(doc(db, 'bans', uid), {
+        banned: true,
+        reason,
+        ...(detail && { detail }),
+        ...(note   && { moderatorNote: note }),
+        bannedAt:  Timestamp.now(),
+        expiresAt: expiresAt ?? null,
+      });
+      showStatus('banStatus', `✅ User ${uid} banned. Reason: "${reason}"`);
+      if (document.getElementById('ucBanBadge')) {
+        document.getElementById('ucBanBadge').innerHTML = '<span class="tag admin">BANNED</span>';
+      }
+    } catch (e) {
+      showStatus('banStatus', 'Error: ' + e.message, false);
+    }
+  });
+
+  // ─── Unban ───────────────────────────────────────────────────────────────────
+  document.getElementById('btnUnban').addEventListener('click', async () => {
+    const uid = document.getElementById('banUid').value.trim();
+    if (!uid) { showStatus('banStatus', 'Enter a user ID.', false); return; }
+    try {
+      await deleteDoc(doc(db, 'bans', uid));
+      showStatus('banStatus', `✅ User ${uid} unbanned.`);
+      document.getElementById('ucBanBadge').innerHTML = '';
+    } catch (e) {
+      showStatus('banStatus', 'Error: ' + e.message, false);
+    }
+  });
+
+  // ─── Grant / Revoke role ─────────────────────────────────────────────────────
+  document.getElementById('btnGrantRole').addEventListener('click', async () => {
+    const uid  = document.getElementById('roleUid').value.trim();
+    const role = document.getElementById('roleSelect').value;
+    if (!uid) { showStatus('roleStatus', 'Enter a user ID.', false); return; }
+    try {
+      await setDoc(doc(db, 'roles', uid), { roles: arrayUnion(role) }, { merge: true });
+      showStatus('roleStatus', `✅ Granted "${role}" to ${uid}.`);
+      const updatedRoles = await getRoles(uid);
+      document.getElementById('ucRole').innerHTML = updatedRoles.map(r => roleBadge(r)).join(' ');
+    } catch (e) {
+      showStatus('roleStatus', 'Error: ' + e.message, false);
+    }
+  });
+
+  document.getElementById('btnRevokeRole').addEventListener('click', async () => {
+    const uid = document.getElementById('roleUid').value.trim();
+    const role = document.getElementById('roleSelect').value;
+    if (!uid) { showStatus('roleStatus', 'Enter a user ID.', false); return; }
+    try {
+      await setDoc(doc(db, 'roles', uid), { roles: arrayRemove(role) }, { merge: true });
+      showStatus('roleStatus', `✅ Role "${role}" revoked for ${uid}.`);
+      const updatedRoles = await getRoles(uid);
+      document.getElementById('ucRole').innerHTML = updatedRoles.map(r => roleBadge(r)).join(' ');
+    } catch (e) {
+      showStatus('roleStatus', 'Error: ' + e.message, false);
+    }
+  });
+
+  // ─── Game Management ─────────────────────────────────────────────────────────
+  const gameListEl = document.getElementById('gameList');
+
+  async function loadGames() {
+    gameListEl.innerHTML = '<div style="color:#666;font-size:13px;padding:8px 0;">Loading games...</div>';
+    try {
+      const snap = await getDocs(collection(db, 'publishedGames'));
+      if (snap.empty) {
+        gameListEl.innerHTML = '<div style="color:#666;font-size:13px;padding:8px 0;">No published games yet.</div>';
+        return;
+      }
+      let html = '';
+      const games = [];
+      snap.forEach(docSnap => {
+        const data = docSnap.data();
+        games.push({ id: docSnap.id, ...data });
+      });
+      games.sort((a, b) => (b.visits || 0) - (a.visits || 0));
+
+      for (const g of games) {
+        const deleted = g.deleted === true;
+        const isDelLabel = deleted
+          ? '<span style="color:#e74c3c;font-size:11px;font-weight:600;">[ DELETED ]</span>'
+          : '<span style="color:#2ecc71;font-size:11px;font-weight:600;">active</span>';
+        const displayName = deleted ? '[ Content Deleted ]' : (g.name || 'Untitled');
+        const displayDesc = deleted ? '' : (g.description || '').slice(0, 60);
+
+        html += `
+          <div style="background:#151515;border:1px solid ${deleted ? '#5c1a1a' : '#2a2a2a'};border-radius:6px;padding:12px 14px;display:flex;flex-wrap:wrap;align-items:center;gap:10px;">
+            <div style="flex:1;min-width:140px;">
+              <div style="font-size:13px;font-weight:600;color:#fff;white-space:nowrap;">${escHtml(displayName)}</div>
+              <div style="font-size:11px;color:#888;margin-top:2px;">
+                ${escHtml(g.authorName || 'Unknown')} · ${g.visits || 0} visits · ${isDelLabel}
+              </div>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              ${deleted ? `
+                <button class="btn btn-green" data-action="recover" data-id="${g.id}" style="font-size:11px;padding:5px 10px;">Recover</button>
+              ` : `
+                <button class="btn btn-red" data-action="softdelete" data-id="${g.id}" style="font-size:11px;padding:5px 10px;">Delete</button>
+              `}
+              <button class="btn btn-red" data-action="permanentdelete" data-id="${g.id}" style="font-size:11px;padding:5px 10px;opacity:0.7;">Perm Delete</button>
+            </div>
+          </div>
+        `;
+      }
+      gameListEl.innerHTML = html;
+
+      // Bind click handlers
+      gameListEl.querySelectorAll('[data-action]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const action = btn.dataset.action;
+          const id = btn.dataset.id;
+          try {
+            if (action === 'softdelete') {
+              if (!confirm('Soft-delete this game? Name will become "[ Content Deleted ]".')) return;
+              await import('./src/firebase.js').then(m => m.softDeleteGame(id));
+              showStatus('gameStatus', `✅ Game ${id} soft-deleted.`, true);
+            } else if (action === 'recover') {
+              if (!confirm('Recover this game? Original name/description will be restored.')) return;
+              await import('./src/firebase.js').then(m => m.recoverGame(id));
+              showStatus('gameStatus', `✅ Game ${id} recovered.`, true);
+            } else if (action === 'permanentdelete') {
+              if (!confirm('PERMANENTLY DELETE this game? This cannot be undone!')) return;
+              await import('./src/firebase.js').then(m => m.adminDeleteGame(id));
+              showStatus('gameStatus', `✅ Game ${id} permanently deleted.`, true);
+            }
+            loadGames();
+          } catch (e) {
+            showStatus('gameStatus', 'Error: ' + e.message, false);
+          }
+        });
+      });
+    } catch (e) {
+      gameListEl.innerHTML = '<div style="color:#e74c3c;font-size:13px;">Failed to load games.</div>';
+      console.error('[Admin] Load games error:', e);
+    }
+  }
+
+  function escHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  loadGames();
+</script>
 </body>
 </html>

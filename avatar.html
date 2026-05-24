@@ -2,9 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/bloxverse/favicon.svg" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BloxVerse - Avatar Editor</title>
+  <link rel="stylesheet" href="/src/main.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
     html, body { height: 100%; margin: 0; background: #1a1a2e; overflow: hidden; }
@@ -358,13 +359,6 @@
       background: #4a7dff;
     }
   </style>
-  <script type="module" crossorigin src="/bloxverse/assets/avatar-DtutbJ0y.js"></script>
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/modulepreload-polyfill-Ke7zwH0v.js">
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/three.module-FjTSEuto.js">
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/avatar-clothing-UXmGjPjj.js">
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/firebase-CcrBuBby.js">
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/OrbitControls-jaQtT0aF.js">
-  <link rel="stylesheet" crossorigin href="/bloxverse/assets/main-C5c_W7U6.css">
 </head>
 <body>
   <div class="editor-page">
@@ -417,5 +411,853 @@
 
   <div class="save-toast" id="saveToast">Avatar saved!</div>
 
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+    import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
+    import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+    import { auth, db, getDoc, doc, setDoc } from './src/firebase.js';
+    import { accessories, getAllAccessories, findAccessory } from './src/accessories.js';
+    import { applyAvatarClothing, findClothing, getAllClothing, removeAvatarClothing } from './src/clothing.js';
+    import { getAllFaces, findFace } from './src/faces.js';
+    import playerModelUrl from './assets/models/player.fbx?url';
+
+    const container = document.getElementById('viewerContainer');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x1a1a2e);
+
+    const camera = new THREE.PerspectiveCamera(20, container.clientWidth / container.clientHeight, 0.1, 100);
+    camera.position.set(5, 3, 12);
+    camera.lookAt(0, 1.2, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.LinearToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    container.appendChild(renderer.domElement);
+
+    // Ensure layout is done before setting size
+    setTimeout(() => onResize(), 100);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 1.2, 0);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.minDistance = 1.5;
+    controls.maxDistance = 20;
+    controls.maxPolarAngle = Math.PI / 2.1;
+    controls.update();
+
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x666666, 0);
+    scene.add(hemiLight);
+
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.8);
+    keyLight.position.set(4, 6, 5);
+    scene.add(keyLight);
+
+    const fillLight = new THREE.DirectionalLight(0xffffff, 0.6);
+    fillLight.position.set(-4, 2, -3);
+    scene.add(fillLight);
+
+    const backLight = new THREE.DirectionalLight(0xffffff, 0.4);
+    backLight.position.set(0, 3, -6);
+    scene.add(backLight);
+
+    const rimLight = new THREE.DirectionalLight(0xffffff, 0.3);
+    rimLight.position.set(0, -1, 6);
+    scene.add(rimLight);
+
+    const floorGeo = new THREE.CircleGeometry(3, 32);
+    const floorMat = new THREE.MeshStandardMaterial({
+      color: 0x1a1a3e,
+      roughness: 0.8,
+      metalness: 0.1,
+      transparent: true,
+      opacity: 0.6,
+      side: THREE.DoubleSide,
+    });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -0.01;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    const ringGeo = new THREE.RingGeometry(0.7, 0.9, 48);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0x4a7dff,
+      transparent: true,
+      opacity: 0.15,
+      side: THREE.DoubleSide,
+    });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.001;
+    scene.add(ring);
+
+    let avatar = null;
+    const materialMap = new Map();
+    let currentColors = {};
+    let _materialList = [];
+    let _originalColors = {};
+
+    function applyColors() {
+      for (const [mat, name] of materialMap) {
+        if (currentColors[name]) {
+          mat.vertexColors = false;
+          mat.emissive && mat.emissive.setHex(0);
+          mat.emissiveIntensity = 0;
+          mat.toneMapped = false;
+          mat.transparent = false;
+          mat.opacity = 1;
+          mat.color.setStyle(currentColors[name], THREE.SRGBColorSpace);
+          mat.needsUpdate = true;
+        }
+      }
+    }
+
+    const fbxLoader = new FBXLoader();
+    const gltfLoader = new GLTFLoader();
+
+    let _equippedAccessories = {};
+    let _loadedAccessories = {};
+    const _accessoryUpdaters = new Map();
+    let _selectedClothingId = null;
+    let _equippedFaceId = 'smile';
+    let _faceOverlayMesh = null;
+    let _charHeight = 0;
+
+    function findHighestBone(obj) {
+      let highest = null;
+      let highestY = -Infinity;
+      obj.traverse(child => {
+        if (child.isBone || child.type === 'Bone') {
+          const worldPos = new THREE.Vector3();
+          child.getWorldPosition(worldPos);
+          if (worldPos.y > highestY) {
+            highestY = worldPos.y;
+            highest = child;
+          }
+        }
+      });
+      return highest;
+    }
+
+    function findHeadAttachment(avatarObj) {
+      let headBone = null;
+      let headMesh = null;
+      avatarObj.traverse(child => {
+        if ((child.isBone || child.type === 'Bone') && child.name.toLowerCase().includes('head') && !child.name.toLowerCase().includes('_end')) {
+          headBone = child;
+        }
+        if (child.isMesh && (child.name.toLowerCase().includes('head') || (child.material && (
+          (Array.isArray(child.material) ? child.material[0] : child.material).name || ''
+        ).toLowerCase().includes('head')))) {
+          headMesh = child;
+        }
+      });
+      if (headBone && headMesh) return { object: headBone, type: 'bone', headMesh };
+      if (headMesh) return { object: headMesh, type: 'mesh', headMesh };
+      if (headBone) return { object: headBone, type: 'bone' };
+      const highestBone = findHighestBone(avatarObj);
+      if (highestBone) {
+        console.log('[Accessory] Using highest bone:', highestBone.name);
+        return { object: highestBone, type: 'bone', fallback: true };
+      }
+      const torso = findBone(avatarObj, 'Torso');
+      if (torso) return { object: torso, type: 'bone', fallback: true };
+      return null;
+    }
+
+    function findBone(obj, name) {
+      let found = null;
+      obj.traverse(child => {
+        if ((child.isBone || child.type === 'Bone') && child.name === name) {
+          found = child;
+        }
+      });
+      return found;
+    }
+
+    function isAccessoryNode(obj) {
+      return obj?.userData?.isAccessory === true;
+    }
+
+    function getHeadTopWorldPosition(avatarObj) {
+      let topWorld = null;
+      avatarObj.traverse(child => {
+        if (isAccessoryNode(child) || child.userData?.isFaceOverlay) return;
+        if (child.isMesh) {
+          if (!child.geometry.boundingBox) {
+            child.geometry.computeBoundingBox();
+          }
+          const bbox = child.geometry.boundingBox;
+          const topLocal = new THREE.Vector3((bbox.min.x + bbox.max.x) / 2, bbox.max.y, (bbox.min.z + bbox.max.z) / 2);
+          const worldPos = topLocal.clone();
+          child.localToWorld(worldPos);
+          if (!topWorld || worldPos.y > topWorld.y) {
+            topWorld = worldPos;
+          }
+        }
+      });
+      return topWorld;
+    }
+
+    function getMeshTopWorldPosition(mesh) {
+      if (!mesh || !mesh.geometry) return null;
+      if (!mesh.geometry.boundingBox) {
+        mesh.geometry.computeBoundingBox();
+      }
+      const bbox = mesh.geometry.boundingBox;
+      const topLocal = new THREE.Vector3((bbox.min.x + bbox.max.x) / 2, bbox.max.y, (bbox.min.z + bbox.max.z) / 2);
+      const worldPos = topLocal.clone();
+      mesh.localToWorld(worldPos);
+      return worldPos;
+    }
+
+    function getAttachmentTopWorldPosition(attachment) {
+      if (!attachment) return null;
+      if (attachment.isMesh) return getMeshTopWorldPosition(attachment);
+
+      const ownMeshes = [];
+      attachment.children.forEach(child => {
+        if (child.isMesh && !child.userData?.isFaceOverlay) ownMeshes.push(child);
+      });
+
+      if (ownMeshes.length > 0) {
+        const bbox = new THREE.Box3();
+        ownMeshes.forEach(mesh => bbox.expandByObject(mesh));
+        if (!bbox.isEmpty()) {
+          const topLocal = new THREE.Vector3(
+            (bbox.min.x + bbox.max.x) / 2,
+            bbox.max.y,
+            (bbox.min.z + bbox.max.z) / 2
+          );
+          return topLocal; // already world space from expandByObject
+        }
+      }
+
+      return attachment.getWorldPosition(new THREE.Vector3());
+    }
+
+    function loadAccessory(accDef, avatarObj) {
+      if (!avatarObj) return;
+
+      const texLoader = new THREE.TextureLoader();
+      const path = accDef.meshPath.toLowerCase();
+
+      const finishSetup = (modelRoot) => {
+        const headPt = findHeadAttachment(avatarObj);
+        if (!headPt) {
+          console.warn('No head attachment found');
+          return;
+        }
+
+        avatarObj.updateMatrixWorld(true);
+        modelRoot.updateMatrixWorld(true);
+
+        modelRoot.traverse(child => {
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+
+            const mats = Array.isArray(child.material)
+              ? child.material
+              : [child.material];
+
+            for (const mat of mats) {
+              if (!mat) continue;
+
+              if (accDef.textures?.map) {
+                const diffuse = texLoader.load(accDef.textures.map);
+                diffuse.colorSpace = THREE.SRGBColorSpace;
+                mat.map = diffuse;
+              }
+
+              if (accDef.textures?.normalMap) {
+                mat.normalMap = texLoader.load(accDef.textures.normalMap);
+                mat.normalScale = new THREE.Vector2(1, 1);
+              }
+
+              if (accDef.textures?.displacementMap) {
+                mat.displacementMap = texLoader.load(accDef.textures.displacementMap);
+                mat.displacementScale = 0.01;
+              }
+
+              mat.needsUpdate = true;
+            }
+          }
+        });
+
+        modelRoot.position.set(0, 0, 0);
+        modelRoot.rotation.set(0, 0, 0);
+
+        const o = accDef.offset || {};
+        const scale = o.scale !== undefined ? o.scale : 1;
+
+        modelRoot.scale.setScalar(scale);
+        modelRoot.updateMatrixWorld(true);
+
+        const bbox = new THREE.Box3().setFromObject(modelRoot);
+        const center = bbox.getCenter(new THREE.Vector3());
+
+        modelRoot.position.x -= center.x;
+        modelRoot.position.y -= bbox.min.y;
+        modelRoot.position.z -= center.z;
+
+        const wrapper = new THREE.Group();
+        wrapper.add(modelRoot);
+
+        wrapper.userData.isAccessory = true;
+
+        wrapper.traverse(node => {
+          node.userData = node.userData || {};
+          node.userData.isAccessory = true;
+        });
+
+        const attachment = headPt.object;
+
+        const localRot = new THREE.Quaternion().setFromEuler(
+          new THREE.Euler(
+            o.rx || 0,
+            o.ry || 0,
+            o.rz || 0,
+            'XYZ'
+          )
+        );
+
+        scene.add(wrapper);
+
+        const headTopWorld =
+          (headPt.headMesh
+            ? getMeshTopWorldPosition(headPt.headMesh)
+            : getAttachmentTopWorldPosition(attachment))
+          || attachment.getWorldPosition(new THREE.Vector3());
+
+        const attachmentQuat =
+          attachment.getWorldQuaternion(new THREE.Quaternion());
+
+        const offsetWorld = new THREE.Vector3(
+          o.x || 0,
+          o.y !== undefined ? o.y : 0,
+          o.z || 0
+        ).applyQuaternion(attachmentQuat);
+
+        wrapper.position.copy(headTopWorld.clone().add(offsetWorld));
+
+        wrapper.quaternion.copy(attachmentQuat).multiply(localRot);
+
+        const updateId = accDef.id;
+
+        const updater = () => {
+          if (!wrapper.parent) return;
+
+          const headTop =
+            (headPt.headMesh
+              ? getMeshTopWorldPosition(headPt.headMesh)
+              : getAttachmentTopWorldPosition(attachment))
+            || attachment.getWorldPosition(new THREE.Vector3());
+
+          const attachmentQ =
+            attachment.getWorldQuaternion(new THREE.Quaternion());
+
+          const targetWorld = headTop.clone().add(
+            new THREE.Vector3(
+              o.x || 0,
+              o.y !== undefined ? o.y : 0,
+              o.z || 0
+            ).applyQuaternion(attachmentQ)
+          );
+
+          wrapper.position.copy(targetWorld);
+          wrapper.quaternion.copy(attachmentQ).multiply(localRot);
+        };
+
+        _accessoryUpdaters.set(updateId, updater);
+        _loadedAccessories[accDef.id] = wrapper;
+      };
+
+      // FBX
+      if (path.endsWith('.fbx')) {
+        const loader = new FBXLoader();
+
+        loader.load(
+          accDef.meshPath,
+          (fbx) => finishSetup(fbx),
+          undefined,
+          (err) => console.error('FBX load failed:', err)
+        );
+      }
+
+      // GLB / GLTF
+      else if (path.endsWith('.glb') || path.endsWith('.gltf')) {
+        const loader = new GLTFLoader();
+
+        loader.load(
+          accDef.meshPath,
+          (gltf) => finishSetup(gltf.scene),
+          undefined,
+          (err) => console.error('GLTF load failed:', err)
+        );
+      }
+
+      else {
+        console.warn('Unsupported accessory format:', accDef.meshPath);
+      }
+    }
+
+    function removeAccessory(accId) {
+      const obj = _loadedAccessories[accId];
+      if (obj) {
+        obj.removeFromParent();
+        delete _loadedAccessories[accId];
+      }
+      _accessoryUpdaters.delete(accId);
+    }
+
+    function equipAccessory(accId, avatarObj) {
+      const def = findAccessory(accId);
+      if (!def) return;
+      removeAccessory(accId);
+      loadAccessory(def, avatarObj);
+      _equippedAccessories[accId] = true;
+      renderAccGrid();
+    }
+
+    function unequipAccessory(accId) {
+      removeAccessory(accId);
+      delete _equippedAccessories[accId];
+      renderAccGrid();
+    }
+
+    function renderAccGrid() {
+      const grid = document.getElementById('accGrid');
+      const all = getAllAccessories();
+      if (all.length === 0) {
+        grid.innerHTML = '<div class="acc-empty">No accessories available</div>';
+        return;
+      }
+      grid.innerHTML = all.map(a => `
+        <div class="acc-item ${_equippedAccessories[a.id] ? 'equipped' : ''}" data-id="${a.id}">
+          <div class="acc-item-icon">${a.icon || '📦'}</div>
+          <div class="acc-item-name">${a.name}</div>
+          <div class="acc-item-category">${a.category || ''}</div>
+        </div>
+      `).join('');
+      grid.querySelectorAll('.acc-item').forEach(el => {
+        el.addEventListener('click', () => {
+          const id = el.dataset.id;
+          if (_equippedAccessories[id]) {
+            unequipAccessory(id);
+          } else if (avatar) {
+            equipAccessory(id, avatar);
+          }
+        });
+      });
+    }
+
+    function equipClothing(clothingId) {
+      _selectedClothingId = clothingId;
+      if (avatar && clothingId) {
+        applyAvatarClothing(avatar, clothingId);
+      }
+      renderClothingGrid();
+    }
+
+    function unequipClothing() {
+      _selectedClothingId = null;
+      if (avatar) {
+        removeAvatarClothing(avatar);
+      }
+      renderClothingGrid();
+    }
+
+    function renderClothingGrid() {
+      const grid = document.getElementById('clothingGrid');
+      const all = getAllClothing();
+      if (all.length === 0) {
+        grid.innerHTML = '<div class="acc-empty">No clothing added yet. Drop Roblox shirt template PNGs into <code>assets/clothing</code>.</div>';
+        return;
+      }
+      grid.innerHTML = all.map(item => `
+        <div class="clothing-item ${_selectedClothingId === item.id ? 'equipped' : ''}" data-id="${item.id}">
+          <div class="clothing-item-preview">
+            <img src="${item.texturePath}" alt="${item.name}" />
+          </div>
+          <div class="clothing-item-name">${item.name}</div>
+          <div class="clothing-item-meta">${item.category || ''}</div>
+        </div>
+      `).join('');
+      grid.querySelectorAll('.clothing-item').forEach(el => {
+        el.addEventListener('click', () => {
+          const id = el.dataset.id;
+          if (_selectedClothingId === id) {
+            unequipClothing();
+          } else {
+            equipClothing(id);
+          }
+        });
+      });
+    }
+
+    function equipFace(faceId) {
+      unequipFace();
+      if (!faceId || !avatar) return;
+      const def = findFace(faceId);
+      if (!def) return;
+      const headBone = avatar.getObjectByName('Head');
+      if (!headBone) return;
+
+      _equippedFaceId = faceId;
+      const headSize = _charHeight ? Math.min(_charHeight * 0.3, 1.2) : 0.6;
+      const texLoader = new THREE.TextureLoader();
+      texLoader.load(def.texturePath, (tex) => {
+        tex.colorSpace = THREE.SRGBColorSpace;
+        const mat = new THREE.MeshStandardMaterial({
+          map: tex, transparent: true, alphaTest: 0.05,
+          depthWrite: true, color: 0xffffff,
+        });
+        const faceSize = headSize * 0.85;
+        const mesh = new THREE.Mesh(new THREE.PlaneGeometry(faceSize, faceSize), mat);
+        mesh.position.set(0, headSize * 0.42, headSize * 0.51);
+        mesh.renderOrder = 3;
+        mesh.userData.isFaceOverlay = true;
+        headBone.add(mesh);
+        _faceOverlayMesh = mesh;
+        renderFacesGrid();
+      }, undefined, (err) => console.error('FACE TEX LOAD FAILED:', err));
+    }
+
+    function unequipFace() {
+      if (_faceOverlayMesh) {
+        _faceOverlayMesh.removeFromParent();
+        if (_faceOverlayMesh.material) {
+          if (_faceOverlayMesh.material.map) _faceOverlayMesh.material.map.dispose();
+          _faceOverlayMesh.material.dispose();
+        }
+        _faceOverlayMesh = null;
+      }
+      _equippedFaceId = null;
+    }
+
+    function renderFacesGrid() {
+      const grid = document.getElementById('facesGrid');
+      const all = getAllFaces();
+      grid.innerHTML = all.map(f => `
+        <div class="clothing-item ${_equippedFaceId === f.id ? 'equipped' : ''}" data-id="${f.id}">
+          <div class="clothing-item-preview">
+            <img src="${f.texturePath}" alt="${f.name}" />
+          </div>
+          <div class="clothing-item-name">${f.name}</div>
+          <div class="clothing-item-meta">${f.description || ''}</div>
+        </div>
+      `).join('');
+      grid.querySelectorAll('.clothing-item').forEach(el => {
+        el.addEventListener('click', () => {
+          const id = el.dataset.id;
+          if (_equippedFaceId === id) {
+            unequipFace();
+          } else {
+            equipFace(id);
+          }
+        });
+      });
+    }
+
+    // Tab switching
+    document.querySelectorAll('.editor-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.editor-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        const content = document.getElementById('tab' + tab.dataset.tab.charAt(0).toUpperCase() + tab.dataset.tab.slice(1));
+        if (content) content.classList.add('active');
+      });
+    });
+
+    let loadAttempts = 0;
+    const maxLoadAttempts = 10;
+
+    function buildColorPickers(materials) {
+      const container = document.getElementById('colorGroups');
+      container.innerHTML = '';
+
+      for (const matName of materials) {
+        const div = document.createElement('div');
+        div.className = 'color-group';
+        div.innerHTML = `
+          <div class="color-group-label"><span>${matName}</span></div>
+          <div class="color-input-wrap">
+            <input type="color" id="c_${matName}" value="#888888" />
+            <span class="color-hex" id="h_${matName}">#888888</span>
+          </div>
+        `;
+        container.appendChild(div);
+
+        const input = div.querySelector('input');
+        input.addEventListener('input', () => {
+          currentColors[matName] = input.value;
+          const hexEl = document.getElementById('h_' + matName);
+          if (hexEl) hexEl.textContent = input.value;
+          applyColors();
+        });
+      }
+    }
+
+    function updateColorPickersFromSaved(saved) {
+      for (const [name, hex] of Object.entries(saved)) {
+        currentColors[name] = hex;
+        const el = document.getElementById('c_' + name);
+        const hexEl = document.getElementById('h_' + name);
+        if (el) el.value = hex;
+        if (hexEl) hexEl.textContent = hex;
+      }
+      applyColors();
+    }
+
+    function loadAvatar() {
+      fbxLoader.load(playerModelUrl, (fbx) => {
+        if (avatar) {
+          scene.remove(avatar);
+          avatar = null;
+          materialMap.clear();
+          _materialList = [];
+        }
+
+        const uniqueMats = new Map();
+
+        fbx.traverse(child => {
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+            if (child.geometry) {
+              for (const key of Object.keys(child.geometry.attributes)) {
+                if (key.toLowerCase().includes('color')) {
+                  child.geometry.deleteAttribute(key);
+                }
+              }
+              if (child.geometry.morphAttributes) {
+                for (const key of Object.keys(child.geometry.morphAttributes)) {
+                  if (key.toLowerCase().includes('color')) {
+                    delete child.geometry.morphAttributes[key];
+                  }
+                }
+              }
+            }
+            const mats = Array.isArray(child.material) ? child.material : [child.material];
+            for (let i = 0; i < mats.length; i++) {
+              const mat = mats[i];
+              if (!mat) continue;
+              const name = mat.name || child.name || 'Body';
+              const originalColor = mat.color ? mat.color.getHex() : 0xcccccc;
+              const newMat = new THREE.MeshStandardMaterial({
+                color: originalColor,
+                map: mat.map,
+                transparent: false,
+                opacity: 1,
+                toneMapped: false,
+                vertexColors: false,
+                emissive: 0,
+                emissiveIntensity: 0,
+                roughness: 0.8,
+                metalness: 0.1,
+              });
+              mats[i] = newMat;
+              if (!uniqueMats.has(name)) {
+                uniqueMats.set(name, newMat);
+              }
+              materialMap.set(newMat, name);
+            }
+          }
+        });
+
+        const matNameList = Array.from(uniqueMats.keys());
+        _materialList = matNameList;
+        currentColors = {};
+        _originalColors = {};
+        for (const name of matNameList) {
+          const mat = uniqueMats.get(name);
+          const hex = '#' + mat.color.getHexString();
+          currentColors[name] = hex;
+          _originalColors[name] = hex;
+          // Set default color if black
+          if (mat.color.getHex() === 0) mat.color.set(0xcccccc);
+          mat.needsUpdate = true;
+        }
+
+        buildColorPickers(matNameList);
+        updateColorPickersFromSaved(currentColors);
+
+        const box = new THREE.Box3().setFromObject(fbx);
+        const footOffset = -box.min.y;
+        const charHeight = box.max.y - box.min.y;
+        fbx.position.y = footOffset;
+        fbx.updateMatrixWorld(true);
+
+        controls.target.set(0, charHeight * 0.45, 0);
+        controls.update();
+
+        scene.add(fbx);
+        avatar = fbx;
+        _charHeight = charHeight;
+
+        // load saved colors after setting defaults
+        setTimeout(() => {
+          loadSavedColors();
+          renderClothingGrid();
+          renderFacesGrid();
+          renderAccGrid();
+        }, 100);
+      }, undefined, () => {
+        if (loadAttempts < maxLoadAttempts) {
+          loadAttempts++;
+          setTimeout(loadAvatar, 1000);
+        }
+      });
+    }
+
+    async function loadSavedColors() {
+      await auth.authStateReady();
+      if (!auth.currentUser) return;
+      try {
+        const snap = await getDoc(doc(db, 'users', auth.currentUser.uid));
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.avatarColors) {
+            updateColorPickersFromSaved(data.avatarColors);
+          }
+          if (data.avatarClothing && avatar && findClothing(data.avatarClothing)) {
+            _selectedClothingId = data.avatarClothing;
+            applyAvatarClothing(avatar, data.avatarClothing);
+          } else if (avatar) {
+            _selectedClothingId = null;
+            removeAvatarClothing(avatar);
+          }
+          if (data.avatarAccessories && avatar) {
+            _equippedAccessories = {};
+            for (const id of data.avatarAccessories) {
+              if (findAccessory(id)) {
+                _equippedAccessories[id] = true;
+                loadAccessory(findAccessory(id), avatar);
+              }
+            }
+            renderAccGrid();
+          }
+          if (data.avatarFace && findFace(data.avatarFace)) {
+            equipFace(data.avatarFace);
+          } else {
+            equipFace('smile');
+          }
+        } else {
+          equipFace('smile');
+        }
+        renderClothingGrid();
+      } catch (e) {
+        console.error('Error loading avatar data:', e);
+      }
+    }
+
+    document.getElementById('btnReset').addEventListener('click', () => {
+      if (!avatar) return;
+      for (const name of _materialList) {
+        currentColors[name] = _originalColors[name];
+        const el = document.getElementById('c_' + name);
+        const hexEl = document.getElementById('h_' + name);
+        if (el) el.value = _originalColors[name];
+        if (hexEl) hexEl.textContent = _originalColors[name];
+      }
+      applyColors();
+      unequipClothing();
+      for (const id of Object.keys(_equippedAccessories)) {
+        removeAccessory(id);
+      }
+      _equippedAccessories = {};
+      renderAccGrid();
+      equipFace('smile');
+    });
+
+    document.getElementById('btnSave').addEventListener('click', async () => {
+      if (!auth.currentUser) {
+        showToast('Please log in first');
+        return;
+      }
+      try {
+        await setDoc(doc(db, 'users', auth.currentUser.uid), {
+          avatarColors: currentColors,
+          avatarClothing: _selectedClothingId,
+          avatarAccessories: Object.keys(_equippedAccessories),
+          avatarFace: _equippedFaceId,
+        }, { merge: true });
+        showToast('Avatar saved!');
+      } catch (e) {
+        console.error('Error saving avatar:', e);
+        showToast('Failed to save');
+      }
+    });
+
+    const toast = document.getElementById('saveToast');
+    let toastTimeout = null;
+    function showToast(msg) {
+      toast.textContent = msg;
+      toast.classList.add('show');
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+
+    document.getElementById('backBtn').addEventListener('click', () => {
+      window.history.back();
+    });
+
+    function onResize() {
+      const w = Math.max(container.clientWidth, 400);
+      const h = Math.max(container.clientHeight, 300);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    }
+
+    window.addEventListener('resize', onResize);
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      for (const updater of _accessoryUpdaters.values()) updater();
+      renderer.render(scene, camera);
+    }
+
+    document.querySelectorAll('.color-group').forEach(el => el.style.display = 'none');
+    renderClothingGrid();
+    renderFacesGrid();
+    loadAvatar();
+    animate();
+
+    // Panel resize
+    (function() {
+      const panel = document.getElementById('resizeHandle');
+      let isDragging = false;
+      panel.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'col-resize';
+        e.preventDefault();
+      });
+      document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const newWidth = Math.max(240, Math.min(e.clientX, 600));
+        document.getElementById('editorPanel').style.width = newWidth + 'px';
+        onResize();
+      });
+      document.addEventListener('mouseup', () => {
+        if (isDragging) {
+          isDragging = false;
+          document.body.style.userSelect = '';
+          document.body.style.cursor = '';
+        }
+      });
+    })();
+  </script>
 </body>
 </html>

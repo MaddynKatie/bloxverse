@@ -1,1 +1,0 @@
-import{c as e}from"./friends-CLdMBLWm.js";export{e as sendFriendRequest};

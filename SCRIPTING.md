@@ -1,6 +1,6 @@
 # BloxVerse Scripting Documentation
 
-Welcome to BloxVerse! This guide explains how to write scripts for your BloxVerse games. BloxVerse uses **Lua** scripting (like Roblox), but with some differences tailored to BloxVerse's architecture.
+Welcome to BloxVerse! This guide explains how to write scripts for your BloxVerse games. BloxVerse uses **Lua** scripting (like Roblox), but runs in the browser with some differences tailored to BloxVerse's architecture.
 
 ---
 
@@ -14,11 +14,14 @@ Welcome to BloxVerse! This guide explains how to write scripts for your BloxVers
 7. [Part/Object System](#partobject-system)
 8. [Key Press Detection](#key-press-detection)
 9. [GUI System](#gui-system)
-10. [Events and Signals](#events-and-signals)
-11. [Networking & Multiplayer](#networking-multiplayer)
-12. [Best Practices](#best-practices)
-13. [Examples](#examples)
-14. [FAQ](#faq)
+10. [Leaderstats System](#leaderstats)
+11. [Events and Signals](#events-and-signals)
+12. [Networking & Multiplayer](#networking-multiplayer)
+13. [Math & Utility Functions](#math-utility)
+14. [Advanced Patterns](#advanced-patterns)
+15. [Best Practices](#best-practices)
+16. [Examples](#examples)
+17. [FAQ](#faq)
 
 ---
 
@@ -38,7 +41,6 @@ Welcome to BloxVerse! This guide explains how to write scripts for your BloxVers
 Every script should export event handlers:
 
 ```lua
--- Your script
 local function onGameStart()
     print("Game started!")
 end
@@ -89,25 +91,32 @@ BloxVerse supports different contexts where scripts run:
 ## Global Functions
 
 ### `print(...)`
-Print messages to the server console and all players' chat.
+Print messages to the console and chat output.
 
 ```lua
 print("Hello, world!")
-print("Player count:", game:GetPlayers())
+print("Player count:", #game:GetPlayers())
 ```
 
 ### `warn(...)`
-Print a warning message (appears in yellow in logs).
+Print a warning message (appears highlighted in logs).
 
 ```lua
 warn("This might cause issues!")
 ```
 
-### `error(message, [level])`
+### `error(message)`
 Throw an error and stop script execution.
 
 ```lua
 error("Invalid configuration!")
+```
+
+### `assert(value, message)`
+Throw an error if `value` is falsy.
+
+```lua
+assert(player ~= nil, "Player must not be nil")
 ```
 
 ### `wait(seconds)`
@@ -137,6 +146,69 @@ delay(3, function()
 end)
 ```
 
+### `pcall(function, ...)` / `xpcall(function, handler, ...)`
+Call a function in protected mode; catches errors instead of crashing.
+
+```lua
+local ok, err = pcall(function()
+    error("oops")
+end)
+if not ok then
+    warn("Caught:", err)
+end
+```
+
+### `tostring(value)` / `tonumber(value)`
+Convert values to string or number.
+
+```lua
+print(tostring(42))     -- "42"
+print(tonumber("3.14")) -- 3.14
+```
+
+### `type(value)`
+Returns the Lua type of a value as a string: `"nil"`, `"boolean"`, `"number"`, `"string"`, `"table"`, `"function"`.
+
+```lua
+print(type(42))      -- "number"
+print(type("hello")) -- "string"
+print(type(nil))     -- "nil"
+```
+
+### `ipairs(table)` / `pairs(table)`
+Iterate over arrays (`ipairs`) or all key-value pairs (`pairs`).
+
+```lua
+local fruits = {"apple", "banana", "cherry"}
+for i, v in ipairs(fruits) do
+    print(i, v)
+end
+
+local config = { speed = 16, health = 100 }
+for k, v in pairs(config) do
+    print(k, v)
+end
+```
+
+### `unpack(table, [i, j])`
+Expand a table into multiple return values.
+
+```lua
+local pos = {10, 20, 30}
+local x, y, z = unpack(pos)
+```
+
+### `select(index, ...)`
+Return arguments from index onwards, or `"#"` to get the count.
+
+```lua
+print(select(2, "a", "b", "c"))  -- b  c
+print(select("#", "a", "b", "c")) -- 3
+```
+
+### `setmetatable(table, metatable)` / `getmetatable(table)`
+Attach or retrieve a metatable (used for OOP patterns — see [Advanced Patterns](#advanced-patterns)).
+
 ---
 
 <a id="game-object"></a>
@@ -156,7 +228,7 @@ end
 ```
 
 ### `game:FindPlayer(userId)`
-Find a player by their user ID.
+Find a player by their user ID or username.
 
 ```lua
 local player = game:FindPlayer("user123")
@@ -173,20 +245,14 @@ local timeElapsed = game:GetGameTime()
 print("Game has been running for", timeElapsed, "seconds")
 ```
 
-### `game:GetProperty(key)`
-Get a game property (custom configuration).
-
-```lua
-local maxPlayers = game:GetProperty("maxPlayers")
-local difficulty = game:GetProperty("difficulty")
-```
-
-### `game:SetProperty(key, value)`
-Set a game property (shared across all players).
+### `game:GetProperty(key)` / `game:SetProperty(key, value)`
+Get or set a named game property. Values are local to each client.
 
 ```lua
 game:SetProperty("score", 100)
 game:SetProperty("roundNumber", 2)
+
+local maxPlayers = game:GetProperty("maxPlayers")
 ```
 
 ### `game:Broadcast(message)`
@@ -196,15 +262,21 @@ Send a message to all players' chat.
 game:Broadcast("Game will end in 60 seconds!")
 ```
 
-### `game:Fire(eventName, ...)`
-Fire a custom event that can be listened to by scripts.
+### `game:Fire(eventName, ...)` / `game:On(eventName, callback)`
+Fire and listen to custom events between scripts.
 
 ```lua
+-- Fire an event
 game:Fire("PlayerScored", player.id, 50)
+
+-- Listen to it (can be in a different script)
+game:On("PlayerScored", function(playerId, points)
+    print("Player", playerId, "scored", points, "points")
+end)
 ```
 
 ### `game:IsKeyDown(keyCode)`
-Check if a keyboard key is currently held down:
+Check if a keyboard key is currently held down. Uses [KeyboardEvent.code](https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/code) values.
 
 ```lua
 if game:IsKeyDown("Space") then
@@ -216,11 +288,34 @@ end
 ```
 
 ### `game:SetWalkSpeed(speed)` / `game:GetWalkSpeed()`
-Control the local player's walk speed in studs per second (default 16):
+Control the local player's walk speed in studs per second (default: 16).
 
 ```lua
 game:SetWalkSpeed(32)  -- Double speed
 print("Current speed:", game:GetWalkSpeed())
+```
+
+### `game:GetPart(name)` / `game:GetAllParts()` / `game:RemovePart(name)`
+Find, list, or remove parts from the world.
+
+```lua
+local platform = game:GetPart("MyPlatform")
+local allParts = game:GetAllParts()
+game:RemovePart("MyPlatform")
+```
+
+### `game:CreateScreenGui(name)`
+Create a screen-wide GUI canvas for on-screen elements. See the [GUI System](#gui-system) section.
+
+```lua
+local gui = game:CreateScreenGui("HUD")
+```
+
+### `game:CleanupGui()`
+Remove all GUI elements created by `game:CreateScreenGui` at once.
+
+```lua
+game:CleanupGui()
 ```
 
 ---
@@ -243,17 +338,11 @@ player.maxHealth    -- Maximum health (number)
 
 ### Methods
 
-#### `player:GetProperty(key)`
-Get a player-specific property.
+#### `player:GetProperty(key)` / `player:SetProperty(key, value)`
+Get or set a player-specific property.
 
 ```lua
 local score = player:GetProperty("score") or 0
-```
-
-#### `player:SetProperty(key, value)`
-Set a player-specific property.
-
-```lua
 player:SetProperty("score", score + 50)
 ```
 
@@ -265,23 +354,17 @@ player:Message("Welcome to the game!")
 ```
 
 #### `player:Teleport(x, y, z)`
-Move player to a location.
+Move the player to a location.
 
 ```lua
 player:Teleport(0, 10, 0)
 ```
 
-#### `player:Damage(amount)`
-Reduce player health.
+#### `player:Damage(amount)` / `player:Heal(amount)`
+Reduce or increase player health.
 
 ```lua
 player:Damage(10)
-```
-
-#### `player:Heal(amount)`
-Increase player health.
-
-```lua
 player:Heal(20)
 ```
 
@@ -294,10 +377,12 @@ if player.health <= 0 then
 end
 ```
 
+---
+
 <a id="instance-tree"></a>
 ## The Instance Tree
 
-Objects are organized in a hierarchy (Parent/Child relationship).
+Objects are organized in a hierarchy (Parent/Child relationship), just like Roblox.
 
 ```lua
 game.Workspace           -- Container for physical objects
@@ -309,7 +394,7 @@ game.Players             -- List of connected players
 
 ### Navigating the Hierarchy
 
-You can use dot notation to traverse the tree, just like in Roblox:
+Use dot notation to traverse the tree:
 
 ```lua
 local myPart = game.Workspace.Part1
@@ -318,60 +403,48 @@ local sky = game.Lighting.Sky
 
 ### Common Properties
 
-All objects (Instances) have these properties:
+All instances have these properties:
 
-- `Name`: The name of the object.
-- `Parent`: The parent object in the tree.
-- `ClassName`: The type of the object (e.g., "Part", "Script", "Folder").
+- `Name` — the object's name
+- `Parent` — its parent in the tree
+- `ClassName` — the type, e.g. `"Part"`, `"Folder"`, `"TextLabel"`
 
 ```lua
-print(game.Workspace.Name) -- "Workspace"
+print(game.Workspace.Name)     -- "Workspace"
 game.Workspace.Part1.Name = "NewName"
 ```
 
 ### Instance Methods
 
-All objects support these methods for navigating and manipulating the hierarchy:
-
 | Method | Description |
 |--------|-------------|
-| `instance:FindFirstChild(name, recursive)` | Returns the first child with the given name, or nil |
-| `instance:GetChildren()` | Returns an array of all direct children |
-| `instance:IsA(className)` | Returns true if the instance is of the given class |
-| `instance:WaitForChild(name, timeout)` | Waits for a child to appear (async), with optional timeout |
-| `instance:GetFullName()` | Returns the full hierarchy path (e.g. "Workspace.Part.SurfaceGui") |
-| `instance:Destroy()` | Destroys the instance and all children |
-| `instance:ClearAllChildren()` | Destroys all children of this instance |
+| `instance:FindFirstChild(name, recursive)` | First child with the given name, or nil |
+| `instance:GetChildren()` | Array of all direct children |
+| `instance:IsA(className)` | True if the instance is of the given class |
+| `instance:WaitForChild(name, timeout)` | Waits (async) for a child to appear |
+| `instance:GetFullName()` | Full hierarchy path, e.g. `"Workspace.Part"` |
+| `instance:Destroy()` | Destroys the instance and all its children |
+| `instance:ClearAllChildren()` | Destroys all children, keeps the instance |
 | `instance:GetAttribute(name)` | Returns a custom attribute value |
 | `instance:SetAttribute(name, value)` | Sets a custom attribute value |
 | `instance:GetAttributes()` | Returns all custom attributes as a table |
 
 ```lua
--- Find a child by name
 local part = game.Workspace:FindFirstChild("Baseplate")
 if part then
     print("Found:", part:GetFullName())
 end
 
--- Get all children
-local objects = game.Workspace:GetChildren()
-for _, obj in ipairs(objects) do
+for _, obj in ipairs(game.Workspace:GetChildren()) do
     print(obj.Name, obj.ClassName)
 end
 
--- Check class type
 if part:IsA("Part") then
     part.Color = Color3.fromRGB(255, 0, 0)
 end
 
--- Wait for a child to appear
-local gui = game.StarterGui:WaitForChild("ScreenGui")
-print("ScreenGui found!")
-
--- Custom attributes
 part:SetAttribute("Health", 100)
-part:SetAttribute("Owner", "Player1")
-print(part:GetAttribute("Health")) -- 100
+print(part:GetAttribute("Health"))  -- 100
 ```
 
 ### Constructors
@@ -380,34 +453,29 @@ Use `Instance.new(className)` to create new objects:
 
 ```lua
 -- Parts and organization
-local part = Instance.new("Part")
-local folder = Instance.new("Folder")
-local model = Instance.new("Model")
+local part     = Instance.new("Part")
+local folder   = Instance.new("Folder")
+local model    = Instance.new("Model")
 
--- Scripts and audio
-local script = Instance.new("Script")
-local sound = Instance.new("Sound")
+-- Audio
+local sound    = Instance.new("Sound")
 
 -- Lighting
-local sky = Instance.new("Sky")
-local atmosphere = Instance.new("Atmosphere")
-local light = Instance.new("PointLight")
+local sky      = Instance.new("Sky")
+local atm      = Instance.new("Atmosphere")
+local light    = Instance.new("PointLight")
 
--- GUI
+-- GUI (Instance-based — see GUI System section)
 local screenGui = Instance.new("ScreenGui")
-local surfaceGui = Instance.new("SurfaceGui")
-local frame = Instance.new("Frame")
-local label = Instance.new("TextLabel")
-local button = Instance.new("TextButton")
+local frame     = Instance.new("Frame")
+local label     = Instance.new("TextLabel")
+local button    = Instance.new("TextButton")
 
--- Value objects (data storage, leaderstats)
-local intVal = Instance.new("IntValue")
-local strVal = Instance.new("StringValue")
-local numVal = Instance.new("NumberValue")
-local boolVal = Instance.new("BoolValue")
-
--- Players
-local player = Instance.new("Player")
+-- Value objects (used for leaderstats and data storage)
+local intVal    = Instance.new("IntValue")
+local strVal    = Instance.new("StringValue")
+local numVal    = Instance.new("NumberValue")
+local boolVal   = Instance.new("BoolValue")
 ```
 
 ### Signals
@@ -420,13 +488,11 @@ local player = Instance.new("Player")
 | `player.CharacterAdded` | A Character is assigned to the player |
 
 ```lua
--- Connect to part touch
 local part = game.Workspace.Part
 part.Touched:Connect(function(otherPart)
     print("Touched by:", otherPart.Name)
 end)
 
--- Connect to button click
 local button = game.StarterGui.ScreenGui.Button
 button.MouseButton1Click:Connect(function()
     print("Button clicked!")
@@ -438,85 +504,71 @@ end)
 <a id="partobject-system"></a>
 ## Part/Object System
 
-Parts are physical objects in your game. In BloxVerse, everything is organized in a hierarchical tree starting from the `game` object.
+Parts are physical objects in your game world.
 
-### Classes and Properties
+### Part Properties
 
-#### `Part`
-A physical 3D object in the world.
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Name` | string | — | The part's name |
+| `Position` | Vector3 | `{0,0,0}` | World position |
+| `Size` | Vector3 | `{4,4,4}` | Width, height, depth in studs |
+| `Color` | Color3 / hex | gray | Part color |
+| `Transparency` | number (0–1) | 0 | 0 = solid, 1 = invisible |
+| `Anchored` | boolean | true | If true, physics won't move it |
+| `CanCollide` | boolean | true | If true, other parts collide with it |
+| `Shape` | string | `"Block"` | `"Block"`, `"Sphere"`, or `"Cylinder"` |
+| `x`, `y`, `z` | number | — | Position shorthand |
+| `width`, `height`, `depth` | number | — | Size shorthand |
+| `mass` | number | — | Physics mass (read-only if anchored) |
 
-- `Position`: Vector3 position.
-- `Size`: Vector3 size.
-- `Color`: The color of the part.
-- `Anchored`: If true, the part stays in place and isn't affected by physics.
-- `CanCollide`: If true, other objects will collide with this part.
-- `Transparency`: 0 (opaque) to 1 (invisible).
-
-```lua
-local part = game.Workspace.Part
-part.Color = Color3.fromRGB(255, 0, 0)
-part.Anchored = true
-```
-
-#### `Lighting` Services
-
-##### `Sky`
-Controls the skybox and sun.
-
-- `SkyboxColor`: The color of the sky background.
-- `SunColor`: The color of the sun light.
-- `Brightness`: The intensity of the sun light.
-- `SunPosition`: The position of the sun in the sky.
+### Creating Parts
 
 ```lua
-local sky = game.Lighting.Sky
-sky.SunColor = Color3.fromRGB(255, 200, 150)
-sky.Brightness = 2.5
-```
-
-##### `Atmosphere`
-Controls the fog and air effects.
-
-- `Density`: How thick the fog is (0 to 1).
-- `FogColor`: The color of the fog.
-- `Offset`: Vertical offset for the fog effect.
-
-```lua
-local atm = game.Lighting.Atmosphere
-atm.Density = 0.5
-atm.FogColor = Color3.fromRGB(200, 200, 255)
-```
-
-#### Other Classes
-
-- `Folder`: Used to organize objects in the explorer.
-- `Sound`: Represents an audio track. Properties: `SoundId`, `Volume`, `Playing`, `Looped`.
-- `PointLight`: A light source that shines in all directions. Properties: `Color`, `Brightness`, `Range`, `Shadows`.
-- `Script`: A script object containing code.
-- `SpawnLocation`: A special Part where players spawn.
-
-### Creating Objects
-
-Use `Instance.new(className)` to create a new object:
-
-```lua
-local folder = Instance.new("Folder")
-folder.Name = "MyFolder"
-folder.Parent = game.Workspace
-
 local part = Instance.new("Part")
-part.Name = "NewPart"
-part.Size = Vector3.new(4, 4, 4)
+part.Name = "MyPlatform"
+part.Size = Vector3.new(10, 1, 10)
 part.Position = Vector3.new(0, 5, 0)
-part.Anchored = false
-part.Parent = workspace
+part.Color = Color3.fromRGB(128, 128, 128)
+part.Anchored = true
+part.Parent = game.Workspace  -- spawns in the world when parented
 ```
 
-When a Part is parented to the Workspace, it is automatically added to the physics world with a physical body. You can set properties like `Size`, `Position`, `Color`, `Transparency`, and `Anchored` either before or after parenting.
+### Modifying Parts
+
+```lua
+local platform = game:GetPart("MyPlatform")
+if platform then
+    platform.Position = Vector3.new(10, 20, -5)
+    platform.Color = 0xff4400       -- hex color
+    platform.Transparency = 0.5
+    platform.Anchored = false
+end
+```
+
+### Part Methods
+
+#### `part:SetVelocity(x, y, z)` / `part:GetVelocity()`
+Set or get the velocity of an unanchored part.
+
+```lua
+local ball = game:GetPart("Ball")
+ball:SetVelocity(10, 5, 0)
+
+local vel = ball:GetVelocity()
+print("Speed:", math.sqrt(vel.x^2 + vel.y^2 + vel.z^2))
+```
+
+#### `part:SetPosition(x, y, z)` / `part:GetPosition()`
+Teleport a part or read its position.
+
+```lua
+part:SetPosition(0, 5, 0)
+local pos = part:GetPosition()
+print(pos.x, pos.y, pos.z)
+```
 
 ### Vector3
-
-Used for 3D positions and sizes:
 
 ```lua
 local pos = Vector3.new(10, 5, 0)
@@ -527,145 +579,36 @@ print(part.Position.x, part.Position.y, part.Position.z)
 
 ### Color3
 
-Used to represent colors:
-
 ```lua
 local red = Color3.fromRGB(255, 0, 0)
 part.Color = red
 
--- Also accepts hex numbers:
+-- Hex shorthand
 part.Color = 0xff4400
+
+-- HSV
+part.Color = Color3.fromHSV(0.6, 1, 1)
 ```
 
-### Part Methods
+### Lighting Services
 
-#### `part:SetVelocity(x, y, z)`
-Set the velocity of a dynamic (unanchored) part.
-
+#### `Sky`
 ```lua
-local ball = game:GetPart("Ball")
-ball:SetVelocity(10, 5, 0)  -- Move the ball
+local sky = game.Lighting.Sky
+sky.SunColor = Color3.fromRGB(255, 200, 150)
+sky.Brightness = 2.5
+-- Properties: SkyboxColor, SunColor, Brightness, SunPosition
 ```
 
-#### `part:GetVelocity()`
-Get a part's current velocity.
-
+#### `Atmosphere`
 ```lua
-local vx, vy, vz = part:GetVelocity()
-print("Speed:", math.sqrt(vx*vx + vy*vy + vz*vz))
-```
-
-#### `part:SetPosition(x, y, z)`
-Teleport a part to a position (only for anchored parts).
-
-```lua
-local part = game:GetPart("MyPart")
-part:SetPosition(0, 5, 0)
-```
-
-#### `part:GetPosition()`
-Get a part's current position.
-
-```lua
-local x, y, z = part:GetPosition()
-```
-
-### Creating Parts at Runtime
-
-You can create new parts and add them to the game world during gameplay.
-
-#### `Instance.new("Part")`
-Create a new part using the standard Instance system (like Roblox):
-
-```lua
-local part = Instance.new("Part")
-part.Name = "MyPlatform"
-part.Size = Vector3.new(10, 1, 10)
-part.Position = Vector3.new(0, 5, 0)
-part.Color = Color3.fromRGB(128, 128, 128)
-part.Anchored = true
-part.Parent = game.Workspace
-```
-
-Your new part appears in the world as soon as `.Parent` is set.
-
-#### `game:GetPart(name)`
-Find a part by name:
-
-```lua
-local platform = game:GetPart("MyPlatform")
-if platform then
-    print("Found platform at", platform.x, platform.y, platform.z)
-end
-```
-
-#### `game:GetAllParts()`
-Get a list of all parts currently in the world.
-
-#### `game:RemovePart(name)`
-Remove a part from the game world (including its physics body).
-
-```lua
-game:RemovePart("MyPlatform")
-```
-
-#### `game:IsKeyDown(keyCode)`
-Check if a keyboard key is currently held down:
-
-```lua
-if game:IsKeyDown("Space") then
-    print("Jumping!")
-end
-if game:IsKeyDown("ShiftLeft") then
-    game:SetWalkSpeed(25)
-end
-```
-
-### Part Properties
-
-Each part has properties you can read and modify in real time.
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `part.Name` | string | The part's name |
-| `part.Position` | Vector3 | Position as `{x, y, z}` object |
-| `part.Size` | Vector3 | Size as `{x, y, z}` object |
-| `part.Color` | number/Color3 | Color (hex like `0xff4400` or Color3) |
-| `part.Transparency` | number | 0 (opaque) to 1 (invisible) |
-| `part.Anchored` | boolean | If true, part doesn't move with physics |
-| `part.CanCollide` | boolean | If true, other objects collide with it |
-| `part.x` | number | X position (shorthand) |
-| `part.y` | number | Y position (shorthand) |
-| `part.z` | number | Z position (shorthand) |
-| `part.width` | number | Width (X axis, shorthand) |
-| `part.height` | number | Height (Y axis, shorthand) |
-| `part.depth` | number | Depth (Z axis, shorthand) |
-| `part.mass` | number | Physics mass (read-only if anchored) |
-
-### Modifying Parts
-
-Change part properties at runtime to create dynamic effects.
-
-```lua
-local platform = game:GetPart("MyPlatform")
-if platform then
-    -- Move the platform
-    platform.Position = Vector3.new(10, 20, -5)
-
-    -- Change color (hex)
-    platform.Color = 0xff4400
-
-    -- Make it semi-transparent
-    platform.Transparency = 0.5
-
-    -- Toggle physics
-    platform.Anchored = false
-end
+local atm = game.Lighting.Atmosphere
+atm.Density = 0.5
+atm.FogColor = Color3.fromRGB(200, 200, 255)
+-- Properties: Density, FogColor, Offset
 ```
 
 ### Animating Parts
-
-Combine position and property changes in `onUpdate` to animate parts.
 
 ```lua
 local time = 0
@@ -673,12 +616,10 @@ local time = 0
 local function onUpdate(dt)
     time = time + dt
 
-    -- Make a part bob up and down
     local part = game:GetPart("MyPart")
     if part then
         part.Position = Vector3.new(10, 10 + math.sin(time * 2) * 3, 0)
 
-        -- Cycle color
         local r = math.floor(128 + 127 * math.sin(time))
         local g = math.floor(128 + 127 * math.sin(time + 2))
         local b = math.floor(128 + 127 * math.sin(time + 4))
@@ -692,26 +633,22 @@ end
 <a id="key-press-detection"></a>
 ## Key Press Detection
 
-Detect real-time keyboard input in your scripts using `game:IsKeyDown()`. This is useful for custom controls, ability triggers, or debug toggles.
-
-### `game:IsKeyDown(keyCode)`
-
-Returns `true` if the specified key is currently held down. Key codes follow the standard [KeyboardEvent.code](https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/code) values.
+Detect real-time keyboard input using `game:IsKeyDown()`. Key codes follow the [KeyboardEvent.code](https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/code) standard.
 
 ```lua
--- Movement keys
+-- Movement
 game:IsKeyDown("KeyW")       -- Forward
 game:IsKeyDown("KeyA")       -- Left
 game:IsKeyDown("KeyS")       -- Backward
 game:IsKeyDown("KeyD")       -- Right
 
--- Action keys
+-- Actions
 game:IsKeyDown("Space")      -- Jump
-game:IsKeyDown("ShiftLeft")  -- Shift lock toggle
+game:IsKeyDown("ShiftLeft")  -- Sprint / shift lock
 game:IsKeyDown("KeyE")       -- Interact
 game:IsKeyDown("KeyF")       -- Use
 
--- Arrow keys
+-- Arrows
 game:IsKeyDown("ArrowUp")
 game:IsKeyDown("ArrowDown")
 game:IsKeyDown("ArrowLeft")
@@ -722,16 +659,15 @@ game:IsKeyDown("ArrowRight")
 
 ```lua
 local function onUpdate(dt)
-    local speed = game:GetWalkSpeed()
     if game:IsKeyDown("ShiftLeft") then
-        game:SetWalkSpeed(28)  -- Sprint
+        game:SetWalkSpeed(28)
     else
-        game:SetWalkSpeed(16)  -- Normal walk
+        game:SetWalkSpeed(16)
     end
 end
 ```
 
-### Example: Ability on Key Press (with cooldown)
+### Example: Ability with Cooldown
 
 ```lua
 local dashCooldown = 0
@@ -743,7 +679,6 @@ local function onUpdate(dt)
         game:Broadcast("Dashing!")
         game:SetWalkSpeed(48)
         dashCooldown = 3
-        -- Reset speed after 0.5 seconds
         delay(0.5, function()
             game:SetWalkSpeed(16)
         end)
@@ -756,174 +691,299 @@ end
 <a id="gui-system"></a>
 ## GUI System
 
-Create on-screen text labels, buttons, and containers from your scripts.
+BloxVerse supports two ways to create on-screen UI: the **imperative API** (`game:CreateScreenGui`) and the **instance-based API** (`Instance.new("ScreenGui")`). Both render to the same overlay and can be used in the same script.
 
-### `game:CreateScreenGui(name)`
-Create a screen-wide canvas that holds your GUI elements. Returns a GUI container.
+---
 
-```lua
-local gui = game:CreateScreenGui("MyGui")
-```
+### Imperative API
 
-### `gui:CreateGui(type, properties)`
-Create a GUI element inside a ScreenGui. Supported types: `TextLabel`, `TextButton`, `Frame`.
+Quick and simple. Best for dynamic HUDs created at runtime.
+
+#### `game:CreateScreenGui(name)`
+Creates a screen-wide canvas. Returns a container with a `CreateGui` method.
+
+#### `container:CreateGui(type, properties)`
+Adds a GUI element. Supported types: `"TextLabel"`, `"TextButton"`, `"Frame"`.
 
 ```lua
 local gui = game:CreateScreenGui("HUD")
 
--- Text label
 local label = gui:CreateGui("TextLabel", {
     Text = "Score: 0",
-    PositionX = 0.5,
-    PositionY = 0.1,
-    SizeX = 200,
-    SizeY = 40,
+    PositionX = 0.5,    -- 50% across the screen (centered)
+    PositionY = 0.05,   -- 5% from the top
+    SizeX = 300,        -- 300px wide
+    SizeY = 40,         -- 40px tall
     TextColor = "#ffffff",
-    BackgroundColor = "#333333",
-    FontSize = 18,
+    BackgroundColor = "transparent",
+    FontSize = 22,
 })
 
--- Button
 local button = gui:CreateGui("TextButton", {
-    Text = "Click Me",
+    Text = "Reset",
     PositionX = 0.5,
-    PositionY = 0.5,
-    SizeX = 150,
-    SizeY = 40,
+    PositionY = 0.15,
+    SizeX = 120,
+    SizeY = 36,
     BackgroundColor = "#ff4400",
     TextColor = "#ffffff",
-    FontSize = 16,
+    FontSize = 15,
 })
 ```
 
-Position and size values between 0 and 1 are treated as **percentages** of the screen. Values > 1 are treated as **pixels**.
+**Position and size:** values between 0 and 1 are treated as a fraction of the screen. Values greater than 1 are treated as pixels.
 
-### GUI Properties
-
-Read and modify these properties at any time:
+#### GUI Element Properties
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `element.Text` | string | The displayed text |
-| `element.Visible` | boolean | Show/hide the element |
-| `element.PositionX` | number | X position (0-1 = % of screen, >1 = px) |
-| `element.PositionY` | number | Y position (0-1 = % of screen, >1 = px) |
-| `element.SizeX` | number | Width (0-1 = % of screen, >1 = px) |
-| `element.SizeY` | number | Height (0-1 = % of screen, >1 = px) |
-| `element.TextColor` | string | CSS color (e.g. `"#ffffff"`, `"red"`) |
-| `element.BackgroundColor` | string | CSS background color |
-| `element.BackgroundTransparency` | number | 0 (opaque) to 1 (invisible) |
-| `element.FontSize` | number | Font size in pixels |
-| `element.ZIndex` | number | Stacking order |
+| `Text` | string | Displayed text (TextLabel / TextButton) |
+| `Visible` | boolean | Show or hide the element |
+| `PositionX` | number | X position (0–1 = % of screen width, >1 = px) |
+| `PositionY` | number | Y position (0–1 = % of screen height, >1 = px) |
+| `SizeX` | number | Width (0–1 = % of screen width, >1 = px) |
+| `SizeY` | number | Height (0–1 = % of screen height, >1 = px) |
+| `TextColor` | string / Color3 | Text color — CSS string or Color3 |
+| `BackgroundColor` | string / Color3 | Background color |
+| `BackgroundTransparency` | number (0–1) | 0 = opaque, 1 = invisible |
+| `TextTransparency` | number (0–1) | 0 = solid text, 1 = invisible text |
+| `FontSize` | number | Font size in pixels |
+| `ZIndex` | number | Stacking order (higher = on top) |
+
+All properties can be read and written at any time:
 
 ```lua
--- Update properties at runtime
 label.Text = "Score: 100"
-label.PositionY = 0.2
+label.Visible = false
 label.BackgroundColor = "#444444"
 ```
 
-### Events
-
-Connect functions to GUI events using `:Connect()`:
+#### Connecting Events
 
 ```lua
 button:Connect("click", function()
-    game:Broadcast("Button clicked!")
+    game:Broadcast("Clicked!")
 end)
 
--- Common events: click, mouseenter, mouseleave, mousedown, mouseup
+-- Available events: click, mouseenter, mouseleave, mousedown, mouseup
 ```
 
-### Destroy
-
-Remove a GUI element or entire screen when no longer needed:
+You can also use the Roblox signal style on TextButton elements:
 
 ```lua
--- Remove a single element
-label:Destroy()
-
--- Remove entire GUI screen
-gui:Destroy()
+button.MouseButton1Click:Connect(function()
+    print("Button pressed!")
+end)
 ```
 
-### Example: Interactive HUD
+#### Destroying Elements
+
+```lua
+label:Destroy()   -- removes just this element
+gui:Destroy()     -- removes the whole ScreenGui
+game:CleanupGui() -- removes all script-created GUIs at once
+```
+
+#### Full Example: Interactive HUD
 
 ```lua
 local gui = game:CreateScreenGui("HUD")
 local score = 0
 
--- Score label
 local scoreLabel = gui:CreateGui("TextLabel", {
     Text = "Score: 0",
-    PositionX = 0.5,
-    PositionY = 0.05,
-    SizeX = 300,
-    SizeY = 40,
-    TextColor = "#ffffff",
-    BackgroundColor = "transparent",
+    PositionX = 0.5, PositionY = 0.05,
+    SizeX = 300, SizeY = 40,
+    TextColor = "#ffffff", BackgroundColor = "transparent",
     FontSize = 24,
 })
 
--- Instructions
-local instruct = gui:CreateGui("TextLabel", {
-    Text = "Press E to score a point",
-    PositionX = 0.5,
-    PositionY = 0.12,
-    SizeX = 300,
-    SizeY = 30,
-    TextColor = "#aaaaaa",
-    BackgroundColor = "transparent",
+local instrLabel = gui:CreateGui("TextLabel", {
+    Text = "Press E to score",
+    PositionX = 0.5, PositionY = 0.12,
+    SizeX = 300, SizeY = 28,
+    TextColor = "#aaaaaa", BackgroundColor = "transparent",
     FontSize = 14,
 })
 
--- Button
-local btn = gui:CreateGui("TextButton", {
+local resetBtn = gui:CreateGui("TextButton", {
     Text = "Reset",
-    PositionX = 0.5,
-    PositionY = 0.2,
-    SizeX = 100,
-    SizeY = 30,
-    BackgroundColor = "#ff4400",
-    TextColor = "#ffffff",
+    PositionX = 0.5, PositionY = 0.2,
+    SizeX = 100, SizeY = 32,
+    BackgroundColor = "#ff4400", TextColor = "#ffffff",
     FontSize = 14,
 })
 
-btn:Connect("click", function()
+resetBtn:Connect("click", function()
     score = 0
     scoreLabel.Text = "Score: 0"
-    game:Broadcast("Score reset!")
 end)
 
+local eWasDown = false
 local function onUpdate(dt)
-    if game:IsKeyDown("KeyE") then
+    local eDown = game:IsKeyDown("KeyE")
+    if eDown and not eWasDown then
         score = score + 1
         scoreLabel.Text = "Score: " .. score
     end
+    eWasDown = eDown
 end
 
--- Clean up later if needed:
--- gui:Destroy()
--- or game:CleanupGui()
+return { onUpdate = onUpdate }
 ```
 
-### `game:CleanupGui()`
-Remove all script-created GUI elements at once.
+---
+
+### Instance-Based API
+
+The Roblox-compatible approach. Use `Instance.new` to build GUIs as part of the instance tree. GUI elements automatically render to the screen when parented to a `ScreenGui` that is parented to `game.StarterGui`.
 
 ```lua
-game:CleanupGui()
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "HUD"
+screenGui.Parent = game.StarterGui  -- this mounts it to the overlay
+
+local label = Instance.new("TextLabel")
+label.Name = "ScoreLabel"
+label.Text = "Score: 0"
+label.Size = {200, 50}
+label.Position = {0.5, 0.1}
+label.FontSize = 18
+label.Parent = screenGui            -- renders immediately
+
+-- Updating text works directly:
+label.Text = "Score: 10"
 ```
 
+#### TextButton with Signal
+
+```lua
+local button = Instance.new("TextButton")
+button.Text = "Click Me"
+button.Size = {150, 40}
+button.Position = {0.5, 0.5}
+button.BackgroundColor = Color3.fromRGB(88, 101, 242)
+button.Parent = screenGui
+
+button.MouseButton1Click:Connect(function()
+    print("Button was clicked!")
+end)
+```
+
+#### Frame as a container
+
+```lua
+local frame = Instance.new("Frame")
+frame.Size = {300, 200}
+frame.Position = {0.5, 0.3}
+frame.BackgroundColor = Color3.fromRGB(30, 30, 30)
+frame.BackgroundTransparency = 0.3
+frame.Parent = screenGui
+
+local innerLabel = Instance.new("TextLabel")
+innerLabel.Text = "Hello!"
+innerLabel.Size = {280, 40}
+innerLabel.Position = {10, 10}
+innerLabel.Parent = frame
+```
+
+#### GUI Element Properties (Instance-based)
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Text` | string | `"Label"` | Text content (TextLabel / TextButton) |
+| `Visible` | boolean | true | Show / hide |
+| `BackgroundColor` | Color3 | varies | Background color |
+| `BackgroundTransparency` | number (0–1) | 0 | 0 = opaque, 1 = invisible |
+| `TextColor` | Color3 | white | Text color |
+| `TextTransparency` | number (0–1) | 0 | 0 = solid, 1 = invisible |
+| `FontSize` | number | 14 | Font size in pixels |
+| `Position` | `{x, y}` | `{0, 0}` | Position in pixels or 0–1 fraction |
+| `Size` | `{w, h}` | varies | Size in pixels or 0–1 fraction |
+
+All of these can be set at runtime and will update the display immediately:
+
+```lua
+label.Text = "Updated!"
+label.Visible = false
+label.BackgroundTransparency = 0.5
+```
+
+---
+
+<a id="leaderstats"></a>
+## Leaderstats System
+
+BloxVerse automatically displays **leaderstats** in the player list. To show stats next to player names, create a `Folder` named `"leaderstats"` inside a player instance, then add value objects as children.
+
+### Setup
+
+```lua
+local function onPlayerJoin(player)
+    -- Find the player instance in the Players service
+    local playerInst = game.Players:FindFirstChild(player.name)
+    if not playerInst then return end
+
+    local stats = Instance.new("Folder")
+    stats.Name = "leaderstats"
+    stats.Parent = playerInst
+
+    local coins = Instance.new("IntValue")
+    coins.Name = "Coins"
+    coins.Value = 0
+    coins.Parent = stats
+
+    local kills = Instance.new("IntValue")
+    kills.Name = "Kills"
+    kills.Value = 0
+    kills.Parent = stats
+
+    local rank = Instance.new("StringValue")
+    rank.Name = "Rank"
+    rank.Value = "Rookie"
+    rank.Parent = stats
+end
+
+return { onPlayerJoin = onPlayerJoin }
+```
+
+The stat columns appear automatically in the leaderboard panel on the right side of the screen. Updates to `.Value` are reflected within half a second.
+
+### Updating Stats
+
+```lua
+local playerInst = game.Players:FindFirstChild(player.name)
+if playerInst then
+    local stats = playerInst:FindFirstChild("leaderstats")
+    if stats then
+        local coins = stats:FindFirstChild("Coins")
+        if coins then
+            coins.Value = coins.Value + 10
+        end
+    end
+end
+```
+
+### Supported Value Types
+
+| Class | Value type | Example use |
+|-------|-----------|-------------|
+| `IntValue` | integer | Kills, Coins, Score |
+| `NumberValue` | float | Time, Distance |
+| `StringValue` | string | Rank, Team, Guild |
+| `BoolValue` | boolean | VIP, Alive |
+
+---
 
 <a id="events-and-signals"></a>
 ## Events and Signals
 
-Scripts can listen to and respond to events.
+### Built-in Lifecycle Events
 
-### Built-in Events
+Export these from your script's `return` table to hook into the game loop:
 
 #### `onGameStart()`
-Called once when the game loads. Perfect for initialization.
+Called once when the game loads.
 
 ```lua
 local function onGameStart()
@@ -942,47 +1002,35 @@ end
 ```
 
 #### `onUpdate(dt)`
-Called every frame (60 times per second by default).
-- `dt` = delta time in seconds
+Called every frame (~60 times per second). `dt` is delta time in seconds.
 
 ```lua
 local function onUpdate(dt)
-    -- Update game logic
-    local players = game:GetPlayers()
-    print("Frame update, players:", #players)
+    -- game logic here
 end
 ```
 
-#### `onPlayerJoin(player)`
-Called when a player joins the game.
+#### `onPlayerJoin(player)` / `onPlayerLeave(player)`
 
 ```lua
 local function onPlayerJoin(player)
     game:Broadcast(player.name .. " joined!")
-    player:SetProperty("score", 0)
 end
-```
 
-#### `onPlayerLeave(player)`
-Called when a player leaves the game.
-
-```lua
 local function onPlayerLeave(player)
-    game:Broadcast(player.name .. " left!")
+    game:Broadcast(player.name .. " left.")
 end
 ```
 
 ### Custom Events
 
-Fire custom events and listen to them:
-
 ```lua
--- In script 1: Fire an event
+-- Fire from one script
 game:Fire("BossDefeated", bossName, timeElapsed)
 
--- In script 2: Listen to the event
-game:On("BossDefeated", function(bossName, timeElapsed)
-    print(bossName, "defeated in", timeElapsed, "seconds")
+-- Listen from another (or the same) script
+game:On("BossDefeated", function(name, time)
+    print(name, "defeated in", time, "seconds")
     game:Broadcast("Victory!")
 end)
 ```
@@ -992,15 +1040,11 @@ end)
 <a id="networking-multiplayer"></a>
 ## Networking & Multiplayer
 
-BloxVerse is built for multiplayer. Scripts run on the server and sync with all players.
+**All scripts run on each player's browser.** BloxVerse does not have a traditional authoritative server — each client runs the same scripts independently.
 
-### Important: Execution Model
-
-**All scripts run on each player's browser.** State is synced between players via the multiplayer system.
-
-- Each player's browser runs the same scripts independently
 - Player positions and physics are synced in real-time
-- Game properties set with `game:SetProperty()` are local to each client
+- `game:SetProperty()` values are local to each client
+- Use `game:Broadcast()` for visual messages visible to everyone
 
 ### Example: Multiplayer Scoring
 
@@ -1010,285 +1054,93 @@ local function onPlayerJoin(player)
 end
 
 local function onUpdate(dt)
-    local players = game:GetPlayers()
-    for _, player in ipairs(players) do
-        -- Check if player did something that earned points
-        -- This would be triggered by player input or game logic
-        local currentScore = player:GetProperty("score") or 0
-        player:SetProperty("score", currentScore + 1)  -- Give 1 point per frame
+    for _, player in ipairs(game:GetPlayers()) do
+        local s = (player:GetProperty("score") or 0) + dt
+        player:SetProperty("score", s)
     end
 end
 
-return {
-    onGameStart = onGameStart,
-    onUpdate = onUpdate,
-    onPlayerJoin = onPlayerJoin,
-}
+return { onPlayerJoin = onPlayerJoin, onUpdate = onUpdate }
 ```
 
 ---
 
-<a id="best-practices"></a>
-## Best Practices
-
-### 1. Use Local Variables in Functions
-```lua
--- Good
-local function checkScore(player)
-    local score = player:GetProperty("score") or 0
-    return score > 100
-end
-
--- Avoid
-function checkScore(player)
-    score = player:GetProperty("score") or 0
-    return score > 100
-end
-```
-
-### 2. Validate Player Actions
-```lua
-local function onPlayerAction(player, action)
-    if not player then return end
-    if action == "jump" then
-        if player.health > 0 then
-            -- Allow jump
-        end
-    end
-end
-```
-
-### 3. Use Tables for Organization
-```lua
-local GameConfig = {
-    MaxPlayers = 10,
-    StartingHealth = 100,
-    PointsPerKill = 50,
-}
-
-local function onGameStart()
-    game:SetProperty("maxPlayers", GameConfig.MaxPlayers)
-end
-```
-
-### 4. Handle Errors Gracefully
-```lua
-local success, err = pcall(function()
-    local player = game:FindPlayer(userId)
-    if player then
-        player:Teleport(0, 10, 0)
-    end
-end)
-
-if not success then
-    warn("Error:", err)
-end
-```
-
-### 5. Use Meaningful Names
-```lua
--- Good
-local isPlayerAlive = player.health > 0
-local pointsEarned = 50
-
--- Avoid
-local a = player.health > 0
-local p = 50
-```
-
----
-
-<a id="examples"></a>
-## Examples
-
-### Example 1: Simple Respawner
-```lua
-local function onPlayerJoin(player)
-    player:SetProperty("deaths", 0)
-end
-
-local function onUpdate(dt)
-    local players = game:GetPlayers()
-    for _, player in ipairs(players) do
-        if player.health <= 0 then
-            local deaths = (player:GetProperty("deaths") or 0) + 1
-            player:SetProperty("deaths", deaths)
-            wait(2)
-            player:Respawn()
-        end
-    end
-end
-
-return {
-    onPlayerJoin = onPlayerJoin,
-    onUpdate = onUpdate,
-}
-```
-
-### Example 2: Team System
-```lua
-local function onPlayerJoin(player)
-    local teamNumber = math.random(1, 2)  -- Team 1 or 2
-    player:SetProperty("team", teamNumber)
-    local teamName = teamNumber == 1 and "Red" or "Blue"
-    game:Broadcast(player.name .. " joined Team " .. teamName)
-end
-
-return {
-    onPlayerJoin = onPlayerJoin,
-}
-```
-
-### Example 3: Timed Game Mode
-```lua
-local GAME_DURATION = 300  -- 5 minutes
-
-local function onGameStart()
-    game:SetProperty("gameTime", 0)
-    game:SetProperty("gameActive", true)
-end
-
-local function onUpdate(dt)
-    if not game:GetProperty("gameActive") then return end
-    
-    local currentTime = (game:GetProperty("gameTime") or 0) + dt
-    game:SetProperty("gameTime", currentTime)
-    
-    if currentTime >= GAME_DURATION then
-        game:Broadcast("Game Over!")
-        game:SetProperty("gameActive", false)
-    end
-end
-
-return {
-    onGameStart = onGameStart,
-    onUpdate = onUpdate,
-}
-```
-
-### Example 4: Score Tracker
-```lua
-local function onPlayerJoin(player)
-    player:SetProperty("score", 0)
-    player:Message("Welcome! Your score: " .. player:GetProperty("score"))
-end
-
-local function onUpdate(dt)
-    -- Simulate score changes
-    local players = game:GetPlayers()
-    for _, player in ipairs(players) do
-        local score = player:GetProperty("score") or 0
-        -- Add points based on game logic
-        player:SetProperty("score", score + 0.1)  -- 0.1 points per frame
-    end
-end
-
-return {
-    onPlayerJoin = onPlayerJoin,
-    onUpdate = onUpdate,
-}
-```
-
----
-
-## Performance Tips
-
-1. **Cache frequently used values:**
-   ```lua
-   local players = game:GetPlayers()  -- Cache this
-   for _, player in ipairs(players) do
-       -- Use cached players list
-   end
-   ```
-
-2. **Avoid expensive operations in onUpdate:**
-   ```lua
-   local lastCheck = 0
-   local function onUpdate(dt)
-       lastCheck = lastCheck + dt
-       if lastCheck >= 1 then  -- Check every second
-           lastCheck = 0
-           -- Do expensive check
-       end
-   end
-   ```
-
-3. **Use local variables for closures:**
-   ```lua
-   local players = game:GetPlayers()
-   spawn(function()
-       wait(5)
-       for _, player in ipairs(players) do
-           -- Use captured players list
-       end
-   end)
-   ```
-
----
-
----
-
+<a id="math-utility"></a>
 ## Math & Utility Functions
 
-BloxVerse exposes standard Lua math and utility functions for use in your scripts.
+### Math
 
-### `math.random([m, n])`
-Generate a random number. With no arguments returns a float in [0,1). With one argument returns an integer in [1, m]. With two arguments returns an integer in [m, n].
-
-```lua
-local randomFloat = math.random()       -- 0.0 to 1.0
-local diceRoll = math.random(6)         -- 1 to 6
-local range = math.random(10, 20)       -- 10 to 20
-```
-
-### `math.floor(x)` / `math.ceil(x)`
-Round numbers down or up.
-
-```lua
-local score = 15.7
-print(math.floor(score))  -- 15
-print(math.ceil(score))   -- 16
-```
-
-### `math.clamp(value, min, max)`
-Clamp a value between a minimum and maximum (inclusive).
+| Function | Description |
+|----------|-------------|
+| `math.random()` | Float in [0, 1) |
+| `math.random(n)` | Integer in [1, n] |
+| `math.random(m, n)` | Integer in [m, n] |
+| `math.floor(x)` | Round down |
+| `math.ceil(x)` | Round up |
+| `math.clamp(v, min, max)` | Clamp value |
+| `math.abs(x)` | Absolute value |
+| `math.sqrt(x)` | Square root |
+| `math.sin(x)` / `math.cos(x)` / `math.tan(x)` | Trig |
+| `math.max(...)` / `math.min(...)` | Maximum / minimum |
+| `math.huge` | Infinity |
+| `math.pi` | π |
 
 ```lua
-local health = 150
-health = math.clamp(health, 0, 100)  -- 100
+local roll = math.random(1, 6)
+local health = math.clamp(health + 20, 0, 100)
+local dist = math.sqrt(dx*dx + dy*dy + dz*dz)
 ```
 
-### `math.abs(x)`
-Return the absolute value of x.
+### String
 
-### `table.insert(table, value)` / `table.remove(table, index)`
-Insert or remove elements from a table.
+| Function | Description |
+|----------|-------------|
+| `string.format(fmt, ...)` | Printf-style formatting |
+| `string.sub(s, i, j)` | Substring (1-indexed, negative from end) |
+| `string.lower(s)` / `string.upper(s)` | Case conversion |
+| `string.len(s)` | Length (same as `#s`) |
+| `string.rep(s, n, sep)` | Repeat s n times |
+| `string.reverse(s)` | Reverse a string |
+| `string.byte(s, i)` | Byte value at index i |
+| `string.char(...)` | Character from byte values |
+| `string.find(s, pattern)` | Find a pattern, returns start/end index |
+| `string.match(s, pattern)` | Return the matched substring |
+| `string.gsub(s, pattern, repl)` | Global replace, returns new string + count |
 
 ```lua
-local players = {}
-table.insert(players, "Alice")
-table.insert(players, "Bob")
-table.remove(players, 1)  -- Removes Alice
+local msg = string.format("Player %s scored %d points!", name, score)
+local initials = string.sub(name, 1, 2)
+print(string.upper("hello"))  -- "HELLO"
 ```
 
-### `string.sub(string, start, end)`
-Extract a substring.
+### Table
+
+| Function | Description |
+|----------|-------------|
+| `table.insert(t, value)` | Append value to end |
+| `table.insert(t, pos, value)` | Insert at position |
+| `table.remove(t, pos)` | Remove at position (default: last) |
+| `table.sort(t, fn)` | Sort in-place (optional comparator) |
+| `table.concat(t, sep, i, j)` | Join elements into a string |
+| `table.unpack(t, i, j)` | Expand table into values |
 
 ```lua
-local name = "BloxVerse"
-print(string.sub(name, 1, 4))  -- "Blox"
-```
+local items = {"apple", "cherry", "banana"}
+table.sort(items)
+print(table.concat(items, ", "))  -- apple, banana, cherry
 
-### `string.lower(string)` / `string.upper(string)`
-Convert string case.
+table.insert(items, "date")
+table.remove(items, 1)
+```
 
 ---
 
+<a id="advanced-patterns"></a>
 ## Advanced Patterns
 
 ### Object-Oriented Programming
 
-Create reusable class-like structures using Lua tables and metatables.
+BloxVerse supports Lua metatables and `setmetatable` for OOP.
 
 ```lua
 local Weapon = {}
@@ -1303,33 +1155,54 @@ function Weapon.new(name, damage)
 end
 
 function Weapon:Attack(target)
-    if self.cooldown > 0 then
-        return false
-    end
+    if self.cooldown > 0 then return false end
     target:Damage(self.damage)
     self.cooldown = 1.0
     return true
 end
 
 function Weapon:Update(dt)
-    if self.cooldown > 0 then
-        self.cooldown = self.cooldown - dt
-    end
+    self.cooldown = math.max(0, self.cooldown - dt)
 end
 
--- Usage
 local sword = Weapon.new("Sword", 25)
-local bow = Weapon.new("Bow", 15)
+```
+
+### Numeric For Loops
+
+```lua
+-- Count up
+for i = 1, 10 do
+    print(i)
+end
+
+-- Count down
+for i = 10, 1, -1 do
+    print(i)
+end
+
+-- Custom step
+for x = 0, 100, 10 do
+    print(x)
+end
+```
+
+### Repeat Until
+
+```lua
+local attempts = 0
+repeat
+    attempts = attempts + 1
+until attempts >= 5 or game:GetProperty("ready")
 ```
 
 ### Module Pattern
 
-Organize code by splitting logic into separate scripts that export functions.
+Organize code by splitting into scripts that return tables of functions.
 
 ```lua
 -- ScoreManager.lua
 local ScoreManager = {}
-
 local scores = {}
 
 function ScoreManager.init(player)
@@ -1344,10 +1217,6 @@ function ScoreManager.get(playerId)
     return scores[playerId] or 0
 end
 
-function ScoreManager.reset(playerId)
-    scores[playerId] = 0
-end
-
 return ScoreManager
 ```
 
@@ -1360,10 +1229,8 @@ local function onPlayerJoin(player)
 end
 
 local function onUpdate(dt)
-    local players = game:GetPlayers()
-    for _, player in ipairs(players) do
-        local score = ScoreManager.get(player.id)
-        if score >= 100 then
+    for _, player in ipairs(game:GetPlayers()) do
+        if ScoreManager.get(player.id) >= 100 then
             game:Broadcast(player.name .. " wins!")
         end
     end
@@ -1372,162 +1239,278 @@ end
 
 ### State Machines
 
-Use a state machine pattern to manage complex game states (menus, rounds, game over).
-
 ```lua
-local GameState = {
-    current = "waiting",
-    states = {}
-}
+local GameState = { current = "waiting", states = {} }
 
 function GameState.setState(name)
-    if GameState.states[GameState.current] and GameState.states[GameState.current].onExit then
-        GameState.states[GameState.current]:onExit()
-    end
+    local cur = GameState.states[GameState.current]
+    if cur and cur.onExit then cur:onExit() end
     GameState.current = name
-    if GameState.states[name] and GameState.states[name].onEnter then
-        GameState.states[name]:onEnter()
-    end
+    local next = GameState.states[name]
+    if next and next.onEnter then next:onEnter() end
 end
 
 function GameState.register(name, state)
     GameState.states[name] = state
 end
 
--- Register states
 GameState.register("waiting", {
-    onEnter = function()
-        game:Broadcast("Waiting for players...")
-    end,
+    onEnter = function() game:Broadcast("Waiting for players...") end,
     onUpdate = function(dt)
-        local count = #game:GetPlayers()
-        if count >= 2 then
+        if #game:GetPlayers() >= 2 then
             GameState.setState("playing")
         end
     end
 })
 
 GameState.register("playing", {
-    onEnter = function()
-        game:SetProperty("roundTime", 60)
-    end,
+    onEnter = function() game:SetProperty("roundTime", 60) end,
     onUpdate = function(dt)
-        local time = game:GetProperty("roundTime") or 60
-        time = time - dt
-        game:SetProperty("roundTime", time)
-        if time <= 0 then
-            GameState.setState("results")
-        end
+        local t = (game:GetProperty("roundTime") or 60) - dt
+        game:SetProperty("roundTime", t)
+        if t <= 0 then GameState.setState("results") end
     end
 })
 
 GameState.register("results", {
-    onEnter = function()
-        game:Broadcast("Game over!")
-    end
+    onEnter = function() game:Broadcast("Round over!") end
 })
 ```
 
 ---
 
-## Complete Game Example: Capture the Flag
+<a id="best-practices"></a>
+## Best Practices
 
-This example combines multiple concepts into a working game.
+### Use local variables
 
 ```lua
--- CaptureTheFlag.lua
-local FLAG_POSITION = { x = 0, y = 3, z = 20 }
-local BASE_POSITION = { x = 0, y = 1, z = -20 }
-local GAME_DURATION = 300
+-- Good
+local function checkScore(player)
+    local score = player:GetProperty("score") or 0
+    return score > 100
+end
+```
 
-local scores = {}
+### Throttle expensive work in onUpdate
+
+```lua
+local checkTimer = 0
+
+local function onUpdate(dt)
+    checkTimer = checkTimer + dt
+    if checkTimer >= 1 then
+        checkTimer = 0
+        -- run something expensive once per second
+    end
+end
+```
+
+### Validate before acting
+
+```lua
+local function onPlayerAction(player, action)
+    if not player then return end
+    if player.health <= 0 then return end
+    -- proceed
+end
+```
+
+### Catch errors with pcall
+
+```lua
+local ok, err = pcall(function()
+    local player = game:FindPlayer(userId)
+    if player then player:Teleport(0, 10, 0) end
+end)
+if not ok then warn("Error:", err) end
+```
+
+### Use tables for configuration
+
+```lua
+local Config = {
+    MaxPlayers = 10,
+    StartingHealth = 100,
+    PointsPerKill = 50,
+}
+```
+
+### Cache GetPlayers() in onUpdate
+
+```lua
+local function onUpdate(dt)
+    local players = game:GetPlayers()
+    for _, p in ipairs(players) do
+        -- use cached list
+    end
+end
+```
+
+---
+
+<a id="examples"></a>
+## Examples
+
+### Example 1: Simple Respawner
+
+```lua
+local function onPlayerJoin(player)
+    player:SetProperty("deaths", 0)
+end
+
+local function onUpdate(dt)
+    for _, player in ipairs(game:GetPlayers()) do
+        if player.health <= 0 then
+            local deaths = (player:GetProperty("deaths") or 0) + 1
+            player:SetProperty("deaths", deaths)
+            delay(2, function()
+                player:Respawn()
+            end)
+        end
+    end
+end
+
+return { onPlayerJoin = onPlayerJoin, onUpdate = onUpdate }
+```
+
+### Example 2: Team System with Leaderstats
+
+```lua
+local function onPlayerJoin(player)
+    local teamNum = math.random(1, 2)
+    player:SetProperty("team", teamNum)
+    local teamName = teamNum == 1 and "Red" or "Blue"
+    game:Broadcast(player.name .. " joined Team " .. teamName)
+
+    local playerInst = game.Players:FindFirstChild(player.name)
+    if playerInst then
+        local stats = Instance.new("Folder")
+        stats.Name = "leaderstats"
+        stats.Parent = playerInst
+
+        local team = Instance.new("StringValue")
+        team.Name = "Team"
+        team.Value = teamName
+        team.Parent = stats
+
+        local score = Instance.new("IntValue")
+        score.Name = "Score"
+        score.Value = 0
+        score.Parent = stats
+    end
+end
+
+return { onPlayerJoin = onPlayerJoin }
+```
+
+### Example 3: Timed Game Mode with HUD
+
+```lua
+local GAME_DURATION = 300
+local gui, timerLabel
+
+local function onGameStart()
+    game:SetProperty("gameTime", GAME_DURATION)
+    game:SetProperty("gameActive", true)
+
+    gui = game:CreateScreenGui("TimerHUD")
+    timerLabel = gui:CreateGui("TextLabel", {
+        Text = "5:00",
+        PositionX = 0.5, PositionY = 0.03,
+        SizeX = 160, SizeY = 36,
+        TextColor = "#ffffff", BackgroundColor = "transparent",
+        FontSize = 22,
+    })
+end
+
+local function onUpdate(dt)
+    if not game:GetProperty("gameActive") then return end
+
+    local t = (game:GetProperty("gameTime") or 0) - dt
+    game:SetProperty("gameTime", t)
+
+    if timerLabel then
+        local mins = math.floor(math.max(0, t) / 60)
+        local secs = math.floor(math.max(0, t) % 60)
+        timerLabel.Text = string.format("%d:%02d", mins, secs)
+    end
+
+    if t <= 0 then
+        game:Broadcast("Time's up!")
+        game:SetProperty("gameActive", false)
+        if gui then gui:Destroy() end
+    end
+end
+
+return { onGameStart = onGameStart, onUpdate = onUpdate }
+```
+
+### Example 4: Capture the Flag
+
+```lua
+local FLAG_POS   = { x = 0, y = 3, z = 20 }
+local BASE_POS   = { x = 0, y = 1, z = -20 }
+local GAME_TIME  = 300
+
+local scores     = {}
 local flagCarrier = nil
 
-function onGameStart()
-    game:SetProperty("gameTime", GAME_DURATION)
+local function returnFlag()
+    flagCarrier = nil
+    game:SetProperty("flagAtBase", true)
+    for _, p in ipairs(game:GetPlayers()) do
+        p:SetProperty("hasFlag", false)
+    end
+end
+
+local function endGame()
+    local winner, highest = "", 0
+    for id, s in pairs(scores) do
+        if s > highest then highest = s; winner = id end
+    end
+    local p = winner ~= "" and game:FindPlayer(winner)
+    if p then
+        game:Broadcast(p.name .. " wins with " .. highest .. " captures!")
+    else
+        game:Broadcast("No winner this round!")
+    end
+    game:SetProperty("gameActive", false)
+end
+
+local function onGameStart()
+    game:SetProperty("gameTime", GAME_TIME)
     game:SetProperty("flagAtBase", true)
     game:Broadcast("Capture the Flag started!")
 end
 
-function onPlayerJoin(player)
+local function onPlayerJoin(player)
     scores[player.id] = 0
     player:SetProperty("hasFlag", false)
-    player:Teleport(BASE_POSITION.x, BASE_POSITION.y, BASE_POSITION.z)
+    player:Teleport(BASE_POS.x, BASE_POS.y, BASE_POS.z)
 end
 
-function onPlayerLeave(player)
-    if flagCarrier == player.id then
-        returnFlag()
-    end
+local function onPlayerLeave(player)
+    if flagCarrier == player.id then returnFlag() end
     scores[player.id] = nil
 end
 
-function onUpdate(dt)
-    local timeLeft = game:GetProperty("gameTime") or GAME_DURATION
-    timeLeft = timeLeft - dt
-    game:SetProperty("gameTime", timeLeft)
+local function onUpdate(dt)
+    local t = (game:GetProperty("gameTime") or GAME_TIME) - dt
+    game:SetProperty("gameTime", t)
+    if t <= 0 then endGame(); return end
 
-    if timeLeft <= 0 then
-        endGame()
-        return
-    end
-
-    local players = game:GetPlayers()
-
-    -- Check for flag capture
-    for _, player in ipairs(players) do
+    for _, player in ipairs(game:GetPlayers()) do
         if player:GetProperty("hasFlag") then
-            local dx = player.x - BASE_POSITION.x
-            local dz = player.z - BASE_POSITION.z
-            local dist = math.sqrt(dx * dx + dz * dz)
-
-            if dist < 3 then
+            local dx = player.x - BASE_POS.x
+            local dz = player.z - BASE_POS.z
+            if math.sqrt(dx*dx + dz*dz) < 3 then
                 scores[player.id] = (scores[player.id] or 0) + 1
-                game:Broadcast(player.name .. " scored! Total: " .. scores[player.id])
+                game:Broadcast(player.name .. " scored! (" .. scores[player.id] .. ")")
                 returnFlag()
             end
         end
     end
-end
-
-function returnFlag()
-    flagCarrier = nil
-    game:SetProperty("flagAtBase", true)
-    for _, player in ipairs(game:GetPlayers()) do
-        player:SetProperty("hasFlag", false)
-    end
-end
-
-function onPlayerTouchFlag(player)
-    if not game:GetProperty("flagAtBase") then return end
-    if flagCarrier then return end
-
-    flagCarrier = player.id
-    player:SetProperty("hasFlag", true)
-    game:SetProperty("flagAtBase", false)
-    game:Broadcast(player.name .. " picked up the flag!")
-end
-
-function endGame()
-    local winner = ""
-    local highest = 0
-    for id, score in pairs(scores) do
-        if score > highest then
-            highest = score
-            winner = id
-        end
-    end
-
-    if winner ~= "" then
-        local player = game:FindPlayer(winner)
-        if player then
-            game:Broadcast(player.name .. " wins with " .. highest .. " captures!")
-        end
-    else
-        game:Broadcast("No winner this round!")
-    end
-
-    game:SetProperty("gameActive", false)
 end
 
 return {
@@ -1535,153 +1518,8 @@ return {
     onUpdate = onUpdate,
     onPlayerJoin = onPlayerJoin,
     onPlayerLeave = onPlayerLeave,
-    onPlayerTouchFlag = onPlayerTouchFlag
 }
 ```
-
----
-
-<a id="leaderstats"></a>
-## Leaderstats System
-
-BloxVerse automatically tracks **leaderstats** for all players. To add leaderboards to your game:
-
-1. Create a **Script** in **Workspace** (or attach one in Studio)
-2. In the script, create a **Folder** named `"leaderstats"` inside the **Player**
-3. Add **IntValue**, **StringValue**, **NumberValue**, or **BoolValue** children with the stat names
-
-### Example
-
-```lua
--- This would run when a player joins (connect to PlayerAdded)
-local player = game.Players:GetChildren()[1] -- for testing
-
-local stats = Instance.new("Folder")
-stats.Name = "leaderstats"
-stats.Parent = player
-
-local coins = Instance.new("IntValue")
-coins.Name = "Coins"
-coins.Value = 0
-coins.Parent = stats
-
-local gems = Instance.new("IntValue")
-gems.Name = "Gems"
-gems.Value = 0
-gems.Parent = stats
-
-local guild = Instance.new("StringValue")
-guild.Name = "Guild"
-guild.Value = "None"
-guild.Parent = stats
-```
-
-The leaderboard **automatically appears** in the top-right corner of the game window. Updating a leaderstat value instantly updates the display:
-
-```lua
-local stats = player:FindFirstChild("leaderstats")
-if stats then
-    local coins = stats:FindFirstChild("Coins")
-    if coins then
-        coins.Value = coins.Value + 10
-    end
-end
-```
-
----
-
-<a id="gui-system-roblox"></a>
-## GUI System (Instance-based)
-
-BloxVerse supports Roblox-style GUI using ScreenGui and SurfaceGui containers.
-
-### ScreenGui (2D Overlay)
-- Place inside **StarterGui**
-- All child elements render as a fixed overlay on the screen
-- **Enabled** property controls visibility
-
-```lua
-local gui = Instance.new("ScreenGui")
-gui.Name = "HUD"
-gui.Parent = game.StarterGui
-
-local label = Instance.new("TextLabel")
-label.Name = "ScoreLabel"
-label.Text = "Score: 0"
-label.Size = {200, 50}
-label.Position = {0.5, 0.1}
-label.Parent = gui
-```
-
-### SurfaceGui (3D Surface UI)
-SurfaceGui renders on a part's surface in 3D space and follows the camera:
-
-- Place inside a **Part** in Workspace, or set **Adornee** to the target part
-- **Face** property: `Front`, `Back`, `Left`, `Right`, `Top`, `Bottom`
-- **CanvasSize** controls the pixel dimensions of the surface
-
-```lua
-local part = game.Workspace.Part
-local gui = Instance.new("SurfaceGui")
-gui.Adornee = part
-gui.Face = "Front"
-gui.CanvasSize = {300, 200}
-gui.Parent = part
-
-local frame = Instance.new("Frame")
-frame.Size = {300, 200}
-frame.BackgroundColor = Color3.fromRGB(30, 30, 30)
-frame.BackgroundTransparency = 0.3
-frame.Parent = gui
-
-local label = Instance.new("TextLabel")
-label.Text = "Hello Surface!"
-label.Size = {300, 50}
-label.Position = {0, 80}
-label.Parent = gui
-```
-
-### GUI Element Properties
-
-| Property | Type | Default | Description |
-|----------|------|---------|-------------|
-| `Visible` | boolean | true | Show/hide the element |
-| `BackgroundColor` | Color3 | varies | Background color |
-| `BackgroundTransparency` | number (0-1) | 0 | 0 = opaque, 1 = invisible |
-| `Position` | [x, y] | [0, 0] | Position (px or 0-1 fraction) |
-| `Size` | [w, h] | varies | Size (px or 0-1 fraction) |
-| `Text` | string | "Label" | Text content (TextLabel/TextButton) |
-| `TextColor` | Color3 | white | Text color |
-| `TextTransparency` | number (0-1) | 0 | 0 = solid text, 1 = invisible text |
-| `FontSize` | number | 14 | Font size in pixels |
-
-### BackgroundTransparency
-Works exactly like Roblox:
-- **0.0** = fully opaque background
-- **0.5** = half transparent (background only, text stays solid)
-- **1.0** = fully invisible (background doesn't render)
-
----
-
-<a id="part-properties"></a>
-## Part Properties Reference
-
-| Property | Type | Default | Description |
-|----------|------|---------|-------------|
-| `Size` | [w, h, d] | [4, 4, 4] | Width, height, depth in studs |
-| `Position` | [x, y, z] | [0, 0, 0] | World position |
-| `Color` | Color3 | gray | Part color |
-| `Transparency` | number (0-1) | 0 | 0 = solid, 1 = invisible |
-| `Anchored` | boolean | true | If true, part doesn't move with physics |
-| `CanCollide` | boolean | true | If true, other parts collide with it |
-| `Shape` | string | "Block" | `Block`, `Sphere`, or `Cylinder` |
-
-### Part Methods
-
-| Method | Description |
-|--------|-------------|
-| `part:SetVelocity(x, y, z)` | Sets the part's velocity |
-| `part:GetVelocity()` | Returns the current velocity as a Vector3 |
 
 ---
 
@@ -1689,45 +1527,48 @@ Works exactly like Roblox:
 ## FAQ
 
 ### Q: Can I run scripts on the server?
-**A:** All scripts currently run on each player's browser (client-side). Server-side scripting is planned for future versions.
+**A:** All scripts currently run on each player's browser (client-side). Server-side scripting is planned for a future update.
 
 ### Q: How often does `onUpdate` run?
-**A:** Approximately 60 times per second (60 FPS). The `dt` parameter tells you the actual delta time.
+**A:** Approximately 60 times per second. The `dt` parameter gives you the actual elapsed time so your logic stays frame-rate independent.
+
+### Q: How do I update a TextLabel's text from a script?
+**A:** Assign directly to `.Text` — `label.Text = "New text"`. This works with both the imperative API (`gui:CreateGui`) and the instance-based API (`Instance.new("TextLabel")`).
+
+### Q: What's the difference between the two GUI APIs?
+**A:** `game:CreateScreenGui` is simpler and better for dynamic HUDs built at runtime. `Instance.new("ScreenGui")` mirrors the Roblox hierarchy approach and is better when you want to build GUI as part of the instance tree. Both render to the same overlay.
+
+### Q: How do leaderstats work?
+**A:** Create a `Folder` named `"leaderstats"` inside a player instance under `game.Players`, then add `IntValue`, `StringValue`, etc. as children. The leaderboard panel updates automatically within ~500ms.
 
 ### Q: Are there data limits?
-**A:** Yes. Keep properties reasonably sized. Storing massive amounts of data in properties can cause performance issues.
+**A:** Yes. Keep properties small. Large amounts of data in properties can cause performance issues.
 
 ### Q: Can I use external APIs or HTTP requests?
 **A:** Not from Lua scripts. For server-side integrations, contact the BloxVerse team.
 
 ### Q: What happens if my script has an error?
-**A:** The script stops executing, and an error is logged. Other scripts continue running.
-
-### Q: Can I delete or modify parts with scripts?
-**A:** Yes. Use `Instance.new("Part")` to create parts and `game:RemovePart(name)` to delete them. All properties (position, size, color, transparency, anchored, velocity) can be modified at runtime.
-
-### Q: How do I debug my scripts?
-**A:** Use `print()` and `warn()` to output to the server console. Check the bottom panel in the script editor for output.
+**A:** The error is logged to chat output. Other scripts continue running.
 
 ### Q: Can scripts communicate with each other?
-**A:** Yes! Use `game:Fire()` and `game:On()` for custom events between scripts.
+**A:** Yes — use `game:Fire()` and `game:On()` to pass custom events between scripts.
 
 ### Q: What's the difference between BloxVerse and Roblox scripting?
-**A:** 
-- BloxVerse uses a subset of Roblox APIs for simplicity
-- `Instance.new()` works for creating Parts, Folders, Scripts, and more
-- Part properties use `Position`/`Size` as Vector3 objects and `Color` as Color3/hex
-- GUI/ScreenGui support is limited (planned for future)
-- Networking is automatically handled
+**A:**
+- BloxVerse uses a subset of Roblox APIs — most common patterns work
+- `Instance.new()` supports Part, Folder, ScreenGui, TextLabel, TextButton, Frame, Value objects, and more
+- `setmetatable` and OOP patterns are fully supported
+- `for i = 1, 10 do` numeric loops and `repeat...until` both work
+- `string.find`, `string.gsub`, `string.match`, `table.sort`, and `table.concat` are all available
+- GUI renders to a DOM overlay; SurfaceGui (3D surface rendering) is not yet supported
 
 ---
 
-<a id="getting-help"></a>
 ## Getting Help
 
 - Check the **View Scripting Docs** link in the script editor
 - Review the examples above
-- Test your code with `print()` statements
-- Join the BloxVerse community for help
+- Use `print()` and `warn()` to debug — output appears in chat
+- Join the BloxVerse community for support
 
 Happy scripting! 🚀

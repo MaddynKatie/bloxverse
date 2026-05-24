@@ -1,0 +1,71 @@
+export const clothingItems = [
+  {
+    id: 'i-love-bloxverse',
+    name: 'I ❤️ BloxVerse',
+    description: 'Show your love for BloxVerse with this classic t-shirt!',
+    category: 'Shirts',
+    texturePath: new URL('../assets/clothing/i❤️bloxverse.png', import.meta.url).href,
+  },
+  {
+    id: 'shirt-template-blank',
+    name: 'Blank Shirt Template',
+    description: 'A completely blank template to use as a starting point for your own designs.',
+    category: 'Templates',
+    texturePath: new URL('../assets/clothing/shirtTemplateBlank.png', import.meta.url).href,
+  },
+  {
+    id: 'template-shirts-r15',
+    name: 'R15 Shirt Template',
+    description: 'The standard R15 shirt template layout reference.',
+    category: 'Templates',
+    texturePath: new URL('../assets/clothing/Template-Shirts-R15.png', import.meta.url).href,
+  },
+  {
+    id: 'egyptianshirt',
+    name: 'Egyptian',
+    description: 'Represent the ancient civilization with this Egyptian-themed shirt.',
+    category: 'Shirts',
+    texturePath: new URL('../assets/clothing/egyptianShirt.png', import.meta.url).href,
+  },
+  {
+    id: 'colorful-joseph',
+    name: 'Colorful',
+    description: 'A vibrant and colorful shirt made by Joseph.',
+    category: 'Shirts',
+    texturePath: new URL('../assets/clothing/colorfulJoseph.png', import.meta.url).href,
+  },
+  {
+    id: 'bloxverseenthusiast',
+    name: 'BloxVerse Enthusiast',
+    description: 'Show your passion for BloxVerse with this exclusive shirt.',
+    category: 'Shirts',
+    texturePath: new URL('../assets/clothing/bloxverseEnthusiast.png', import.meta.url).href,
+  },
+  {
+    id: 'basicsuit',
+    name: 'Basic Suit',
+    description: 'A simple and classic suit for any occasion.',
+    category: 'Shirts',
+    texturePath: new URL('../assets/clothing/basicSuit.png', import.meta.url).href,
+  },
+  {
+    id: 'blueandblackmotorcycleshirt',
+    name: 'Blue and Black Motorcycle Shirt',
+    description: 'Classic blue t-shirt with a black motorcycle design on the front.',
+    category: 'Shirts',
+    texturePath: new URL('../assets/clothing/blueAndBlackMotorcycleShirt.png', import.meta.url).href,
+  },
+];
+
+export function getAllClothing() {
+  return clothingItems.slice();
+}
+
+export function findClothing(id) {
+  return clothingItems.find(item => item.id === id) || null;
+}
+
+export {
+  applyAvatarClothing,
+  removeAvatarClothing,
+} from './avatar-clothing.js';

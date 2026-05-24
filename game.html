@@ -3,19 +3,11 @@
 
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/bloxverse/favicon.svg" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BloxVerse - Play</title>
+  <link rel="stylesheet" href="/src/style.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  <script type="module" crossorigin src="/bloxverse/assets/game-BHa67SzO.js"></script>
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/three.module-FjTSEuto.js">
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/scriptRuntime-D8EBVLI5.js">
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/modulepreload-polyfill-Ke7zwH0v.js">
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/avatar-clothing-UXmGjPjj.js">
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/firebase-CcrBuBby.js">
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/friends-CLdMBLWm.js">
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/games-JS9N4dya.js">
-  <link rel="stylesheet" crossorigin href="/bloxverse/assets/game-CLMm45vg.css">
 </head>
 
 <body>
@@ -137,6 +129,1484 @@
 
   <div id="friendRequestToastContainer" class="friend-request-toast-container"></div>
 
+  <script type="module" src="/src/bloxverse-engine.js"></script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { games } from './src/games.js';
+    import { auth, db, getDoc, doc, setDoc, incrementGameVisits, getFollowing, followUser, unfollowUser, getUserProfile, calculateAge, addTrustedFriend, removeTrustedFriend, checkBan, getRoles, banGuard, trackPresence, onSnapshot, collection } from './src/firebase.js';
+    import { connectMultiplayer, sendLocalTransform, sendPhysicsState, disconnectMultiplayer, sendChat } from './src/multiplayer.js';
+    import { onFriendRequests, sendFriendRequest as dbSendFriendRequest, acceptFriendRequest as dbAcceptFriendRequest, declineFriendRequest as dbDeclineFriendRequest, removeFriend } from './src/friends.js';
+    import { executeScript, loadScriptsFromStorage, createInstanceProxy } from './src/scriptRuntime.js';
+    import { Instance, PartInstance, ScriptInstance, initGameHierarchy } from './src/instances.js';
+    import { ProfanityFilter } from 'glin-profanity';
+    const _profanityCheck = new ProfanityFilter({
+      detectLeetspeak: true,
+      leetspeakLevel: 'moderate',
+      normalizeUnicode: true,
+      allLanguages: true,
+      wordBoundaries: true,
+      allowObfuscatedMatch: true,
+      fuzzyToleranceLevel: 0.8
+    });
+
+    const gameScriptModules = import.meta.glob('/assets/games/**/*.lua', { eager: true, as: 'raw' });
+
+    let _profanityFilterEnabled = true;
+
+    function filterProfanity(text) {
+      if (!_profanityFilterEnabled || !text) return text;
+      const result = _profanityCheck.checkProfanity(text);
+      if (!result.containsProfanity) return text;
+
+      let cleaned = text;
+      const leetMap = {
+        'a': '[aA4@\u00C0-\u00C5\u0430\u03B1\u0250]', 
+        'b': '[bB8\u03B2\u0299]', 
+        'c': '[cC(<{\u00A2\u0441\u03C2\u03BF\u0254]',
+        'd': '[dD|)]',
+        'e': '[eE3\u00E8-\u00EB\u0435\u03B5\u01DD]',
+        'g': '[gG69]',
+        'h': '[hH#\u0445\u0265]',
+        'i': '[iI1!|!\u00EC-\u00EF\u0456\u03B9\u0131]',
+        'l': '[lL1|!|_]',
+        'o': '[oO0\u00F2-\u00F6\u043E\u03BF\u03F5\u0251]',
+        'p': '[pP\u00FE\u0440\u03C1]',
+        's': '[sS5$]',
+        't': '[tT7+\u2020\u0164\u0165\u0287]',
+        'u': '[uUvV\u00F9-\u00FC\u0443\u03BC\u028C]',
+        'x': '[xX%*]',
+        'z': '[zZ2\u0240]'
+      };
+
+      result.profaneWords.forEach(word => {
+        const pattern = word.split('').map(c => {
+          const l = c.toLowerCase();
+          return (leetMap[l] || l) + '[\\s._\\-*]*';
+        }).join('');
+        const regex = new RegExp(pattern, "gi");
+        cleaned = cleaned.replace(regex, (m) => '*'.repeat(m.length));
+      });
+      return cleaned;
+    }
+
+    // ─── Real Loading Progress ──────────────────────────────────────────────
+    const loadingScreen = document.getElementById('loadingScreen');
+    const loadingBarFill = document.getElementById('loadingBarFill');
+    const loadingTitle = document.getElementById('loadingTitle');
+    let loadPct = 0;
+    function setLoad(pct, text) {
+      loadPct = Math.max(loadPct, Math.min(pct, 100));
+      if (loadingBarFill) loadingBarFill.style.width = loadPct + '%';
+      if (text && loadingTitle) loadingTitle.textContent = text;
+    }
+    setLoad(10, 'Loading modules...');
+
+    const params = new URLSearchParams(window.location.search);
+    const gameId = params.get('game');
+    let game = games.find(g => g.id === gameId);
+
+    // Fallback: load user-published game from Firestore
+    if (!game && gameId) {
+      const snap = await getDoc(doc(db, 'publishedGames', gameId)).catch(() => null);
+      if (snap && snap.exists()) {
+        const data = snap.data();
+        if (data.deleted) {
+          window.location.href = '/bloxverse/game-detail.html?id=' + gameId;
+          game = null;
+        } else {
+          data.id = gameId;
+          if (data.mapUrl) {
+            data.mapPath = data.mapUrl;
+          }
+          if (data.scripts && Object.keys(data.scripts).length) {
+            window._publishedScripts = data.scripts;
+          }
+          game = data;
+          setLoad(10, 'Loaded published game...');
+        }
+      }
+    }
+
+    // Chat UI logic
+    const chatContainer = document.getElementById('chatContainer');
+    const chatMessages = document.getElementById('chatMessages');
+    const chatInput = document.getElementById('chatInput');
+    const btnSendChat = document.getElementById('btnSendChat');
+    const btnChatToggle = document.getElementById('btnChat');
+    const settingsModal = document.getElementById('settingsModal');
+    const friendRequestToastContainer = document.getElementById('friendRequestToastContainer');
+    const activeFriendRequestToasts = new Map();
+    let friendRequestUnsubscribe = null;
+    let currentUserFriends = new Set();
+    let currentUserTrustedFriends = new Set();
+    let currentUserAge = 0;
+    let _currentUsername = '';
+    let activeClientEffect = null;
+
+    function cleanupClientEffect() {
+      if (!activeClientEffect) return;
+      try { activeClientEffect.dispose?.(); } catch (e) { console.error('[Effects] Cleanup failed:', e); }
+      activeClientEffect = null;
+    }
+
+    function createSnowEffect() {
+      const engine = window._bloxverse;
+      const scene = engine?.scene;
+      if (!engine || !scene) return null;
+
+      const count = 3000;
+      const radius = 120;
+      const height = 80;
+      const positions = new Float32Array(count * 3);
+      const drift = new Float32Array(count * 3);
+
+      for (let i = 0; i < count; i++) {
+        const base = i * 3;
+        positions[base] = (Math.random() - 0.5) * radius;
+        positions[base + 1] = Math.random() * height;
+        positions[base + 2] = (Math.random() - 0.5) * radius;
+        drift[base] = (Math.random() - 0.5) * 0.08;
+        drift[base + 1] = -(0.15 + Math.random() * 0.2);
+        drift[base + 2] = (Math.random() - 0.5) * 0.08;
+      }
+
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      const material = new THREE.PointsMaterial({
+        color: 0xffffff,
+        size: 0.18,
+        transparent: true,
+        opacity: 0.85,
+        depthWrite: false,
+      });
+      const points = new THREE.Points(geometry, material);
+      scene.add(points);
+
+      return {
+        update(dt) {
+          const camera = engine.getCamera?.();
+          if (!camera) return;
+          points.position.set(camera.position.x, 0, camera.position.z);
+          const arr = geometry.attributes.position.array;
+          for (let i = 0; i < count; i++) {
+            const base = i * 3;
+            arr[base] += drift[base] * 60 * dt;
+            arr[base + 1] += drift[base + 1] * 60 * dt;
+            arr[base + 2] += drift[base + 2] * 60 * dt;
+            if (arr[base + 1] < 0) {
+              arr[base] = (Math.random() - 0.5) * radius;
+              arr[base + 1] = height;
+              arr[base + 2] = (Math.random() - 0.5) * radius;
+            }
+          }
+          geometry.attributes.position.needsUpdate = true;
+        },
+        dispose() {
+          scene.remove(points);
+          geometry.dispose();
+          material.dispose();
+        }
+      };
+    }
+
+    function setupClientEffect(gameConfig) {
+      cleanupClientEffect();
+      if (!gameConfig?.effects?.snow) return;
+      activeClientEffect = createSnowEffect();
+    }
+
+    function exitPointerLockIfNeeded() {
+      if (document.pointerLockElement) {
+        document.exitPointerLock();
+      }
+    }
+
+    btnChatToggle.addEventListener('click', () => {
+      exitPointerLockIfNeeded();
+      chatContainer.classList.toggle('visible');
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === '/' && document.activeElement !== chatInput) {
+        e.preventDefault();
+        exitPointerLockIfNeeded();
+        chatContainer.classList.add('visible');
+        chatInput.focus();
+      }
+    });
+
+    chatInput.addEventListener('focus', () => { window._chatFocused = true; });
+    chatInput.addEventListener('blur', () => { window._chatFocused = false; });
+
+    const NAME_COLORS = ['#60a5fa','#34d399','#f87171','#fbbf24','#a78bfa','#fb923c','#f472b6'];
+    function nameColor(name) {
+        let h = 0;
+        for (const c of name) h = (h * 31 + c.charCodeAt(0)) & 0xFFFF;
+        return NAME_COLORS[h % NAME_COLORS.length];
+    }
+
+    function appendChatMessage(data) {
+      if (!data.system && data.message.startsWith('/resetparts')) {
+        if (window._bloxverse) window._bloxverse.resetParts();
+        return;
+      }
+      const msgEl = document.createElement('div');
+      msgEl.className = 'chat-message';
+      if (data.system) {
+        msgEl.innerHTML = `<span class="chat-system"><i>${data.message}</i></span>`;
+      } else {
+        const roles = data.userId ? (_playerRoles.get(data.userId) || []) : [];
+        const isDev = roles.includes('developer');
+        const userColor = nameColor(data.username);
+        const nameHtml = isDev
+          ? `<span class="chat-username-dev">${data.username}</span>`
+          : `<span class="chat-username" style="color:${userColor}">${data.username}</span>`;
+        msgEl.innerHTML = `${nameHtml}<span style="color:white"> : </span><span class="chat-text">${data.message}</span>`;
+        // Show Roblox-style chat bubble above player
+        if (window._bloxverse && data.userId) {
+          window._bloxverse.showBubble(data.userId, data.message);
+        }
+      }
+      chatMessages.appendChild(msgEl);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function doSendChat() {
+      const val = chatInput.value.trim();
+      if (val) {
+        const userId = auth.currentUser?.uid;
+        const username = _currentUsername || auth.currentUser?.displayName || 'Player';
+        // 13+ users always send original; receiver decides what to show
+        const profanityToggle = document.getElementById('profanityToggle');
+        const filterEnabled = profanityToggle ? profanityToggle.checked : true;
+
+        if (currentUserAge >= 13 && !filterEnabled) {
+          sendChat(val, username, userId, true);
+        } else {
+          sendChat(filterProfanity(val), username, userId, false);
+        }
+        chatInput.value = '';
+        chatInput.blur();
+      }
+    }
+
+    btnSendChat.addEventListener('click', doSendChat);
+    chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') doSendChat(); });
+
+    // Leaderboard UI
+    const lbList = document.getElementById('lbList');
+    const playerMenu = document.getElementById('playerMenu');
+    const playerMenuUsername = document.getElementById('playerMenuUsername');
+    const playerMenuClose = document.querySelector('.player-menu-close');
+    const btnViewProfile = document.getElementById('btnViewProfile');
+    const btnFriendRequest = document.getElementById('btnFriendRequest');
+    const btnFollow = document.getElementById('btnFollow');
+    const _playerUsernames = new Map(); // userId -> username
+    const _playerRoles = new Map();     // userId -> role
+    let _selectedPlayerId = null;
+
+    async function renderLeaderboard(players) {
+      if (players.length === 0) {
+        lbList.innerHTML = '<div style="padding:8px 12px;color:#babbbe;font-size:12px;">No players</div>';
+        return;
+      }
+      
+      // Store usernames and fetch missing roles
+      const rolePromises = [];
+      for (const p of players) {
+        _playerUsernames.set(p.userId, p.username);
+        if (!_playerRoles.has(p.userId)) {
+          rolePromises.push((async () => {
+            const roles = await getRoles(p.userId);
+            _playerRoles.set(p.userId, roles);
+          })());
+        }
+      }
+      
+      if (rolePromises.length > 0) await Promise.all(rolePromises);
+
+      const ROLE_ICONS = {
+        developer: `<i class="fa-solid fa-code" style="color: #ffffff; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
+        admin:     `<i class="fa-solid fa-shield-halved" style="color: #ffffff; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
+        mod:       `<i class="fa-solid fa-gavel" style="color: #ffffff; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
+      };
+
+      lbList.innerHTML = players.map(p => {
+        const roles = _playerRoles.get(p.userId) || [];
+        const badges = roles.map(r => ROLE_ICONS[r] || '').join('');
+        return `
+          <div class="leaderboard-item" data-user-id="${p.userId}">
+            <div style="display:flex; align-items:center;">${badges}</div>
+            <span class="lb-name">${p.username}</span>
+          </div>
+        `;
+      }).join('');
+      
+      // Add click handlers to leaderboard items
+      lbList.querySelectorAll('.leaderboard-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (document.pointerLockElement) document.exitPointerLock();
+          const userId = item.dataset.userId;
+          const username = _playerUsernames.get(userId);
+          showPlayerMenu(userId, username);
+        });
+      });
+    }
+
+    async function showPlayerMenu(userId, username) {
+      _selectedPlayerId = userId;
+      playerMenuUsername.textContent = username;
+      playerMenu.style.display = 'block';
+      
+      // Reload friends list to ensure button state is correct
+      await loadCurrentUserFriends(auth.currentUser?.uid);
+      await checkFollowingStatus(userId);
+      updateFriendRequestButton(userId);
+      await checkTrustedStatus(userId);
+    }
+
+    function hidePlayerMenu() {
+      playerMenu.style.display = 'none';
+      _selectedPlayerId = null;
+    }
+
+    playerMenuClose.addEventListener('click', hidePlayerMenu);
+    playerMenu.addEventListener('click', (e) => {
+      if (e.target === playerMenu) hidePlayerMenu();
+    });
+
+    btnViewProfile.addEventListener('click', () => {
+      if (_selectedPlayerId) {
+        const username = _playerUsernames.get(_selectedPlayerId);
+        window.open(`/bloxverse/profile.html?user=${encodeURIComponent(_selectedPlayerId)}`, '_blank');
+        hidePlayerMenu();
+      }
+    });
+
+    btnFriendRequest.addEventListener('click', async () => {
+      if (!_selectedPlayerId || !auth.currentUser) return;
+      const targetName = _playerUsernames.get(_selectedPlayerId) || 'Player';
+      if (currentUserFriends.has(_selectedPlayerId)) {
+        try {
+          await removeFriend(auth.currentUser.uid, _selectedPlayerId);
+          currentUserFriends.delete(_selectedPlayerId);
+          appendChatMessage({ system: true, message: `You are no longer friends with ${targetName}.` });
+        } catch (e) {
+          console.error('Error removing friend', e);
+          appendChatMessage({ system: true, message: `Unable to remove ${targetName} as friend.` });
+        }
+      } else {
+        await sendFriendRequest(auth.currentUser.uid, _selectedPlayerId, targetName);
+      }
+      updateFriendRequestButton(_selectedPlayerId);
+      hidePlayerMenu();
+    });
+
+    btnFollow.addEventListener('click', () => {
+      if (_selectedPlayerId && auth.currentUser) {
+        toggleFollowUser(auth.currentUser.uid, _selectedPlayerId);
+        hidePlayerMenu();
+      }
+    });
+
+    const uiClickContainers = [chatContainer, playerMenu, document.querySelector('.top-bar'), document.querySelector('.leaderboard'), settingsModal];
+    uiClickContainers.forEach((container) => {
+      if (!container) return;
+      container.addEventListener('pointerdown', () => exitPointerLockIfNeeded());
+      container.addEventListener('click', () => exitPointerLockIfNeeded());
+    });
+
+    document.addEventListener('mousedown', (e) => {
+      if (!document.pointerLockElement) return;
+      if (e.target.closest('.chat-container, .modal-overlay, .leaderboard, .player-menu, .top-bar')) {
+        document.exitPointerLock();
+      }
+    });
+
+    async function checkFollowingStatus(userId) {
+      if (!auth.currentUser) return;
+      try {
+        const following = await getFollowing(auth.currentUser.uid);
+        const isFollowing = following.includes(userId);
+        btnFollow.classList.toggle('following', isFollowing);
+        btnFollow.textContent = isFollowing ? 'Unfollow' : 'Follow';
+      } catch (e) {
+        console.error('Error checking following status', e);
+      }
+    }
+
+    async function toggleFollowUser(currentUserId, targetUserId) {
+      try {
+        const following = await getFollowing(currentUserId);
+        const isFollowing = following.includes(targetUserId);
+        
+        if (isFollowing) {
+          await unfollowUser(currentUserId, targetUserId);
+        } else {
+          await followUser(currentUserId, targetUserId);
+        }
+        
+        checkFollowingStatus(targetUserId);
+      } catch (e) {
+        console.error('Error toggling follow', e);
+      }
+    }
+
+    async function loadCurrentUserFriends(userId) {
+      try {
+        const profile = await getUserProfile(userId);
+        currentUserFriends = new Set(profile?.friends || []);
+      } catch (e) {
+        console.error('Error loading friends', e);
+        currentUserFriends = new Set();
+      }
+    }
+
+    const btnTrust = document.getElementById('btnTrust');
+
+    async function checkTrustedStatus(userId) {
+      if (!auth.currentUser) return;
+      const isFriend = currentUserFriends.has(userId);
+      const isAlreadyTrusted = currentUserTrustedFriends.has(userId);
+      if (currentUserAge >= 13 && isFriend) {
+        btnTrust.style.display = 'block';
+        btnTrust.classList.toggle('trusted', isAlreadyTrusted);
+        btnTrust.textContent = isAlreadyTrusted ? 'Trusted ✓' : 'Trust';
+      } else {
+        btnTrust.style.display = 'none';
+      }
+    }
+
+    btnTrust.addEventListener('click', async () => {
+      if (!_selectedPlayerId || !auth.currentUser) return;
+      const isAlreadyTrusted = currentUserTrustedFriends.has(_selectedPlayerId);
+      try {
+        if (isAlreadyTrusted) {
+          await removeTrustedFriend(auth.currentUser.uid, _selectedPlayerId);
+          currentUserTrustedFriends.delete(_selectedPlayerId);
+          appendChatMessage({ system: true, message: `Removed trusted status.` });
+        } else {
+          await addTrustedFriend(auth.currentUser.uid, _selectedPlayerId);
+          currentUserTrustedFriends.add(_selectedPlayerId);
+          appendChatMessage({ system: true, message: `Player added to trusted friends. Chats are now unfiltered.` });
+        }
+        checkTrustedStatus(_selectedPlayerId);
+        hidePlayerMenu();
+      } catch (e) {
+        console.error('Error toggling trusted friend', e);
+        appendChatMessage({ system: true, message: `Unable to update trusted status.` });
+      }
+    });
+
+    function updateFriendRequestButton(userId) {
+      if (!auth.currentUser) return;
+      const isFriend = currentUserFriends.has(userId);
+      btnFriendRequest.textContent = isFriend ? 'Unfriend' : 'Friend Request';
+      btnFriendRequest.classList.toggle('unfriend', isFriend);
+    }
+
+    async function sendFriendRequest(fromUserId, toUserId, toUsername) {
+      try {
+        await dbSendFriendRequest(fromUserId, toUserId, toUsername);
+        appendChatMessage({ system: true, message: `Friend request sent to ${toUsername}.` });
+      } catch (e) {
+        console.error('Error sending friend request', e);
+        appendChatMessage({ system: true, message: `Unable to send friend request to ${toUsername}.` });
+      }
+    }
+
+    function removeFriendRequestToast(requestId) {
+      const toast = activeFriendRequestToasts.get(requestId);
+      if (!toast) return;
+      toast.remove();
+      activeFriendRequestToasts.delete(requestId);
+    }
+
+    async function createFriendRequestToast(request) {
+      const senderName = _playerUsernames.get(request.from) || (await getUserProfile(request.from))?.username || 'Unknown';
+      const toast = document.createElement('div');
+      toast.className = 'friend-request-toast slide-in';
+      toast.innerHTML = `
+        <div class="toast-header">
+          <div class="toast-title">Friend Request</div>
+          <div class="toast-from">${senderName}</div>
+        </div>
+        <div class="toast-actions">
+          <button class="toast-accept">Accept</button>
+          <button class="toast-decline">Decline</button>
+        </div>
+      `;
+
+      toast.querySelector('.toast-accept').addEventListener('click', async () => {
+        try {
+          await dbAcceptFriendRequest(request.id, request.from, request.to);
+        } catch (e) {
+          console.error('Error accepting friend request', e);
+        } finally {
+          removeFriendRequestToast(request.id);
+        }
+      });
+
+      toast.querySelector('.toast-decline').addEventListener('click', async () => {
+        try {
+          await dbDeclineFriendRequest(request.id);
+        } catch (e) {
+          console.error('Error declining friend request', e);
+        } finally {
+          removeFriendRequestToast(request.id);
+        }
+      });
+
+      friendRequestToastContainer.appendChild(toast);
+      activeFriendRequestToasts.set(request.id, toast);
+    }
+
+    function renderFriendRequestToasts(requests) {
+      const currentIds = new Set(requests.map(r => r.id));
+      for (const id of Array.from(activeFriendRequestToasts.keys())) {
+        if (!currentIds.has(id)) removeFriendRequestToast(id);
+      }
+      for (const request of requests) {
+        if (!activeFriendRequestToasts.has(request.id)) {
+          createFriendRequestToast(request);
+        }
+      }
+    }
+
+    function startFriendRequestListener(userId) {
+      if (!userId) return;
+      return onFriendRequests(userId, renderFriendRequestToasts);
+    }
+
+    // Settings UI
+    const btnSettings = document.getElementById('btnSettings');
+    const btnCloseSettings = document.getElementById('btnCloseSettings');
+    const sensSlider = document.getElementById('sensSlider');
+    const sensValue = document.getElementById('sensValue');
+    const shiftlockToggle = document.getElementById('shiftlockToggle');
+
+    // Load saved settings
+    try {
+      const saved = JSON.parse(localStorage.getItem('bloxverse_settings') || '{}');
+      if (saved.sensitivity != null) {
+        sensSlider.value = saved.sensitivity;
+        sensValue.textContent = Number(saved.sensitivity).toFixed(1);
+        if (window._bloxverse) window._bloxverse.setSens(Number(saved.sensitivity));
+      }
+      if (saved.shiftLock != null) {
+        shiftlockToggle.checked = saved.shiftLock;
+      }
+      if (saved.chatFilter != null) {
+        const profToggle = document.getElementById('profanityToggle');
+        if (profToggle) profToggle.checked = saved.chatFilter;
+      }
+    } catch (_) {}
+
+    function saveSetting(key, val) {
+      try {
+        const data = JSON.parse(localStorage.getItem('bloxverse_settings') || '{}');
+        data[key] = val;
+        localStorage.setItem('bloxverse_settings', JSON.stringify(data));
+      } catch (_) {}
+    }
+
+    const profanityToggle = document.getElementById('profanityToggle');
+    profanityToggle?.addEventListener('change', () => {
+      saveSetting('chatFilter', profanityToggle.checked);
+    });
+
+    btnSettings.addEventListener('click', () => {
+      settingsModal.style.display = 'flex';
+      if (document.pointerLockElement) document.exitPointerLock();
+    });
+
+    btnCloseSettings.addEventListener('click', () => {
+      settingsModal.style.display = 'none';
+      if (window._bloxverse) window._bloxverse.requestLock();
+    });
+
+    sensSlider.addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value);
+      sensValue.textContent = val.toFixed(1);
+      if (window._bloxverse) window._bloxverse.setSens(val);
+      saveSetting('sensitivity', val);
+    });
+
+    shiftlockToggle.addEventListener('change', () => {
+      const enabled = shiftlockToggle.checked;
+      saveSetting('shiftLock', enabled);
+      if (window._bloxverse) {
+        window._bloxverse.shiftLockEnabled = enabled;
+        // If turning off while shiftlock is active, deactivate it
+        if (!enabled) window._bloxverse._disableShiftLock?.();
+      }
+    });
+
+    // Load map
+    let scriptExports = [];
+    let gameStarted = false;
+    let gameProperties = {};
+    let gameEventListeners = {};
+    const _knownPlayerIds = new Set();
+    const _playerPositions = new Map(); // userId -> { x, y, z }
+
+    const makePlayerObj = (id, name) => {
+      const pos = _playerPositions.get(id) || { x: 0, y: 0, z: 0 };
+      return {
+        id, name,
+        x: pos.x, y: pos.y, z: pos.z,
+        health: 100,
+        maxHealth: 100,
+        _props: {},
+        GetProperty: function(k) { return this._props[k]; },
+        SetProperty: function(k, v) { this._props[k] = v; },
+        Message: function(msg) {
+          appendChatMessage({ system: true, message: `[${this.name}] ${msg}` });
+        },
+        Teleport: function(x, y, z) {
+          if (auth.currentUser?.uid === this.id && window._bloxverse) {
+            window._bloxverse.setSpawn(x, y, z, 0);
+          }
+        },
+        Damage: function(amt) { this.health = Math.max(0, this.health - amt); },
+        Heal: function(amt) { this.health = Math.min(this.maxHealth, this.health + amt); },
+        Respawn: function() { this.health = this.maxHealth; }
+      };
+    };
+
+    const getCurrentPlayers = () => {
+      const players = [];
+      document.querySelectorAll('.leaderboard-item').forEach(el => {
+        const id = el.dataset.userId;
+        const name = el.querySelector('.lb-name')?.textContent;
+        if (id && name) {
+          players.push(makePlayerObj(id, name));
+        }
+      });
+      return players;
+    };
+
+    function createPartProxy(mesh) {
+      if (!mesh || !mesh.isMesh) return mesh || null;
+      const bv = window._bloxverse;
+      const getEntry = () => bv._getPartEntry(mesh);
+      const hs = mesh.userData.halfSize || { sw: 4, sh: 4, sd: 4 };
+      const obj = {
+        _mesh: mesh,
+        get name() { return mesh.name; },
+        set name(v) { mesh.name = v; if (mesh.userData) mesh.userData.partName = v; },
+        get x() { return mesh.position.x; },
+        set x(v) { bv._setPartPos(mesh, v, mesh.position.y, mesh.position.z); },
+        get y() { return mesh.position.y; },
+        set y(v) { bv._setPartPos(mesh, mesh.position.x, v, mesh.position.z); },
+        get z() { return mesh.position.z; },
+        set z(v) { bv._setPartPos(mesh, mesh.position.x, mesh.position.y, v); },
+        get width() { return hs.sw; },
+        get height() { return hs.sh; },
+        get depth() { return hs.sd; },
+        get color() { const c = Array.isArray(mesh.material) ? mesh.material[0].color : mesh.material.color; return '#' + c.getHexString(); },
+        set color(v) { const hex = parseInt(String(v).replace('#', ''), 16); bv._setPartColor(mesh, hex); },
+        get transparency() { const m = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material; return m.transparent ? 1 - m.opacity : 0; },
+        set transparency(v) { bv._setPartTransparency(mesh, Number(v)); },
+        get anchored() { return bv._getPartAnchored(mesh); },
+        set anchored(v) { bv._setPartAnchored(mesh, !!v); },
+        get mass() { return bv._getPartMass(mesh); },
+        set mass(v) { bv._setPartMass(mesh, v); },
+        get canCollide() { return true; },
+        set canCollide(v) {},
+        SetVelocity(vx, vy, vz) { bv._setPartVelocity(mesh, vx, vy, vz); },
+        GetVelocity() { return bv._getPartVelocity(mesh); },
+        SetPosition(x, y, z) { bv._setPartPos(mesh, x, y, z); },
+        GetPosition() { return { x: mesh.position.x, y: mesh.position.y, z: mesh.position.z }; },
+      };
+      return obj;
+    }
+
+    // ── Script GUI system ────────────────────────────────────────────────────
+    const _scriptGuiContainer = document.getElementById('scriptGuiContainer');
+    const _scriptGuiScreens = [];
+
+    function _cssColorFromValue(value) {
+      if (!value || value === 'transparent') return 'transparent';
+      if (typeof value === 'number') {
+        return '#' + value.toString(16).padStart(6, '0');
+      }
+      if (typeof value === 'object' && 'r' in value) {
+        const r = Math.round((value.r ?? 0) * 255);
+        const g = Math.round((value.g ?? 0) * 255);
+        const b = Math.round((value.b ?? 0) * 255);
+        return `rgb(${r},${g},${b})`;
+      }
+      return String(value);
+    }
+
+    function _createScriptGuiElement(type, props, parentEl) {
+      const el = document.createElement(type === 'TextButton' ? 'button' : 'div');
+      el.dataset.bvGuiType = type;
+
+      const state = {
+        Text:                 props.Text                 ?? (type === 'TextButton' ? 'Button' : type === 'TextLabel' ? 'Label' : ''),
+        Visible:              props.Visible              !== undefined ? props.Visible : true,
+        PositionX:            props.PositionX            ?? 0,
+        PositionY:            props.PositionY            ?? 0,
+        SizeX:                props.SizeX                ?? 100,
+        SizeY:                props.SizeY                ?? 30,
+        TextColor:            props.TextColor            ?? '#ffffff',
+        BackgroundColor:      props.BackgroundColor      ?? (type === 'TextButton' ? '#5865f2' : type === 'Frame' ? '#333333' : 'transparent'),
+        BackgroundTransparency: props.BackgroundTransparency ?? 0,
+        FontSize:             props.FontSize             ?? 14,
+        ZIndex:               props.ZIndex               ?? 1,
+        TextTransparency:     props.TextTransparency     ?? 0,
+      };
+
+      function applyStyles() {
+        const pw = _scriptGuiContainer.clientWidth  || window.innerWidth;
+        const ph = _scriptGuiContainer.clientHeight || window.innerHeight;
+        const sw = state.SizeX <= 1 ? state.SizeX * pw : state.SizeX;
+        const sh = state.SizeY <= 1 ? state.SizeY * ph : state.SizeY;
+        const px = state.PositionX <= 1 ? state.PositionX * pw : state.PositionX;
+        const py = state.PositionY <= 1 ? state.PositionY * ph : state.PositionY;
+
+        Object.assign(el.style, {
+          position:    'absolute',
+          left:        (px - sw / 2) + 'px',
+          top:         py + 'px',
+          width:       sw + 'px',
+          height:      sh + 'px',
+          zIndex:      String(state.ZIndex),
+          fontSize:    state.FontSize + 'px',
+          display:     state.Visible ? 'flex' : 'none',
+          alignItems:  'center',
+          justifyContent: 'center',
+          textAlign:   'center',
+          lineHeight:  '1.2',
+          boxSizing:   'border-box',
+          border:      'none',
+          outline:     'none',
+          cursor:      type === 'TextButton' ? 'pointer' : 'default',
+          overflow:    'hidden',
+          userSelect:  'none',
+          pointerEvents: (type === 'TextButton' || type === 'TextLabel' || type === 'Frame') ? 'auto' : 'none',
+        });
+
+        // Background
+        const bgAlpha = 1 - Math.max(0, Math.min(1, state.BackgroundTransparency));
+        const bgCss = _cssColorFromValue(state.BackgroundColor);
+        if (bgCss === 'transparent') {
+          el.style.background = 'transparent';
+        } else {
+          // Parse color to apply alpha
+          const tmp = document.createElement('canvas').getContext('2d');
+          tmp.fillStyle = bgCss;
+          tmp.fillRect(0,0,1,1);
+          const d = tmp.getImageData(0,0,1,1).data;
+          el.style.background = `rgba(${d[0]},${d[1]},${d[2]},${bgAlpha})`;
+        }
+
+        // Text color
+        if (type !== 'Frame') {
+          const txtAlpha = 1 - Math.max(0, Math.min(1, state.TextTransparency));
+          const tCss = _cssColorFromValue(state.TextColor);
+          const tmp2 = document.createElement('canvas').getContext('2d');
+          tmp2.fillStyle = tCss;
+          tmp2.fillRect(0,0,1,1);
+          const d2 = tmp2.getImageData(0,0,1,1).data;
+          el.style.color = `rgba(${d2[0]},${d2[1]},${d2[2]},${txtAlpha})`;
+          el.textContent = state.Text;
+        }
+      }
+
+      applyStyles();
+      parentEl.appendChild(el);
+
+      // Proxy so scripts can write element.Text = "...", element.Visible = false, etc.
+      const proxy = new Proxy(state, {
+        get(t, prop) {
+          if (prop === 'Destroy')  return () => { el.remove(); };
+          if (prop === 'Connect') {
+            return (evtName, fn) => {
+              const dom = evtName === 'click' ? 'click'
+                : evtName === 'mouseenter' ? 'mouseenter'
+                : evtName === 'mouseleave' ? 'mouseleave'
+                : evtName === 'mousedown'  ? 'mousedown'
+                : evtName === 'mouseup'    ? 'mouseup'
+                : evtName;
+              el.addEventListener(dom, fn);
+              return { Disconnect: () => el.removeEventListener(dom, fn) };
+            };
+          }
+          // Roblox signal-style: button.MouseButton1Click:Connect(fn)
+          if (prop === 'MouseButton1Click') {
+            return {
+              Connect: (fn) => {
+                el.addEventListener('click', fn);
+                return { Disconnect: () => el.removeEventListener('click', fn) };
+              }
+            };
+          }
+          return t[prop];
+        },
+        set(t, prop, value) {
+          t[prop] = value;
+          applyStyles();
+          return true;
+        }
+      });
+
+      return proxy;
+    }
+
+    function _createScreenGuiContainer(name) {
+      const wrapper = document.createElement('div');
+      wrapper.dataset.bvScreenGui = name;
+      wrapper.style.cssText = 'position:absolute;inset:0;pointer-events:none;overflow:hidden;';
+      _scriptGuiContainer.appendChild(wrapper);
+      _scriptGuiScreens.push(wrapper);
+
+      return {
+        Name: name,
+        Enabled: true,
+        _wrapper: wrapper,
+        CreateGui(type, props = {}) {
+          return _createScriptGuiElement(type, props, wrapper);
+        },
+        Destroy() { wrapper.remove(); }
+      };
+    }
+
+    // ── Leaderstats: watch instance tree for leaderstats folders ─────────────
+    // Called after scripts run; polls for leaderstats children on player instances
+    function _setupLeaderstatsWatcher(gameRoot) {
+      const playersService = gameRoot.Children.find(c => c.ClassName === 'Players');
+      if (!playersService) return;
+
+      setInterval(() => {
+        const players = getCurrentPlayers();
+        if (players.length === 0) return;
+
+        // Build a map of userId -> stats from leaderstats folders
+        const statsMap = {}; // userId -> { statName: value, ... }
+        for (const child of playersService.Children) {
+          const statsFolder = child.FindFirstChild('leaderstats');
+          if (!statsFolder) continue;
+          const uid = child.UserId || child.Name;
+          statsMap[uid] = {};
+          for (const stat of statsFolder.Children) {
+            if (stat.Value !== undefined) {
+              statsMap[uid][stat.Name] = stat.Value;
+            }
+          }
+        }
+
+        // If any player has leaderstats, re-render leaderboard with stat columns
+        const hasStats = Object.keys(statsMap).length > 0;
+        if (!hasStats) return;
+
+        // Get stat column names (from first player that has them)
+        const colNames = Object.values(statsMap)[0] ? Object.keys(Object.values(statsMap)[0]) : [];
+        if (colNames.length === 0) return;
+
+        const items = players.map(p => {
+          const uid = p.userId || p.id;
+          const stats = statsMap[uid] || {};
+          const statCols = colNames.map(col =>
+            `<span style="margin-left:8px;color:#babbbe;font-size:11px;">${stats[col] ?? ''}</span>`
+          ).join('');
+          const roleIcons = (_playerRoles.get(uid) || []).map(r => ({
+            developer: `<i class="fa-solid fa-code" style="color:#fff;font-size:14px;margin-right:6px;opacity:0.85;"></i>`,
+            admin: `<i class="fa-solid fa-shield-halved" style="color:#fff;font-size:14px;margin-right:6px;opacity:0.85;"></i>`,
+            mod: `<i class="fa-solid fa-gavel" style="color:#fff;font-size:14px;margin-right:6px;opacity:0.85;"></i>`,
+          }[r] || '')).join('');
+          return `<div class="leaderboard-item" data-user-id="${uid}" style="justify-content:space-between;">
+            <div style="display:flex;align-items:center;">${roleIcons}<span class="lb-name">${p.username ?? p.name ?? uid}</span></div>
+            <div>${statCols}</div>
+          </div>`;
+        });
+        lbList.innerHTML = items.join('');
+        lbList.querySelectorAll('.leaderboard-item').forEach(item => {
+          item.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (document.pointerLockElement) document.exitPointerLock();
+            showPlayerMenu(item.dataset.userId, _playerUsernames.get(item.dataset.userId) || item.dataset.userId);
+          });
+        });
+      }, 500);
+    }
+
+    function makeGameAPI() {
+      const bv = () => window._bloxverse;
+      return {
+        GetPlayers: () => getCurrentPlayers(),
+        FindPlayer: (id) => getCurrentPlayers().find(p => p.id === id || p.userId === id) || null,
+        GetGameTime: () => bv()?.getGameTime?.() ?? 0,
+        GetProperty: (k) => gameProperties[k] ?? null,
+        SetProperty: (k, v) => { gameProperties[k] = v; },
+        Broadcast: (msg) => appendChatMessage({ system: true, message: msg }),
+        Fire: (event, ...args) => {
+          (gameEventListeners[event] || []).forEach(cb => cb(...args));
+        },
+        On: (event, cb) => {
+          if (!gameEventListeners[event]) gameEventListeners[event] = [];
+          gameEventListeners[event].push(cb);
+        },
+        IsKeyDown: (key) => !!bv()?.keys?.[key],
+        SetWalkSpeed: (s) => bv()?.setWalkSpeed?.(s),
+        GetWalkSpeed: () => bv()?.getWalkSpeed?.() ?? 16,
+        GetPart: (name) => {
+          const parts = window._mapParts || [];
+          const found = parts.find(p => p.name === name);
+          return found ? createPartProxy(found.mesh) : null;
+        },
+        GetAllParts: () => (window._mapParts || []).map(p => createPartProxy(p.mesh)),
+        RemovePart: (name) => bv()?.removePart?.(name),
+        // GUI API
+        CreateScreenGui: (name) => _createScreenGuiContainer(name || 'ScreenGui'),
+        CleanupGui: () => {
+          _scriptGuiScreens.forEach(w => w.remove());
+          _scriptGuiScreens.length = 0;
+        },
+      };
+    }
+
+    function startGame() {
+        setLoad(15, 'Initializing engine...');
+        const poll = setInterval(async () => {
+          if (window._bloxverse) {
+            clearInterval(poll);
+            setLoad(30, 'Loading map...');
+
+            if (game.mapPath) {
+              const mapOffset = game.mapOffset || {};
+              const spawn = game.spawn || {};
+              await window._bloxverse.loadMap(game.mapPath, mapOffset.x ?? 0, mapOffset.y ?? 0, mapOffset.z ?? 0);
+              if (spawn.x != null || spawn.y != null || spawn.z != null || spawn.ry != null) {
+                window._bloxverse.setSpawn(
+                  spawn.x ?? 0,
+                  spawn.y ?? 0,
+                  spawn.z ?? 0,
+                  spawn.ry ?? Math.PI
+                );
+              }
+              window._bloxverse.setWorldFloorEnabled(game.worldFloor !== false);
+              if (game.respawnY != null) {
+                window._bloxverse.setRespawnY(game.respawnY);
+              }
+              window._bloxverse.setSens(parseFloat(sensSlider.value));
+              window._bloxverse.shiftLockEnabled = shiftlockToggle.checked;
+            }
+            setupClientEffect(game);
+            incrementGameVisits(gameId).catch(err => console.error('Visit increment failed:', err));
+
+            const gameRoot = initGameHierarchy();
+            const workspace = gameRoot.Children.find(c => c.ClassName === 'Workspace');
+            const playersService = gameRoot.Children.find(c => c.ClassName === 'Players');
+
+            const playerName = auth.currentUser?.displayName || 'Player';
+            const localPlayer = new Instance('Player', playerName);
+            localPlayer.UserId = auth.currentUser?.uid;
+            localPlayer.setParent(playersService);
+            const character = new Instance('Model', playerName);
+            character.setParent(workspace);
+            localPlayer.Character = character;
+
+            const gameProxy = createInstanceProxy(gameRoot);
+            const playerProxy = gameProxy.Players[playerName];
+            window._bloxverse.setCharInstance(playerProxy.Character);
+
+            // Start watching for leaderstats folders added by scripts
+            _setupLeaderstatsWatcher(gameRoot);
+
+            function linkInstanceToEngine(inst) {
+              if (inst.ClassName === 'Part' && inst.mesh) {
+                inst.Changed = (prop, val) => {
+                  const bv = window._bloxverse;
+                  if (prop === 'Color') {
+                    const hex = (Math.round(val.r*255)<<16)|(Math.round(val.g*255)<<8)|Math.round(val.b*255);
+                    bv._setPartColor(inst.mesh, hex);
+                  } else if (prop === 'Transparency') {
+                    bv._setPartTransparency(inst.mesh, val);
+                  } else if (prop === 'Anchored') {
+                    bv._setPartAnchored(inst.mesh, val);
+                  } else if (prop === 'px') {
+                    bv._setPartPos(inst.mesh, val, inst.mesh.position.y, inst.mesh.position.z);
+                  } else if (prop === 'py') {
+                    bv._setPartPos(inst.mesh, inst.mesh.position.x, val, inst.mesh.position.z);
+                  } else if (prop === 'pz') {
+                    bv._setPartPos(inst.mesh, inst.mesh.position.x, inst.mesh.position.y, val);
+                  } else if (prop === 'Size') {
+                    const [sw, sh, sd] = val;
+                    bv._resizePart(inst.mesh, sw, sh, sd);
+                  }
+                };
+              }
+            }
+
+            Instance._onPartCreateMesh = (partInst) => {
+              const bv = window._bloxverse;
+              if (!bv || partInst.mesh) return;
+              const [sw, sh, sd] = partInst.Size;
+              const color = partInst.Color.getHex();
+              const [px, py, pz] = partInst.Position || [0, 0, 0];
+              const mesh = bv.addStud(sw, sh, sd, color, px, py, pz, 0, 0, 0, partInst.Anchored, partInst.Shape);
+              if (mesh) {
+                mesh.name = partInst.Name;
+                mesh.userData.partName = partInst.Name;
+                partInst.mesh = mesh;
+                if (partInst.Transparency > 0) {
+                  bv._setPartTransparency(mesh, partInst.Transparency);
+                }
+                linkInstanceToEngine(partInst);
+                window._mapParts.push({ name: partInst.Name, mesh });
+              }
+            };
+
+            Instance._onPartDestroyMesh = (partInst) => {
+              if (!partInst.mesh) return;
+              const bv = window._bloxverse;
+              if (bv) bv.removePart(partInst.Name);
+              partInst.mesh = null;
+            };
+
+            window._scriptUpdate = (dt) => {
+              activeClientEffect?.update?.(dt);
+              if (!gameStarted) {
+                gameStarted = true;
+                for (const ex of scriptExports) {
+                  try { ex.onGameStart?.(); } catch (e) { console.error('[Script] onGameStart error:', e); }
+                }
+              }
+              for (const ex of scriptExports) {
+                try { ex.onUpdate?.(dt); } catch (e) { console.error('[Script] onUpdate error:', e); }
+              }
+            };
+
+            setLoad(60, 'Loading scripts...');
+            const api = {
+              game: Object.assign(gameRoot, makeGameAPI()),
+              onOutput: (msg, type) => {
+                const prefix = type === 'error' ? '⚠️' : type === 'warn' ? '⚡' : '📜';
+                chatContainer.classList.add('visible');
+                appendChatMessage({ system: true, message: `${prefix} ${msg}` });
+              }
+            };
+
+            const userScripts = loadScriptsFromStorage();
+            for (const [name, script] of Object.entries(userScripts)) {
+              try {
+                const exports = executeScript(script.code, api);
+                if (exports && Object.keys(exports).length > 0) {
+                  scriptExports.push(exports);
+                  console.log(`[Scripts] Loaded "${name}"`);
+                }
+              } catch (err) {
+                console.error(`[Scripts] Error in "${name}":`, err);
+              }
+            }
+
+            if (window._mapScripts && window._mapScripts.length > 0) {
+              for (const mapScript of window._mapScripts) {
+                const code = mapScript.code || mapScript;
+                try {
+                  const exports = executeScript(code, api);
+                  if (exports && Object.keys(exports).length > 0) {
+                    scriptExports.push(exports);
+                    console.log(`[Scripts] Loaded map script`);
+                  }
+                } catch (err) {
+                  console.error(`[Scripts] Error in map script:`, err);
+                }
+              }
+            }
+
+            if (game.scriptsPath) {
+              const basePath = game.scriptsPath.replace(/^\./, '');
+              const gameScriptKeys = Object.keys(gameScriptModules);
+              let scriptIdx = 0;
+              for (const [filePath, code] of Object.entries(gameScriptModules)) {
+                const normalizedPath = filePath.replace(/^.*?(\/assets\/)/, '$1');
+                if (normalizedPath.startsWith(basePath)) {
+                  const scriptName = filePath.split('/').pop();
+                  try {
+                    const exports = executeScript(code, api);
+                    scriptExports.push(exports || {});
+                    console.log(`[Scripts] Loaded game script "${scriptName}"`);
+                  } catch (err) {
+                    console.error(`[Scripts] Error in game script "${scriptName}":`, err);
+                  }
+                }
+                scriptIdx++;
+                const scriptPct = 85 + (scriptIdx / gameScriptKeys.length) * 10;
+                setLoad(scriptPct);
+              }
+            }
+
+            if (window._publishedScripts) {
+              for (const [scriptName, code] of Object.entries(window._publishedScripts)) {
+                try {
+                  const exports = executeScript(code, api);
+                  scriptExports.push(exports || {});
+                  console.log(`[Scripts] Loaded published script "${scriptName}"`);
+                } catch (err) {
+                  console.error(`[Scripts] Error in published script "${scriptName}":`, err);
+                }
+              }
+            }
+
+            setLoad(100, 'Ready!');
+            setTimeout(() => {
+              loadingScreen.style.display = 'none';
+            }, 400);
+
+            // Connect Multiplayer
+            auth.onAuthStateChanged(async (user) => {
+              if (user && gameId) {
+                if (await banGuard(user.uid)) return;
+
+                const presence = trackPresence(user.uid, gameId);
+                await loadCurrentUserFriends(user.uid);
+
+                if (window._bloxverse) {
+                  window._bloxverse.setCurrentUserId(user.uid);
+                }
+
+                let username = 'Player';
+                try {
+                  const profile = await getUserProfile(user.uid);
+                  if (profile) {
+                    username = profile.username || user.displayName || 'Player';
+                    _currentUsername = username;
+                    if (typeof profile.profanityFilter === 'boolean') {
+                      _profanityFilterEnabled = profile.profanityFilter;
+                    }
+                    currentUserAge = calculateAge(profile.birthday);
+                    currentUserTrustedFriends = new Set(profile.trustedFriends || []);
+                    const profRow = document.getElementById('profanitySettingRow');
+                    if (profRow && currentUserAge >= 13) {
+                      profRow.style.display = 'flex';
+                    }
+                  }
+                } catch (e) {
+                  console.error('Error loading user settings', e);
+                  username = user.displayName || 'Player';
+                }
+
+                // Load and apply avatar colors and accessories from Firestore
+                try {
+                  const avatarSnap = await getDoc(doc(db, 'users', user.uid));
+                  if (avatarSnap.exists()) {
+                    const avatarData = avatarSnap.data();
+                    if ((avatarData.avatarColors || avatarData.avatarClothing || avatarData.avatarAccessories) && window._bloxverse) {
+                      const waitForChar = setInterval(() => {
+                        if (window._bloxverse.getCharacter()) {
+                          clearInterval(waitForChar);
+                          window._bloxverse._setPlayerAvatarData(user.uid, {
+                            colors: avatarData.avatarColors || {},
+                            clothing: avatarData.avatarClothing || null,
+                            accessories: avatarData.avatarAccessories || [],
+                            face: avatarData.avatarFace,
+                          });
+                        }
+                      }, 200);
+                    }
+                  }
+                } catch (e) {
+                  console.error('Error loading avatar data:', e);
+                }
+
+                friendRequestUnsubscribe?.();
+                friendRequestUnsubscribe = startFriendRequestListener(user.uid);
+
+                connectMultiplayer(gameId, user.uid, username, 
+                  (id, x, y, z, ry, moving, grounded, climbState) => {
+                    if (window._bloxverse) {
+                      const playerUsername = _playerUsernames.get(id);
+                      window._bloxverse.updateOtherPlayer(id, x, y, z, ry, moving, grounded, climbState, playerUsername);
+                    }
+                    _playerPositions.set(id, { x, y, z });
+                  }, 
+                  (id) => {
+                    if (window._bloxverse) window._bloxverse.removeOtherPlayer(id);
+                    _knownPlayerIds.delete(id);
+                    const playerObj = getCurrentPlayers().find(p => p.id === id) || makePlayerObj(id, _playerUsernames.get(id) || 'Player');
+                    for (const ex of scriptExports) {
+                      try { ex.onPlayerLeave?.(playerObj); } catch (e) { console.error('[Script] onPlayerLeave error:', e); }
+                    }
+                  },
+                  async (players) => {
+                    renderLeaderboard(players);
+                    for (const p of players) {
+                      if (!_knownPlayerIds.has(p.userId)) {
+                        _knownPlayerIds.add(p.userId);
+                        const playerObj = makePlayerObj(p.userId, p.username);
+                        for (const ex of scriptExports) {
+                          try { ex.onPlayerJoin?.(playerObj); } catch (e) { console.error('[Script] onPlayerJoin error:', e); }
+                        }
+                        // Fetch and sync avatar data for new players
+                        try {
+                          const avatarSnap = await getDoc(doc(db, 'users', p.userId));
+                          if (avatarSnap.exists()) {
+                            const ad = avatarSnap.data();
+                            if ((ad.avatarColors || ad.avatarClothing || ad.avatarAccessories) && window._bloxverse) {
+                              window._bloxverse._setPlayerAvatarData(p.userId, {
+                                colors: ad.avatarColors || {},
+                                clothing: ad.avatarClothing || null,
+                                accessories: ad.avatarAccessories || [],
+                                face: ad.avatarFace,
+                              });
+                            }
+                          }
+                        } catch (e) {
+                          console.error('[Avatar] Error fetching for', p.userId, e);
+                        }
+                      }
+                    }
+                  },
+                  (chatData) => {
+                    if (chatData.unfiltered) {
+                      const isOwnMessage = chatData.userId === auth.currentUser?.uid;
+                      const receiverTrustsSender = currentUserAge >= 13 && currentUserTrustedFriends.has(chatData.userId);
+                      const profToggle = document.getElementById('profanityToggle');
+                      const filterAnyway = profToggle ? profToggle.checked : true;
+                      if (isOwnMessage || (receiverTrustsSender && !filterAnyway)) {
+                        appendChatMessage(chatData);
+                      } else {
+                        appendChatMessage({ ...chatData, message: filterProfanity(chatData.message) });
+                      }
+                    } else {
+                      appendChatMessage(chatData);
+                    }
+                  },
+                  (userId, bodies) => {
+                    if (window._bloxverse) window._bloxverse.applyPhysicsState(userId, bodies);
+                  }
+                );
+
+                window._mpUpdate = (dt) => {
+                    window._mpTimer = (window._mpTimer || 0) + dt;
+                    if (window._mpTimer >= 0.1 && window._bloxverse) {
+                        window._mpTimer = 0;
+                        const loc = window._bloxverse.getLocalTransform();
+                        if (loc) sendLocalTransform(loc.x, loc.y, loc.z, loc.ry, loc.moving, loc.grounded, loc.climbState);
+                        const phys = window._bloxverse.getPhysicsState();
+                        if (phys && phys.length > 0) sendPhysicsState(phys);
+                    }
+                    if (window._bloxverse) {
+                        window._bloxverse._updateNonMeshInstances(gameRoot);
+                        window._bloxverse._updateGuiInstances(gameRoot);
+                    }
+                };
+
+                window.addEventListener('beforeunload', () => {
+                  window._bloxverse?.clearLocalAccessories?.();
+                  presence.goOffline();
+                  disconnectMultiplayer();
+                });
+
+                // ─── Toast Notification System ──────────────────────────────────
+                const toastContainer = document.getElementById('toastContainer');
+                function showToast(message, type = 'info', duration = 0) {
+                  const icons = {
+                    ban: '<i class="fa-solid fa-gavel" style="font-size:18px;"></i>',
+                    deleted: '<i class="fa-solid fa-trash" style="font-size:18px;"></i>',
+                    multiaccount: '<i class="fa-solid fa-users" style="font-size:18px;"></i>',
+                    disconnected: '<i class="fa-solid fa-wifi" style="font-size:18px;"></i>',
+                    info: '<i class="fa-solid fa-info-circle" style="font-size:18px;"></i>',
+                  };
+                  const colors = {
+                    ban: 'rgba(244,67,54,0.95)',
+                    deleted: 'rgba(255,152,0,0.95)',
+                    multiaccount: 'rgba(255,193,7,0.95)',
+                    disconnected: 'rgba(33,150,243,0.95)',
+                    info: 'rgba(0,0,0,0.85)',
+                  };
+                  const el = document.createElement('div');
+                  el.style.cssText = `
+                    display:flex;align-items:center;gap:12px;padding:14px 18px;
+                    background:${colors[type] || colors.info};
+                    color:#fff;border-radius:8px;font-size:14px;font-weight:500;
+                    box-shadow:0 4px 20px rgba(0,0,0,0.4);
+                    pointer-events:auto;animation:slideDown 0.3s ease;
+                    backdrop-filter:blur(4px);
+                  `;
+                  el.innerHTML = `${icons[type] || icons.info}<span style="flex:1;">${message}</span>`;
+                  toastContainer.appendChild(el);
+                  // Slide in animation
+                  if (!document.getElementById('_toastStyle')) {
+                    const style = document.createElement('style');
+                    style.id = '_toastStyle';
+                    style.textContent = `
+                      @keyframes slideDown { from { opacity:0; transform:translateY(-20px); } to { opacity:1; transform:translateY(0); } }
+                      @keyframes fadeOut { from { opacity:1; } to { opacity:0; transform:translateY(-10px); } }
+                    `;
+                    document.head.appendChild(style);
+                  }
+                  if (duration > 0) {
+                    setTimeout(() => {
+                      el.style.animation = 'fadeOut 0.3s ease forwards';
+                      setTimeout(() => el.remove(), 300);
+                    }, duration);
+                  }
+                  return el;
+                }
+
+                // ─── Ban Listener (instant) ────────────────────────────────────
+                let _banUnsub;
+                if (user.uid) {
+                  _banUnsub = onSnapshot(doc(db, 'bans', user.uid), (snap) => {
+                    if (snap.exists() && snap.data().banned) {
+                      const data = snap.data();
+                      disconnectMultiplayer();
+                      presence.goOffline();
+                      window._bloxverse?.clearLocalAccessories?.();
+                      window._bloxverse?.setWalkSpeed?.(0);
+                      showOverlay(
+                        'fa-solid fa-gavel', 'You Have Been Banned', 'ERR_BANNED',
+                        `Reason: "${data.reason || 'Terms of Service Violation'}"`,
+                        { text: 'Go to Ban Page', action: () => { window.location.href = '/bloxverse/ban'; } }
+                      );
+                    }
+                  });
+                }
+
+                // ─── helpers to show overlay ──────────────────────────────────
+                const _overlay = document.getElementById('disconnectOverlay');
+                const _overlayIcon = document.querySelector('#disconnectOverlay i');
+                const _overlayTitle = document.querySelector('#disconnectOverlay h2');
+                const _overlayCode = document.getElementById('disconnectErrorCode');
+                const _overlayDesc = document.querySelector('#disconnectOverlay p');
+                const _rBtn = document.getElementById('disconnectReconnectBtn');
+                const _hBtn = document.getElementById('disconnectHomeBtn');
+
+                function showOverlay(icon, title, code, desc, btn1, btn2) {
+                  _overlayIcon.className = icon;
+                  _overlayTitle.textContent = title;
+                  _overlayCode.textContent = code;
+                  _overlayDesc.textContent = desc;
+                  if (btn1) {
+                    _rBtn.style.display = '';
+                    _rBtn.textContent = btn1.text;
+                    _rBtn.onclick = btn1.action;
+                  } else {
+                    _rBtn.style.display = 'none';
+                  }
+                  if (btn2) {
+                    _hBtn.style.display = '';
+                    _hBtn.textContent = btn2.text;
+                    _hBtn.onclick = btn2.action;
+                  } else {
+                    _hBtn.style.display = 'none';
+                  }
+                  _overlay.style.display = 'flex';
+                }
+
+                function hideOverlay() {
+                  _overlay.style.display = 'none';
+                }
+
+                // ─── Game Deletion/Recovery Listener (instant) ────────────────
+                let _gameDelUnsub;
+                if (gameId) {
+                  _gameDelUnsub = onSnapshot(doc(db, 'publishedGames', gameId), (snap) => {
+                    if (!snap.exists()) return;
+                    const data = snap.data();
+                    if (data.deleted) {
+                      disconnectMultiplayer();
+                      presence.goOffline();
+                      window._bloxverse?.clearLocalAccessories?.();
+                      window._bloxverse?.setWalkSpeed?.(0);
+                      showOverlay(
+                        'fa-solid fa-trash', 'Game Removed', 'GAME_REMOVED',
+                        'This game has been removed by an administrator.',
+                        { text: 'Back to Games', action: () => { window.location.href = '/bloxverse/'; } }
+                      );
+                    } else if (_overlay.style.display === 'flex' && _overlayCode.textContent === 'GAME_REMOVED') {
+                      // Game was recovered
+                      hideOverlay();
+                      showToast('Game has been restored.', 'info', 3000);
+                      // Reconnect by reloading
+                      setTimeout(() => window.location.reload(), 1500);
+                    }
+                  });
+                }
+
+                // ─── Multi-Device Detection ────────────────────────────────────
+                let _multiDeviceUnsub;
+                if (user.uid) {
+                  const presenceRef = doc(db, 'presence', user.uid);
+                  // Store this session's ID BEFORE setting up the listener
+                  window._bloxverseSessionId = Date.now() + '_' + Math.random().toString(36).slice(2);
+                  window._sessionInitialized = false;
+
+                  _multiDeviceUnsub = onSnapshot(presenceRef, (snap) => {
+                    // Ignore initial snapshots until we've written our own session ID
+                    if (!window._sessionInitialized) return;
+                    if (!snap.exists()) return;
+                    const data = snap.data();
+                    if (data._sessionId && data._sessionId !== window._bloxverseSessionId) {
+                      disconnectMultiplayer();
+                      presence.goOffline();
+                      window._bloxverse?.clearLocalAccessories?.();
+                      showOverlay(
+                        'fa-solid fa-users', 'Account Conflict', 'ERR_MULTI_DEVICE',
+                        'Same account launched game from a different device. Reconnect if you prefer to use this device.',
+                        {
+                          text: 'Reconnect',
+                          action: () => {
+                            window._bloxverseSessionId = Date.now() + '_' + Math.random().toString(36).slice(2);
+                            setDoc(presenceRef, { _sessionId: window._bloxverseSessionId }, { merge: true }).catch(() => {});
+                            hideOverlay();
+                            window.location.reload();
+                          }
+                        },
+                        { text: 'Leave', action: () => { window.location.href = '/bloxverse/'; } }
+                      );
+                    }
+                  });
+                  // Update presence with session ID (do this after the initial presence setup)
+                  setTimeout(() => {
+                    setDoc(presenceRef, { _sessionId: window._bloxverseSessionId }, { merge: true }).catch(() => {});
+                    window._sessionInitialized = true;
+                  }, 1000);
+                }
+
+                // ─── Internet Loss Detection ───────────────────────────────────
+                let _wasOffline = false;
+                window.addEventListener('offline', () => {
+                  _wasOffline = true;
+                  window._bloxverse?.clearLocalAccessories?.();
+                  showOverlay(
+                    'fa-solid fa-wifi', 'Connection Lost', 'ERR_CONNECTION_LOST',
+                    'Your connection to the game server has been interrupted. Please check your internet connection and try again.',
+                    { text: 'Reconnect', action: () => { window.location.reload(); } },
+                    { text: 'Return to Home', action: () => { window.location.href = '/bloxverse/'; } }
+                  );
+                });
+                window.addEventListener('online', () => {
+                  if (_wasOffline) {
+                    _wasOffline = false;
+                    hideOverlay();
+                    showToast('Connection restored.', 'info', 3000);
+                    if (window._bloxverse) window._bloxverse.resetParts?.();
+                  }
+                });
+              } else if (friendRequestUnsubscribe) {
+                friendRequestUnsubscribe();
+                friendRequestUnsubscribe = null;
+              }
+            });
+          }
+        }, 100);
+      }
+
+    if (game) {
+      if (document.readyState === 'complete') {
+        startGame();
+      } else {
+        window.addEventListener('load', startGame);
+      }
+    }
+  </script>
 </body>
 
 </html>

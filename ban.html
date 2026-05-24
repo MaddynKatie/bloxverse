@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Account Banned – BloxVerse</title>
-  <link rel="icon" type="image/svg+xml" href="/bloxverse/favicon.svg" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -107,9 +107,6 @@
 
     #ban-content { display: none; }
   </style>
-  <script type="module" crossorigin src="/bloxverse/assets/ban-_enU3dWy.js"></script>
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/modulepreload-polyfill-Ke7zwH0v.js">
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/firebase-CcrBuBby.js">
 </head>
 <body>
   <div class="card">
@@ -161,5 +158,101 @@
     </div>
   </div>
 
+  <script type="module">
+    import { auth, db } from './src/firebase.js';
+    import { doc, getDoc } from 'firebase/firestore';
+    import { signOut } from 'firebase/auth';
+
+    // ─── Formatting helpers ─────────────────────────────────────────────────────
+    function fmtDate(ts) {
+      if (!ts) return '—';
+      const d = ts.toDate ? ts.toDate() : new Date(ts);
+      return d.toLocaleString('en-US', {
+        month: 'numeric', day: 'numeric', year: 'numeric',
+        hour: 'numeric', minute: '2-digit', hour12: true
+      });
+    }
+
+    function fmtDuration(ms) {
+      if (ms <= 0) return 'Permanent';
+      const hours = ms / 3600000;
+      if (hours >= 23) {
+        const d = Math.round(ms / 86400000);
+        return d <= 1 ? '1 Day' : `${d} Days`;
+      }
+      const h = Math.floor(hours);
+      if (h < 1) return 'Less than 1 Hour';
+      return h === 1 ? '1 Hour' : `${h} Hours`;
+    }
+
+    // ─── Auth guard ─────────────────────────────────────────────────────────────
+    auth.onAuthStateChanged(async (user) => {
+      const loading = document.getElementById('loading-state');
+      const content = document.getElementById('ban-content');
+
+      if (!user) {
+        window.location.href = '/bloxverse/auth.html';
+        return;
+      }
+
+      try {
+        const snap = await getDoc(doc(db, 'bans', user.uid));
+
+        if (!snap.exists() || !snap.data().banned) {
+          window.location.href = '/bloxverse/';
+          return;
+        }
+
+        const ban = snap.data();
+        
+        if (ban.expiresAt) {
+          const expiry = ban.expiresAt.toDate ? ban.expiresAt.toDate() : new Date(ban.expiresAt);
+          if (expiry <= new Date()) {
+             window.location.href = '/bloxverse/';
+             return;
+          }
+        }
+
+        const bannedAt  = ban.bannedAt;
+        const expiresAt = ban.expiresAt;
+        const isPermanent = !expiresAt;
+        const durationMs = expiresAt
+          ? (expiresAt.toDate ? expiresAt.toDate() : new Date(expiresAt)) - Date.now()
+          : 0;
+
+        document.getElementById('ban-title').textContent = isPermanent
+          ? 'Account Permanently Banned'
+          : `Banned for ${fmtDuration(durationMs)}`;
+
+        document.getElementById('ban-date').textContent = fmtDate(bannedAt);
+        if (ban.moderatorNote) document.getElementById('ban-note').textContent = ban.moderatorNote;
+        document.getElementById('ban-reason').textContent = ban.reason || 'Violation of Terms of Service';
+
+        if (ban.detail) {
+          document.getElementById('ban-detail-row').style.display = 'block';
+          document.getElementById('ban-detail').textContent = ban.detail;
+        }
+
+        if (!isPermanent && expiresAt) {
+          const row = document.getElementById('ban-expiry-text');
+          row.style.display = 'block';
+          row.textContent = `Your account has been disabled. You may re-activate it after ${fmtDate(expiresAt)}.`;
+        }
+
+        loading.style.display = 'none';
+        content.style.display = 'block';
+
+      } catch (e) {
+        console.error('[Ban] Error loading status:', e);
+        loading.textContent = 'Error checking ban status. Please refresh or contact support.';
+        loading.style.color = '#f87171';
+      }
+    });
+
+    document.getElementById('btnLogout').addEventListener('click', async () => {
+      await signOut(auth);
+      window.location.href = '/bloxverse/auth.html';
+    });
+  </script>
 </body>
 </html>
