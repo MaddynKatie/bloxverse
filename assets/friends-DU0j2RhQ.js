@@ -1,1 +1,0 @@
-import{c as e}from"./friends-DstcNzDe.js";export{e as sendFriendRequest};

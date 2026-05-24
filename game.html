@@ -7,14 +7,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BloxVerse - Play</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  <script type="module" crossorigin src="/bloxverse/assets/game-BtNW3WWD.js"></script>
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/three.module-CDytP4Oz.js">
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/scriptRuntime-D6yLLgha.js">
+  <script type="module" crossorigin src="/bloxverse/assets/game-DJraw_-h.js"></script>
+  <link rel="modulepreload" crossorigin href="/bloxverse/assets/three.module-FjTSEuto.js">
+  <link rel="modulepreload" crossorigin href="/bloxverse/assets/scriptRuntime-BYbpUBEn.js">
   <link rel="modulepreload" crossorigin href="/bloxverse/assets/modulepreload-polyfill-Ke7zwH0v.js">
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/avatar-clothing-DV6yYR11.js">
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/firebase-HvCPFqZQ.js">
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/friends-DstcNzDe.js">
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/games-C_DoiMNO.js">
+  <link rel="modulepreload" crossorigin href="/bloxverse/assets/avatar-clothing-UXmGjPjj.js">
+  <link rel="modulepreload" crossorigin href="/bloxverse/assets/firebase-CcrBuBby.js">
+  <link rel="modulepreload" crossorigin href="/bloxverse/assets/friends-CLdMBLWm.js">
+  <link rel="modulepreload" crossorigin href="/bloxverse/assets/games-JS9N4dya.js">
   <link rel="stylesheet" crossorigin href="/bloxverse/assets/game-CLMm45vg.css">
 </head>
 
@@ -53,6 +53,25 @@
       <button id="btnSendChat">Send</button>
     </div>
   </div>
+
+  <!-- Disconnection Overlay -->
+  <div id="disconnectOverlay" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);justify-content:center;align-items:center;">
+    <div style="background:#1c1c1e;border:1px solid #2a2a2c;border-radius:16px;padding:40px 48px;max-width:420px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.5);">
+      <div style="font-size:48px;margin-bottom:16px;color:#f44336;">
+        <i class="fa-solid fa-wifi"></i>
+      </div>
+      <h2 style="color:#fff;font-size:22px;font-weight:700;margin-bottom:6px;">Connection Lost</h2>
+      <div style="color:#888;font-size:12px;font-family:monospace;margin-bottom:16px;" id="disconnectErrorCode">ERR_CONNECTION_LOST</div>
+      <p style="color:#a0a0a0;font-size:14px;margin-bottom:24px;line-height:1.5;">Your connection to the game server has been interrupted. Please check your internet connection and try again.</p>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <button id="disconnectReconnectBtn" style="background:#5865f2;color:#fff;border:none;padding:12px 24px;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;transition:opacity 0.15s;">Reconnect</button>
+        <button id="disconnectHomeBtn" style="background:rgba(255,255,255,0.08);color:#ccc;border:none;padding:10px 24px;border-radius:8px;font-size:14px;cursor:pointer;transition:opacity 0.15s;">Return to Home</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notifications -->
+  <div id="toastContainer" style="position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none;max-width:480px;width:90%;"></div>
 
   <!-- Script GUI Layer -->
   <div id="scriptGuiContainer" style="position:fixed;inset:0;pointer-events:none;z-index:500;overflow:hidden;"></div>

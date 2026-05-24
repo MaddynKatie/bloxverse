@@ -133,8 +133,6 @@ When using Move, Rotate, or Scale, click and drag the colored handles on the **g
 
 ---
 
----
-
 ## Explorer Panel
 
 The Explorer (left sidebar) shows the complete hierarchy of your game:
@@ -144,6 +142,7 @@ The Explorer (left sidebar) shows the complete hierarchy of your game:
 - **Lighting** — Container for environmental effects like the **Sky** and **Atmosphere**.
 - **ReplicatedStorage** — Used for storing assets (like Parts or Scripts) that should be shared but not necessarily visible in the world.
 - **StarterGui** — Container for your 2D user interfaces (**ScreenGui**).
+- **Players** — Container for Player instances that join the game.
 
 ### Common Objects
 - **Folder** — Use these to organize your parts and scripts.
@@ -151,6 +150,7 @@ The Explorer (left sidebar) shows the complete hierarchy of your game:
 - **Sound** — Audio objects. Paste a URL into the **SoundId** property to play music or effects.
 - **PointLight** — Localized light sources. Control **Range**, **Brightness**, and **Color**.
 - **ScreenGui** / **SurfaceGui** — Containers for 2D UI elements like **Frame**, **TextLabel**, and **TextButton**.
+- **IntValue** / **StringValue** / **NumberValue** / **BoolValue** — Value objects for data storage and leaderstats.
 
 ### Actions
 Right-click any object in the Explorer to:
@@ -166,11 +166,22 @@ The Properties panel (right sidebar) dynamically updates based on the selected o
 
 | Object Type | Key Properties |
 |-------------|----------------|
-| **Part** | Position, Size, Color, Anchored, CanCollide |
+| **Part** | Position, Size, Color, Anchored, CanCollide, Transparency, Shape |
 | **Sound** | SoundId, Volume, Playing, Looped |
-| **PointLight** | Color, Brightness, Range, Shadows |
-| **TextLabel** | Text, TextColor, BackgroundColor, FontSize |
+| **PointLight** | Color, Brightness, Range, Shadows, Enabled |
+| **TextLabel** | Text, TextColor, TextTransparency, BackgroundColor, BackgroundTransparency, FontSize, Visible, Position, Size |
+| **Frame** | BackgroundColor, BackgroundTransparency, Visible, Position, Size |
+| **TextButton** | Text, TextColor, TextTransparency, BackgroundColor, BackgroundTransparency, FontSize, Visible, Position, Size |
 | **ScreenGui** | Enabled |
+| **SurfaceGui** | Enabled, Face, CanvasSize |
+| **Sky** | SkyboxColor, SunColor, Brightness, Sun Position |
+| **Atmosphere** | Density, Offset, FogColor |
+| **Script** | Source |
+| **IntValue** | Value (number) |
+| **StringValue** | Value (string) |
+| **NumberValue** | Value (number) |
+| **BoolValue** | Value (boolean) |
+| **Folder** | (name only) |
 
 ---
 
@@ -205,11 +216,18 @@ The Properties panel (right sidebar) dynamically updates based on the selected o
   - A: Add a **Sound** object, paste a valid audio URL into **SoundId**, and check the **Playing** property.
 - **Q: How do I make a UI?**
   - A: Add a **ScreenGui** to **StarterGui**, then add **Frames** or **Labels** inside it.
+- **Q: How do I make a leaderboard?**
+  - A: Create a Folder named \`leaderstats\` inside a Player, then add IntValue/StringValue children. The leaderboard appears automatically.
+- **Q: How do I use SurfaceGui?**
+  - A: Add a **SurfaceGui** inside a Part, set its **Face** property, and add Frame/TextLabel children. It will render on the part's surface.
 
 ### Tips
 - Name your objects descriptively to keep your hierarchy organized.
 - Use **Folders** to group related parts (e.g., "House", "Forest").
 - **Anchored** parts are essential for static structures; uncheck it for physics objects.
+- Use **BackgroundTransparency** to create invisible clickable buttons.
+- For SurfaceGui, make sure **CanvasSize** is large enough for your content.
+- Leaderstats update in real-time — just change the \`Value\` property.
 `;
         const html = renderMarkdown(STUDIO_MD);
         document.getElementById('content').innerHTML = '<a href="/bloxverse/create.html" class="back-to-editor">← Back to Studio</a>' + html;

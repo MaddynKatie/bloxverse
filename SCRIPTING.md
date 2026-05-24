@@ -10,14 +10,15 @@ Welcome to BloxVerse! This guide explains how to write scripts for your BloxVers
 3. [Global Functions](#global-functions)
 4. [Game Object](#game-object)
 5. [Player Object](#player-object)
-6. [Part/Object System](#partobject-system)
-7. [Key Press Detection](#key-press-detection)
-8. [GUI System](#gui-system)
-9. [Events and Signals](#events-and-signals)
-10. [Networking & Multiplayer](#networking-multiplayer)
-11. [Best Practices](#best-practices)
-12. [Examples](#examples)
-13. [FAQ](#faq)
+6. [The Instance Tree](#instance-tree)
+7. [Part/Object System](#partobject-system)
+8. [Key Press Detection](#key-press-detection)
+9. [GUI System](#gui-system)
+10. [Events and Signals](#events-and-signals)
+11. [Networking & Multiplayer](#networking-multiplayer)
+12. [Best Practices](#best-practices)
+13. [Examples](#examples)
+14. [FAQ](#faq)
 
 ---
 
@@ -202,6 +203,26 @@ Fire a custom event that can be listened to by scripts.
 game:Fire("PlayerScored", player.id, 50)
 ```
 
+### `game:IsKeyDown(keyCode)`
+Check if a keyboard key is currently held down:
+
+```lua
+if game:IsKeyDown("Space") then
+    print("Jumping!")
+end
+if game:IsKeyDown("ShiftLeft") then
+    game:SetWalkSpeed(25)
+end
+```
+
+### `game:SetWalkSpeed(speed)` / `game:GetWalkSpeed()`
+Control the local player's walk speed in studs per second (default 16):
+
+```lua
+game:SetWalkSpeed(32)  -- Double speed
+print("Current speed:", game:GetWalkSpeed())
+```
+
 ---
 
 <a id="player-object"></a>
@@ -273,59 +294,8 @@ if player.health <= 0 then
 end
 ```
 
-### Speed Control
-
-#### `game:SetWalkSpeed(speed)`
-Set the local player's movement speed in studs per second. Default is 16.
-
-```lua
--- Double speed
-game:SetWalkSpeed(32)
-
--- Slow motion
-game:SetWalkSpeed(4)
-```
-
-#### `game:GetWalkSpeed()`
-Returns the current walk speed.
-
-```lua
-local speed = game:GetWalkSpeed()
-if speed > 20 then
-    print("Moving fast!")
-end
-```
-
-#### Example: Speed Power-Up
-
-```lua
-local powerUpTimer = 0
-local hasPowerUp = false
-
-local function onUpdate(dt)
-    if hasPowerUp then
-        powerUpTimer = powerUpTimer - dt
-        if powerUpTimer <= 0 then
-            game:SetWalkSpeed(16)
-            hasPowerUp = false
-            game:Broadcast("Speed boost expired!")
-        end
-    end
-end
-
-local function onPlayerTouchSpeedBoost()
-    game:SetWalkSpeed(40)
-    powerUpTimer = 10
-    hasPowerUp = true
-    game:Broadcast("Speed boost activated!")
-end
-```
-
----
-
-Parts are physical objects in your game. In BloxVerse, everything is organized in a hierarchical tree starting from the `game` object.
-
-### The Instance Tree
+<a id="instance-tree"></a>
+## The Instance Tree
 
 Objects are organized in a hierarchy (Parent/Child relationship).
 
@@ -358,6 +328,117 @@ All objects (Instances) have these properties:
 print(game.Workspace.Name) -- "Workspace"
 game.Workspace.Part1.Name = "NewName"
 ```
+
+### Instance Methods
+
+All objects support these methods for navigating and manipulating the hierarchy:
+
+| Method | Description |
+|--------|-------------|
+| `instance:FindFirstChild(name, recursive)` | Returns the first child with the given name, or nil |
+| `instance:GetChildren()` | Returns an array of all direct children |
+| `instance:IsA(className)` | Returns true if the instance is of the given class |
+| `instance:WaitForChild(name, timeout)` | Waits for a child to appear (async), with optional timeout |
+| `instance:GetFullName()` | Returns the full hierarchy path (e.g. "Workspace.Part.SurfaceGui") |
+| `instance:Destroy()` | Destroys the instance and all children |
+| `instance:ClearAllChildren()` | Destroys all children of this instance |
+| `instance:GetAttribute(name)` | Returns a custom attribute value |
+| `instance:SetAttribute(name, value)` | Sets a custom attribute value |
+| `instance:GetAttributes()` | Returns all custom attributes as a table |
+
+```lua
+-- Find a child by name
+local part = game.Workspace:FindFirstChild("Baseplate")
+if part then
+    print("Found:", part:GetFullName())
+end
+
+-- Get all children
+local objects = game.Workspace:GetChildren()
+for _, obj in ipairs(objects) do
+    print(obj.Name, obj.ClassName)
+end
+
+-- Check class type
+if part:IsA("Part") then
+    part.Color = Color3.fromRGB(255, 0, 0)
+end
+
+-- Wait for a child to appear
+local gui = game.StarterGui:WaitForChild("ScreenGui")
+print("ScreenGui found!")
+
+-- Custom attributes
+part:SetAttribute("Health", 100)
+part:SetAttribute("Owner", "Player1")
+print(part:GetAttribute("Health")) -- 100
+```
+
+### Constructors
+
+Use `Instance.new(className)` to create new objects:
+
+```lua
+-- Parts and organization
+local part = Instance.new("Part")
+local folder = Instance.new("Folder")
+local model = Instance.new("Model")
+
+-- Scripts and audio
+local script = Instance.new("Script")
+local sound = Instance.new("Sound")
+
+-- Lighting
+local sky = Instance.new("Sky")
+local atmosphere = Instance.new("Atmosphere")
+local light = Instance.new("PointLight")
+
+-- GUI
+local screenGui = Instance.new("ScreenGui")
+local surfaceGui = Instance.new("SurfaceGui")
+local frame = Instance.new("Frame")
+local label = Instance.new("TextLabel")
+local button = Instance.new("TextButton")
+
+-- Value objects (data storage, leaderstats)
+local intVal = Instance.new("IntValue")
+local strVal = Instance.new("StringValue")
+local numVal = Instance.new("NumberValue")
+local boolVal = Instance.new("BoolValue")
+
+-- Players
+local player = Instance.new("Player")
+```
+
+### Signals
+
+| Signal | Fires When |
+|--------|------------|
+| `part.Touched` | Another part touches this part |
+| `button.MouseButton1Click` | The button is clicked |
+| `sound.Ended` | The sound finishes playing |
+| `player.CharacterAdded` | A Character is assigned to the player |
+
+```lua
+-- Connect to part touch
+local part = game.Workspace.Part
+part.Touched:Connect(function(otherPart)
+    print("Touched by:", otherPart.Name)
+end)
+
+-- Connect to button click
+local button = game.StarterGui.ScreenGui.Button
+button.MouseButton1Click:Connect(function()
+    print("Button clicked!")
+end)
+```
+
+---
+
+<a id="partobject-system"></a>
+## Part/Object System
+
+Parts are physical objects in your game. In BloxVerse, everything is organized in a hierarchical tree starting from the `game` object.
 
 ### Classes and Properties
 
@@ -425,7 +506,35 @@ folder.Parent = game.Workspace
 
 local part = Instance.new("Part")
 part.Name = "NewPart"
-part.Parent = folder
+part.Size = Vector3.new(4, 4, 4)
+part.Position = Vector3.new(0, 5, 0)
+part.Anchored = false
+part.Parent = workspace
+```
+
+When a Part is parented to the Workspace, it is automatically added to the physics world with a physical body. You can set properties like `Size`, `Position`, `Color`, `Transparency`, and `Anchored` either before or after parenting.
+
+### Vector3
+
+Used for 3D positions and sizes:
+
+```lua
+local pos = Vector3.new(10, 5, 0)
+part.Position = pos
+part.Size = Vector3.new(4, 8, 2)
+print(part.Position.x, part.Position.y, part.Position.z)
+```
+
+### Color3
+
+Used to represent colors:
+
+```lua
+local red = Color3.fromRGB(255, 0, 0)
+part.Color = red
+
+-- Also accepts hex numbers:
+part.Color = 0xff4400
 ```
 
 ### Part Methods
@@ -465,39 +574,51 @@ local x, y, z = part:GetPosition()
 
 You can create new parts and add them to the game world during gameplay.
 
-#### `game:CreatePart(name, x, y, z, width, height, depth, color, transparency, anchored, mass)`
-Create a new part at a position with specified dimensions. Returns the part object.
-
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `name` | string | — | Unique name for the part |
-| `x` | number | 0 | X position |
-| `y` | number | 0 | Y position |
-| `z` | number | 0 | Z position |
-| `width` | number | — | Width (X axis) |
-| `height` | number | — | Height (Y axis) |
-| `depth` | number | — | Depth (Z axis) |
-| `color` | number | `0x808080` | Hex color (e.g. `0xff4400`) |
-| `transparency` | number | `0` | 0 (opaque) to 1 (invisible) |
-| `anchored` | boolean | `true` | If true, part doesn't move with physics |
-| `mass` | number or `"auto"` | `"auto"` | Physics mass; `"auto"` calculates from size |
+#### `Instance.new("Part")`
+Create a new part using the standard Instance system (like Roblox):
 
 ```lua
--- Simple part
-local platform = game:CreatePart("MyPlatform", 0, 5, 0, 10, 1, 10)
-if platform then
-    print("Created platform at", platform.x, platform.y, platform.z)
-end
-
--- Colored, semi-transparent, unanchored part with custom mass
-local ball = game:CreatePart("MyBall", 0, 10, 0, 2, 2, 2, 0xff4400, 0.3, false, 5)
+local part = Instance.new("Part")
+part.Name = "MyPlatform"
+part.Size = Vector3.new(10, 1, 10)
+part.Position = Vector3.new(0, 5, 0)
+part.Color = Color3.fromRGB(128, 128, 128)
+part.Anchored = true
+part.Parent = game.Workspace
 ```
 
+Your new part appears in the world as soon as `.Parent` is set.
+
+#### `game:GetPart(name)`
+Find a part by name:
+
+```lua
+local platform = game:GetPart("MyPlatform")
+if platform then
+    print("Found platform at", platform.x, platform.y, platform.z)
+end
+```
+
+#### `game:GetAllParts()`
+Get a list of all parts currently in the world.
+
 #### `game:RemovePart(name)`
-Remove a part from the game world.
+Remove a part from the game world (including its physics body).
 
 ```lua
 game:RemovePart("MyPlatform")
+```
+
+#### `game:IsKeyDown(keyCode)`
+Check if a keyboard key is currently held down:
+
+```lua
+if game:IsKeyDown("Space") then
+    print("Jumping!")
+end
+if game:IsKeyDown("ShiftLeft") then
+    game:SetWalkSpeed(25)
+end
 ```
 
 ### Part Properties
@@ -506,18 +627,20 @@ Each part has properties you can read and modify in real time.
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `part.name` | string | The part's name |
-| `part.x` | number | X position |
-| `part.y` | number | Y position |
-| `part.z` | number | Z position |
-| `part.width` | number | Width (X axis) |
-| `part.height` | number | Height (Y axis) |
-| `part.depth` | number | Depth (Z axis) |
-| `part.color` | string | Color as hex string (e.g. `"#ff4400"`) |
-| `part.transparency` | number | 0 (opaque) to 1 (invisible) |
-| `part.anchored` | boolean | If true, part doesn't move with physics |
+| `part.Name` | string | The part's name |
+| `part.Position` | Vector3 | Position as `{x, y, z}` object |
+| `part.Size` | Vector3 | Size as `{x, y, z}` object |
+| `part.Color` | number/Color3 | Color (hex like `0xff4400` or Color3) |
+| `part.Transparency` | number | 0 (opaque) to 1 (invisible) |
+| `part.Anchored` | boolean | If true, part doesn't move with physics |
+| `part.CanCollide` | boolean | If true, other objects collide with it |
+| `part.x` | number | X position (shorthand) |
+| `part.y` | number | Y position (shorthand) |
+| `part.z` | number | Z position (shorthand) |
+| `part.width` | number | Width (X axis, shorthand) |
+| `part.height` | number | Height (Y axis, shorthand) |
+| `part.depth` | number | Depth (Z axis, shorthand) |
 | `part.mass` | number | Physics mass (read-only if anchored) |
-| `part.canCollide` | boolean | If true, other objects collide with it |
 
 ### Modifying Parts
 
@@ -527,18 +650,16 @@ Change part properties at runtime to create dynamic effects.
 local platform = game:GetPart("MyPlatform")
 if platform then
     -- Move the platform
-    platform.x = 10
-    platform.y = 20
-    platform.z = -5
+    platform.Position = Vector3.new(10, 20, -5)
 
-    -- Change color
-    platform.color = "#ff4400"
+    -- Change color (hex)
+    platform.Color = 0xff4400
 
     -- Make it semi-transparent
-    platform.transparency = 0.5
+    platform.Transparency = 0.5
 
     -- Toggle physics
-    platform.anchored = false
+    platform.Anchored = false
 end
 ```
 
@@ -555,13 +676,13 @@ local function onUpdate(dt)
     -- Make a part bob up and down
     local part = game:GetPart("MyPart")
     if part then
-        part.y = 10 + math.sin(time * 2) * 3
+        part.Position = Vector3.new(10, 10 + math.sin(time * 2) * 3, 0)
 
         -- Cycle color
         local r = math.floor(128 + 127 * math.sin(time))
         local g = math.floor(128 + 127 * math.sin(time + 2))
         local b = math.floor(128 + 127 * math.sin(time + 4))
-        part.color = string.format("#%02x%02x%02x", r, g, b)
+        part.Color = Color3.fromRGB(r, g, b)
     end
 end
 ```
@@ -873,13 +994,13 @@ end)
 
 BloxVerse is built for multiplayer. Scripts run on the server and sync with all players.
 
-### Important: Server Authority
+### Important: Execution Model
 
-**All scripts run on the server.** This prevents cheating and ensures consistency across all players.
+**All scripts run on each player's browser.** State is synced between players via the multiplayer system.
 
-- The server is the source of truth
-- Client sends input, server validates and applies it
-- Server broadcasts state changes to all clients
+- Each player's browser runs the same scripts independently
+- Player positions and physics are synced in real-time
+- Game properties set with `game:SetProperty()` are local to each client
 
 ### Example: Multiplayer Scoring
 
@@ -1420,140 +1541,155 @@ return {
 
 ---
 
----
+<a id="leaderstats"></a>
+## Leaderstats System
 
-<a id="performance-tips"></a>
-## Performance Tips
+BloxVerse automatically tracks **leaderstats** for all players. To add leaderboards to your game:
 
-1. **Cache frequently used values:**
-   ```lua
-   local players = game:GetPlayers()  -- Cache this
-   for _, player in ipairs(players) do
-       -- Use cached players list
-   end
-   ```
+1. Create a **Script** in **Workspace** (or attach one in Studio)
+2. In the script, create a **Folder** named `"leaderstats"` inside the **Player**
+3. Add **IntValue**, **StringValue**, **NumberValue**, or **BoolValue** children with the stat names
 
-2. **Avoid expensive operations in onUpdate:**
-   ```lua
-   local lastCheck = 0
-   local function onUpdate(dt)
-       lastCheck = lastCheck + dt
-       if lastCheck >= 1 then  -- Check every second
-           lastCheck = 0
-           -- Do expensive check
-       end
-   end
-   ```
-
-3. **Use local variables for closures:**
-   ```lua
-   local players = game:GetPlayers()
-   spawn(function()
-       wait(5)
-       for _, player in ipairs(players) do
-           -- Use captured players list
-       end
-   end)
-   ```
-
----
-
-<a id="performance-advanced"></a>
-## Performance Tips (Advanced)
-
-### Object Pooling
-Reuse objects instead of creating new ones every frame to reduce garbage collection.
+### Example
 
 ```lua
-local bulletPool = {}
+-- This would run when a player joins (connect to PlayerAdded)
+local player = game.Players:GetChildren()[1] -- for testing
 
-function getBullet()
-    local bullet = table.remove(bulletPool)
-    if not bullet then
-        bullet = { x = 0, y = 0, z = 0, active = false }
-    end
-    bullet.active = true
-    return bullet
-end
+local stats = Instance.new("Folder")
+stats.Name = "leaderstats"
+stats.Parent = player
 
-function returnBullet(bullet)
-    bullet.active = false
-    table.insert(bulletPool, bullet)
-end
+local coins = Instance.new("IntValue")
+coins.Name = "Coins"
+coins.Value = 0
+coins.Parent = stats
+
+local gems = Instance.new("IntValue")
+gems.Name = "Gems"
+gems.Value = 0
+gems.Parent = stats
+
+local guild = Instance.new("StringValue")
+guild.Name = "Guild"
+guild.Value = "None"
+guild.Parent = stats
 ```
 
-### Throttling Expensive Operations
-Spread expensive operations across multiple frames.
+The leaderboard **automatically appears** in the top-right corner of the game window. Updating a leaderstat value instantly updates the display:
 
 ```lua
-local updateIndex = 0
-
-local function onUpdate(dt)
-    local players = game:GetPlayers()
-    updateIndex = updateIndex + 1
-
-    -- Only process 5 players per frame
-    local startIndex = updateIndex % 5
-    for i = startIndex, math.min(startIndex + 4, #players) do
-        local player = players[i]
-        -- Expensive check on this player
+local stats = player:FindFirstChild("leaderstats")
+if stats then
+    local coins = stats:FindFirstChild("Coins")
+    if coins then
+        coins.Value = coins.Value + 10
     end
 end
 ```
 
-### Memory Management
-Avoid creating large temporary tables in frequently called functions.
+---
+
+<a id="gui-system-roblox"></a>
+## GUI System (Instance-based)
+
+BloxVerse supports Roblox-style GUI using ScreenGui and SurfaceGui containers.
+
+### ScreenGui (2D Overlay)
+- Place inside **StarterGui**
+- All child elements render as a fixed overlay on the screen
+- **Enabled** property controls visibility
 
 ```lua
--- Avoid: Creates new table every frame
-local function onUpdate(dt)
-    local data = { x = 0, y = 0, z = 0 }
-    -- Use data...
-end
+local gui = Instance.new("ScreenGui")
+gui.Name = "HUD"
+gui.Parent = game.StarterGui
 
--- Better: Reuse table
-local data = { x = 0, y = 0, z = 0 }
-local function onUpdate(dt)
-    data.x = 0
-    data.y = 0
-    data.z = 0
-    -- Use data...
-end
+local label = Instance.new("TextLabel")
+label.Name = "ScoreLabel"
+label.Text = "Score: 0"
+label.Size = {200, 50}
+label.Position = {0.5, 0.1}
+label.Parent = gui
 ```
+
+### SurfaceGui (3D Surface UI)
+SurfaceGui renders on a part's surface in 3D space and follows the camera:
+
+- Place inside a **Part** in Workspace, or set **Adornee** to the target part
+- **Face** property: `Front`, `Back`, `Left`, `Right`, `Top`, `Bottom`
+- **CanvasSize** controls the pixel dimensions of the surface
+
+```lua
+local part = game.Workspace.Part
+local gui = Instance.new("SurfaceGui")
+gui.Adornee = part
+gui.Face = "Front"
+gui.CanvasSize = {300, 200}
+gui.Parent = part
+
+local frame = Instance.new("Frame")
+frame.Size = {300, 200}
+frame.BackgroundColor = Color3.fromRGB(30, 30, 30)
+frame.BackgroundTransparency = 0.3
+frame.Parent = gui
+
+local label = Instance.new("TextLabel")
+label.Text = "Hello Surface!"
+label.Size = {300, 50}
+label.Position = {0, 80}
+label.Parent = gui
+```
+
+### GUI Element Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Visible` | boolean | true | Show/hide the element |
+| `BackgroundColor` | Color3 | varies | Background color |
+| `BackgroundTransparency` | number (0-1) | 0 | 0 = opaque, 1 = invisible |
+| `Position` | [x, y] | [0, 0] | Position (px or 0-1 fraction) |
+| `Size` | [w, h] | varies | Size (px or 0-1 fraction) |
+| `Text` | string | "Label" | Text content (TextLabel/TextButton) |
+| `TextColor` | Color3 | white | Text color |
+| `TextTransparency` | number (0-1) | 0 | 0 = solid text, 1 = invisible text |
+| `FontSize` | number | 14 | Font size in pixels |
+
+### BackgroundTransparency
+Works exactly like Roblox:
+- **0.0** = fully opaque background
+- **0.5** = half transparent (background only, text stays solid)
+- **1.0** = fully invisible (background doesn't render)
 
 ---
 
-<a id="troubleshooting"></a>
-## Troubleshooting
+<a id="part-properties"></a>
+## Part Properties Reference
 
-### Script won't save
-- Make sure your script name has no special characters (only letters, numbers, underscores)
-- Check that you're logged in
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Size` | [w, h, d] | [4, 4, 4] | Width, height, depth in studs |
+| `Position` | [x, y, z] | [0, 0, 0] | World position |
+| `Color` | Color3 | gray | Part color |
+| `Transparency` | number (0-1) | 0 | 0 = solid, 1 = invisible |
+| `Anchored` | boolean | true | If true, part doesn't move with physics |
+| `CanCollide` | boolean | true | If true, other parts collide with it |
+| `Shape` | string | "Block" | `Block`, `Sphere`, or `Cylinder` |
 
-### `onUpdate` not running
-- Verify your script exports the function correctly in the `return` table
-- Check the output panel for syntax errors
+### Part Methods
 
-### Player data not persisting
-- Player properties are per-session and reset when the game restarts
-- Use `game:SetProperty()` for global data that should persist for the round
-
-### "Unexpected end" error
-- Every `function`, `if`, `for`, `while`, and `do` must have a matching `end`
-- Use the Lua linter in the script editor to find missing `end` statements
-
-### Script runs but doesn't do anything
-- Use `print()` statements to debug execution flow
-- Check the output panel for error messages
-- Make sure your script is assigned to the correct game
+| Method | Description |
+|--------|-------------|
+| `part:SetVelocity(x, y, z)` | Sets the part's velocity |
+| `part:GetVelocity()` | Returns the current velocity as a Vector3 |
 
 ---
 
 <a id="faq"></a>
 ## FAQ
 
-### Q: Can I run scripts on the client (player's browser)?
-**A:** Not yet. All scripts currently run on the server. Client-side scripting is planned for future versions.
+### Q: Can I run scripts on the server?
+**A:** All scripts currently run on each player's browser (client-side). Server-side scripting is planned for future versions.
 
 ### Q: How often does `onUpdate` run?
 **A:** Approximately 60 times per second (60 FPS). The `dt` parameter tells you the actual delta time.
@@ -1568,7 +1704,7 @@ end
 **A:** The script stops executing, and an error is logged. Other scripts continue running.
 
 ### Q: Can I delete or modify parts with scripts?
-**A:** Modifying part properties (position, velocity) is supported. Creating/deleting parts requires engine support (planned).
+**A:** Yes. Use `Instance.new("Part")` to create parts and `game:RemovePart(name)` to delete them. All properties (position, size, color, transparency, anchored, velocity) can be modified at runtime.
 
 ### Q: How do I debug my scripts?
 **A:** Use `print()` and `warn()` to output to the server console. Check the bottom panel in the script editor for output.
@@ -1578,10 +1714,10 @@ end
 
 ### Q: What's the difference between BloxVerse and Roblox scripting?
 **A:** 
-- BloxVerse uses fewer APIs for simplicity
-- No `Instance` objects; properties are key-value pairs
-- Player and part objects are simpler
-- No GUI/ScreenGui system (UI is HTML/CSS based)
+- BloxVerse uses a subset of Roblox APIs for simplicity
+- `Instance.new()` works for creating Parts, Folders, Scripts, and more
+- Part properties use `Position`/`Size` as Vector3 objects and `Color` as Color3/hex
+- GUI/ScreenGui support is limited (planned for future)
 - Networking is automatically handled
 
 ---

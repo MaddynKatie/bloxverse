@@ -95,9 +95,10 @@
     .tag.developer { background: rgba(155,89,182,.18); color: #9b59b6; }
     #loading { text-align:center; color:#555; padding: 48px; font-size:14px; }
   </style>
-  <script type="module" crossorigin src="/bloxverse/assets/admin-D_mV5Cbd.js"></script>
+  <script type="module" crossorigin src="/bloxverse/assets/admin-CBxgyzyV.js"></script>
   <link rel="modulepreload" crossorigin href="/bloxverse/assets/modulepreload-polyfill-Ke7zwH0v.js">
-  <link rel="modulepreload" crossorigin href="/bloxverse/assets/firebase-HvCPFqZQ.js">
+  <link rel="modulepreload" crossorigin href="/bloxverse/assets/preload-helper-B5DiT7NQ.js">
+  <link rel="modulepreload" crossorigin href="/bloxverse/assets/firebase-CcrBuBby.js">
 </head>
 <body>
 
@@ -214,6 +215,14 @@
         <button class="btn btn-gray" id="btnRevokeRole" style="flex:0; white-space:nowrap;">Revoke Role</button>
       </div>
       <div class="status" id="roleStatus"></div>
+    </div>
+
+    <!-- ── GAME MANAGEMENT ──────────────────────────────────────── -->
+    <div class="panel">
+      <h2>🎮 Game Management</h2>
+      <p style="font-size:12px;color:#666;margin-bottom:14px;">All published games. Soft-delete replaces name with "[ Content Deleted ]". Recover restores the original name. Permanent delete removes the document entirely.</p>
+      <div id="gameList" style="display:flex;flex-direction:column;gap:8px;"></div>
+      <div class="status" id="gameStatus"></div>
     </div>
 
   </main>
