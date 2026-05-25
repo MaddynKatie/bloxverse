@@ -15,12 +15,14 @@ export function luaToJS(lua) {
         (_s) => _s.replace(/(\bfunction\s*\([^)]*\))(?!\s*\{)/g, '$1 {'),
         // Wrap if/while/elseif conditions in parens (skip if already wrapped)
         (_s) => _s.replace(/if\s+(?!\()(.*?)\s+then/g, 'if ($1) then'),
-        (_s) => _s.replace(/while\s+(?!\()(.*?)\s+do/g, 'while ($1) do'),
+        (_s) => _s.replace(/while\s+(?!\()(.*?)\s+do/g, 'while ($1) {'),
         (_s) => _s.replace(/elseif\s+(?!\()(.*?)\s+then/g, 'else if ($1) then'),
         (_s) => _s.replace(/\blocal\s+/g, 'let '),
         (_s) => _s.replace(/\bthen\b/g, '{'),
         (_s) => _s.replace(/\belseif\b/g, '} else if'),
         (_s) => _s.replace(/\belse\b(?!\s*\{)/g, '} else {'),
+        // Convert bare Lua do...end to { ... }
+        (_s) => _s.replace(/\bdo\b(?!\s*\{)/g, '{'),
         // Convert repeat...until to do...while
         (_s) => _s.replace(/\brepeat\b/g, 'do {'),
         (_s) => _s.replace(/\buntil\b\s*/g, '} while (!('),
