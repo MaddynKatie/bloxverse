@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import * as CANNON from 'cannon-es';
 const playerModelUrl = new URL('../assets/models/player.fbx', import.meta.url).href;
@@ -869,6 +870,7 @@ let climbBlock    = null;
 let climbCooldown = 0;
 
 let extraVelX = 0, extraVelZ = 0;
+let _charMoving = false;
 
 // ─── Camera state ─────────────────────────────────────────────────────────────
 const cam = { yaw: 0, pitch: 0.35, distance: 25.6, targetDistance: 25.6,
@@ -1438,10 +1440,11 @@ function _loadAccessoryForUser(userId, accessoryId, avatarObj) {
     const accDef = findAccessory(accessoryId);
     if (!accDef) return;
 
-    const loader = new FBXLoader();
     const texLoader = new THREE.TextureLoader();
+    const path = accDef.meshPath;
+    const isGLB = typeof path === 'string' && (path.endsWith('.glb') || path.endsWith('.gltf'));
 
-    loader.load(accDef.meshPath, (fbx) => {
+    const onLoad = (root) => {
         if (_playerAccessoryCancel.get(userId) || !avatarObj.parent) return;
         const headPt = _findHeadAttachment(avatarObj);
         if (!headPt) {
@@ -1450,7 +1453,7 @@ function _loadAccessoryForUser(userId, accessoryId, avatarObj) {
         }
         avatarObj.updateMatrixWorld(true);
 
-        fbx.traverse(child => {
+        root.traverse(child => {
             if (child.isMesh) {
                 child.castShadow = true;
                 child.receiveShadow = true;
@@ -1477,19 +1480,19 @@ function _loadAccessoryForUser(userId, accessoryId, avatarObj) {
 
         const o = accDef.offset || {};
         const scale = o.scale !== undefined ? o.scale : 1;
-        fbx.position.set(0, 0, 0);
-        fbx.rotation.set(0, 0, 0);
-        fbx.scale.setScalar(scale);
-        fbx.updateMatrixWorld(true);
+        root.position.set(0, 0, 0);
+        root.rotation.set(0, 0, 0);
+        root.scale.setScalar(scale);
+        root.updateMatrixWorld(true);
 
-        const bbox = new THREE.Box3().setFromObject(fbx);
+        const bbox = new THREE.Box3().setFromObject(root);
         const center = bbox.getCenter(new THREE.Vector3());
-        fbx.position.x -= center.x;
-        fbx.position.y -= bbox.min.y;
-        fbx.position.z -= center.z;
+        root.position.x -= center.x;
+        root.position.y -= bbox.min.y;
+        root.position.z -= center.z;
 
         const wrapper = new THREE.Group();
-        wrapper.add(fbx);
+        wrapper.add(root);
         wrapper.userData.isAccessory = true;
         wrapper.traverse(node => {
             node.userData = node.userData || {};
@@ -1525,7 +1528,15 @@ function _loadAccessoryForUser(userId, accessoryId, avatarObj) {
             return;
         }
         map.set(accessoryId, { wrapper, update });
-    }, undefined, () => {});
+    };
+
+    if (isGLB) {
+        const loader = new GLTFLoader();
+        loader.load(path, (gltf) => onLoad(gltf.scene), undefined, () => {});
+    } else {
+        const loader = new FBXLoader();
+        loader.load(path, onLoad, undefined, () => {});
+    }
 }
 
 function _isAccessoryNode(obj) {
@@ -2324,10 +2335,6 @@ function update(dt) {
     // Update physics simulation
     updatePhysics(dt);
 
-    if (keys['KeyI']) cam.targetDistance = Math.max(cam.minDist, cam.targetDistance - CAM_KEY_ZOOM_SPEED * dt);
-    if (keys['KeyO']) cam.targetDistance = Math.min(cam.maxDist, cam.targetDistance + CAM_KEY_ZOOM_SPEED * dt);
-    cam.distance = THREE.MathUtils.lerp(cam.distance, cam.targetDistance, Math.min(1, 10 * dt));
-
     // ── Climbing state ──────────────────────────────────────────────────────
     if (climbState === 'hanging') {
         const px0 = character.position.x, pz0 = character.position.z;
@@ -2422,10 +2429,10 @@ function update(dt) {
         moveInput.z += joystickVector.y;
     }
 
-    const moving = moveInput.lengthSq() > 0;
+    _charMoving = moveInput.lengthSq() > 0;
     let velX = 0, velZ = 0;
 
-    if (moving) {
+    if (_charMoving) {
         moveInput.normalize();
         const yawQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0), cam.yaw);
         moveInput.applyQuaternion(yawQuat);
@@ -2563,80 +2570,7 @@ function update(dt) {
         grounded = false;
     }
 
-    updateAnimations(dt, moving);
-
-    // Update other players
-    otherPlayers.forEach((p, userId) => {
-        if (!p.mesh) return;
-        // Interpolate position and rotation
-        p.mesh.position.lerp(new THREE.Vector3(p.targetX, p.targetY, p.targetZ), Math.min(1, dt * 10));
-        p.mesh.rotation.y = lerpAngle(p.mesh.rotation.y, p.targetRy, Math.min(1, dt * 10));
-        
-        // Simple animation (reuse logic)
-        p.animTime = (p.animTime || 0) + dt;
-        const t = p.animTime, sp = 12;
-        const lLeg = p.bones['Left_Leg'],  rLeg = p.bones['Right_Leg'];
-        const lArm = p.bones['Left_Arm'],  rArm = p.bones['Right_Arm'];
-        const torso = p.bones['Torso'];
-        const lArmRestY = p.rest['Left_Arm']?.py ?? 0;
-        const rArmRestY = p.rest['Right_Arm']?.py ?? 0;
-
-        if (p.climbState > 0) {
-            // Match local climb animation: arms up, legs kicking
-            const grip = p.moving ? Math.sin(p.animTime * 6) * 0.15 : 0;
-            if(lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x||0) - Math.PI*0.75 + grip, Math.min(1, sp*dt));
-            if(rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x||0) - Math.PI*0.75 - grip, Math.min(1, sp*dt));
-            if(lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z||0) + 0.35, Math.min(1, sp*dt));
-            if(rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z||0) - 0.35, Math.min(1, sp*dt));
-            const kick = p.moving ? Math.sin(p.animTime * 6) * 0.3 : 0;
-            if(lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x||0) + 0.3 + kick, Math.min(1, sp*dt));
-            if(rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x||0) + 0.3 - kick, Math.min(1, sp*dt));
-            if(torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x||0) - 0.15, Math.min(1, sp*dt));
-            if(torso) torso.rotation.z = THREE.MathUtils.lerp(torso.rotation.z, (p.rest['Torso']?.z||0), Math.min(1, sp*dt));
-            const lArmRestY = p.rest['Left_Arm']?.py ?? 0;
-            const rArmRestY = p.rest['Right_Arm']?.py ?? 0;
-            if(lArm) lArm.position.y = THREE.MathUtils.lerp(lArm.position.y, lArmRestY + 0.5, Math.min(1, sp*dt));
-            if(rArm) rArm.position.y = THREE.MathUtils.lerp(rArm.position.y, rArmRestY + 0.5, Math.min(1, sp*dt));
-        } else if (p.grounded === false) {
-            if(lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x||0), Math.min(1, sp*dt));
-            if(rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x||0), Math.min(1, sp*dt));
-            if(lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x||0) - Math.PI, Math.min(1, sp*dt));
-            if(rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x||0) - Math.PI, Math.min(1, sp*dt));
-            if(lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z||0), Math.min(1, sp*dt));
-            if(rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z||0), Math.min(1, sp*dt));
-            if(torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x||0), Math.min(1, sp*dt));
-            const lArmRestY = p.rest['Left_Arm']?.py ?? 0;
-            const rArmRestY = p.rest['Right_Arm']?.py ?? 0;
-            if(lArm) lArm.position.y = THREE.MathUtils.lerp(lArm.position.y, lArmRestY, Math.min(1, sp*dt));
-            if(rArm) rArm.position.y = THREE.MathUtils.lerp(rArm.position.y, rArmRestY, Math.min(1, sp*dt));
-        } else if (p.moving) {
-            const swing = Math.sin(t * 2.8 * Math.PI);
-            const lArmRestY = p.rest['Left_Arm']?.py ?? 0;
-            const rArmRestY = p.rest['Right_Arm']?.py ?? 0;
-            if(lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x||0) + swing * 1.0, Math.min(1, sp*dt));
-            if(rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x||0) - swing * 1.0, Math.min(1, sp*dt));
-            if(lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x||0) - swing * 0.8, Math.min(1, sp*dt));
-            if(rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x||0) + swing * 0.8, Math.min(1, sp*dt));
-            if(lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z||0) + 0.05, Math.min(1, sp*dt));
-            if(rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z||0) - 0.05, Math.min(1, sp*dt));
-            if(torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x||0) + 0.03, Math.min(1, sp*dt));
-            if(lArm) lArm.position.y = THREE.MathUtils.lerp(lArm.position.y, lArmRestY, Math.min(1, sp*dt));
-            if(rArm) rArm.position.y = THREE.MathUtils.lerp(rArm.position.y, rArmRestY, Math.min(1, sp*dt));
-        } else {
-            const breathe = Math.sin(t * 1.2) * 0.015;
-            const lArmRestY = p.rest['Left_Arm']?.py ?? 0;
-            const rArmRestY = p.rest['Right_Arm']?.py ?? 0;
-            if(lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x||0), Math.min(1, sp*dt));
-            if(rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x||0), Math.min(1, sp*dt));
-            if(lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x||0), Math.min(1, sp*dt));
-            if(rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x||0), Math.min(1, sp*dt));
-            if(lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z||0) + 0.1 + breathe, Math.min(1, sp*dt));
-            if(rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z||0) - 0.1 - breathe, Math.min(1, sp*dt));
-            if(torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x||0) + breathe, Math.min(1, sp*dt));
-            if(lArm) lArm.position.y = THREE.MathUtils.lerp(lArm.position.y, lArmRestY, Math.min(1, sp*dt));
-            if(rArm) rArm.position.y = THREE.MathUtils.lerp(rArm.position.y, rArmRestY, Math.min(1, sp*dt));
-        }
-    });
+    updateAnimations(dt, _charMoving);
 }
 
 // ─── Camera update ────────────────────────────────────────────────────────────
@@ -2740,6 +2674,17 @@ window._bloxverse = {
         }
         const ox=tx-(minX+maxX)/2, oy=G_LEVEL-minY, oz=tz-(minZ+maxZ)/2;
         
+        // Remove any previously loaded parts from the scene
+        for (const entry of window._mapParts || []) {
+            if (entry.mesh) {
+                scene.remove(entry.mesh);
+                const pb = physicsBodies.get(entry.mesh);
+                if (pb) { physicsWorld.removeBody(pb.body); physicsBodies.delete(entry.mesh); }
+                if (Array.isArray(entry.mesh.material)) entry.mesh.material.forEach(m => m.dispose());
+                else entry.mesh.material?.dispose();
+                entry.mesh.geometry?.dispose();
+            }
+        }
         // Store part info for later physics reference
         const partMap = new Map();
         window._mapParts = [];
@@ -3303,13 +3248,27 @@ window._bloxverse = {
 
 // ─── Game loop ────────────────────────────────────────────────────────────────
 let lastTime = performance.now();
+let _physAccumulator = 0;
+const PHYS_DT = 1 / 60;
+const MAX_PHYS_STEPS = 5;
 
 function loop(now) {
     requestAnimationFrame(loop);
-    const dt = Math.min((now - lastTime) / 1000, 0.1);
+    const frameDt = Math.min((now - lastTime) / 1000, 0.1);
     lastTime = now;
 
-    update(dt);
+    _physAccumulator += frameDt;
+    let steps = 0;
+    while (_physAccumulator >= PHYS_DT && steps < MAX_PHYS_STEPS) {
+        _physAccumulator -= PHYS_DT;
+        steps++;
+        update(PHYS_DT);
+    }
+
+    // Visual-only updates (once per frame, with raw frame delta)
+    if (keys['KeyI']) cam.targetDistance = Math.max(cam.minDist, cam.targetDistance - CAM_KEY_ZOOM_SPEED * frameDt);
+    if (keys['KeyO']) cam.targetDistance = Math.min(cam.maxDist, cam.targetDistance + CAM_KEY_ZOOM_SPEED * frameDt);
+    cam.distance = THREE.MathUtils.lerp(cam.distance, cam.targetDistance, Math.min(1, 10 * frameDt));
     updateCamera();
 
     if (charDebugMesh && character) {
@@ -3319,8 +3278,69 @@ function loop(now) {
     }
     updateDebugMeshes();
 
-    window._mpUpdate?.(dt);
-    window._scriptUpdate?.(dt);
+    window._mpUpdate?.(frameDt);
+    window._scriptUpdate?.(frameDt);
+
+    // Update other players (visual interpolation, once per frame)
+    otherPlayers.forEach((p, userId) => {
+        if (!p.mesh) return;
+        p.mesh.position.lerp(new THREE.Vector3(p.targetX, p.targetY, p.targetZ), Math.min(1, frameDt * 10));
+        p.mesh.rotation.y = lerpAngle(p.mesh.rotation.y, p.targetRy, Math.min(1, frameDt * 10));
+        p.animTime = (p.animTime || 0) + frameDt;
+        const t = p.animTime, sp = 12;
+        const lLeg = p.bones['Left_Leg'],  rLeg = p.bones['Right_Leg'];
+        const lArm = p.bones['Left_Arm'],  rArm = p.bones['Right_Arm'];
+        const torso = p.bones['Torso'];
+        const lArmRestY = p.rest['Left_Arm']?.py ?? 0;
+        const rArmRestY = p.rest['Right_Arm']?.py ?? 0;
+
+        if (p.climbState > 0) {
+            const grip = p.moving ? Math.sin(p.animTime * 6) * 0.15 : 0;
+            if(lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x||0) - Math.PI*0.75 + grip, Math.min(1, sp*frameDt));
+            if(rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x||0) - Math.PI*0.75 - grip, Math.min(1, sp*frameDt));
+            if(lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z||0) + 0.35, Math.min(1, sp*frameDt));
+            if(rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z||0) - 0.35, Math.min(1, sp*frameDt));
+            const kick = p.moving ? Math.sin(p.animTime * 6) * 0.3 : 0;
+            if(lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x||0) + 0.3 + kick, Math.min(1, sp*frameDt));
+            if(rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x||0) + 0.3 - kick, Math.min(1, sp*frameDt));
+            if(torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x||0) - 0.15, Math.min(1, sp*frameDt));
+            if(torso) torso.rotation.z = THREE.MathUtils.lerp(torso.rotation.z, (p.rest['Torso']?.z||0), Math.min(1, sp*frameDt));
+            if(lArm) lArm.position.y = THREE.MathUtils.lerp(lArm.position.y, lArmRestY + 0.5, Math.min(1, sp*frameDt));
+            if(rArm) rArm.position.y = THREE.MathUtils.lerp(rArm.position.y, rArmRestY + 0.5, Math.min(1, sp*frameDt));
+        } else if (p.grounded === false) {
+            if(lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x||0), Math.min(1, sp*frameDt));
+            if(rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x||0), Math.min(1, sp*frameDt));
+            if(lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x||0) - Math.PI, Math.min(1, sp*frameDt));
+            if(rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x||0) - Math.PI, Math.min(1, sp*frameDt));
+            if(lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z||0), Math.min(1, sp*frameDt));
+            if(rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z||0), Math.min(1, sp*frameDt));
+            if(torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x||0), Math.min(1, sp*frameDt));
+            if(lArm) lArm.position.y = THREE.MathUtils.lerp(lArm.position.y, lArmRestY, Math.min(1, sp*frameDt));
+            if(rArm) rArm.position.y = THREE.MathUtils.lerp(rArm.position.y, rArmRestY, Math.min(1, sp*frameDt));
+        } else if (p.moving) {
+            const swing = Math.sin(t * 2.8 * Math.PI);
+            if(lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x||0) + swing * 1.0, Math.min(1, sp*frameDt));
+            if(rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x||0) - swing * 1.0, Math.min(1, sp*frameDt));
+            if(lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x||0) - swing * 0.8, Math.min(1, sp*frameDt));
+            if(rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x||0) + swing * 0.8, Math.min(1, sp*frameDt));
+            if(lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z||0) + 0.05, Math.min(1, sp*frameDt));
+            if(rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z||0) - 0.05, Math.min(1, sp*frameDt));
+            if(torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x||0) + 0.03, Math.min(1, sp*frameDt));
+            if(lArm) lArm.position.y = THREE.MathUtils.lerp(lArm.position.y, lArmRestY, Math.min(1, sp*frameDt));
+            if(rArm) rArm.position.y = THREE.MathUtils.lerp(rArm.position.y, rArmRestY, Math.min(1, sp*frameDt));
+        } else {
+            const breathe = Math.sin(t * 1.2) * 0.015;
+            if(lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x||0), Math.min(1, sp*frameDt));
+            if(rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x||0), Math.min(1, sp*frameDt));
+            if(lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x||0), Math.min(1, sp*frameDt));
+            if(rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x||0), Math.min(1, sp*frameDt));
+            if(lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z||0) + 0.1 + breathe, Math.min(1, sp*frameDt));
+            if(rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z||0) - 0.1 - breathe, Math.min(1, sp*frameDt));
+            if(torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x||0) + breathe, Math.min(1, sp*frameDt));
+            if(lArm) lArm.position.y = THREE.MathUtils.lerp(lArm.position.y, lArmRestY, Math.min(1, sp*frameDt));
+            if(rArm) rArm.position.y = THREE.MathUtils.lerp(rArm.position.y, rArmRestY, Math.min(1, sp*frameDt));
+        }
+    });
 
     _updateBubblePositions();
     _updateNameLabelPositions();
