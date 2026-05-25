@@ -2,9 +2,9 @@ import { sitePath } from './paths.js';
 
 /** Official game Lua scripts — list updated by `npm run dist`. */
 const GAME_SCRIPT_RELATIVE = [
-  'games/test/Script.lua',
-  'games/touchfootball/Sprint.lua',
-  'games/touchfootball/team.lua',
+  'assets/games/test/Script.lua',
+  'assets/games/touchfootball/Sprint.lua',
+  'assets/games/touchfootball/team.lua',
 ];
 
 export async function loadGameScriptModules() {
