@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <base href="/bloxverse/">
+  <script type="importmap" src="importmap.json"></script>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BloxVerse Studio Documentation</title>
@@ -49,7 +52,7 @@
 <body>
     <div class="header">
         <h1>BloxVerse Studio Documentation</h1>
-        <a href="/bloxverse/create.html">← Back to Studio</a>
+        <a href="create.html">← Back to Studio</a>
     </div>
     <div class="sidebar" id="sidebar"></div>
     <div class="container">
@@ -106,7 +109,7 @@ BloxVerse Studio is the built-in 3D editor for creating and editing game worlds.
 
 ## Getting Started
 
-Open the **Studio** tab on the [Create](/bloxverse/create.html) page. The 3D viewport shows your game world. Use the Explorer on the left to see all parts, and the Properties panel on the right to edit the selected part.
+Open the **Studio** tab on the [Create](create.html) page. The 3D viewport shows your game world. Use the Explorer on the left to see all parts, and the Properties panel on the right to edit the selected part.
 
 ### Default Map
 
@@ -230,7 +233,7 @@ The Properties panel (right sidebar) dynamically updates based on the selected o
 - Leaderstats update in real-time — just change the \`Value\` property.
 `;
         const html = renderMarkdown(STUDIO_MD);
-        document.getElementById('content').innerHTML = '<a href="/bloxverse/create.html" class="back-to-editor">← Back to Studio</a>' + html;
+        document.getElementById('content').innerHTML = '<a href="create.html" class="back-to-editor">← Back to Studio</a>' + html;
         const headings = document.querySelectorAll('#content h2, #content h3, #content h4');
         const sidebar = document.getElementById('sidebar');
         const tocLinks = [];

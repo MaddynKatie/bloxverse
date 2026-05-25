@@ -1,4 +1,5 @@
 import { auth, db, banGuard } from './firebase.js';
+import { sitePath } from './paths.js';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -69,7 +70,7 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
 
     const cred = await signInWithEmailAndPassword(auth, email, password);
     if (await banGuard(cred.user.uid)) return;
-    window.location.href = '/bloxverse/';
+    window.location.href = sitePath('index.html');
   } catch (err) {
     errorEl.textContent = getAuthErrorMessage(err.code);
     errorEl.classList.add('visible');
@@ -133,7 +134,7 @@ document.getElementById('signupForm')?.addEventListener('submit', async (e) => {
     successEl.classList.add('visible');
 
     setTimeout(() => {
-      window.location.href = '/bloxverse/';
+      window.location.href = sitePath('index.html');
     }, 1000);
   } catch (err) {
     errorEl.textContent = getAuthErrorMessage(err.code);
@@ -161,6 +162,6 @@ function getAuthErrorMessage(code) {
 // Redirect if already logged in
 onAuthStateChanged(auth, (user) => {
   if (user && window.location.pathname.includes('auth.html')) {
-    window.location.href = '/bloxverse/';
+    window.location.href = sitePath('index.html');
   }
 });

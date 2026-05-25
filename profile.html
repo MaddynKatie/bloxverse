@@ -2,12 +2,15 @@
 <html lang="en">
 
 <head>
+  <base href="/bloxverse/">
+  <script type="importmap" src="importmap.json"></script>
+
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BloxVerse - Profile</title>
-   <link rel="stylesheet" href="/src/auth.css" />
-  <link rel="stylesheet" href="/src/main.css" />
+   <link rel="stylesheet" href="src/auth.css" />
+  <link rel="stylesheet" href="src/main.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
     .profile-page {
@@ -172,7 +175,7 @@
 <body>
   <nav class="navbar">
     <div class="nav-left">
-      <div class="logo" onclick="window.location.href='/bloxverse/'">
+      <div class="logo" onclick="window.location.href='index.html'">
         <div class="logo-icon"></div>
         <span class="logo-text">BloxVerse</span>
       </div>
@@ -194,7 +197,7 @@
 
     onAuthStateChanged(auth, async (user) => {
       if (!user) {
-        window.location.href = '/bloxverse/auth.html';
+        window.location.href = 'auth.html';
         return;
       }
       
@@ -203,7 +206,7 @@
       // ── Real-time ban listener ────────────────────────────────────
       onSnapshot(doc(db, 'bans', user.uid), (snap) => {
         if (snap.exists() && snap.data().banned) {
-          window.location.href = '/bloxverse/ban';
+          window.location.href = 'ban.html';
         }
       });
       // ──────────────────────────────────────────────────────────────
@@ -292,7 +295,7 @@
       }
 
       profilePage.innerHTML = `
-         <a href="/bloxverse/" class="profile-back">
+         <a href="index.html" class="profile-back">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M19 12H5M12 19l-7-7 7-7" />
           </svg>
@@ -343,7 +346,7 @@
           ${friendsList.length === 0 ? '<div class="empty">No friends yet</div>' : `
             <div class="profile-friends-grid">
               ${friendsList.map(f => `
-                <div class="profile-friend-item" onclick="window.location.href='/bloxverse/profile.html?user=${f.id}'">
+                <div class="profile-friend-item" onclick="window.location.href='profile.html?user=${f.id}'">
                   <div class="friend-avatar-small">${f.username.charAt(0).toUpperCase()}</div>
                   <span class="friend-name-small">${f.username}</span>
                 </div>
@@ -357,7 +360,7 @@
           ${followersList.length === 0 ? '<div class="empty">No followers yet</div>' : `
             <div class="profile-friends-grid">
               ${followersList.map(f => `
-                <div class="profile-friend-item" onclick="window.location.href='/bloxverse/profile.html?user=${f.id}'">
+                <div class="profile-friend-item" onclick="window.location.href='profile.html?user=${f.id}'">
                   <div class="friend-avatar-small">${f.username.charAt(0).toUpperCase()}</div>
                   <span class="friend-name-small">${f.username}</span>
                 </div>
@@ -472,14 +475,14 @@
                 <span class="dropdown-name">${ownUserData.username || 'Player'}</span>
                 <span class="dropdown-email">${user.email}</span>
               </div>
-              <button class="dropdown-item" onclick="window.location.href='/bloxverse/profile.html'">
+              <button class="dropdown-item" onclick="window.location.href='profile.html'">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                   <circle cx="12" cy="7" r="4" />
                 </svg>
                 Profile
               </button>
-              <button class="dropdown-item" onclick="window.location.href='/bloxverse/avatar.html'">
+              <button class="dropdown-item" onclick="window.location.href='avatar.html'">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                 </svg>
@@ -515,7 +518,7 @@
 
     window._logout = async () => {
       await signOut(auth);
-        window.location.href = '/bloxverse/auth.html';
+        window.location.href = 'auth.html';
     };
   </script>
 </body>

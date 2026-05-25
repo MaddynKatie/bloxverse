@@ -1,0 +1,11 @@
+{
+  "imports": {
+    "three": "https://esm.sh/three@0.184.0",
+    "three/": "https://esm.sh/three@0.184.0/",
+    "firebase/app": "https://esm.sh/firebase@12.12.1/app",
+    "firebase/auth": "https://esm.sh/firebase@12.12.1/auth",
+    "firebase/firestore": "https://esm.sh/firebase@12.12.1/firestore",
+    "cannon-es": "https://esm.sh/cannon-es@0.20.0",
+    "glin-profanity": "https://esm.sh/glin-profanity@3.3.0"
+  }
+}

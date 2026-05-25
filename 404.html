@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Redirecting…</title>
+  <script>
+    (function () {
+      var base = '/bloxverse';
+      var path = location.pathname;
+      if (!path.startsWith(base)) {
+        location.replace(base + '/index.html' + location.search + location.hash);
+        return;
+      }
+      var rest = path.slice(base.length).replace(/^\/+/, '').replace(/\/+$/, '');
+      if (!rest || rest === 'index.html') {
+        location.replace(base + '/index.html' + location.search + location.hash);
+        return;
+      }
+      if (!rest.includes('.')) {
+        location.replace(base + '/' + rest + '.html' + location.search + location.hash);
+        return;
+      }
+      location.replace(base + '/index.html' + location.search + location.hash);
+    })();
+  </script>
+</head>
+<body></body>
+</html>

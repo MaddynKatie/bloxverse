@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <base href="/bloxverse/">
+  <script type="importmap" src="importmap.json"></script>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BloxVerse Scripting Documentation</title>
@@ -274,7 +277,7 @@
 <body>
     <div class="header">
         <h1>📚 BloxVerse Scripting Documentation</h1>
-        <a href="/bloxverse/create.html">← Back to Editor</a>
+        <a href="create.html">← Back to Editor</a>
     </div>
 
     <div class="sidebar" id="sidebar"></div>
@@ -420,12 +423,12 @@
                 .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>');
         }
 
-        fetch('/bloxverse/SCRIPTING.md')
+        fetch('SCRIPTING.md')
             .then(response => response.text())
             .then(markdown => {
                 const html = renderMarkdown(markdown);
                 document.getElementById('content').innerHTML =
-                    '<a href="/bloxverse/create.html" class="back-to-editor">← Back to Script Editor</a>' + html;
+                    '<a href="create.html" class="back-to-editor">← Back to Script Editor</a>' + html;
 
                 const headings = document.querySelectorAll('#content h2, #content h3, #content h4');
                 const sidebar = document.getElementById('sidebar');

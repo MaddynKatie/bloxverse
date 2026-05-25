@@ -2,11 +2,14 @@
 <html lang="en">
 
 <head>
+  <base href="/bloxverse/">
+  <script type="importmap" src="importmap.json"></script>
+
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BloxVerse</title>
-  <link rel="stylesheet" href="/src/main.css" />
+  <link rel="stylesheet" href="src/main.css" />
 </head>
 
 <body>
@@ -20,8 +23,8 @@
     </div>
     <div class="nav-center" id="navCenter"></div>
     <div class="nav-right" id="navRight">
-      <button class="create-btn" id="createBtn" style="display:none;" onclick="window.location.href='/bloxverse/create.html'">✨ Create</button>
-      <button class="login-btn" onclick="window.location.href='/bloxverse/auth.html'">Login / Sign Up</button>
+      <button class="create-btn" id="createBtn" style="display:none;" onclick="window.location.href='create.html'">✨ Create</button>
+      <button class="login-btn" onclick="window.location.href='auth.html'">Login / Sign Up</button>
     </div>
   </nav>
 
@@ -71,7 +74,7 @@
       const card = document.createElement('div');
       card.className = 'game-card';
       card.dataset.gameId = game.id;
-      card.onclick = () => window.location.href = '/bloxverse/game-detail.html?id=' + game.id;
+      card.onclick = () => window.location.href = 'game-detail.html?id=' + game.id;
       card.innerHTML = `
         <div class="game-thumbnail">
           <img src="${game.icon}" alt="${game.name}" />
@@ -173,7 +176,7 @@
               });
               const img = card.querySelector('.game-thumbnail img');
               if (img) img.src = data.icon || './assets/icons/demo.png';
-              card.onclick = () => window.location.href = '/bloxverse/game-detail.html?id=' + gameId;
+              card.onclick = () => window.location.href = 'game-detail.html?id=' + gameId;
             }
           });
         });
@@ -208,7 +211,7 @@
       if (e.key === 'Enter' && document.activeElement?.id === 'friendSearchInput') {
         const val = document.getElementById('friendSearchInput').value.trim();
         if (val.length >= 3) {
-          window.location.href = `/bloxverse/search.html?q=${encodeURIComponent(val)}`;
+          window.location.href = `search.html?q=${encodeURIComponent(val)}`;
         }
       }
     });
@@ -280,7 +283,7 @@
         return;
       }
       friendsGrid.innerHTML = friendsWithStatus.map(f => `
-                <div class="friend-card" onclick="window.location.href='/bloxverse/profile.html?user=${f.id}'" 
+                <div class="friend-card" onclick="window.location.href='profile.html?user=${f.id}'" 
 style="cursor:pointer;">
           <div class="avatar-with-status">
             <div class="friend-avatar">${f.username.charAt(0).toUpperCase()}</div>
@@ -372,7 +375,7 @@ style="cursor:pointer;">
         // ── Real-time ban listener ────────────────────────────────────────
         onSnapshot(doc(db, 'bans', user.uid), (snap) => {
           if (snap.exists() && snap.data().banned) {
-            window.location.href = '/bloxverse/ban';
+            window.location.href = 'ban.html';
           }
         });
         // ────────────────────────────────────────────────────────────────────
@@ -399,7 +402,7 @@ style="cursor:pointer;">
 
         const buxElId = 'buxValue';
         navRight.innerHTML = `
-          <button class="create-btn" onclick="window.location.href='/bloxverse/create.html'">✨ Create</button>
+          <button class="create-btn" onclick="window.location.href='create.html'">✨ Create</button>
           <div class="user-info">
             <button class="bux-btn">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -414,14 +417,14 @@ style="cursor:pointer;">
                   <span class="dropdown-name">${username}</span>
                   <span class="dropdown-email">${user.email}</span>
                 </div>
-                <button class="dropdown-item" onclick="window.location.href='/bloxverse/profile.html'">
+                <button class="dropdown-item" onclick="window.location.href='profile.html'">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                     <circle cx="12" cy="7" r="4" />
                   </svg>
                   Profile
                 </button>
-                <button class="dropdown-item" onclick="window.location.href='/bloxverse/avatar.html'">
+                <button class="dropdown-item" onclick="window.location.href='avatar.html'">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                   </svg>
@@ -461,7 +464,7 @@ style="cursor:pointer;">
         currentUserId = null;
         navCenter.innerHTML = '';
         navRight.innerHTML = `<button class="login-btn" 
-onclick="window.location.href='/bloxverse/auth.html'">Login / Sign Up</button>`;
+onclick="window.location.href='auth.html'">Login / Sign Up</button>`;
         friendsSection.style.display = 'none';
         if (activeDropdown) { activeDropdown.classList.remove('open'); activeDropdown = null; }
       }
@@ -471,7 +474,7 @@ onclick="window.location.href='/bloxverse/auth.html'">Login / Sign Up</button>`;
       if (buxUnsub) { buxUnsub(); buxUnsub = null; }
       if (presence) { presence.goOffline(); presence = null; }
       await signOut(auth);
-      window.location.href = '/bloxverse/';
+      window.location.href = 'index.html';
     };
 
     document.addEventListener('click', (e) => {

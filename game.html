@@ -2,11 +2,14 @@
 <html lang="en">
 
 <head>
+  <base href="/bloxverse/">
+  <script type="importmap" src="importmap.json"></script>
+
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BloxVerse - Play</title>
-  <link rel="stylesheet" href="/src/style.css" />
+  <link rel="stylesheet" href="src/style.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 </head>
 
@@ -129,7 +132,7 @@
 
   <div id="friendRequestToastContainer" class="friend-request-toast-container"></div>
 
-  <script type="module" src="/src/bloxverse-engine.js"></script>
+  <script type="module" src="src/bloxverse-engine.js"></script>
   <script type="module">
     import * as THREE from 'three';
     import { games } from './src/games.js';
@@ -139,6 +142,7 @@
     import { executeScript, loadScriptsFromStorage, createInstanceProxy } from './src/scriptRuntime.js';
     import { Instance, PartInstance, ScriptInstance, initGameHierarchy } from './src/instances.js';
     import { ProfanityFilter } from 'glin-profanity';
+    import { loadGameScriptModules } from './src/game-scripts.js';
     const _profanityCheck = new ProfanityFilter({
       detectLeetspeak: true,
       leetspeakLevel: 'moderate',
@@ -148,8 +152,6 @@
       allowObfuscatedMatch: true,
       fuzzyToleranceLevel: 0.8
     });
-
-    const gameScriptModules = import.meta.glob('/assets/games/**/*.lua', { eager: true, as: 'raw' });
 
     let _profanityFilterEnabled = true;
 
@@ -211,7 +213,7 @@
       if (snap && snap.exists()) {
         const data = snap.data();
         if (data.deleted) {
-          window.location.href = '/bloxverse/game-detail.html?id=' + gameId;
+          window.location.href = 'game-detail.html?id=' + gameId;
           game = null;
         } else {
           data.id = gameId;
@@ -479,7 +481,7 @@
     btnViewProfile.addEventListener('click', () => {
       if (_selectedPlayerId) {
         const username = _playerUsernames.get(_selectedPlayerId);
-        window.open(`/bloxverse/profile.html?user=${encodeURIComponent(_selectedPlayerId)}`, '_blank');
+        window.open(`profile.html?user=${encodeURIComponent(_selectedPlayerId)}`, '_blank');
         hidePlayerMenu();
       }
     });
@@ -1220,6 +1222,7 @@
             }
 
             if (game.scriptsPath) {
+              const gameScriptModules = await loadGameScriptModules();
               const basePath = game.scriptsPath.replace(/^\./, '');
               const gameScriptKeys = Object.keys(gameScriptModules);
               let scriptIdx = 0;
@@ -1463,7 +1466,7 @@
                       showOverlay(
                         'fa-solid fa-gavel', 'You Have Been Banned', 'ERR_BANNED',
                         `Reason: "${data.reason || 'Terms of Service Violation'}"`,
-                        { text: 'Go to Ban Page', action: () => { window.location.href = '/bloxverse/ban'; } }
+                        { text: 'Go to Ban Page', action: () => { window.location.href = 'ban.html'; } }
                       );
                     }
                   });
@@ -1518,7 +1521,7 @@
                       showOverlay(
                         'fa-solid fa-trash', 'Game Removed', 'GAME_REMOVED',
                         'This game has been removed by an administrator.',
-                        { text: 'Back to Games', action: () => { window.location.href = '/bloxverse/'; } }
+                        { text: 'Back to Games', action: () => { window.location.href = 'index.html'; } }
                       );
                     } else if (_overlay.style.display === 'flex' && _overlayCode.textContent === 'GAME_REMOVED') {
                       // Game was recovered
@@ -1559,7 +1562,7 @@
                             window.location.reload();
                           }
                         },
-                        { text: 'Leave', action: () => { window.location.href = '/bloxverse/'; } }
+                        { text: 'Leave', action: () => { window.location.href = 'index.html'; } }
                       );
                     }
                   });
@@ -1579,7 +1582,7 @@
                     'fa-solid fa-wifi', 'Connection Lost', 'ERR_CONNECTION_LOST',
                     'Your connection to the game server has been interrupted. Please check your internet connection and try again.',
                     { text: 'Reconnect', action: () => { window.location.reload(); } },
-                    { text: 'Return to Home', action: () => { window.location.href = '/bloxverse/'; } }
+                    { text: 'Return to Home', action: () => { window.location.href = 'index.html'; } }
                   );
                 });
                 window.addEventListener('online', () => {

@@ -1,17 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <base href="/bloxverse/">
+  <script type="importmap" src="importmap.json"></script>
+
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BloxVerse - Player Search</title>
-  <link rel="stylesheet" href="/src/main.css" />
-  <link rel="stylesheet" href="/src/search.css" />
+  <link rel="stylesheet" href="src/main.css" />
+  <link rel="stylesheet" href="src/search.css" />
 </head>
 <body>
   <nav class="navbar">
     <div class="nav-left">
-      <div class="logo" onclick="window.location.href='/bloxverse/'">
+      <div class="logo" onclick="window.location.href='index.html'">
         <div class="logo-icon"></div>
         <span class="logo-text">BloxVerse</span>
       </div>
@@ -26,7 +29,7 @@
       </div>
     </div>
     <div class="nav-right" id="navRight">
-      <button class="login-btn" onclick="window.location.href='/bloxverse/auth.html'">Login / Sign Up</button>
+      <button class="login-btn" onclick="window.location.href='auth.html'">Login / Sign Up</button>
     </div>
   </nav>
 
@@ -56,7 +59,7 @@
         // ── Real-time ban listener ────────────────────────────────────
         onSnapshot(doc(db, 'bans', user.uid), (snap) => {
           if (snap.exists() && snap.data().banned) {
-            window.location.href = '/bloxverse/ban';
+            window.location.href = 'ban.html';
           }
         });
         // ──────────────────────────────────────────────────────────────
@@ -129,7 +132,7 @@
         </div>
         <div class="player-grid">
           ${users.map(u => `
-            <div class="player-card" onclick="window.location.href='/bloxverse/profile.html?user=${u.id}'">
+            <div class="player-card" onclick="window.location.href='profile.html?user=${u.id}'">
               <div class="player-avatar">${(u.username || '?').charAt(0).toUpperCase()}</div>
               <div class="player-info">
                 <div class="player-name">${u.username}</div>
@@ -146,7 +149,7 @@
 
     window._addFriend = async (targetId, targetUsername, btn) => {
       if (!auth.currentUser) {
-        window.location.href = '/bloxverse/auth.html';
+        window.location.href = 'auth.html';
         return;
       }
       btn.textContent = 'Sending...';

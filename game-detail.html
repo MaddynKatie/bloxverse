@@ -1,11 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <base href="/bloxverse/">
+  <script type="importmap" src="importmap.json"></script>
+
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BloxVerse - Game</title>
-  <link rel="stylesheet" href="/src/main.css" />
+  <link rel="stylesheet" href="src/main.css" />
   <style>
     .detail-header {
       position: relative;
@@ -214,7 +217,7 @@
 <body>
   <nav class="navbar">
     <div class="nav-left">
-      <div class="logo" onclick="window.location.href='/bloxverse/'">
+      <div class="logo" onclick="window.location.href='index.html'">
         <div class="logo-icon"></div>
         <span class="logo-text">BloxVerse</span>
       </div>
@@ -248,7 +251,7 @@
   </div>
 
   <div class="detail-body">
-    <a class="back-link" href="/bloxverse/">← Back to Games</a>
+    <a class="back-link" href="index.html">← Back to Games</a>
 
     <div class="detail-section">
       <h2>Description</h2>
@@ -398,7 +401,7 @@
         detailPlayBtn.parentNode.insertBefore(reviewMsg, detailPlayBtn);
       } else {
         detailPlayBtn.addEventListener('click', () => {
-          window.location.href = '/bloxverse/game.html?game=' + gameId;
+          window.location.href = 'game.html?game=' + gameId;
         });
       }
 
@@ -527,7 +530,7 @@
       try {
         await deleteGame(gameId, auth.currentUser.uid);
         alert('Game deleted.');
-        window.location.href = '/bloxverse/';
+        window.location.href = 'index.html';
       } catch (err) {
         alert('Failed to delete: ' + err.message);
       }
@@ -541,12 +544,12 @@
         // ── Real-time ban listener ────────────────────────────────────
         onSnapshot(doc(db, 'bans', user.uid), (snap) => {
           if (snap.exists() && snap.data().banned) {
-            window.location.href = '/bloxverse/ban';
+            window.location.href = 'ban.html';
           }
         });
         // ──────────────────────────────────────────────────────────────
         navRight.innerHTML = `
-          <button class="create-btn" onclick="window.location.href='/bloxverse/create.html'">✨ Create</button>
+          <button class="create-btn" onclick="window.location.href='create.html'">✨ Create</button>
           <div class="user-info">
             <div class="avatar-circle">${(user.displayName || 'Player').charAt(0).toUpperCase()}</div>
           </div>
@@ -555,7 +558,7 @@
           detailActions.style.display = 'flex';
         }
       } else {
-        navRight.innerHTML = `<button class="login-btn" onclick="window.location.href='/bloxverse/auth.html'">Login / Sign Up</button>`;
+        navRight.innerHTML = `<button class="login-btn" onclick="window.location.href='auth.html'">Login / Sign Up</button>`;
         detailActions.style.display = 'none';
       }
     });

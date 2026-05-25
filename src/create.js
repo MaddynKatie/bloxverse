@@ -1,3 +1,4 @@
+import { sitePath } from './paths.js';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db, banGuard, isProfane } from './firebase.js';
 import { doc, onSnapshot } from 'firebase/firestore';
@@ -58,21 +59,21 @@ const codeEditorPanel = document.getElementById('codeEditorPanel');
 
 onAuthStateChanged(auth, async (user) => {
     if (!user) {
-        window.location.href = '/bloxverse/auth.html';
+        window.location.href = sitePath('auth.html');
         return;
     }
     if (await banGuard(user.uid)) return;
     // ── Real-time ban listener ──────────────────────────────────────
     onSnapshot(doc(db, 'bans', user.uid), (snap) => {
       if (snap.exists() && snap.data().banned) {
-        window.location.href = '/bloxverse/ban';
+        window.location.href = sitePath('ban.html');
       }
     });
     // ────────────────────────────────────────────────────────────────
     initializeEditor();
 });
 
-function initializeEditor() {
+async function initializeEditor() {
     const stored = loadScriptsFromStorage();
     scripts = stored;
     if (Object.keys(scripts).length > 0) {
@@ -98,7 +99,7 @@ function initializeEditor() {
     cancelNewBtn.addEventListener('click', hideNewScriptInput);
 
     docsLink.textContent = '📚 Script Docs';
-    docsLink.href = '/bloxverse/docs.html';
+    docsLink.href = sitePath('docs.html');
 
     studioPlayBtn.addEventListener('click', startStudioTest);
     studioStopBtn.addEventListener('click', stopStudioTest);
@@ -146,10 +147,7 @@ function initializeEditor() {
     const publishUploadThumbBtn = document.getElementById('publishUploadThumbBtn');
     const publishThumbInput = document.getElementById('publishThumbInput');
 
-    // Load preset images from assets/presets/ directory
-    const presetsModules = import.meta.glob('/assets/presets/**/*.png', { eager: true, as: 'url' });
-    const THUMB_PRESETS = Object.values(presetsModules);
-    if (THUMB_PRESETS.length === 0) THUMB_PRESETS.push('./assets/icons/demo.png');
+    const { THUMB_PRESETS } = await import('./thumb-presets.generated.js');
     let _selectedThumb = THUMB_PRESETS[0];
     let _uploadedThumbUrl = null;
 
@@ -369,7 +367,7 @@ function switchMode(mode) {
         scriptButtons.forEach(el => el.style.display = '');
         studioButtons.forEach(el => el.style.display = 'none');
         bottomPanel.style.display = '';
-        docsLink.href = '/bloxverse/docs.html';
+        docsLink.href = sitePath('docs.html');
         docsLink.textContent = '📚 Script Docs';
     } else {
         scriptModePanels.forEach(el => el.style.display = 'none');
@@ -377,7 +375,7 @@ function switchMode(mode) {
         scriptButtons.forEach(el => el.style.display = 'none');
         studioButtons.forEach(el => el.style.display = '');
         bottomPanel.style.display = '';
-        docsLink.href = '/bloxverse/studio-docs.html';
+        docsLink.href = sitePath('studio-docs.html');
         docsLink.textContent = '📚 Studio Docs';
 
         if (!_studioInitialized) {

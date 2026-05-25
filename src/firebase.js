@@ -1,3 +1,4 @@
+import { sitePath } from './paths.js';
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, setDoc, updateDoc, getDoc, deleteDoc, onSnapshot, serverTimestamp, arrayUnion, arrayRemove, increment, collection, getDocs, query, where } from 'firebase/firestore';
@@ -127,7 +128,7 @@ export async function banGuard(userId) {
   if (!userId) return false;
   const banData = await checkBan(userId);
   if (banData) {
-    window.location.href = '/bloxverse/ban';
+    window.location.href = sitePath('ban.html');
     return true;
   }
   return false;
