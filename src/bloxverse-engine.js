@@ -1856,7 +1856,10 @@ function _applyColorsToModel(model, colors) {
                     mat.vertexColors = false;
                     mat.emissive && mat.emissive.setHex(0);
                     mat.emissiveIntensity = 0;
-                    mat.color.set(colors[name]);
+                    mat.toneMapped = false;
+                    mat.transparent = false;
+                    mat.opacity = 1;
+                    mat.color.setStyle(colors[name], THREE.SRGBColorSpace);
                     mat.needsUpdate = true;
                 }
             }
@@ -1937,23 +1940,59 @@ fbxLoader.load(playerModelUrl, (fbx) => {
         if (child.isMesh) {
             child.castShadow = true;
             child.receiveShadow = true;
+            
+            if (child.geometry) {
+                for (const key of Object.keys(child.geometry.attributes)) {
+                    if (key.toLowerCase().includes('color')) {
+                        child.geometry.deleteAttribute(key);
+                    }
+                }
+                if (child.geometry.morphAttributes) {
+                    for (const key of Object.keys(child.geometry.morphAttributes)) {
+                        if (key.toLowerCase().includes('color')) {
+                            delete child.geometry.morphAttributes[key];
+                        }
+                    }
+                }
+            }
+
             const mats = Array.isArray(child.material) ? child.material : [child.material];
-            for (const mat of mats) {
+            for (let i = 0; i < mats.length; i++) {
+                let mat = mats[i];
                 if (!mat) continue;
-                mat.vertexColors = false;
-                mat.emissive && mat.emissive.setHex(0);
-                mat.emissiveIntensity = 0;
+
+                const originalColor = mat.color ? mat.color.getHex() : 0xcccccc;
+                const newMat = new THREE.MeshStandardMaterial({
+                    color: originalColor,
+                    map: mat.map,
+                    transparent: false,
+                    opacity: 1,
+                    toneMapped: false,
+                    vertexColors: false,
+                    emissive: 0,
+                    emissiveIntensity: 0,
+                    roughness: 0.8,
+                    metalness: 0.1,
+                });
+                
+                // Copy name and userData so that applyColors can find it
+                newMat.name = mat.name;
+                if (mat.userData) {
+                    newMat.userData = JSON.parse(JSON.stringify(mat.userData));
+                }
+                
+                mats[i] = newMat;
+                mat = newMat;
 
                 const matNameLower = (mat.name || child.name || '').toLowerCase();
                 const isFaceMat = matNameLower.includes('head') || matNameLower.includes('face');
                 if (isFaceMat) {
-                    console.log('FACE MAT:', mat.name, '| mesh:', child.name, '| type:', child.type, '| matType:', mat.type, '| color:', mat.color.getHexString());
                     mat.transparent = true;
                     mat.alphaTest = 0.05;
                     mat.depthWrite = true;
                     mat.userData.isFace = true;
                     mat.color.set(0xff0000);
-                    mat.emissive && mat.emissive.setHex(0xff0000);
+                    mat.emissive.setHex(0xff0000);
                     mat.emissiveIntensity = 1.0;
                     mat.needsUpdate = true;
                     faceMats.push(mat);
@@ -1965,7 +2004,12 @@ fbxLoader.load(playerModelUrl, (fbx) => {
                     'specularMap','envMap','lightMap']) {
                     if (mat[key]) { mat[key].dispose(); mat[key] = null; }
                 }
-                mat.needsUpdate = false;
+                mat.needsUpdate = true;
+            }
+            if (Array.isArray(child.material)) {
+                child.material = mats;
+            } else {
+                child.material = mats[0];
             }
         }
     });

@@ -289,7 +289,7 @@
 <body>
     <div class="header">
         <h1>📚 BloxVerse Scripting Documentation</h1>
-        <a href="create.html">← Back to Editor</a>
+        <a href="create">← Back to Editor</a>
     </div>
 
     <div class="sidebar" id="sidebar"></div>
@@ -440,7 +440,7 @@
             .then(markdown => {
                 const html = renderMarkdown(markdown);
                 document.getElementById('content').innerHTML =
-                    '<a href="create.html" class="back-to-editor">← Back to Script Editor</a>' + html;
+                    '<a href="create" class="back-to-editor">← Back to Script Editor</a>' + html;
 
                 const headings = document.querySelectorAll('#content h2, #content h3, #content h4');
                 const sidebar = document.getElementById('sidebar');

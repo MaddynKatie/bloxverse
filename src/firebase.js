@@ -134,24 +134,22 @@ export async function banGuard(userId) {
   return false;
 }
 
-export function listenBux(userId, callback, username = null, email = null) {
+export function listenBux(userId, callback) {
   const userRef = doc(db, 'users', userId);
   return onSnapshot(userRef, (snap) => {
     if (snap.exists()) {
       callback(snap.data()?.bux || 0);
     } else {
-      // Create user doc with all fields if it doesn't exist
-      setDoc(userRef, { bux: 0, username: username || 'Player', email: email || '', friends: [], following: [], followers: [], createdAt: new Date().toISOString() }, { merge: true });
       callback(0);
     }
   });
 }
 
-export function setBux(userId, amount) {
+export async function setBux(userId, amount) {
   return setDoc(doc(db, 'users', userId), { bux: amount }, { merge: true });
 }
 
-export function updateBux(userId, amount) {
+export async function updateBux(userId, amount) {
   return updateDoc(doc(db, 'users', userId), { bux: amount });
 }
 
@@ -340,6 +338,90 @@ export async function getPresenceCountForGame(gameId) {
 export async function getBux(userId) {
   const snap = await getDoc(doc(db, 'users', userId));
   return snap.data()?.bux || 0;
+}
+
+export async function logTransaction(userId, amount, balance, source, description) {
+  const ref = doc(collection(db, 'transactions'));
+  await setDoc(ref, {
+    userId,
+    amount,
+    balance,
+    source,
+    description,
+    createdAt: new Date().toISOString(),
+  });
+}
+
+export async function getTransactions(userId, max = 100) {
+  try {
+    const q = query(
+      collection(db, 'transactions'),
+      where('userId', '==', userId),
+      // Firestore JS SDK v9 doesn't support orderBy with composite index automatically;
+      // we fetch and sort client-side for simplicity
+    );
+    const snap = await getDocs(q);
+    const txns = [];
+    snap.forEach(d => txns.push({ id: d.id, ...d.data() }));
+    txns.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return txns.slice(0, max);
+  } catch (e) {
+    console.warn('Could not load transactions:', e);
+    return [];
+  }
+}
+
+export async function claimDailyBux(userId) {
+  const snap = await getDoc(doc(db, 'users', userId));
+  if (!snap.exists()) return false;
+  const today = new Date().toISOString().slice(0, 10);
+  const data = snap.data();
+  if (data.lastDailyClaim === today) return false;
+  const oldBalance = data.bux || 0;
+  const newBalance = oldBalance + 5;
+  await updateDoc(doc(db, 'users', userId), {
+    bux: increment(5),
+    lastDailyClaim: today,
+  });
+  await logTransaction(userId, 5, newBalance, 'daily_login', 'Daily Login Reward');
+  return true;
+}
+
+export async function rewardUniqueVisit(authorId, visitorId, gameId, gameName) {
+  if (!authorId || !visitorId || authorId === visitorId) return false;
+  const visitRef = doc(db, 'gameVisits', gameId, 'visitors', visitorId);
+  const snap = await getDoc(visitRef);
+  if (snap.exists()) return false;
+  await setDoc(visitRef, { visitedAt: new Date().toISOString() });
+  const userSnap = await getDoc(doc(db, 'users', authorId));
+  const oldBalance = userSnap.exists() ? (userSnap.data().bux || 0) : 0;
+  const newBalance = oldBalance + 1;
+  await updateDoc(doc(db, 'users', authorId), {
+    bux: increment(1),
+  });
+  
+  // Combine all visits into one log
+  const txnRef = doc(db, 'transactions', `${authorId}_visits`);
+  const txnSnap = await getDoc(txnRef);
+  
+  if (txnSnap.exists()) {
+    await updateDoc(txnRef, {
+      amount: increment(1),
+      balance: newBalance,
+      createdAt: new Date().toISOString(), // Update date so it appears at top
+    });
+  } else {
+    await setDoc(txnRef, {
+      userId: authorId,
+      amount: 1,
+      balance: newBalance,
+      source: 'Place Visits',
+      description: 'Earnings from unique visits across your games',
+      createdAt: new Date().toISOString(),
+    });
+  }
+  
+  return true;
 }
 
 export async function followUser(followerId, followingId) {

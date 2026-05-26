@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://esm.sh/three@0.184.0",
+      "three/": "https://esm.sh/three@0.184.0/",
+      "firebase/app": "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js",
+      "firebase/auth": "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js",
+      "firebase/firestore": "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js",
+      "cannon-es": "https://esm.sh/cannon-es@0.20.0",
+      "glin-profanity": "https://esm.sh/glin-profanity@3.3.0"
+    }
+  }
+  </script>
+  <base href="/bloxverse/">
+
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Support – BloxVerse</title>
+  <meta name="description" content="Contact BloxVerse support, appeal a ban, or report a player using our support form." />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="stylesheet" href="src/main.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0e0e18;
+      color: #c8c8d4;
+      min-height: 100vh;
+      margin: 0;
+    }
+    .simple-nav {
+      background: #16163a;
+      border-bottom: 1px solid #2a2a4a;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .simple-nav a { color: #4a7dff; text-decoration: none; font-size: 14px; }
+    .simple-nav a:hover { text-decoration: underline; }
+    .simple-nav .sep { color: #3a3a5a; }
+    .simple-nav .logo-text {
+      font-size: 16px; font-weight: 800;
+      background: linear-gradient(90deg, #4a7dff, #a855f7);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .page-hero {
+      background: linear-gradient(135deg, #1a1a3e 0%, #0e0e18 100%);
+      border-bottom: 1px solid #2a2a4a;
+      padding: 60px 20px 48px;
+      text-align: center;
+    }
+    .page-hero .badge {
+      display: inline-block;
+      background: rgba(34,197,94,0.12);
+      color: #22c55e;
+      border: 1px solid rgba(34,197,94,0.25);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+    .page-hero h1 { font-size: 40px; font-weight: 800; color: #fff; margin: 0 0 10px; letter-spacing: -0.5px; }
+    .page-hero p { font-size: 15px; color: #6a6a8a; margin: 0; }
+    .content-wrap {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 48px 20px 80px;
+    }
+    .quick-links {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 40px;
+    }
+    .quick-link-card {
+      background: #1a1a3e;
+      border: 1px solid #2a2a4a;
+      border-radius: 10px;
+      padding: 16px 18px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      display: block;
+    }
+    .quick-link-card:hover { border-color: #4a7dff; background: #1a2050; }
+    .quick-link-icon { font-size: 24px; margin-bottom: 8px; }
+    .quick-link-card h3 { font-size: 13px; font-weight: 700; color: #e2e2e2; margin: 0 0 4px; }
+    .quick-link-card p { font-size: 11px; color: #6a6a8a; margin: 0; }
+    .form-card {
+      background: #1a1a3e;
+      border: 1px solid #2a2a4a;
+      border-radius: 12px;
+      padding: 32px 36px;
+    }
+    .form-card h2 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+      margin: 0 0 6px;
+    }
+    .form-card .form-subtitle {
+      font-size: 13px;
+      color: #6a6a8a;
+      margin: 0 0 28px;
+    }
+    .form-group { margin-bottom: 20px; }
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #c8c8d4;
+      margin-bottom: 6px;
+    }
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      background: #111128;
+      border: 1px solid #2a2a4a;
+      border-radius: 7px;
+      color: #e2e2e2;
+      font-size: 14px;
+      font-family: inherit;
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      border-color: #4a7dff;
+    }
+    .form-group textarea { resize: vertical; min-height: 120px; }
+    .form-group select option { background: #1a1a3e; }
+    .char-count {
+      text-align: right;
+      font-size: 11px;
+      color: #4a4a6a;
+      margin-top: 4px;
+    }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 500px) { .form-row { grid-template-columns: 1fr; } }
+    .btn-submit {
+      width: 100%;
+      padding: 13px;
+      background: linear-gradient(135deg, #4a7dff, #6a4dff);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      margin-top: 8px;
+    }
+    .btn-submit:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn-submit:active { transform: translateY(0); }
+    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .success-message {
+      display: none;
+      background: rgba(34,197,94,0.1);
+      border: 1px solid rgba(34,197,94,0.25);
+      border-radius: 8px;
+      padding: 16px 20px;
+      color: #22c55e;
+      font-size: 14px;
+      text-align: center;
+      margin-top: 16px;
+    }
+    .error-message {
+      display: none;
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.25);
+      border-radius: 8px;
+      padding: 16px 20px;
+      color: #ef4444;
+      font-size: 14px;
+      margin-top: 16px;
+    }
+    .info-note {
+      background: rgba(74,125,255,0.08);
+      border-left: 3px solid #4a7dff;
+      border-radius: 0 6px 6px 0;
+      padding: 12px 16px;
+      font-size: 13px;
+      color: #8aacff;
+      margin-bottom: 24px;
+    }
+    .divider {
+      border: none;
+      border-top: 1px solid #2a2a4a;
+      margin: 32px 0;
+    }
+  </style>
+</head>
+<body>
+  <nav class="simple-nav">
+    <a href="/" class="logo-text">BloxVerse</a>
+    <span class="sep">›</span>
+    <span style="color:#6a6a8a;font-size:14px;">Support</span>
+  </nav>
+
+  <div class="page-hero">
+    <div class="badge">Support</div>
+    <h1>How can we help?</h1>
+    <p>Submit a request below and our moderation team will review it.</p>
+  </div>
+
+  <div class="content-wrap">
+    <div class="quick-links">
+      <a class="quick-link-card" href="/terms">
+        <div class="quick-link-icon">📄</div>
+        <h3>Terms of Use</h3>
+        <p>Read the rules for using BloxVerse</p>
+      </a>
+      <a class="quick-link-card" href="/community-guidelines">
+        <div class="quick-link-icon">🤝</div>
+        <h3>Community Guidelines</h3>
+        <p>See what's allowed on the platform</p>
+      </a>
+      <a class="quick-link-card" href="/ban">
+        <div class="quick-link-icon">🔒</div>
+        <h3>Ban Info</h3>
+        <p>View your account ban status</p>
+      </a>
+    </div>
+
+    <div class="form-card">
+      <h2>Submit a Support Request</h2>
+      <p class="form-subtitle">Fill out the form below. We typically respond within 3–5 business days.</p>
+
+      <div class="info-note">
+        ℹ️ For ban appeals, select <strong>"Ban Appeal"</strong> as the category. Include your username and a description of why you believe the ban was incorrect.
+      </div>
+
+      <form id="supportForm" novalidate>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="supportUsername">BloxVerse Username</label>
+            <input type="text" id="supportUsername" placeholder="Your username" required />
+          </div>
+          <div class="form-group">
+            <label for="supportEmail">Contact Email</label>
+            <input type="email" id="supportEmail" placeholder="your@email.com" required />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="supportCategory">Category</label>
+          <select id="supportCategory" required>
+            <option value="" disabled selected>— Select a category —</option>
+            <option value="ban_appeal">Ban Appeal</option>
+            <option value="report_player">Report a Player</option>
+            <option value="report_game">Report a Game</option>
+            <option value="account_issue">Account Issue</option>
+            <option value="bux_issue">BUX / Currency Issue</option>
+            <option value="bug_report">Bug Report</option>
+            <option value="general">General Inquiry</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="targetUserGroup" style="display:none;">
+          <label for="targetUsername">Reported Player's Username <span style="color:#6a6a8a;font-weight:400;">(if applicable)</span></label>
+          <input type="text" id="targetUsername" placeholder="Player being reported" />
+        </div>
+
+        <div class="form-group">
+          <label for="supportSubject">Subject</label>
+          <input type="text" id="supportSubject" placeholder="Brief summary of your issue" required maxlength="120" />
+        </div>
+
+        <div class="form-group">
+          <label for="supportMessage">Message</label>
+          <textarea id="supportMessage" placeholder="Describe your issue in detail. Include any relevant usernames, game names, dates, or screenshots you can reference." required maxlength="2000"></textarea>
+          <div class="char-count"><span id="msgCount">0</span> / 2000</div>
+        </div>
+
+        <button type="submit" class="btn-submit" id="submitBtn">Send Support Request</button>
+      </form>
+
+      <div class="success-message" id="successMsg">
+        ✅ Your request has been submitted! We'll review it and respond to your email within 3–5 business days.
+      </div>
+      <div class="error-message" id="errorMsg"></div>
+    </div>
+
+    <hr class="divider" />
+
+    <p style="text-align:center;font-size:13px;color:#4a4a6a;">
+      By submitting this form you agree to our <a href="/terms" style="color:#4a7dff;">Terms of Use</a> and <a href="/community-guidelines" style="color:#4a7dff;">Community Guidelines</a>.
+    </p>
+  </div>
+
+  <script type="module">
+    import { auth, db } from './src/firebase.js';
+    import { collection, addDoc, Timestamp } from 'firebase/firestore';
+
+    const categoryEl = document.getElementById('supportCategory');
+    const targetUserGroup = document.getElementById('targetUserGroup');
+    const msgEl = document.getElementById('supportMessage');
+    const msgCount = document.getElementById('msgCount');
+    const submitBtn = document.getElementById('submitBtn');
+    const form = document.getElementById('supportForm');
+    const successMsg = document.getElementById('successMsg');
+    const errorMsg = document.getElementById('errorMsg');
+
+    // Show "reported player" field for relevant categories
+    categoryEl.addEventListener('change', () => {
+      const show = ['report_player', 'report_game'].includes(categoryEl.value);
+      targetUserGroup.style.display = show ? 'block' : 'none';
+    });
+
+    // Char counter
+    msgEl.addEventListener('input', () => {
+      msgCount.textContent = msgEl.value.length;
+    });
+
+    // Pre-fill username if logged in
+    auth.authStateReady?.().then(() => {
+      if (auth.currentUser) {
+        const usernameEl = document.getElementById('supportUsername');
+        const emailEl = document.getElementById('supportEmail');
+        if (!usernameEl.value) usernameEl.value = auth.currentUser.displayName || '';
+        if (!emailEl.value) emailEl.value = auth.currentUser.email || '';
+      }
+    }).catch(() => {});
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorMsg.style.display = 'none';
+
+      const username = document.getElementById('supportUsername').value.trim();
+      const email = document.getElementById('supportEmail').value.trim();
+      const category = categoryEl.value;
+      const subject = document.getElementById('supportSubject').value.trim();
+      const message = msgEl.value.trim();
+      const targetUser = document.getElementById('targetUsername').value.trim();
+
+      if (!username || !email || !category || !subject || !message) {
+        errorMsg.textContent = 'Please fill out all required fields.';
+        errorMsg.style.display = 'block';
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Submitting…';
+
+      try {
+        await addDoc(collection(db, 'supportRequests'), {
+          username,
+          email,
+          category,
+          subject,
+          message,
+          targetUser: targetUser || null,
+          userId: auth.currentUser?.uid || null,
+          createdAt: Timestamp.now(),
+          status: 'open',
+        });
+
+        form.style.display = 'none';
+        successMsg.style.display = 'block';
+      } catch (err) {
+        console.error(err);
+        errorMsg.textContent = 'Failed to submit your request. Please try again.';
+        errorMsg.style.display = 'block';
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Send Support Request';
+      }
+    });
+  </script>
+</body>
+</html>

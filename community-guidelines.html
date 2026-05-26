@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://esm.sh/three@0.184.0",
+      "three/": "https://esm.sh/three@0.184.0/",
+      "firebase/app": "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js",
+      "firebase/auth": "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js",
+      "firebase/firestore": "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js",
+      "cannon-es": "https://esm.sh/cannon-es@0.20.0",
+      "glin-profanity": "https://esm.sh/glin-profanity@3.3.0"
+    }
+  }
+  </script>
+  <base href="/bloxverse/">
+
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Community Guidelines – BloxVerse</title>
+  <meta name="description" content="BloxVerse Community Guidelines – how to keep BloxVerse a safe and fun place for everyone." />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="stylesheet" href="src/main.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0e0e18;
+      color: #c8c8d4;
+      min-height: 100vh;
+      margin: 0;
+    }
+    .simple-nav {
+      background: #16163a;
+      border-bottom: 1px solid #2a2a4a;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .simple-nav a { color: #4a7dff; text-decoration: none; font-size: 14px; }
+    .simple-nav a:hover { text-decoration: underline; }
+    .simple-nav .sep { color: #3a3a5a; }
+    .simple-nav .logo-text {
+      font-size: 16px; font-weight: 800;
+      background: linear-gradient(90deg, #4a7dff, #a855f7);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .page-hero {
+      background: linear-gradient(135deg, #1a1a3e 0%, #0e0e18 100%);
+      border-bottom: 1px solid #2a2a4a;
+      padding: 60px 20px 48px;
+      text-align: center;
+    }
+    .page-hero .badge {
+      display: inline-block;
+      background: rgba(168,85,247,0.15);
+      color: #a855f7;
+      border: 1px solid rgba(168,85,247,0.3);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+    .page-hero h1 { font-size: 40px; font-weight: 800; color: #fff; margin: 0 0 10px; letter-spacing: -0.5px; }
+    .page-hero p { font-size: 15px; color: #6a6a8a; margin: 0; }
+    .content-wrap { max-width: 820px; margin: 0 auto; padding: 48px 20px 80px; }
+    .intro-box {
+      background: linear-gradient(135deg, rgba(168,85,247,0.08), rgba(74,125,255,0.08));
+      border: 1px solid rgba(168,85,247,0.2);
+      border-radius: 12px;
+      padding: 24px 28px;
+      margin-bottom: 40px;
+    }
+    .intro-box p { font-size: 15px; line-height: 1.75; color: #a0a0b8; margin: 0; }
+    .rules-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+    .rule-card {
+      background: #1a1a3e;
+      border: 1px solid #2a2a4a;
+      border-radius: 10px;
+      padding: 20px 22px;
+      transition: border-color 0.2s;
+    }
+    .rule-card:hover { border-color: #3a3a6a; }
+    .rule-icon { font-size: 28px; margin-bottom: 10px; }
+    .rule-card h3 { font-size: 15px; font-weight: 700; color: #fff; margin: 0 0 8px; }
+    .rule-card p { font-size: 13px; line-height: 1.6; color: #7a7a9a; margin: 0; }
+    .rule-card.danger { border-color: rgba(239,68,68,0.2); }
+    .rule-card.danger:hover { border-color: rgba(239,68,68,0.4); }
+    .section { margin-bottom: 48px; }
+    .section h2 { font-size: 22px; font-weight: 700; color: #fff; margin: 0 0 16px; padding-bottom: 10px; border-bottom: 1px solid #2a2a4a; }
+    .section p, .section li { font-size: 15px; line-height: 1.75; color: #a0a0b8; margin: 0 0 12px; }
+    .section ul { padding-left: 22px; margin: 0 0 12px; }
+    .section li { margin: 0 0 8px; }
+    .enforcement-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+      font-size: 14px;
+    }
+    .enforcement-table th {
+      background: #1a1a3e;
+      color: #e2e2e2;
+      padding: 10px 14px;
+      text-align: left;
+      font-weight: 600;
+      border: 1px solid #2a2a4a;
+    }
+    .enforcement-table td {
+      padding: 10px 14px;
+      border: 1px solid #2a2a4a;
+      color: #a0a0b8;
+      vertical-align: top;
+    }
+    .enforcement-table tr:nth-child(even) td { background: #111128; }
+    .severity-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .sev-low { background: rgba(34,197,94,0.15); color: #22c55e; }
+    .sev-med { background: rgba(234,179,8,0.15); color: #eab308; }
+    .sev-high { background: rgba(239,68,68,0.15); color: #ef4444; }
+  </style>
+</head>
+<body>
+  <nav class="simple-nav">
+    <a href="/" class="logo-text">BloxVerse</a>
+    <span class="sep">›</span>
+    <span style="color:#6a6a8a;font-size:14px;">Community Guidelines</span>
+  </nav>
+
+  <div class="page-hero">
+    <div class="badge">Community</div>
+    <h1>Community Guidelines</h1>
+    <p>Keeping BloxVerse safe, fun, and welcoming for everyone.</p>
+  </div>
+
+  <div class="content-wrap">
+    <div class="intro-box">
+      <p>BloxVerse is a creative platform built for players and developers of all ages. These guidelines exist to make sure everyone — regardless of background — can enjoy the experience. We expect all users to treat each other with respect and follow these rules at all times.</p>
+    </div>
+
+    <div class="rules-grid">
+      <div class="rule-card">
+        <div class="rule-icon">🤝</div>
+        <h3>Be Respectful</h3>
+        <p>Treat every player with kindness. Disagreements are normal — harassment is not.</p>
+      </div>
+      <div class="rule-card">
+        <div class="rule-icon">🎮</div>
+        <h3>Play Fair</h3>
+        <p>Don't use exploits, cheats, or hacks. Win through skill, not shortcuts.</p>
+      </div>
+      <div class="rule-card">
+        <div class="rule-icon">🔒</div>
+        <h3>Protect Privacy</h3>
+        <p>Never share personal information — yours or others'. Don't ask for it either.</p>
+      </div>
+      <div class="rule-card">
+        <div class="rule-icon">🛡️</div>
+        <h3>Keep It Safe</h3>
+        <p>Content and games must be appropriate for a general audience. No adult content.</p>
+      </div>
+      <div class="rule-card danger">
+        <div class="rule-icon">🚫</div>
+        <h3>Zero Tolerance</h3>
+        <p>Hate speech, threats, and targeted harassment result in immediate permanent bans.</p>
+      </div>
+      <div class="rule-card">
+        <div class="rule-icon">✅</div>
+        <h3>Report Issues</h3>
+        <p>See something wrong? Use our <a href="/support" style="color:#4a7dff;">Support Form</a> to report it. Don't retaliate yourself.</p>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>What's Not Allowed</h2>
+      <ul>
+        <li><strong>Harassment &amp; Bullying</strong> — repeatedly targeting a player to make them feel unwelcome, threatened, or humiliated.</li>
+        <li><strong>Hate Speech</strong> — content that degrades individuals based on race, ethnicity, religion, gender, sexual orientation, disability, or nationality.</li>
+        <li><strong>Exploiting &amp; Cheating</strong> — using unauthorized scripts, programs, or game bugs to gain an unfair advantage.</li>
+        <li><strong>Impersonation</strong> — pretending to be a BloxVerse moderator, staff member, or another user to deceive others.</li>
+        <li><strong>Scamming</strong> — deceiving others out of BUX, items, or any in-game resource.</li>
+        <li><strong>Inappropriate Content in Games</strong> — publishing games that contain gore, sexual content, or content that glorifies self-harm.</li>
+        <li><strong>Real-Money Trading</strong> — attempting to sell or buy BUX or in-game items for real currency.</li>
+        <li><strong>Account Sharing &amp; Ban Evasion</strong> — sharing accounts with others or creating new accounts to get around a ban.</li>
+        <li><strong>Spam &amp; Advertising</strong> — repeatedly posting identical messages or promoting external services/links.</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2>Content Creation Rules</h2>
+      <p>When building and publishing games or assets on BloxVerse, you must:</p>
+      <ul>
+        <li>Ensure your game is appropriate for users ages 13 and up.</li>
+        <li>Only use assets you own or have permission to use.</li>
+        <li>Not hide prohibited content within scripts or models.</li>
+        <li>Not use your game to collect personal data from players.</li>
+        <li>Keep game descriptions and thumbnails accurate and appropriate.</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2>Enforcement Actions</h2>
+      <p>Violations are handled on a case-by-case basis. The following table outlines typical enforcement for common violations:</p>
+      <table class="enforcement-table">
+        <thead>
+          <tr>
+            <th>Violation</th>
+            <th>Severity</th>
+            <th>Typical Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Minor spam / off-topic messages</td>
+            <td><span class="severity-badge sev-low">Low</span></td>
+            <td>Warning</td>
+          </tr>
+          <tr>
+            <td>Mild harassment</td>
+            <td><span class="severity-badge sev-med">Medium</span></td>
+            <td>1–7 day ban</td>
+          </tr>
+          <tr>
+            <td>Exploiting / cheating</td>
+            <td><span class="severity-badge sev-med">Medium</span></td>
+            <td>7–30 day ban</td>
+          </tr>
+          <tr>
+            <td>Severe harassment / threats</td>
+            <td><span class="severity-badge sev-high">High</span></td>
+            <td>Permanent ban</td>
+          </tr>
+          <tr>
+            <td>Hate speech</td>
+            <td><span class="severity-badge sev-high">High</span></td>
+            <td>Permanent ban</td>
+          </tr>
+          <tr>
+            <td>Inappropriate game content</td>
+            <td><span class="severity-badge sev-high">High</span></td>
+            <td>Game removal + ban</td>
+          </tr>
+          <tr>
+            <td>Ban evasion (new account)</td>
+            <td><span class="severity-badge sev-high">High</span></td>
+            <td>All accounts permanently banned</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <h2>Appealing a Decision</h2>
+      <p>If you believe your account was actioned unfairly, you may submit an appeal through our <a href="/support" style="color:#4a7dff;">Support Form</a>. Select "Ban Appeal" as the category. Appeals are reviewed by a senior moderator within 5 business days. Appeal decisions are final.</p>
+      <p>To help your appeal, provide as much context as possible about what happened and why you believe the action was incorrect.</p>
+    </div>
+
+    <div class="section">
+      <h2>Reporting a Violation</h2>
+      <p>If you witness a violation of these guidelines, please submit a report using our <a href="/support" style="color:#4a7dff;">Support Form</a> and select "Report a Player". Include the player's username and a description of what occurred. We review all reports and take appropriate action.</p>
+    </div>
+  </div>
+</body>
+</html>

@@ -64,7 +64,7 @@
 <body>
     <div class="header">
         <h1>BloxVerse Studio Documentation</h1>
-        <a href="create.html">← Back to Studio</a>
+        <a href="create">← Back to Studio</a>
     </div>
     <div class="sidebar" id="sidebar"></div>
     <div class="container">
@@ -245,7 +245,7 @@ The Properties panel (right sidebar) dynamically updates based on the selected o
 - Leaderstats update in real-time — just change the \`Value\` property.
 `;
         const html = renderMarkdown(STUDIO_MD);
-        document.getElementById('content').innerHTML = '<a href="create.html" class="back-to-editor">← Back to Studio</a>' + html;
+        document.getElementById('content').innerHTML = '<a href="create" class="back-to-editor">← Back to Studio</a>' + html;
         const headings = document.querySelectorAll('#content h2, #content h3, #content h4');
         const sidebar = document.getElementById('sidebar');
         const tocLinks = [];

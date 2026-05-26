@@ -229,9 +229,13 @@
 <body>
   <nav class="navbar">
     <div class="nav-left">
-      <div class="logo" onclick="window.location.href='index.html'">
+      <div class="logo" onclick="window.location.href='/bloxverse/'">
         <div class="logo-icon"></div>
         <span class="logo-text">BloxVerse</span>
+      </div>
+      <div class="nav-links">
+        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
+        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/create'">Create</button>
       </div>
     </div>
     <div class="nav-center"></div>
@@ -263,7 +267,7 @@
   </div>
 
   <div class="detail-body">
-    <a class="back-link" href="index.html">← Back to Games</a>
+    <a class="back-link" href="/">← Back to Games</a>
 
     <div class="detail-section">
       <h2>Description</h2>
@@ -413,7 +417,7 @@
         detailPlayBtn.parentNode.insertBefore(reviewMsg, detailPlayBtn);
       } else {
         detailPlayBtn.addEventListener('click', () => {
-          window.location.href = 'game.html?game=' + gameId;
+          window.location.href = '/bloxverse/game?game=' + gameId;
         });
       }
 
@@ -542,7 +546,7 @@
       try {
         await deleteGame(gameId, auth.currentUser.uid);
         alert('Game deleted.');
-        window.location.href = 'index.html';
+        window.location.href = '/bloxverse/';
       } catch (err) {
         alert('Failed to delete: ' + err.message);
       }
@@ -556,12 +560,11 @@
         // ── Real-time ban listener ────────────────────────────────────
         onSnapshot(doc(db, 'bans', user.uid), (snap) => {
           if (snap.exists() && snap.data().banned) {
-            window.location.href = 'ban.html';
+            window.location.href = '/bloxverse/ban';
           }
         });
         // ──────────────────────────────────────────────────────────────
         navRight.innerHTML = `
-          <button class="create-btn" onclick="window.location.href='create.html'">✨ Create</button>
           <div class="user-info">
             <div class="avatar-circle">${(user.displayName || 'Player').charAt(0).toUpperCase()}</div>
           </div>
@@ -570,7 +573,7 @@
           detailActions.style.display = 'flex';
         }
       } else {
-        navRight.innerHTML = `<button class="login-btn" onclick="window.location.href='auth.html'">Login / Sign Up</button>`;
+        navRight.innerHTML = `<button class="login-btn" onclick="window.location.href='/bloxverse/auth'">Login / Sign Up</button>`;
         detailActions.style.display = 'none';
       }
     });

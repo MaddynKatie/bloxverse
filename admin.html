@@ -120,7 +120,7 @@
   <header>
     <h1>BloxVerse Admin Panel</h1>
     <span class="badge">Admin Only</span>
-    <a href="index.html" class="back">← Home</a>
+    <a href="/" class="back">← Home</a>
   </header>
 
   <main>
@@ -228,6 +228,50 @@
       <div class="status" id="roleStatus"></div>
     </div>
 
+    <!-- ── BUX MANAGEMENT ──────────────────────────────────────────── -->
+    <div class="panel">
+      <h2>💰 BUX Management</h2>
+      <p style="font-size:12px;color:#666;margin-bottom:14px;">Add, subtract, or set a user's BUX balance. Changes are logged. Use the lookup above to auto-fill the UID.</p>
+
+      <label>Target User ID</label>
+      <input type="text" id="buxUid" placeholder="Paste UID or auto-fill from lookup" />
+
+      <div style="margin-top:12px;display:flex;align-items:center;gap:8px;">
+        <div style="flex:1;">
+          <label>Current Balance</label>
+          <div id="buxCurrentBalance" style="padding:8px 10px;background:#151515;border:1px solid #333;border-radius:5px;font-size:13px;color:#888;">— fetch to view —</div>
+        </div>
+        <button class="btn btn-gray" id="btnFetchBux" style="flex:0;white-space:nowrap;margin-top:18px;">Fetch Balance</button>
+      </div>
+
+      <hr class="divider" />
+
+      <div class="row" style="align-items:flex-end;">
+        <div>
+          <label>Amount</label>
+          <input type="text" id="buxAmount" placeholder="e.g. 500" />
+        </div>
+        <div style="flex:0;">
+          <label>Action</label>
+          <select id="buxAction" style="min-width:120px;">
+            <option value="add">Add BUX</option>
+            <option value="subtract">Subtract BUX</option>
+            <option value="set">Set BUX</option>
+          </select>
+        </div>
+        <button class="btn btn-blue" id="btnApplyBux" style="flex:0;white-space:nowrap;">Apply</button>
+      </div>
+      <div class="status" id="buxStatus"></div>
+    </div>
+
+    <!-- ── SUPPORT REQUESTS ─────────────────────────────────────── -->
+    <div class="panel">
+      <h2>📬 Support Requests</h2>
+      <p style="font-size:12px;color:#666;margin-bottom:14px;">View and manage incoming support requests. Click Delete to remove a request once resolved.</p>
+      <div id="supportRequestsList" style="display:flex;flex-direction:column;gap:8px;"></div>
+      <div class="status" id="supportStatus"></div>
+    </div>
+
     <!-- ── GAME MANAGEMENT ──────────────────────────────────────── -->
     <div class="panel">
       <h2>🎮 Game Management</h2>
@@ -247,12 +291,12 @@
   // ─── Access guard ────────────────────────────────────────────────────────────
   auth.onAuthStateChanged(async (user) => {
     document.getElementById('loading').style.display = 'none';
-    if (!user) { window.location.href = 'auth.html'; return; }
+    if (!user) { window.location.href = '/bloxverse/auth'; return; }
     if (await banGuard(user.uid)) return;
     // ── Real-time ban listener ──────────────────────────────────────
     onSnapshot(doc(db, 'bans', user.uid), (snap) => {
       if (snap.exists() && snap.data().banned) {
-        window.location.href = 'ban.html';
+        window.location.href = '/bloxverse/ban';
       }
     });
     // ────────────────────────────────────────────────────────────────
@@ -316,6 +360,7 @@
       _foundUid = uid;
       document.getElementById('banUid').value  = uid;
       document.getElementById('roleUid').value = uid;
+      document.getElementById('buxUid').value  = uid;
 
       const roles   = await getRoles(uid);
       const banSnap = await getDoc(doc(db, 'bans', uid));
@@ -502,6 +547,151 @@
   }
 
   loadGames();
+
+  // ─── Support Requests ─────────────────────────────────────────────────────────
+  const supportListEl = document.getElementById('supportRequestsList');
+
+  async function loadSupportRequests() {
+    supportListEl.innerHTML = '<div style="color:#666;font-size:13px;padding:8px 0;">Loading requests...</div>';
+    try {
+      const snap = await getDocs(query(collection(db, 'supportRequests')));
+      if (snap.empty) {
+        supportListEl.innerHTML = '<div style="color:#666;font-size:13px;padding:8px 0;">No support requests yet.</div>';
+        return;
+      }
+      const requests = [];
+      snap.forEach(d => requests.push({ id: d.id, ...d.data() }));
+      requests.sort((a, b) => {
+        const ta = a.createdAt?.toDate?.() || new Date(0);
+        const tb = b.createdAt?.toDate?.() || new Date(0);
+        return tb - ta;
+      });
+
+      supportListEl.innerHTML = requests.map(r => {
+        const date = r.createdAt?.toDate?.() ? r.createdAt.toDate().toLocaleString() : '—';
+        const cat = r.category || '—';
+        const status = r.status || 'open';
+        const statusColor = status === 'open' ? '#22c55e' : '#888';
+        return `
+          <div style="background:#151515;border:1px solid #2a2a2a;border-radius:6px;padding:14px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+              <div style="flex:1;min-width:200px;">
+                <div style="font-size:13px;font-weight:600;color:#fff;">${escHtml(r.subject || 'No subject')}</div>
+                <div style="font-size:11px;color:#888;margin-top:4px;">
+                  <strong>${escHtml(r.username || '?')}</strong> · ${escHtml(r.email)} · ${date}
+                </div>
+                <div style="font-size:11px;color:#888;margin-top:2px;">
+                  Category: ${escHtml(cat)}
+                  ${r.targetUser ? ` · Reported: ${escHtml(r.targetUser)}` : ''}
+                  <span style="color:${statusColor};font-weight:600;"> · ${status}</span>
+                </div>
+                <div style="font-size:12px;color:#bbb;margin-top:6px;padding:8px 10px;background:#111;border-radius:4px;white-space:pre-wrap;">${escHtml(r.message || '')}</div>
+              </div>
+              <div style="display:flex;gap:6px;flex-shrink:0;">
+                ${status === 'open' ? `<button class="btn btn-green" data-support-close="${r.id}" style="font-size:11px;padding:5px 10px;">Close</button>` : ''}
+                <button class="btn btn-red" data-support-delete="${r.id}" style="font-size:11px;padding:5px 10px;">Delete</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      supportListEl.querySelectorAll('[data-support-delete]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.supportDelete;
+          if (!confirm('Delete this support request?')) return;
+          try {
+            await deleteDoc(doc(db, 'supportRequests', id));
+            showStatus('supportStatus', '✅ Request deleted.', true);
+            loadSupportRequests();
+          } catch (e) {
+            showStatus('supportStatus', 'Error: ' + e.message, false);
+          }
+        });
+      });
+      supportListEl.querySelectorAll('[data-support-close]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.supportClose;
+          try {
+            await setDoc(doc(db, 'supportRequests', id), { status: 'closed' }, { merge: true });
+            showStatus('supportStatus', '✅ Request closed.', true);
+            loadSupportRequests();
+          } catch (e) {
+            showStatus('supportStatus', 'Error: ' + e.message, false);
+          }
+        });
+      });
+    } catch (e) {
+      supportListEl.innerHTML = '<div style="color:#e74c3c;font-size:13px;">Failed to load support requests.</div>';
+      console.error('[Admin] Load support requests error:', e);
+    }
+  }
+
+  loadSupportRequests();
+
+  // ─── BUX Management ──────────────────────────────────────────────────────────
+  document.getElementById('btnFetchBux').addEventListener('click', async () => {
+    const uid = document.getElementById('buxUid').value.trim();
+    if (!uid) { showStatus('buxStatus', 'Enter a user ID.', false); return; }
+    try {
+      const snap = await getDoc(doc(db, 'users', uid));
+      if (!snap.exists()) { showStatus('buxStatus', 'User not found.', false); return; }
+      const bux = snap.data().bux ?? 0;
+      document.getElementById('buxCurrentBalance').textContent = `${bux.toLocaleString()} BUX`;
+      document.getElementById('buxCurrentBalance').style.color = '#e0e0e0';
+      statusEl: document.getElementById('buxStatus').style.display = 'none';
+    } catch (e) {
+      showStatus('buxStatus', 'Error: ' + e.message, false);
+    }
+  });
+
+  document.getElementById('btnApplyBux').addEventListener('click', async () => {
+    const uid = document.getElementById('buxUid').value.trim();
+    const amountRaw = parseInt(document.getElementById('buxAmount').value.trim(), 10);
+    const action = document.getElementById('buxAction').value;
+
+    if (!uid) { showStatus('buxStatus', 'Enter a user ID.', false); return; }
+    if (isNaN(amountRaw) || amountRaw < 0) { showStatus('buxStatus', 'Enter a valid non-negative amount.', false); return; }
+
+    try {
+      const userRef = doc(db, 'users', uid);
+      const snap = await getDoc(userRef);
+      if (!snap.exists()) { showStatus('buxStatus', 'User not found.', false); return; }
+
+      const currentBux = snap.data().bux ?? 0;
+      let newBux;
+      let actionLabel;
+
+      if (action === 'add') {
+        newBux = currentBux + amountRaw;
+        actionLabel = `+${amountRaw}`;
+      } else if (action === 'subtract') {
+        newBux = Math.max(0, currentBux - amountRaw);
+        actionLabel = `-${amountRaw}`;
+      } else { // set
+        newBux = amountRaw;
+        actionLabel = `set to ${amountRaw}`;
+      }
+
+      await setDoc(userRef, { bux: newBux }, { merge: true });
+
+      // Log the admin action as a transaction
+      const { addDoc, collection: col, serverTimestamp } = await import('firebase/firestore');
+      await addDoc(col(db, 'transactions'), {
+        userId: uid,
+        type: 'admin_bux',
+        amount: newBux - currentBux,
+        description: `Admin BUX adjustment (${actionLabel}) by ${auth.currentUser?.email || 'admin'}`,
+        createdAt: Timestamp.now(),
+      });
+
+      document.getElementById('buxCurrentBalance').textContent = `${newBux.toLocaleString()} BUX`;
+      document.getElementById('buxCurrentBalance').style.color = '#2ecc71';
+      showStatus('buxStatus', `✅ BUX updated for ${uid}: ${currentBux} → ${newBux} (${actionLabel})`);
+    } catch (e) {
+      showStatus('buxStatus', 'Error: ' + e.message, false);
+    }
+  });
 </script>
 </body>
 </html>

@@ -3,6 +3,8 @@ export const accessories = [
     id: 'cardboardbox',
     name: 'Cardboard Box',
     description: 'A humble cardboard box. Perfect for hiding.',
+    price: 10,
+    author: 'BloxVerse',
     icon: '📦',
     meshPath: new URL('../assets/accessories/CardboardBox/CardboardBox.fbx', import.meta.url).href,
     textures: {
@@ -17,6 +19,8 @@ export const accessories = [
     id: 'palhair',
     name: 'Pal Hair',
     description: 'Yeah buddy!  Pal hair for the win.',
+    price: 0,
+    author: 'BloxVerse',
      icon: '👨‍🦰',
     meshPath: new URL('../assets/accessories/PalHair/pal_hair.glb', import.meta.url).href,
     textures: {

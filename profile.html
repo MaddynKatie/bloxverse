@@ -187,9 +187,13 @@
 <body>
   <nav class="navbar">
     <div class="nav-left">
-      <div class="logo" onclick="window.location.href='index.html'">
+      <div class="logo" onclick="window.location.href='/bloxverse/'">
         <div class="logo-icon"></div>
         <span class="logo-text">BloxVerse</span>
+      </div>
+      <div class="nav-links">
+        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
+        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/create'">Create</button>
       </div>
     </div>
     <div class="nav-right" id="navRight"></div>
@@ -200,7 +204,7 @@
   <script type="module">
     import { auth, db, calculateAge, addTrustedFriend, removeTrustedFriend, getRoles, banGuard } from './src/firebase.js';
     import { onAuthStateChanged, signOut } from 'firebase/auth';
-    import { doc, getDoc, setDoc, collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
+    import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 
     const navRight = document.getElementById('navRight');
     const profilePage = document.getElementById('profilePage');
@@ -209,7 +213,7 @@
 
     onAuthStateChanged(auth, async (user) => {
       if (!user) {
-        window.location.href = 'auth.html';
+        window.location.href = '/bloxverse/auth';
         return;
       }
       
@@ -218,7 +222,7 @@
       // ── Real-time ban listener ────────────────────────────────────
       onSnapshot(doc(db, 'bans', user.uid), (snap) => {
         if (snap.exists() && snap.data().banned) {
-          window.location.href = 'ban.html';
+          window.location.href = '/bloxverse/ban';
         }
       });
       // ──────────────────────────────────────────────────────────────
@@ -307,7 +311,7 @@
       }
 
       profilePage.innerHTML = `
-         <a href="index.html" class="profile-back">
+         <a href="/" class="profile-back">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M19 12H5M12 19l-7-7 7-7" />
           </svg>
@@ -358,7 +362,7 @@
           ${friendsList.length === 0 ? '<div class="empty">No friends yet</div>' : `
             <div class="profile-friends-grid">
               ${friendsList.map(f => `
-                <div class="profile-friend-item" onclick="window.location.href='profile.html?user=${f.id}'">
+                <div class="profile-friend-item" onclick="window.location.href='/bloxverse/profile?user=${f.id}'">
                   <div class="friend-avatar-small">${f.username.charAt(0).toUpperCase()}</div>
                   <span class="friend-name-small">${f.username}</span>
                 </div>
@@ -372,7 +376,7 @@
           ${followersList.length === 0 ? '<div class="empty">No followers yet</div>' : `
             <div class="profile-friends-grid">
               ${followersList.map(f => `
-                <div class="profile-friend-item" onclick="window.location.href='profile.html?user=${f.id}'">
+                <div class="profile-friend-item" onclick="window.location.href='/bloxverse/profile?user=${f.id}'">
                   <div class="friend-avatar-small">${f.username.charAt(0).toUpperCase()}</div>
                   <span class="friend-name-small">${f.username}</span>
                 </div>
@@ -474,12 +478,25 @@
 
       navRight.innerHTML = `
         <div class="user-info">
-          <button class="bux-btn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <text x="12" y="17" text-anchor="middle" font-size="14" font-weight="bold">B</text>
-            </svg>
-            <span>${ownBux.toLocaleString()}</span>
-          </button>
+          <div class="bux-wrapper" id="buxWrapper">
+            <button class="bux-btn" id="buxBtn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <text x="12" y="17" text-anchor="middle" font-size="14" font-weight="bold">B</text>
+              </svg>
+              <span id="ownBuxVal">${ownBux.toLocaleString()}</span>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="margin-left:4px;"><path d="M7 10l5 5 5-5z"/></svg>
+            </button>
+            <div class="bux-dropdown">
+              <div class="bux-dropdown-header">
+                <span class="bux-dropdown-label">Balance</span>
+                <span class="bux-dropdown-balance" id="buxDropdownBalance">${ownBux.toLocaleString()}</span>
+              </div>
+              <button class="bux-dropdown-item" onclick="window.location.href='/bloxverse/transactions'">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                Transactions
+              </button>
+            </div>
+          </div>
           <div class="avatar-dropdown">
             <div class="avatar-circle">${ownInitial}</div>
             <div class="dropdown-menu">
@@ -487,14 +504,14 @@
                 <span class="dropdown-name">${ownUserData.username || 'Player'}</span>
                 <span class="dropdown-email">${user.email}</span>
               </div>
-              <button class="dropdown-item" onclick="window.location.href='profile.html'">
+              <button class="dropdown-item" onclick="window.location.href='/bloxverse/profile'">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                   <circle cx="12" cy="7" r="4" />
                 </svg>
                 Profile
               </button>
-              <button class="dropdown-item" onclick="window.location.href='avatar.html'">
+              <button class="dropdown-item" onclick="window.location.href='/bloxverse/avatar'">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                 </svg>
@@ -513,7 +530,15 @@
         </div>
       `;
 
-      // Make dropdown clickable
+      // Bux dropdown toggle
+      const buxWrapper = document.getElementById('buxWrapper');
+      const buxBtn = document.getElementById('buxBtn');
+      buxBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        buxWrapper.classList.toggle('open');
+      });
+
+      // Make avatar dropdown clickable
       const avatarCircle = navRight.querySelector('.avatar-circle');
       const dropdown = navRight.querySelector('.avatar-dropdown');
       avatarCircle.addEventListener('click', (e) => {
@@ -525,12 +550,15 @@
         if (!dropdown.contains(e.target)) {
           dropdown.classList.remove('open');
         }
+        if (buxWrapper && !buxWrapper.contains(e.target)) {
+          buxWrapper.classList.remove('open');
+        }
       });
     });
 
     window._logout = async () => {
       await signOut(auth);
-        window.location.href = 'auth.html';
+        window.location.href = '/bloxverse/auth';
     };
   </script>
 </body>

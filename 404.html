@@ -8,19 +8,21 @@
       var base = '/bloxverse';
       var path = location.pathname;
       if (!path.startsWith(base)) {
-        location.replace(base + '/index.html' + location.search + location.hash);
+        location.replace(base + '/' + location.search + location.hash);
         return;
       }
       var rest = path.slice(base.length).replace(/^\/+/, '').replace(/\/+$/, '');
-      if (!rest || rest === 'index.html') {
-        location.replace(base + '/index.html' + location.search + location.hash);
+      // Strip .html if someone navigated to a .html URL directly
+      rest = rest.replace(/\.html$/, '');
+      if (!rest || rest === 'index') {
+        location.replace(base + '/' + location.search + location.hash);
         return;
       }
       if (!rest.includes('.')) {
-        location.replace(base + '/' + rest + '.html' + location.search + location.hash);
+        location.replace(base + '/' + rest + location.search + location.hash);
         return;
       }
-      location.replace(base + '/index.html' + location.search + location.hash);
+      location.replace(base + '/' + location.search + location.hash);
     })();
   </script>
 </head>

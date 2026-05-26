@@ -435,6 +435,7 @@
     import { accessories, getAllAccessories, findAccessory } from './src/accessories.js';
     import { applyAvatarClothing, findClothing, getAllClothing, removeAvatarClothing } from './src/clothing.js';
     import { getAllFaces, findFace } from './src/faces.js';
+    const STARTING_ITEMS = ['palhair', 'smile', 'blueandblackmotorcycleshirt'];
     const playerModelUrl = new URL('./assets/models/player.fbx', import.meta.url).href;
 
     const container = document.getElementById('viewerContainer');
@@ -537,6 +538,7 @@
     const fbxLoader = new FBXLoader();
     const gltfLoader = new GLTFLoader();
 
+    let _ownedItems = [];
     let _equippedAccessories = {};
     let _loadedAccessories = {};
     const _accessoryUpdaters = new Map();
@@ -850,7 +852,7 @@
 
     function renderAccGrid() {
       const grid = document.getElementById('accGrid');
-      const all = getAllAccessories();
+      const all = (auth.currentUser ? getAllAccessories().filter(a => _ownedItems.includes(a.id)) : getAllAccessories());
       if (all.length === 0) {
         grid.innerHTML = '<div class="acc-empty">No accessories available</div>';
         return;
@@ -892,7 +894,7 @@
 
     function renderClothingGrid() {
       const grid = document.getElementById('clothingGrid');
-      const all = getAllClothing();
+      const all = (auth.currentUser ? getAllClothing().filter(c => _ownedItems.includes(c.id)) : getAllClothing());
       if (all.length === 0) {
         grid.innerHTML = '<div class="acc-empty">No clothing added yet. Drop Roblox shirt template PNGs into <code>assets/clothing</code>.</div>';
         return;
@@ -960,7 +962,7 @@
 
     function renderFacesGrid() {
       const grid = document.getElementById('facesGrid');
-      const all = getAllFaces();
+      const all = (auth.currentUser ? getAllFaces().filter(f => _ownedItems.includes(f.id)) : getAllFaces());
       grid.innerHTML = all.map(f => `
         <div class="clothing-item ${_equippedFaceId === f.id ? 'equipped' : ''}" data-id="${f.id}">
           <div class="clothing-item-preview">
@@ -1141,12 +1143,22 @@
         const snap = await getDoc(doc(db, 'users', auth.currentUser.uid));
         if (snap.exists()) {
           const data = snap.data();
+          _ownedItems = data.ownedItems || [];
+          if (!data.ownedItems) {
+            _ownedItems = [...STARTING_ITEMS];
+            await setDoc(doc(db, 'users', auth.currentUser.uid), { ownedItems: _ownedItems }, { merge: true });
+          }
           if (data.avatarColors) {
             updateColorPickersFromSaved(data.avatarColors);
           }
           if (data.avatarClothing && avatar && findClothing(data.avatarClothing)) {
-            _selectedClothingId = data.avatarClothing;
-            applyAvatarClothing(avatar, data.avatarClothing);
+            if (_ownedItems.includes(data.avatarClothing)) {
+              _selectedClothingId = data.avatarClothing;
+              applyAvatarClothing(avatar, data.avatarClothing);
+            } else {
+              _selectedClothingId = null;
+              removeAvatarClothing(avatar);
+            }
           } else if (avatar) {
             _selectedClothingId = null;
             removeAvatarClothing(avatar);
@@ -1154,19 +1166,21 @@
           if (data.avatarAccessories && avatar) {
             _equippedAccessories = {};
             for (const id of data.avatarAccessories) {
-              if (findAccessory(id)) {
+              if (findAccessory(id) && _ownedItems.includes(id)) {
                 _equippedAccessories[id] = true;
                 loadAccessory(findAccessory(id), avatar);
               }
             }
             renderAccGrid();
           }
-          if (data.avatarFace && findFace(data.avatarFace)) {
+          if (data.avatarFace && findFace(data.avatarFace) && _ownedItems.includes(data.avatarFace)) {
             equipFace(data.avatarFace);
           } else {
             equipFace('smile');
           }
         } else {
+          _ownedItems = [...STARTING_ITEMS];
+          await setDoc(doc(db, 'users', auth.currentUser.uid), { ownedItems: _ownedItems }, { merge: true });
           equipFace('smile');
         }
         renderClothingGrid();

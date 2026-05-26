@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://esm.sh/three@0.184.0",
+      "three/": "https://esm.sh/three@0.184.0/",
+      "firebase/app": "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js",
+      "firebase/auth": "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js",
+      "firebase/firestore": "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js",
+      "cannon-es": "https://esm.sh/cannon-es@0.20.0",
+      "glin-profanity": "https://esm.sh/glin-profanity@3.3.0"
+    }
+  }
+  </script>
+  <base href="/bloxverse/">
+
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Terms of Use – BloxVerse</title>
+  <meta name="description" content="Read the BloxVerse Terms of Use to understand the rules and guidelines for using our platform." />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="stylesheet" href="src/main.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0e0e18;
+      color: #c8c8d4;
+      min-height: 100vh;
+      margin: 0;
+    }
+    .page-hero {
+      background: linear-gradient(135deg, #1a1a3e 0%, #0e0e18 100%);
+      border-bottom: 1px solid #2a2a4a;
+      padding: 60px 20px 48px;
+      text-align: center;
+    }
+    .page-hero .badge {
+      display: inline-block;
+      background: rgba(74,125,255,0.15);
+      color: #4a7dff;
+      border: 1px solid rgba(74,125,255,0.3);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+    .page-hero h1 {
+      font-size: 40px;
+      font-weight: 800;
+      color: #fff;
+      margin: 0 0 10px;
+      letter-spacing: -0.5px;
+    }
+    .page-hero p {
+      font-size: 15px;
+      color: #6a6a8a;
+      margin: 0;
+    }
+    .content-wrap {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 48px 20px 80px;
+    }
+    .toc {
+      background: #1a1a3e;
+      border: 1px solid #2a2a4a;
+      border-radius: 10px;
+      padding: 22px 26px;
+      margin-bottom: 40px;
+    }
+    .toc h3 {
+      color: #e2e2e2;
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin: 0 0 14px;
+    }
+    .toc ol {
+      margin: 0;
+      padding-left: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .toc a {
+      color: #4a7dff;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    .toc a:hover { text-decoration: underline; }
+    .section {
+      margin-bottom: 48px;
+    }
+    .section h2 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #fff;
+      margin: 0 0 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #2a2a4a;
+    }
+    .section p, .section li {
+      font-size: 15px;
+      line-height: 1.75;
+      color: #a0a0b8;
+      margin: 0 0 12px;
+    }
+    .section ul, .section ol {
+      padding-left: 22px;
+      margin: 0 0 12px;
+    }
+    .section li { margin: 0 0 8px; }
+    .highlight-box {
+      background: rgba(74,125,255,0.08);
+      border-left: 3px solid #4a7dff;
+      border-radius: 0 6px 6px 0;
+      padding: 14px 18px;
+      margin: 18px 0;
+    }
+    .highlight-box p { margin: 0; color: #a0b4e0; }
+    .effective-date {
+      text-align: center;
+      color: #4a4a6a;
+      font-size: 13px;
+      margin-bottom: 36px;
+    }
+    /* Navbar */
+    .simple-nav {
+      background: #16163a;
+      border-bottom: 1px solid #2a2a4a;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .simple-nav a {
+      color: #4a7dff;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    .simple-nav a:hover { text-decoration: underline; }
+    .simple-nav .sep { color: #3a3a5a; }
+    .simple-nav .logo-text {
+      font-size: 16px;
+      font-weight: 800;
+      background: linear-gradient(90deg, #4a7dff, #a855f7);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+  </style>
+</head>
+<body>
+  <nav class="simple-nav">
+    <a href="/" class="logo-text">BloxVerse</a>
+    <span class="sep">›</span>
+    <span style="color:#6a6a8a;font-size:14px;">Terms of Use</span>
+  </nav>
+
+  <div class="page-hero">
+    <div class="badge">Legal</div>
+    <h1>Terms of Use</h1>
+    <p>Last updated: May 25, 2026</p>
+  </div>
+
+  <div class="content-wrap">
+    <p class="effective-date">Effective Date: May 25, 2026 &nbsp;·&nbsp; These terms govern your use of BloxVerse.</p>
+
+    <div class="toc">
+      <h3>Table of Contents</h3>
+      <ol>
+        <li><a href="#acceptance">Acceptance of Terms</a></li>
+        <li><a href="#eligibility">Eligibility</a></li>
+        <li><a href="#accounts">Accounts</a></li>
+        <li><a href="#conduct">User Conduct</a></li>
+        <li><a href="#content">User-Generated Content</a></li>
+        <li><a href="#bux">Virtual Currency (BUX)</a></li>
+        <li><a href="#enforcement">Enforcement</a></li>
+        <li><a href="#ip">Intellectual Property</a></li>
+        <li><a href="#disclaimer">Disclaimers</a></li>
+        <li><a href="#termination">Termination</a></li>
+        <li><a href="#changes">Changes to Terms</a></li>
+        <li><a href="#contact">Contact</a></li>
+      </ol>
+    </div>
+
+    <div class="section" id="acceptance">
+      <h2>1. Acceptance of Terms</h2>
+      <p>By accessing or using BloxVerse (the "Platform"), you agree to be bound by these Terms of Use ("Terms"). If you do not agree to these Terms, do not use the Platform.</p>
+      <div class="highlight-box">
+        <p>These Terms constitute a legally binding agreement between you and BloxVerse. Please read them carefully before using our service.</p>
+      </div>
+    </div>
+
+    <div class="section" id="eligibility">
+      <h2>2. Eligibility</h2>
+      <p>You must be at least 13 years of age to create an account and use BloxVerse. By registering, you represent and warrant that you meet this age requirement. Users under 18 should have parental consent before using the Platform.</p>
+    </div>
+
+    <div class="section" id="accounts">
+      <h2>3. Accounts</h2>
+      <p>When you create an account, you agree to:</p>
+      <ul>
+        <li>Provide accurate, current, and complete information during registration.</li>
+        <li>Maintain the security of your account credentials.</li>
+        <li>Not share your account with others or allow others to access your account.</li>
+        <li>Notify us immediately if you suspect any unauthorized use of your account.</li>
+        <li>Not create accounts to evade bans or suspensions.</li>
+      </ul>
+      <p>You are responsible for all activity that occurs under your account.</p>
+    </div>
+
+    <div class="section" id="conduct">
+      <h2>4. User Conduct</h2>
+      <p>You agree not to use BloxVerse to:</p>
+      <ul>
+        <li>Harass, bully, threaten, or intimidate other users.</li>
+        <li>Post, share, or distribute content that is hateful, discriminatory, or offensive.</li>
+        <li>Exploit bugs, cheats, or unauthorized third-party software ("exploiting").</li>
+        <li>Engage in spam, phishing, or any form of deception.</li>
+        <li>Impersonate BloxVerse staff, other users, or any entity.</li>
+        <li>Attempt to compromise the security or integrity of the Platform.</li>
+        <li>Collect user data without consent.</li>
+        <li>Facilitate or promote real-money trading of in-game assets.</li>
+      </ul>
+      <p>Violations may result in account warnings, suspension, or permanent bans.</p>
+    </div>
+
+    <div class="section" id="content">
+      <h2>5. User-Generated Content</h2>
+      <p>BloxVerse allows users to create and publish games and other content ("User Content"). By submitting User Content, you grant BloxVerse a worldwide, royalty-free, non-exclusive license to use, display, and distribute that content on the Platform.</p>
+      <p>You represent that:</p>
+      <ul>
+        <li>You own or have the rights to all content you submit.</li>
+        <li>Your content does not infringe any third-party rights.</li>
+        <li>Your content complies with our <a href="/community-guidelines" style="color:#4a7dff;">Community Guidelines</a>.</li>
+      </ul>
+      <p>BloxVerse reserves the right to remove any content that violates these Terms.</p>
+    </div>
+
+    <div class="section" id="bux">
+      <h2>6. Virtual Currency (BUX)</h2>
+      <p>BUX is BloxVerse's virtual currency. BUX has no real-world monetary value and cannot be exchanged for real money. BUX can be earned through gameplay activities and may be used for in-platform purchases.</p>
+      <ul>
+        <li>BUX balances may be adjusted by administrators for policy violations.</li>
+        <li>BloxVerse reserves the right to modify, limit, or discontinue BUX at any time.</li>
+        <li>BUX is non-transferable and non-refundable.</li>
+      </ul>
+    </div>
+
+    <div class="section" id="enforcement">
+      <h2>7. Enforcement</h2>
+      <p>BloxVerse moderators and administrators reserve the right to take enforcement action — including warnings, temporary bans, or permanent bans — for any conduct that violates these Terms or our Community Guidelines, at their sole discretion.</p>
+      <p>If you believe an action was taken against your account in error, you may submit a <a href="/support" style="color:#4a7dff;">support request</a> for review. Appeal outcomes are final.</p>
+    </div>
+
+    <div class="section" id="ip">
+      <h2>8. Intellectual Property</h2>
+      <p>All BloxVerse Platform code, design, branding, and original assets are the property of BloxVerse and its developers. You may not reproduce, distribute, or create derivative works of Platform materials without explicit written permission.</p>
+    </div>
+
+    <div class="section" id="disclaimer">
+      <h2>9. Disclaimers</h2>
+      <p>BloxVerse is provided "as is" without warranties of any kind. We do not guarantee that the Platform will be available, error-free, or secure at all times. We are not liable for any damages arising from your use of the Platform.</p>
+    </div>
+
+    <div class="section" id="termination">
+      <h2>10. Termination</h2>
+      <p>We may suspend or terminate your access to BloxVerse at any time, with or without notice, for any violation of these Terms. You may also delete your account at any time by contacting support.</p>
+    </div>
+
+    <div class="section" id="changes">
+      <h2>11. Changes to Terms</h2>
+      <p>We may update these Terms from time to time. Continued use of the Platform after changes are posted constitutes acceptance of the revised Terms. We will make reasonable efforts to notify users of material changes.</p>
+    </div>
+
+    <div class="section" id="contact">
+      <h2>12. Contact</h2>
+      <p>If you have questions about these Terms, or need to report a violation, please use our <a href="/support" style="color:#4a7dff;">Support Form</a>.</p>
+    </div>
+  </div>
+</body>
+</html>

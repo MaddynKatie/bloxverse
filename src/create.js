@@ -286,7 +286,7 @@ async function initializeEditor() {
                 icon: _selectedThumb || './assets/icons/demo.png',
             });
             closePublishModal();
-            alert(`Published! Play it at /game-detail.html?id=${gameId}`);
+            alert(`Published! Play it at /game-detail?id=${gameId}`);
         } catch (err) {
             alert('Failed to publish: ' + err.message);
         } finally {

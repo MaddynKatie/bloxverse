@@ -126,6 +126,7 @@ document.getElementById('signupForm')?.addEventListener('submit', async (e) => {
         friends: [],
         trustedFriends: [],
         profanityFilter: true,
+        lastDailyClaim: '',
         createdAt: new Date().toISOString(),
       });
 

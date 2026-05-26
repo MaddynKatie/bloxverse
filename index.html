@@ -32,11 +32,14 @@
         <div class="logo-icon"></div>
         <span class="logo-text">BloxVerse</span>
       </div>
+      <div class="nav-links">
+        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
+        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/create'">Create</button>
+      </div>
     </div>
     <div class="nav-center" id="navCenter"></div>
     <div class="nav-right" id="navRight">
-      <button class="create-btn" id="createBtn" style="display:none;" onclick="window.location.href='create.html'">✨ Create</button>
-      <button class="login-btn" onclick="window.location.href='auth.html'">Login / Sign Up</button>
+      <button class="login-btn" onclick="window.location.href='/bloxverse/auth'">Login / Sign Up</button>
     </div>
   </nav>
 
@@ -68,9 +71,14 @@
     </section>
   </main>
 
+  <!-- Daily Reward Toast -->
+  <div id="dailyRewardToast" class="daily-reward-toast">
+    <span>+5 BUX</span> Daily Login Reward
+  </div>
+
   <script type="module">
     import { games } from './src/games.js';
-    import { auth, db, trackPresence, listenBux, getBux, checkBan, banGuard } from './src/firebase.js';
+    import { auth, db, trackPresence, listenBux, getBux, checkBan, banGuard, claimDailyBux } from './src/firebase.js';
     import { onAuthStateChanged, signOut } from 'firebase/auth';
     import { doc, getDoc, collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
     import { searchUsers, sendFriendRequest, acceptFriendRequest, declineFriendRequest, removeFriend, getFriendRequests, getFriends } from './src/friends.js';
@@ -86,7 +94,7 @@
       const card = document.createElement('div');
       card.className = 'game-card';
       card.dataset.gameId = game.id;
-      card.onclick = () => window.location.href = 'game-detail.html?id=' + game.id;
+      card.onclick = () => window.location.href = '/bloxverse/game-detail?id=' + game.id;
       card.innerHTML = `
         <div class="game-thumbnail">
           <img src="${game.icon}" alt="${game.name}" />
@@ -188,7 +196,7 @@
               });
               const img = card.querySelector('.game-thumbnail img');
               if (img) img.src = data.icon || './assets/icons/demo.png';
-              card.onclick = () => window.location.href = 'game-detail.html?id=' + gameId;
+              card.onclick = () => window.location.href = '/bloxverse/game-detail?id=' + gameId;
             }
           });
         });
@@ -223,7 +231,7 @@
       if (e.key === 'Enter' && document.activeElement?.id === 'friendSearchInput') {
         const val = document.getElementById('friendSearchInput').value.trim();
         if (val.length >= 3) {
-          window.location.href = `search.html?q=${encodeURIComponent(val)}`;
+          window.location.href = `/bloxverse/search?q=${encodeURIComponent(val)}`;
         }
       }
     });
@@ -295,7 +303,7 @@
         return;
       }
       friendsGrid.innerHTML = friendsWithStatus.map(f => `
-                <div class="friend-card" onclick="window.location.href='profile.html?user=${f.id}'" 
+                <div class="friend-card" onclick="window.location.href='/bloxverse/profile?user=${f.id}'" 
 style="cursor:pointer;">
           <div class="avatar-with-status">
             <div class="friend-avatar">${f.username.charAt(0).toUpperCase()}</div>
@@ -387,7 +395,7 @@ style="cursor:pointer;">
         // ── Real-time ban listener ────────────────────────────────────────
         onSnapshot(doc(db, 'bans', user.uid), (snap) => {
           if (snap.exists() && snap.data().banned) {
-            window.location.href = 'ban.html';
+            window.location.href = '/bloxverse/ban';
           }
         });
         // ────────────────────────────────────────────────────────────────────
@@ -407,6 +415,17 @@ style="cursor:pointer;">
 
         presence = trackPresence(user.uid);
 
+        // ── Daily login reward ────────────────────────────────────────────
+        claimDailyBux(user.uid).then(claimed => {
+          if (claimed) {
+            const toast = document.getElementById('dailyRewardToast');
+            if (toast) {
+              toast.classList.add('show');
+              setTimeout(() => toast.classList.remove('show'), 4000);
+            }
+          }
+        }).catch(() => {});
+
         const initial = username.charAt(0).toUpperCase();
 
         navCenter.innerHTML = renderFriendSearch();
@@ -414,14 +433,26 @@ style="cursor:pointer;">
 
         const buxElId = 'buxValue';
         navRight.innerHTML = `
-          <button class="create-btn" onclick="window.location.href='create.html'">✨ Create</button>
           <div class="user-info">
-            <button class="bux-btn">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <text x="12" y="17" text-anchor="middle" font-size="14" font-weight="bold">B</text>
-              </svg>
-              <span id="${buxElId}">${bux.toLocaleString()}</span>
-            </button>
+            <div class="bux-wrapper" id="buxWrapper">
+              <button class="bux-btn" id="buxBtn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <text x="12" y="17" text-anchor="middle" font-size="14" font-weight="bold">B</text>
+                </svg>
+                <span id="${buxElId}">${bux.toLocaleString()}</span>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="margin-left:4px;"><path d="M7 10l5 5 5-5z"/></svg>
+              </button>
+              <div class="bux-dropdown">
+                <div class="bux-dropdown-header">
+                  <span class="bux-dropdown-label">Balance</span>
+                  <span class="bux-dropdown-balance" id="buxDropdownBalance">${bux.toLocaleString()}</span>
+                </div>
+                <button class="bux-dropdown-item" onclick="window.location.href='/bloxverse/transactions'">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                  Transactions
+                </button>
+              </div>
+            </div>
             <div class="avatar-dropdown" id="userDropdown">
               <div class="avatar-circle">${initial}</div>
               <div class="dropdown-menu">
@@ -429,14 +460,14 @@ style="cursor:pointer;">
                   <span class="dropdown-name">${username}</span>
                   <span class="dropdown-email">${user.email}</span>
                 </div>
-                <button class="dropdown-item" onclick="window.location.href='profile.html'">
+                <button class="dropdown-item" onclick="window.location.href='/bloxverse/profile'">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                     <circle cx="12" cy="7" r="4" />
                   </svg>
                   Profile
                 </button>
-                <button class="dropdown-item" onclick="window.location.href='avatar.html'">
+                <button class="dropdown-item" onclick="window.location.href='/bloxverse/avatar'">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                   </svg>
@@ -462,12 +493,22 @@ style="cursor:pointer;">
           toggleDropdown(dropdown);
         });
 
-        // Use a persistent listener for Bux updates, pass username/email to create complete doc if missing
+        // Bux dropdown toggle
+        const buxWrapper = document.getElementById('buxWrapper');
+        const buxBtn = document.getElementById('buxBtn');
+        buxBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleDropdown(buxWrapper);
+        });
+
+        // Use a persistent listener for Bux updates
         buxUnsub = listenBux(user.uid, (buxAmount) => {
           const buxEl = document.getElementById(buxElId);
           if (buxEl) {
             buxEl.textContent = buxAmount.toLocaleString();
           }
+          const balEl = document.getElementById('buxDropdownBalance');
+          if (balEl) balEl.textContent = buxAmount.toLocaleString();
         }, username, user.email);
 
         friendsSection.style.display = 'block';
@@ -476,7 +517,7 @@ style="cursor:pointer;">
         currentUserId = null;
         navCenter.innerHTML = '';
         navRight.innerHTML = `<button class="login-btn" 
-onclick="window.location.href='auth.html'">Login / Sign Up</button>`;
+onclick="window.location.href='/bloxverse/auth'">Login / Sign Up</button>`;
         friendsSection.style.display = 'none';
         if (activeDropdown) { activeDropdown.classList.remove('open'); activeDropdown = null; }
       }
@@ -486,7 +527,7 @@ onclick="window.location.href='auth.html'">Login / Sign Up</button>`;
       if (buxUnsub) { buxUnsub(); buxUnsub = null; }
       if (presence) { presence.goOffline(); presence = null; }
       await signOut(auth);
-      window.location.href = 'index.html';
+      window.location.href = '/bloxverse/';
     };
 
     document.addEventListener('click', (e) => {

@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://esm.sh/three@0.184.0",
+      "three/": "https://esm.sh/three@0.184.0/",
+      "firebase/app": "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js",
+      "firebase/auth": "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js",
+      "firebase/firestore": "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js",
+      "cannon-es": "https://esm.sh/cannon-es@0.20.0",
+      "glin-profanity": "https://esm.sh/glin-profanity@3.3.0"
+    }
+  }
+  </script>
+  <base href="/bloxverse/">
+
+    <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BloxVerse - Marketplace</title>
+  <link rel="stylesheet" href="src/main.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    .mp-page {
+      max-width: 1100px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 24px;
+      padding-top: 72px;
+    }
+    .mp-header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .mp-header h1 {
+      font-size: 28px;
+      margin-bottom: 4px;
+    }
+    .mp-header p {
+      color: #949ba4;
+      font-size: 14px;
+    }
+    .mp-controls {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .mp-search {
+      flex: 1;
+      min-width: 200px;
+      display: flex;
+      align-items: center;
+      background: #2b2d31;
+      border-radius: 8px;
+      padding: 0 12px;
+      gap: 8px;
+    }
+    .mp-search input {
+      flex: 1;
+      background: none;
+      border: none;
+      color: #fff;
+      padding: 10px 0;
+      font-size: 14px;
+      outline: none;
+    }
+    .mp-search input::placeholder { color: #5c6066; }
+    .mp-search svg { color: #5c6066; width: 18px; height: 18px; flex-shrink: 0; }
+    .mp-filters {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .mp-filter {
+      padding: 7px 14px;
+      border-radius: 6px;
+      border: 1px solid #2b2d31;
+      background: transparent;
+      color: #949ba4;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .mp-filter:hover { border-color: #5865f2; color: #fff; }
+    .mp-filter.active { background: #5865f2; border-color: #5865f2; color: #fff; }
+    .mp-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 16px;
+    }
+    .mp-card {
+      background: #2b2d31;
+      border-radius: 10px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+      border: 2px solid transparent;
+    }
+    .mp-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.4); }
+    .mp-card.equipped { border-color: #4a7dff; }
+    .mp-card-thumb {
+      width: 100%;
+      aspect-ratio: 1;
+      background: #1e1f22;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 48px;
+      position: relative;
+    }
+    .mp-card-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .mp-card-thumb .mp-type-badge {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+    }
+    .mp-owned-badge {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      background: #4a7dff;
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+    .mp-card-body {
+      padding: 10px 12px;
+    }
+    .mp-card-body .mp-name {
+      font-size: 13px;
+      font-weight: 600;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      line-height: 1.3;
+    }
+    .mp-card-body .mp-price {
+      font-size: 12px;
+      color: #f2cd37;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+    .mp-card-body .mp-price.free { color: #4ade80; }
+
+    /* Modal */
+    .mp-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+    }
+    .mp-modal.open { display: flex; }
+    .mp-modal-content {
+      background: #2b2d31;
+      border-radius: 12px;
+      max-width: 480px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .mp-modal-preview {
+      width: 100%;
+      aspect-ratio: 1;
+      background: #1e1f22;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 80px;
+    }
+    .mp-modal-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .mp-modal-body {
+      padding: 20px 24px;
+    }
+    .mp-modal-body h2 {
+      font-size: 20px;
+      margin-bottom: 4px;
+    }
+    .mp-modal-body .mp-modal-type {
+      font-size: 12px;
+      color: #949ba4;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .mp-modal-body .mp-modal-price {
+      font-size: 22px;
+      font-weight: 700;
+      margin: 12px 0;
+      color: #f2cd37;
+    }
+    .mp-modal-body .mp-modal-price.free { color: #4ade80; }
+    .mp-modal-body .mp-modal-author {
+      font-size: 13px;
+      color: #949ba4;
+      margin-top: -4px;
+      margin-bottom: 10px;
+    }
+    .mp-modal-body .mp-modal-author span { color: #5865f2; }
+    .mp-modal-body .mp-modal-desc {
+      color: #b5bac1;
+      font-size: 14px;
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+    .mp-modal-actions {
+      display: flex;
+      gap: 10px;
+    }
+    .mp-modal-actions button {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .mp-modal-actions button:hover { opacity: 0.85; }
+    .mp-modal-actions .btn-buy {
+      background: #5865f2;
+      color: #fff;
+    }
+    .mp-modal-actions .btn-owned {
+      background: #1a2a4e;
+      color: #4a7dff;
+      border: 1px solid #4a7dff;
+      cursor: default;
+    }
+    .mp-modal-actions .btn-close {
+      background: #1e1f22;
+      color: #949ba4;
+    }
+
+    .mp-empty {
+      text-align: center;
+      padding: 48px 24px;
+      color: #949ba4;
+    }
+    .mp-empty h3 { font-size: 18px; margin-bottom: 6px; color: #dbdee1; }
+
+    .bux-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      background: #f2cd37;
+      color: #1a1a2e;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 800;
+      margin-right: 3px;
+      vertical-align: middle;
+    }
+    .mp-price .bux-icon { width: 14px; height: 14px; font-size: 9px; }
+    .mp-modal-price .bux-icon { width: 20px; height: 20px; font-size: 12px; }
+  </style>
+</head>
+
+<body>
+  <nav class="navbar">
+    <div class="nav-left">
+      <div class="logo" onclick="window.location.href='/bloxverse/'">
+        <div class="logo-icon"></div>
+        <span class="logo-text">BloxVerse</span>
+      </div>
+      <div class="nav-links">
+        <button class="nav-link-btn active" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
+        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/create'">Create</button>
+      </div>
+    </div>
+    <div class="nav-center" id="navCenter"></div>
+    <div class="nav-right" id="navRight">
+      <button class="login-btn" onclick="window.location.href='/bloxverse/auth'">Login / Sign Up</button>
+    </div>
+  </nav>
+
+  <div class="mp-page">
+    <div class="mp-header">
+      <h1>Marketplace</h1>
+      <p>Browse and buy items for your avatar</p>
+    </div>
+
+    <div class="mp-controls">
+      <div class="mp-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="mpSearch" placeholder="Search items..." />
+      </div>
+      <div class="mp-filters" id="filterRow">
+        <button class="mp-filter active" data-filter="all">All</button>
+        <button class="mp-filter" data-filter="Hats">Hats</button>
+        <button class="mp-filter" data-filter="Hair">Hair</button>
+        <button class="mp-filter" data-filter="Shirts">Shirts</button>
+        <button class="mp-filter" data-filter="Faces">Faces</button>
+        <button class="mp-filter" data-filter="Templates">Templates</button>
+      </div>
+      <button class="mp-filter" id="priceFilter" data-mode="all">All Prices</button>
+    </div>
+
+    <div class="mp-grid" id="mpGrid"></div>
+  </div>
+
+  <!-- Detail Modal -->
+  <div class="mp-modal" id="mpModal">
+    <div class="mp-modal-content">
+      <div class="mp-modal-preview" id="modalPreview">📦</div>
+      <div class="mp-modal-body">
+        <div class="mp-modal-type" id="modalType">Hats</div>
+        <h2 id="modalName">Item Name</h2>
+        <div class="mp-modal-author">by <span id="modalAuthor">BloxVerse</span></div>
+        <div class="mp-modal-price" id="modalPrice"><span class="bux-icon">B</span> 10</div>
+        <div class="mp-modal-desc" id="modalDesc">Description here.</div>
+        <div class="mp-modal-actions">
+          <button class="btn-buy" id="btnBuy">Get Free</button>
+          <button class="btn-close" id="btnModalClose">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { auth, db, listenBux, banGuard, logTransaction } from './src/firebase.js';
+    import { onAuthStateChanged, signOut } from 'firebase/auth';
+    import { doc, getDoc, setDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+    import { getAllAccessories } from './src/accessories.js';
+    import { getAllClothing } from './src/clothing.js';
+    import { getAllFaces } from './src/faces.js';
+
+    const STARTING_ITEMS = ['palhair', 'smile', 'blueandblackmotorcycleshirt'];
+
+    const navRight = document.getElementById('navRight');
+    const grid = document.getElementById('mpGrid');
+    const searchInput = document.getElementById('mpSearch');
+    const filterRow = document.getElementById('filterRow');
+    const priceFilterBtn = document.getElementById('priceFilter');
+    const modal = document.getElementById('mpModal');
+    const modalPreview = document.getElementById('modalPreview');
+    const modalType = document.getElementById('modalType');
+    const modalName = document.getElementById('modalName');
+    const modalAuthor = document.getElementById('modalAuthor');
+    const modalPrice = document.getElementById('modalPrice');
+    const modalDesc = document.getElementById('modalDesc');
+    const btnBuy = document.getElementById('btnBuy');
+    const btnModalClose = document.getElementById('btnModalClose');
+
+    let buxUnsub = null;
+    let allItems = [];
+    let activeFilter = 'all';
+    let priceMode = 'all';
+    let searchQuery = '';
+    let ownedItems = [];
+    let userBux = 0;
+
+    function buildCatalog() {
+      const accs = getAllAccessories().map(a => ({ ...a, _type: 'accessory' }));
+      const clothes = getAllClothing().map(c => ({ ...c, _type: 'clothing', icon: '👕' }));
+      const faces = getAllFaces().map(f => ({ ...f, _type: 'face', icon: '😀' }));
+      allItems = [...accs, ...clothes, ...faces];
+    }
+
+    function getCategory(item) {
+      if (item._type === 'face') return 'Faces';
+      return item.category || 'Other';
+    }
+
+    function getIcon(item) {
+      if (item.icon) return item.icon;
+      if (item._type === 'clothing') return '👕';
+      if (item._type === 'face') return '😀';
+      return '📦';
+    }
+
+    function getThumbnail(item) {
+      if (item.texturePath) return item.texturePath;
+      if (item._type === 'accessory' && item.textures?.map) return item.textures.map;
+      return null;
+    }
+
+    function filterItems() {
+      return allItems.filter(item => {
+        const cat = getCategory(item);
+        if (activeFilter !== 'all' && cat !== activeFilter) return false;
+        if (priceMode === 'free' && item.price > 0) return false;
+        if (priceMode === 'paid' && (!item.price || item.price === 0)) return false;
+        if (searchQuery) {
+          const q = searchQuery.toLowerCase();
+          const name = (item.name || '').toLowerCase();
+          const desc = (item.description || '').toLowerCase();
+          if (!name.includes(q) && !desc.includes(q)) return false;
+        }
+        return true;
+      });
+    }
+
+    function formatPrice(price) {
+      return price > 0
+        ? `<span class="bux-icon">B</span> ${price}`
+        : 'FREE';
+    }
+
+    function render() {
+      const filtered = filterItems();
+      if (filtered.length === 0) {
+        grid.innerHTML = `<div class="mp-empty"><h3>No items found</h3><p>Try a different search or filter.</p></div>`;
+        return;
+      }
+      grid.innerHTML = filtered.map(item => {
+        const thumb = getThumbnail(item);
+        const owned = ownedItems.includes(item.id);
+        const priceStr = formatPrice(item.price);
+        const priceCls = item.price > 0 ? '' : 'free';
+        return `
+          <div class="mp-card ${owned ? 'owned' : ''}" data-id="${item.id}" data-type="${item._type}">
+            <div class="mp-card-thumb">
+              ${thumb ? `<img src="${thumb}" alt="${item.name}" loading="lazy" />` : getIcon(item)}
+              <span class="mp-type-badge">${getCategory(item)}</span>
+              ${owned ? '<span class="mp-owned-badge">Owned</span>' : ''}
+            </div>
+            <div class="mp-card-body">
+              <div class="mp-name">${escHtml(item.name)}</div>
+              <div class="mp-author" style="font-size:11px;color:#949ba4;margin-top:1px;">by ${escHtml(item.author || 'BloxVerse')}</div>
+              <div class="mp-price ${priceCls}">${priceStr}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      grid.querySelectorAll('.mp-card').forEach(card => {
+        card.addEventListener('click', () => {
+          const id = card.dataset.id;
+          const type = card.dataset.type;
+          const item = allItems.find(i => i.id === id && i._type === type);
+          if (item) openModal(item);
+        });
+      });
+    }
+
+    function openModal(item) {
+      const cat = getCategory(item);
+      const owned = ownedItems.includes(item.id);
+      const thumb = getThumbnail(item);
+      modalPreview.innerHTML = thumb ? `<img src="${thumb}" alt="${item.name}" />` : getIcon(item);
+      modalType.textContent = cat;
+      modalName.textContent = item.name;
+      modalAuthor.textContent = item.author || 'BloxVerse';
+      modalPrice.innerHTML = formatPrice(item.price);
+      modalPrice.className = 'mp-modal-price' + (item.price > 0 ? '' : ' free');
+      modalDesc.textContent = item.description || '';
+      if (owned) {
+        btnBuy.textContent = 'Owned';
+        btnBuy.className = 'btn-owned';
+        btnBuy.disabled = true;
+      } else if (item.price > 0) {
+        btnBuy.textContent = `Buy - ${item.price} BUX`;
+        btnBuy.className = 'btn-buy';
+        btnBuy.disabled = false;
+      } else {
+        btnBuy.textContent = 'Get Free';
+        btnBuy.className = 'btn-buy';
+        btnBuy.disabled = false;
+      }
+      btnBuy.dataset.id = item.id;
+      btnBuy.dataset.price = item.price;
+      modal.classList.add('open');
+    }
+
+    async function purchaseItem(itemId, price) {
+      if (!auth.currentUser) return;
+      const uid = auth.currentUser.uid;
+
+      if (ownedItems.includes(itemId)) return;
+
+      if (price > 0) {
+        if (userBux < price) {
+          alert('Not enough BUX! You need ' + price + ' BUX.');
+          return;
+        }
+        userBux -= price;
+      }
+
+      ownedItems.push(itemId);
+
+      await setDoc(doc(db, 'users', uid), {
+        ownedItems: ownedItems,
+        bux: userBux,
+      }, { merge: true });
+
+      const item = allItems.find(i => i.id === itemId);
+      if (price > 0) {
+        const itemName = item ? item.name : itemId;
+        await logTransaction(uid, -price, userBux, 'Marketplace', `Purchased ${itemName}`);
+      }
+
+      render();
+      if (item) openModal(item);
+    }
+
+    function escHtml(s) {
+      if (!s) return '';
+      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    async function loadOwnedItems(uid) {
+      try {
+        const snap = await getDoc(doc(db, 'users', uid));
+        if (snap.exists()) {
+          const d = snap.data();
+          ownedItems = d.ownedItems || [];
+          userBux = d.bux || 0;
+
+          if (!d.ownedItems) {
+            ownedItems = [...STARTING_ITEMS];
+            await setDoc(doc(db, 'users', uid), { ownedItems }, { merge: true });
+          }
+        } else {
+          ownedItems = [...STARTING_ITEMS];
+          await setDoc(doc(db, 'users', uid), { ownedItems }, { merge: true });
+        }
+      } catch {
+        ownedItems = [...STARTING_ITEMS];
+      }
+      render();
+    }
+
+    onAuthStateChanged(auth, async (user) => {
+      if (buxUnsub) { buxUnsub(); buxUnsub = null; }
+
+      if (user) {
+        if (await banGuard(user.uid)) return;
+
+        let username = user.displayName || 'Player';
+        let bux = 0;
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            username = data.username || username;
+            bux = data.bux || 0;
+          }
+        } catch {}
+
+        const initial = username.charAt(0).toUpperCase();
+        navRight.innerHTML = `
+          <div class="user-info">
+            <div class="bux-wrapper" id="buxWrapper">
+              <button class="bux-btn" id="buxBtn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><text x="12" y="17" text-anchor="middle" font-size="14" font-weight="bold">B</text></svg>
+                <span id="mpBuxVal">${bux.toLocaleString()}</span>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="margin-left:4px;"><path d="M7 10l5 5 5-5z"/></svg>
+              </button>
+              <div class="bux-dropdown">
+                <div class="bux-dropdown-header">
+                  <span class="bux-dropdown-label">Balance</span>
+                  <span class="bux-dropdown-balance" id="buxDropdownBalance">${bux.toLocaleString()}</span>
+                </div>
+                <button class="bux-dropdown-item" onclick="window.location.href='/bloxverse/transactions'">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                  Transactions
+                </button>
+              </div>
+            </div>
+            <div class="avatar-dropdown" id="userDropdown">
+              <div class="avatar-circle">${initial}</div>
+              <div class="dropdown-menu">
+                <div class="dropdown-header">
+                  <span class="dropdown-name">${username}</span>
+                  <span class="dropdown-email">${user.email}</span>
+                </div>
+                <button class="dropdown-item" onclick="window.location.href='/bloxverse/profile'"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Profile</button>
+                <button class="dropdown-item" onclick="window.location.href='/bloxverse/avatar'"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>Avatar</button>
+                <button class="dropdown-item" onclick="window._logout()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Log Out</button>
+              </div>
+            </div>
+          </div>
+        `;
+
+        document.getElementById('buxBtn').addEventListener('click', (e) => {
+          e.stopPropagation();
+          document.getElementById('buxWrapper').classList.toggle('open');
+        });
+        document.querySelector('#userDropdown .avatar-circle').addEventListener('click', (e) => {
+          e.stopPropagation();
+          document.getElementById('userDropdown').classList.toggle('open');
+        });
+        document.addEventListener('click', (e) => {
+          const ud = document.getElementById('userDropdown');
+          if (ud && !ud.contains(e.target)) ud.classList.remove('open');
+          const bw = document.getElementById('buxWrapper');
+          if (bw && !bw.contains(e.target)) bw.classList.remove('open');
+        });
+
+        buxUnsub = listenBux(user.uid, (buxAmount) => {
+          userBux = buxAmount;
+          const el = document.getElementById('mpBuxVal');
+          if (el) el.textContent = buxAmount.toLocaleString();
+          const balEl = document.getElementById('buxDropdownBalance');
+          if (balEl) balEl.textContent = buxAmount.toLocaleString();
+        });
+
+        loadOwnedItems(user.uid);
+      }
+    });
+
+    window._logout = async () => {
+      if (buxUnsub) { buxUnsub(); buxUnsub = null; }
+      await signOut(auth);
+      window.location.href = '/bloxverse/';
+    };
+
+    buildCatalog();
+    render();
+
+    filterRow.addEventListener('click', (e) => {
+      const btn = e.target.closest('.mp-filter');
+      if (!btn) return;
+      filterRow.querySelectorAll('.mp-filter').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeFilter = btn.dataset.filter;
+      render();
+    });
+
+    priceFilterBtn.addEventListener('click', () => {
+      const modes = ['all', 'free', 'paid'];
+      const cur = modes.indexOf(priceMode);
+      priceMode = modes[(cur + 1) % modes.length];
+      const labels = { all: 'All Prices', free: 'Free Only', paid: 'Paid Only' };
+      priceFilterBtn.textContent = labels[priceMode];
+      render();
+    });
+
+    searchInput.addEventListener('input', () => {
+      searchQuery = searchInput.value;
+      render();
+    });
+
+    btnBuy.addEventListener('click', () => {
+      const id = btnBuy.dataset.id;
+      const price = parseInt(btnBuy.dataset.price, 10);
+      if (id && !btnBuy.disabled) purchaseItem(id, price);
+    });
+
+    btnModalClose.addEventListener('click', () => modal.classList.remove('open'));
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('open'); });
+  </script>
+</body>
+
+</html>
