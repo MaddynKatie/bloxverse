@@ -274,6 +274,21 @@ export class PlayerInstance extends Instance {
     this.UserId = '';
     this.Character = null;
     this.CharacterAdded = new Signal();
+    this._characterRef = null;
+  }
+  get Position() {
+    if (this._characterRef) {
+      return { x: this._characterRef.position.x, y: this._characterRef.position.y, z: this._characterRef.position.z };
+    }
+    return { x: 0, y: 0, z: 0 };
+  }
+  set Position(val) {
+    if (this._characterRef && val != null) {
+      const x = (val.x ?? val[0]) ?? 0;
+      const y = (val.y ?? val[1]) ?? 0;
+      const z = (val.z ?? val[2]) ?? 0;
+      this._characterRef.position.set(x, y, z);
+    }
   }
 }
 

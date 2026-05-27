@@ -7,11 +7,12 @@ export const games = [
     name: 'Demo',
     official: true,
     icon: './assets/icons/demo.png',
+    mapPath: './js/parts.js',
     description: 'A blank canvas to explore the BloxVerse engine. Run around and test the physics, climbing, and building tools!',
     category: 'Sandbox',
     activePlayers: 0,
     visits: 0,
-    createdAt: '2025/05/03',
+    createdAt: '2026/05/03',
   },
   {
     id: 'bvbaseplate',
@@ -24,7 +25,7 @@ export const games = [
     category: 'Sandbox',
     activePlayers: 0,
     visits: 0,
-    createdAt: '2025/05/03',
+    createdAt: '2026/05/03',
   },
   {
     id: 'classichouse',
@@ -39,7 +40,7 @@ export const games = [
     category: 'Exploration',
     activePlayers: 0,
     visits: 0,
-    createdAt: '2025/05/03',
+    createdAt: '2026/05/03',
   },
   {
     id: 'touchfootball',
@@ -52,7 +53,7 @@ export const games = [
     category: 'Sports',
     activePlayers: 0,
     visits: 0,
-    createdAt: '2025/05/09',
+    createdAt: '2026/05/09',
   },
   {
     id: 'snowypeaks',
@@ -69,7 +70,7 @@ export const games = [
     category: 'Exploration',
     activePlayers: 0,
     visits: 0,
-    createdAt: '2025/05/11',
+    createdAt: '2026/05/11',
   },
   {
     id: 'test',
@@ -82,7 +83,20 @@ export const games = [
     category: 'Sandbox',
     activePlayers: 0,
     visits: 0,
-    createdAt: '2025/05/12',
+    createdAt: '2026/05/12',
+  },
+  {
+    id: 'crossbridges',
+    name: 'The Crossbridges',
+    official: true,
+    icon: './assets/icons/crossbridges.png',
+    mapPath: './js/crossbridges.js',
+    scriptsPath: './assets/games/crossbridges',
+    description: 'A map featuring towering crossbridges and several environments to explore.',
+    category: 'Exploration',
+    activePlayers: 0,
+    visits: 0,
+    createdAt: '2026/05/20',
   },
 ];
 

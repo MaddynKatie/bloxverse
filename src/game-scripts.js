@@ -5,6 +5,8 @@ const GAME_SCRIPT_RELATIVE = [
   'assets/games/test/Script.lua',
   'assets/games/touchfootball/Sprint.lua',
   'assets/games/touchfootball/team.lua',
+  'assets/games/touchfootball/tp1.lua',
+  'assets/games/touchfootball/tp2.lua',
 ];
 
 export async function loadGameScriptModules() {

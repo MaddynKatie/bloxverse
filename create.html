@@ -767,6 +767,26 @@
             bottom: 0;
             z-index: 5;
         }
+
+        #shift-lock-indicator {
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            width: 16px;
+            height: 16px;
+            margin-left: -8px;
+            margin-top: -8px;
+            border: 2px solid rgba(255, 255, 255, 0.95);
+            border-radius: 999px;
+            background: transparent;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 120ms linear;
+            z-index: 9999;
+        }
+        #shift-lock-indicator.visible {
+            opacity: 1;
+        }
     </style>
 </head>
 <body>

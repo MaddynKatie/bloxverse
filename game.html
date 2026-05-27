@@ -1074,6 +1074,20 @@
         },
         GetAllParts: () => (window._mapParts || []).map(p => createPartProxy(p.mesh)),
         RemovePart: (name) => bv()?.removePart?.(name),
+        TeleportPlayer: (x, y, z) => {
+          const char = bv()?.getCharacter();
+          if (char) {
+            const footOffset = bv()?.getCharFootOffset() ?? 2;
+            char.position.set(x, y + footOffset, z);
+          }
+        },
+        GetPartPosition: (name) => {
+          const parts = window._mapParts || [];
+          const found = parts.find(p => p.name === name);
+          if (!found?.mesh) return {x: 0, y: 0, z: 0};
+          const p = found.mesh.position;
+          return {x: p.x, y: p.y, z: p.z};
+        },
         // GUI API
         CreateScreenGui: (name) => _createScreenGuiContainer(name || 'ScreenGui'),
         CleanupGui: () => {
@@ -1091,25 +1105,29 @@
             setLoad(30, 'Loading map...');
 
             if (game.mapPath) {
-              const mapOffset = game.mapOffset || {};
-              const spawn = game.spawn || {};
-              await window._bloxverse.loadMap(game.mapPath, mapOffset.x ?? 0, mapOffset.y ?? 0, mapOffset.z ?? 0);
-              if (spawn.x != null || spawn.y != null || spawn.z != null || spawn.ry != null) {
-                window._bloxverse.setSpawn(
-                  spawn.x ?? 0,
-                  spawn.y ?? 0,
-                  spawn.z ?? 0,
-                  spawn.ry ?? Math.PI
-                );
-              }
-              window._bloxverse.setWorldFloorEnabled(game.worldFloor !== false);
-              if (game.respawnY != null) {
-                window._bloxverse.setRespawnY(game.respawnY);
+              if (game.mapPath.endsWith('.js')) {
+                await window._bloxverse.loadJSMap(game.mapPath);
+              } else {
+                const mapOffset = game.mapOffset || {};
+                const spawn = game.spawn || {};
+                await window._bloxverse.loadMap(game.mapPath, mapOffset.x ?? 0, mapOffset.y ?? 0, mapOffset.z ?? 0);
+                if (spawn.x != null || spawn.y != null || spawn.z != null || spawn.ry != null) {
+                  window._bloxverse.setSpawn(
+                    spawn.x ?? 0,
+                    spawn.y ?? 0,
+                    spawn.z ?? 0,
+                    spawn.ry ?? Math.PI
+                  );
+                }
+                window._bloxverse.setWorldFloorEnabled(game.worldFloor !== false);
+                if (game.respawnY != null) {
+                  window._bloxverse.setRespawnY(game.respawnY);
+                }
               }
               window._bloxverse.setSens(parseFloat(sensSlider.value));
               window._bloxverse.shiftLockEnabled = shiftlockToggle.checked;
             }
-            setupClientEffect(game);
+            setupClientEffect(window._mapConfig || game);
             incrementGameVisits(gameId).catch(err => console.error('Visit increment failed:', err));
             // Reward the game author 1 bux for a unique visit
             if (game.authorId) {
@@ -1119,6 +1137,19 @@
 
             const gameRoot = initGameHierarchy();
             const workspace = gameRoot.Children.find(c => c.ClassName === 'Workspace');
+
+            // Wire up PartInstances for all parts loaded by loadMap.
+            // loadMap runs before initGameHierarchy so the workspace didn't exist yet —
+            // we create PartInstance objects now and parent them in so scripts can find
+            // them via workspace:WaitForChild("Field1") etc.
+            for (const entry of window._mapParts || []) {
+              if (entry.mesh && entry.name && !entry.mesh._instRef) {
+                const partInst = new PartInstance(entry.name);
+                partInst.mesh = entry.mesh;
+                entry.mesh._instRef = partInst;
+                partInst.setParent(workspace);
+              }
+            }
             const playersService = gameRoot.Children.find(c => c.ClassName === 'Players');
 
             const playerName = auth.currentUser?.displayName || 'Player';

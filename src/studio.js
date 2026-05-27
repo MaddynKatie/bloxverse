@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { 
-  Instance, PartInstance, ScriptInstance, Folder, Sound, PointLight, Sky, Atmosphere, SurfaceGui, TextLabel,
+  Instance, PartInstance, PlayerInstance, ScriptInstance, Folder, Sound, PointLight, Sky, Atmosphere, SurfaceGui, TextLabel,
   ScreenGui, Frame, TextButton,
   initGameHierarchy as createBaseHierarchy 
 } from './instances.js';
@@ -25,14 +26,49 @@ let _guiPreviewContainer = null;
 let _guiEditorWindow = null;
 let _guiEditorVisible = false;
 let _draggedInstance = null;
+// ── Test mode physics & character constants (matching bloxverse-engine.js) ──
+const G_LEVEL         = 0;
+const WALK_SPEED      = 16;
+const JUMP_POWER      = 50;
+const GRAVITY         = -196.2;
+const ROT_SPEED       = 14;
+const STEP_HEIGHT     = 1.1;
+const SWEEP_MARGIN    = 0.06;
+const COYOTE_TIME     = 0.12;
+const JUMP_BUFFER_T   = 0.15;
+const CAM_PIVOT_Y     = 2.56;
+const SHIFT_LOCK_OFFSET = 1.75;
+const CAM_H_SENS      = 0.002 * Math.PI;
+const CAM_V_SENS      = 0.0015 * Math.PI;
+const CAM_MIN_PITCH   = -0.5;
+const CAM_MAX_PITCH   = 1.35;
+const CAM_MIN_DIST    = 3.2;
+const CAM_MAX_DIST    = 128;
+
+const CHAR_FOOT_OFFSET = 2.08;
+const CHAR_HEIGHT      = 5;
+const CHAR_HALF_W      = 1;
+const CHAR_HALF_D      = 0.5;
+const CHAR_STAND_Y     = G_LEVEL + CHAR_FOOT_OFFSET;
+
 let _isTestMode = false;
 let _character = null;
-let _charVelocity = new THREE.Vector3();
+let _charInstance = null;
 let _charGrounded = false;
+let _charVelY = 0;
+let _coyoteTimer = 0;
+let _jumpBuffer = 0;
+let _shiftLock = false;
+let _rmb = false;
+let _charMoving = false;
 let _keys = {};
 let _testCamYaw = 0;
-let _testCamPitch = -20;
-let _testCamDist = 30;
+let _testCamPitch = 0.35;
+let _testCamDist = 25.6;
+let _clock = null;
+let _anim = { time: 0, bones: {}, rest: {} };
+let _testModeKeyCleanup = null;
+let _activeScriptControllers = new Set();
 
 function initGameHierarchy() {
   _game = createBaseHierarchy();
@@ -591,9 +627,12 @@ export function initStudio(container, explorerEl, propsEl, onChange) {
 
   function animate() {
     requestAnimationFrame(animate);
+    const now = performance.now();
+    const dt = _clock ? Math.min((now - _clock) / 1000, 0.05) : 0.016;
+    _clock = now;
     
     if (_isTestMode) {
-      _updateTestMode(0.016); // 60fps approx
+      _updateTestMode(dt);
     } else {
       controls.update();
     }
@@ -809,7 +848,15 @@ export function loadMapData(data) {
 
   for (const p of parts) {
     if (p.Type !== 'Part') continue;
-    addPart(p.Name, p.Size[0], p.Size[1], p.Size[2], p.Color ? new THREE.Color(p.Color[0], p.Color[1], p.Color[2]) : 0x808080, p.Position[0], p.Position[1], p.Position[2], p.Anchored, p.Shape, workspace);
+    const inst = addPart(p.Name, p.Size[0], p.Size[1], p.Size[2], p.Color ? new THREE.Color(p.Color[0], p.Color[1], p.Color[2]) : 0x808080, p.Position[0], p.Position[1], p.Position[2], p.Anchored, p.Shape, workspace, p.Rotation);
+    if (p.Transparency != null && p.Transparency > 0) {
+      inst.Transparency = Math.max(0, Math.min(1, p.Transparency));
+      if (inst.mesh) {
+        inst.mesh.material.transparent = true;
+        inst.mesh.material.opacity = Math.max(0, 1 - inst.Transparency);
+        inst.mesh.material.needsUpdate = true;
+      }
+    }
   }
 
   // Apply lighting data
@@ -881,7 +928,7 @@ export function clearAllParts() {
   updateProps();
 }
 
-export function addPart(name, sw, sh, sd, colorHex, px, py, pz, anchored, shape, parent) {
+export function addPart(name, sw, sh, sd, colorHex, px, py, pz, anchored, shape, parent, rotation) {
   _saveUndo();
   const inst = new PartInstance(name || 'Part');
   inst.Size = [sw, sh, sd];
@@ -893,6 +940,11 @@ export function addPart(name, sw, sh, sd, colorHex, px, py, pz, anchored, shape,
   const mat = new THREE.MeshStandardMaterial({ color: inst.Color, roughness: 0.6, metalness: 0.0 });
   inst.mesh = new THREE.Mesh(geo, mat);
   inst.mesh.position.set(px, py, pz);
+  if (rotation) {
+    const RAD = Math.PI / 180;
+    inst.mesh.rotation.set(rotation[0] * RAD, rotation[1] * RAD, rotation[2] * RAD);
+    inst.Rotation = rotation.slice();
+  }
   inst.mesh.castShadow = true;
   inst.mesh.receiveShadow = true;
   inst.mesh.userData.instance = inst;
@@ -1004,7 +1056,15 @@ function _loadSnapshot(data) {
   clearAllParts();
   const workspace = _game.Children.find(c => c.ClassName === 'Workspace');
   for (const p of data) {
-    addPart(p.Name || 'Part', p.Size[0], p.Size[1], p.Size[2], p.Color ? new THREE.Color(p.Color[0], p.Color[1], p.Color[2]) : 0x808080, p.Position[0], p.Position[1], p.Position[2], p.Anchored !== false, p.Shape || 'Block', workspace);
+    const inst = addPart(p.Name || 'Part', p.Size[0], p.Size[1], p.Size[2], p.Color ? new THREE.Color(p.Color[0], p.Color[1], p.Color[2]) : 0x808080, p.Position[0], p.Position[1], p.Position[2], p.Anchored !== false, p.Shape || 'Block', workspace, p.Rotation);
+    if (p.Transparency != null && p.Transparency > 0) {
+      inst.Transparency = Math.max(0, Math.min(1, p.Transparency));
+      if (inst.mesh) {
+        inst.mesh.material.transparent = true;
+        inst.mesh.material.opacity = Math.max(0, 1 - inst.Transparency);
+        inst.mesh.material.needsUpdate = true;
+      }
+    }
   }
   selectInstance(null);
   rebuildExplorer();
@@ -2139,38 +2199,83 @@ export function startTestMode() {
   // Clear selection
   selectInstance(null);
   
-  // Spawn character
-  _spawnStudioCharacter();
+  // Init character state (matching game)
+  _charGrounded = false;
+  _charVelY = 0;
+  _coyoteTimer = 0;
+  _jumpBuffer = 0;
+  _shiftLock = false;
+  _anim = { time: 0, bones: {}, rest: {} };
+  
+  // Spawn noob character
+  _spawnTestCharacter();
   
   // Start scripts
   _runHierarchyScripts();
   
-  // Set up keys and mouse
+  // Set up keys, mouse, camera (matching game's init)
   _testCamYaw = 0;
-  _testCamPitch = -20;
-  _testCamDist = 30;
-  const onKeyDown = (e) => { _keys[e.code] = true; };
+  _testCamPitch = 0.35;
+  _testCamDist = 25.6;
+  _shiftLock = false;
+  _rmb = false;
+
+  // Create shift-lock indicator (matching game)
+  let shiftLockEl = document.getElementById('shift-lock-indicator');
+  if (!shiftLockEl) {
+    shiftLockEl = document.createElement('div');
+    shiftLockEl.id = 'shift-lock-indicator';
+    document.body.appendChild(shiftLockEl);
+  }
+
+  const onKeyDown = (e) => {
+    _keys[e.code] = true;
+    if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight')) {
+      _shiftLock = !_shiftLock;
+      shiftLockEl.classList.toggle('visible', _shiftLock);
+    }
+    if (e.code === 'Space') _jumpBuffer = JUMP_BUFFER_T;
+  };
   const onKeyUp = (e) => { _keys[e.code] = false; };
   const onMouseMove = (e) => {
-    if (document.pointerLockElement) {
-      _testCamYaw -= e.movementX * 0.003;
-      _testCamPitch = Math.max(-80, Math.min(80, _testCamPitch - e.movementY * 0.003));
+    if (document.pointerLockElement && (_shiftLock || _rmb)) {
+      _testCamYaw -= e.movementX * CAM_H_SENS;
+      _testCamPitch = Math.max(CAM_MIN_PITCH, Math.min(CAM_MAX_PITCH, _testCamPitch + e.movementY * CAM_V_SENS));
     }
+  };
+  const onWheel = (e) => {
+    _testCamDist = Math.max(CAM_MIN_DIST, Math.min(CAM_MAX_DIST, _testCamDist + e.deltaY * 0.04));
   };
   const onPointerDown = (e) => {
     if (e.target.closest('.studio-viewport, .studio-3d-container') && !e.target.closest('.studio-props-panel')) {
       renderer.domElement.requestPointerLock();
     }
   };
+  const onMouseDown = (e) => { if (e.button === 2) _rmb = true; };
+  const onMouseUp = (e) => { if (e.button === 2) _rmb = false; };
+  const onContextMenu = (e) => e.preventDefault();
+  const onPointerLockChange = () => {
+    if (!document.pointerLockElement) _rmb = false;
+  };
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
   window.addEventListener('mousemove', onMouseMove);
+  window.addEventListener('wheel', onWheel, { passive: true });
   window.addEventListener('pointerdown', onPointerDown);
+  renderer.domElement.addEventListener('mousedown', onMouseDown);
+  document.addEventListener('mouseup', onMouseUp);
+  renderer.domElement.addEventListener('contextmenu', onContextMenu);
+  document.addEventListener('pointerlockchange', onPointerLockChange);
   _testModeKeyCleanup = () => {
     window.removeEventListener('keydown', onKeyDown);
     window.removeEventListener('keyup', onKeyUp);
     window.removeEventListener('mousemove', onMouseMove);
+    window.removeEventListener('wheel', onWheel);
     window.removeEventListener('pointerdown', onPointerDown);
+    renderer.domElement.removeEventListener('mousedown', onMouseDown);
+    document.removeEventListener('mouseup', onMouseUp);
+    renderer.domElement.removeEventListener('contextmenu', onContextMenu);
+    document.removeEventListener('pointerlockchange', onPointerLockChange);
     if (document.pointerLockElement) document.exitPointerLock();
     _keys = {};
   };
@@ -2179,29 +2284,36 @@ export function startTestMode() {
 export function stopTestMode() {
   if (!_isTestMode) return;
   _isTestMode = false;
-  
+
   // Re-enable controls
   if (controls) controls.enabled = true;
-  
+
   // Cleanup character
   if (_character && scene) {
     scene.remove(_character);
     _character = null;
+    _charInstance = null;
   }
-  
+
+  // Cleanup shift-lock indicator
+  const shiftLockEl = document.getElementById('shift-lock-indicator');
+  if (shiftLockEl) shiftLockEl.remove();
+
   // Cleanup keys
   if (_testModeKeyCleanup) _testModeKeyCleanup();
-  
-  // Reset scripts (re-init will be needed if scripts modify state significantly)
-  // For now we just stop the updates
+
+  // Abort all running scripts
+  _activeScriptControllers.forEach(c => c.abort());
+  _activeScriptControllers.clear();
+
+  // Reset clock
+  _clock = null;
 }
 
-let _testModeKeyCleanup = null;
-
-function _spawnStudioCharacter() {
+function _spawnTestCharacter() {
   const workspace = _game.Children.find(c => c.ClassName === 'Workspace');
-  let spawnPos = new THREE.Vector3(0, 5, 0);
-  
+  let spawnPos = new THREE.Vector3(0, CHAR_STAND_Y, 0);
+
   // Find SpawnLocation
   const findSpawn = (node) => {
     if (node.Name === 'SpawnLocation' && node.mesh) {
@@ -2211,40 +2323,110 @@ function _spawnStudioCharacter() {
     return node.Children.some(findSpawn);
   };
   findSpawn(_game);
-  
-  // Simple R6 Character Mesh
-  const group = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({ color: 0xcccccc });
-  
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 1), mat);
-  torso.position.y = 2;
-  group.add(torso);
-  
-  const head = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mat);
-  head.position.y = 3.6;
-  group.add(head);
-  
-  const lArm = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), mat);
-  lArm.position.set(-1.5, 2, 0);
-  group.add(lArm);
-  
-  const rArm = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), mat);
-  rArm.position.set(1.5, 2, 0);
-  group.add(rArm);
-  
-  const lLeg = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), mat);
-  lLeg.position.set(-0.5, 0, 0);
-  group.add(lLeg);
-  
-  const rLeg = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), mat);
-  rLeg.position.set(0.5, 0, 0);
-  group.add(rLeg);
-  
-  group.position.copy(spawnPos);
-  _character = group;
-  scene.add(_character);
-  
-  _charVelocity.set(0, 0, 0);
+
+  // Load the FBX noob model
+  const loader = new FBXLoader();
+  loader.load('assets/models/player.fbx', (fbx) => {
+    // Strip vertex colors
+    fbx.traverse(child => {
+      if (child.isMesh && child.geometry) {
+        for (const key of Object.keys(child.geometry.attributes)) {
+          if (key.toLowerCase().includes('color')) {
+            child.geometry.deleteAttribute(key);
+          }
+        }
+      }
+    });
+
+    // Store bones for animation
+    fbx.traverse(child => {
+      if (child.isBone || child.type === 'Bone') {
+        _anim.bones[child.name] = child;
+        _anim.rest[child.name] = {
+          x: child.rotation.x, y: child.rotation.y, z: child.rotation.z,
+          px: child.position.x, py: child.position.y, pz: child.position.z,
+        };
+      }
+    });
+
+    // Remap materials (matching game's model setup)
+    const faceMats = [];
+    fbx.traverse(child => {
+      if (child.isMesh) {
+        child.castShadow = true;
+        const mats = Array.isArray(child.material) ? child.material : [child.material];
+        for (let i = 0; i < mats.length; i++) {
+          let mat = mats[i];
+          if (!mat) continue;
+          const originalColor = mat.color ? mat.color.getHex() : 0xcccccc;
+          const newMat = new THREE.MeshStandardMaterial({
+            color: originalColor,
+            map: mat.map,
+            transparent: false,
+            opacity: 1,
+            toneMapped: false,
+            vertexColors: false,
+            emissive: 0,
+            emissiveIntensity: 0,
+            roughness: 0.8,
+            metalness: 0.1,
+          });
+          newMat.name = mat.name;
+          if (mat.userData) newMat.userData = JSON.parse(JSON.stringify(mat.userData));
+          mats[i] = newMat;
+          mat = newMat;
+          const matNameLower = (mat.name || child.name || '').toLowerCase();
+          if (matNameLower.includes('head') || matNameLower.includes('face')) {
+            mat.userData = mat.userData || {};
+            mat.userData.isFace = true;
+            faceMats.push(mat);
+          }
+        }
+      }
+    });
+
+    // Assign a default color scheme (matching game's _applyColorsToModel)
+    _applyColorsToModel(fbx, {
+      Body: '#1e3a5f',
+      Legs: '#2d5a27',
+      Arms: '#1e3a5f',
+      Head: '#c4a882',
+    });
+
+    fbx.position.copy(spawnPos);
+    fbx.scale.setScalar(1);
+    scene.add(fbx);
+    _character = fbx;
+    _charInstance = new PlayerInstance('Player');
+    _charInstance._characterRef = fbx;
+    _charInstance.Parent = _game.Children.find(c => c.ClassName === 'Workspace');
+  });
+}
+
+function _applyColorsToModel(model, colors) {
+  if (!model || !colors) return;
+  model.traverse(child => {
+    if (child.isMesh) {
+      const mats = Array.isArray(child.material) ? child.material : [child.material];
+      for (const mat of mats) {
+        if (!mat) continue;
+        if (mat.userData?.isFace) continue;
+        const matNameLower = (mat.name || child.name || '').toLowerCase();
+        if (matNameLower.includes('face')) continue;
+        const name = mat.name || child.name || 'Body';
+        if (colors[name]) {
+          mat.vertexColors = false;
+          mat.emissive && mat.emissive.setHex(0);
+          mat.emissiveIntensity = 0;
+          mat.toneMapped = false;
+          mat.transparent = false;
+          mat.opacity = 1;
+          mat.color.setStyle(colors[name], THREE.SRGBColorSpace);
+          mat.needsUpdate = true;
+        }
+      }
+    }
+  });
 }
 
 function _runHierarchyScripts() {
@@ -2254,104 +2436,263 @@ function _runHierarchyScripts() {
     node.Children.forEach(collect);
   };
   collect(_game);
-  
+
   scripts.forEach(s => {
+    const ctrl = new AbortController();
+    _activeScriptControllers.add(ctrl);
     executeScript(s.Source, {
       game: _game,
       scriptInstance: s,
+      signal: ctrl.signal,
+      character: _character || null,
+      isJS: s.Name.endsWith('.js'),
       onOutput: (msg, type) => {
-        // Find create.js addOutput if possible
         if (window.addOutput) window.addOutput(`[${s.Name}] ${msg}`, type);
       }
     });
   });
 }
 
+function _getPartColliders() {
+  // Collect AABB colliders from all collidable parts (matches game's spatial grid)
+  const colliders = [];
+  const collect = (node) => {
+    if (node.ClassName === 'Part' && node.CanCollide !== false && node.mesh) {
+      const s = node.Size || [4, 1, 4];
+      const p = node.mesh.position;
+      colliders.push({
+        minX: p.x - s[0] / 2, maxX: p.x + s[0] / 2,
+        minY: p.y - s[1] / 2, maxY: p.y + s[1] / 2,
+        minZ: p.z - s[2] / 2, maxZ: p.z + s[2] / 2,
+        inst: node,
+      });
+    }
+    node.Children.forEach(collect);
+  };
+  collect(_game);
+  return colliders;
+}
+
+function _fireTouched(collider) {
+  if (_charInstance && collider.inst && collider.inst.Touched) {
+    collider.inst.Touched.Fire(_charInstance);
+  }
+}
+
 function _updateTestMode(dt) {
   if (!_isTestMode || !_character) return;
-  
-  const moveSpeed = 16 * dt;
-  const jumpPower = 12;
-  const gravity = -50 * dt;
-  
-  // Camera-relative movement
-  const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), _testCamYaw);
-  const right = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), _testCamYaw);
-  
-  const moveDir = new THREE.Vector3();
-  if (_keys['KeyW']) moveDir.add(forward);
-  if (_keys['KeyS']) moveDir.sub(forward);
-  if (_keys['KeyA']) moveDir.sub(right);
-  if (_keys['KeyD']) moveDir.add(right);
-  
-  if (moveDir.lengthSq() > 0) {
-    moveDir.normalize();
-    const desiredVelocity = moveDir.clone().multiplyScalar(10);
-    _charVelocity.x = THREE.MathUtils.lerp(_charVelocity.x, desiredVelocity.x, Math.min(1, 8 * dt));
-    _charVelocity.z = THREE.MathUtils.lerp(_charVelocity.z, desiredVelocity.z, Math.min(1, 8 * dt));
 
-    // Face movement direction
-    const lookAt = _character.position.clone().add(moveDir);
-    _character.lookAt(lookAt);
-  } else {
-    _charVelocity.x = THREE.MathUtils.lerp(_charVelocity.x, 0, Math.min(1, 10 * dt));
-    _charVelocity.z = THREE.MathUtils.lerp(_charVelocity.z, 0, Math.min(1, 10 * dt));
+  // ── Movement input (matching game's update()) ──
+  const moveInput = new THREE.Vector3();
+  if (_keys['KeyW'] || _keys['ArrowUp'])    moveInput.z -= 1;
+  if (_keys['KeyS'] || _keys['ArrowDown'])  moveInput.z += 1;
+  if (_keys['KeyA'] || _keys['ArrowLeft'])  moveInput.x -= 1;
+  if (_keys['KeyD'] || _keys['ArrowRight']) moveInput.x += 1;
+
+  const moving = moveInput.lengthSq() > 0;
+  _charMoving = moving;
+  let velX = 0, velZ = 0;
+
+  if (moving) {
+    moveInput.normalize();
+    const yawQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), _testCamYaw);
+    moveInput.applyQuaternion(yawQuat);
+    velX = moveInput.x * WALK_SPEED;
+    velZ = moveInput.z * WALK_SPEED;
+    if (!_shiftLock) {
+      const targetAngle = Math.atan2(moveInput.x, moveInput.z);
+      _character.rotation.y += (targetAngle - _character.rotation.y) * Math.min(1, ROT_SPEED * dt);
+    }
   }
 
-  _character.position.x += _charVelocity.x * dt;
-  _character.position.z += _charVelocity.z * dt;
-  
-  // Gravity
-  _charVelocity.y += gravity;
-  _character.position.y += _charVelocity.y * dt;
+  // Speed cap
+  const sp2 = velX * velX + velZ * velZ;
+  if (sp2 > WALK_SPEED * WALK_SPEED) {
+    const sc = WALK_SPEED / Math.sqrt(sp2);
+    velX *= sc; velZ *= sc;
+  }
 
-  // Ground detection using scene geometry
-  const rayOrigin = _character.position.clone().add(new THREE.Vector3(0, 0.5, 0));
-  const raycaster = new THREE.Raycaster(rayOrigin, new THREE.Vector3(0, -1, 0), 0, 5);
-  const meshes = [];
-  scene.traverse(obj => {
-    if (obj.isMesh) {
-      let parent = obj;
-      while (parent) {
-        if (parent === _character) return;
-        parent = parent.parent;
-      }
-      meshes.push(obj);
+  // ── Axis-separated collision sweep (matching game's swept-AABB) ──
+  const colliders = _getPartColliders();
+  const fy0 = _character.position.y - CHAR_FOOT_OFFSET;
+  const acos = Math.abs(Math.cos(_character.rotation.y));
+  const asin = Math.abs(Math.sin(_character.rotation.y));
+  const halfX = CHAR_HALF_W * acos + CHAR_HALF_D * asin;
+  const halfZ = CHAR_HALF_W * asin + CHAR_HALF_D * acos;
+
+  // X sweep
+  let dx = velX * dt;
+  for (const b of colliders) {
+    if (b.maxY <= fy0 + 0.05 || b.minY >= fy0 + CHAR_HEIGHT) continue;
+    const stepNeeded = b.maxY - fy0;
+    if (stepNeeded > 0 && stepNeeded <= STEP_HEIGHT && _charGrounded && _charVelY <= 0) continue;
+    if (_character.position.z + halfZ <= b.minZ + SWEEP_MARGIN || _character.position.z - halfZ >= b.maxZ - SWEEP_MARGIN) continue;
+    if (dx > 0) {
+      const edge = _character.position.x + halfX;
+      if (edge > b.minX) continue;
+      const allow = b.minX - edge;
+      if (allow < dx) { dx = Math.max(0, allow); _fireTouched(b); }
+    } else if (dx < 0) {
+      const edge = _character.position.x - halfX;
+      if (edge < b.maxX) continue;
+      const allow = b.maxX - edge;
+      if (allow > dx) { dx = Math.min(0, allow); _fireTouched(b); }
     }
-  });
-  const hits = raycaster.intersectObjects(meshes, true);
-  if (hits.length > 0) {
-    const groundY = hits[0].point.y + 1;
-    if (_character.position.y <= groundY) {
-      _character.position.y = groundY;
-      _charVelocity.y = 0;
+  }
+  _character.position.x += dx;
+
+  // Z sweep
+  let dz = velZ * dt;
+  for (const b of colliders) {
+    if (b.maxY <= fy0 + 0.05 || b.minY >= fy0 + CHAR_HEIGHT) continue;
+    const stepNeeded = b.maxY - fy0;
+    if (stepNeeded > 0 && stepNeeded <= STEP_HEIGHT && _charGrounded && _charVelY <= 0) continue;
+    if (_character.position.x + halfX <= b.minX + SWEEP_MARGIN || _character.position.x - halfX >= b.maxX - SWEEP_MARGIN) continue;
+    if (dz > 0) {
+      const edge = _character.position.z + halfZ;
+      if (edge > b.minZ) continue;
+      const allow = b.minZ - edge;
+      if (allow < dz) { dz = Math.max(0, allow); _fireTouched(b); }
+    } else if (dz < 0) {
+      const edge = _character.position.z - halfZ;
+      if (edge < b.maxZ) continue;
+      const allow = b.maxZ - edge;
+      if (allow > dz) { dz = Math.min(0, allow); _fireTouched(b); }
+    }
+  }
+  _character.position.z += dz;
+
+  // ── Coyote time & jump buffer ──
+  if (_charGrounded) _coyoteTimer = COYOTE_TIME;
+  else _coyoteTimer = Math.max(0, _coyoteTimer - dt);
+
+  if (_keys['Space']) _jumpBuffer = JUMP_BUFFER_T;
+  _jumpBuffer = Math.max(0, _jumpBuffer - dt);
+
+  // ── Vertical ──
+  _charVelY += GRAVITY * dt;
+  _character.position.y += _charVelY * dt;
+
+  // Ground snap (world floor)
+  _charGrounded = false;
+
+  // Vertical collision against parts
+  for (const b of colliders) {
+    if (_character.position.x + halfX <= b.minX || _character.position.x - halfX >= b.maxX) continue;
+    if (_character.position.z + halfZ <= b.minZ || _character.position.z - halfZ >= b.maxZ) continue;
+    const footY = _character.position.y - CHAR_FOOT_OFFSET;
+    if (_charVelY <= 0 && footY <= b.maxY && footY >= b.maxY - CHAR_HEIGHT) {
+      _character.position.y = b.maxY + CHAR_FOOT_OFFSET;
+      _charVelY = 0;
       _charGrounded = true;
-    } else {
-      _charGrounded = false;
-    }
-  } else {
-    if (_character.position.y <= 1) {
-      _character.position.y = 1;
-      _charVelocity.y = 0;
-      _charGrounded = true;
-    } else {
-      _charGrounded = false;
+      _fireTouched(b);
+      break;
     }
   }
-  
-  if (_keys['Space'] && _charGrounded) {
-    _charVelocity.y = jumpPower;
+
+  // World floor ground
+  if (!_charGrounded && _character.position.y <= CHAR_STAND_Y) {
+    _character.position.y = CHAR_STAND_Y;
+    _charVelY = 0;
+    _charGrounded = true;
   }
-  
-  // Orbit camera around character
-  const camOffset = new THREE.Vector3(0, 0, _testCamDist);
-  const euler = new THREE.Euler(
-    THREE.MathUtils.degToRad(_testCamPitch),
-    THREE.MathUtils.degToRad(_testCamYaw),
-    0, 'YXZ'
+
+  // ── Jump ──
+  if (_jumpBuffer > 0 && (_charGrounded || _coyoteTimer > 0)) {
+    _charVelY = JUMP_POWER;
+    _charGrounded = false;
+    _coyoteTimer = 0;
+    _jumpBuffer = 0;
+  }
+
+  // ── Fall respawn ──
+  if (_character.position.y < -100) {
+    _character.position.set(0, CHAR_STAND_Y, 0);
+    _charVelY = 0;
+    _charGrounded = false;
+  }
+
+  // ── Shift lock (camera-aligned movement) ──
+  if (_shiftLock) _character.rotation.y = _testCamYaw + Math.PI;
+
+  // ── Animations ──
+  _updateAnimations(dt);
+
+  // ── Camera (matching game's updateCamera) ──
+  const sinYaw = Math.sin(_testCamYaw);
+  const cosYaw = Math.cos(_testCamYaw);
+  const sinPitch = Math.sin(_testCamPitch);
+  const cosPitch = Math.cos(_testCamPitch);
+
+  const pivot = new THREE.Vector3(
+    _character.position.x,
+    _character.position.y + CAM_PIVOT_Y,
+    _character.position.z
   );
-  camOffset.applyEuler(euler);
-  const targetCamPos = _character.position.clone().add(camOffset);
+
+  if (_shiftLock) {
+    pivot.x += cosYaw * SHIFT_LOCK_OFFSET;
+    pivot.z += -sinYaw * SHIFT_LOCK_OFFSET;
+  }
+
+  const targetCamPos = new THREE.Vector3(
+    pivot.x + _testCamDist * cosPitch * sinYaw,
+    pivot.y + _testCamDist * sinPitch,
+    pivot.z + _testCamDist * cosPitch * cosYaw
+  );
   camera.position.lerp(targetCamPos, 0.15);
-  camera.lookAt(_character.position);
+  camera.lookAt(pivot);
+}
+
+// ─── Animation helpers (matching bloxverse-engine.js) ────────────────────────
+function _setRot(bone, axis, target, speed, dt) {
+  if (!bone) return;
+  const rest = _anim.rest[bone.name]?.[axis] ?? 0;
+  bone.rotation[axis] = THREE.MathUtils.lerp(bone.rotation[axis], rest + target, Math.min(1, speed * dt));
+}
+
+function _updateAnimations(dt) {
+  _anim.time += dt;
+  const t = _anim.time, sp = 12;
+  const lLeg = _anim.bones['Left_Leg'],  rLeg = _anim.bones['Right_Leg'];
+  const lArm = _anim.bones['Left_Arm'],  rArm = _anim.bones['Right_Arm'];
+  const torso = _anim.bones['Torso'];
+  const lArmRestY = _anim.rest['Left_Arm']?.py  ?? 0;
+  const rArmRestY = _anim.rest['Right_Arm']?.py ?? 0;
+
+  if (!_charGrounded) {
+    _setRot(lLeg,  'x',  0,       sp, dt);
+    _setRot(rLeg,  'x',  0,       sp, dt);
+    _setRot(lArm,  'x', -Math.PI, sp, dt);
+    _setRot(rArm,  'x', -Math.PI, sp, dt);
+    _setRot(lArm,  'z',  0,       sp, dt);
+    _setRot(rArm,  'z',  0,       sp, dt);
+    _setRot(torso, 'x',  0,       sp, dt);
+    if (lArm) lArm.position.y = THREE.MathUtils.lerp(lArm.position.y, lArmRestY - 0.75, Math.min(1, sp*dt));
+    if (rArm) rArm.position.y = THREE.MathUtils.lerp(rArm.position.y, rArmRestY - 0.75, Math.min(1, sp*dt));
+  } else if (_charMoving) {
+    const swing = Math.sin(t * 2.8 * Math.PI);
+    _setRot(lLeg,  'x',  swing * 1.0,  sp, dt);
+    _setRot(rLeg,  'x', -swing * 1.0,  sp, dt);
+    _setRot(lArm,  'x', -swing * 0.8,  sp, dt);
+    _setRot(rArm,  'x',  swing * 0.8,  sp, dt);
+    _setRot(lArm,  'z',  0.05,         sp, dt);
+    _setRot(rArm,  'z', -0.05,         sp, dt);
+    _setRot(torso, 'x',  0.03,         sp, dt);
+    _setRot(torso, 'z',  0,            sp, dt);
+    if (lArm) lArm.position.y = THREE.MathUtils.lerp(lArm.position.y, lArmRestY, Math.min(1, sp*dt));
+    if (rArm) rArm.position.y = THREE.MathUtils.lerp(rArm.position.y, rArmRestY, Math.min(1, sp*dt));
+  } else {
+    const breathe = Math.sin(t * 1.2) * 0.015;
+    _setRot(lLeg,  'x',  0,             sp, dt);
+    _setRot(rLeg,  'x',  0,             sp, dt);
+    _setRot(lArm,  'x',  0,             sp, dt);
+    _setRot(rArm,  'x',  0,             sp, dt);
+    _setRot(lArm,  'z',  0.1 + breathe, sp, dt);
+    _setRot(rArm,  'z', -0.1 - breathe, sp, dt);
+    _setRot(torso, 'x',  breathe,       sp, dt);
+    _setRot(torso, 'z',  0,             sp, dt);
+    if (lArm) lArm.position.y = THREE.MathUtils.lerp(lArm.position.y, lArmRestY, Math.min(1, sp*dt));
+    if (rArm) rArm.position.y = THREE.MathUtils.lerp(rArm.position.y, rArmRestY, Math.min(1, sp*dt));
+  }
 }

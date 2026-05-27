@@ -444,6 +444,12 @@ function startStudioTest() {
     studioSidebar.style.display = 'none';
     studioPropsPanel.style.display = 'none';
     
+    // Ensure current editor code is saved to hierarchy before running
+    if (currentScript) {
+        const code = getCode();
+        studio.updateScriptSource(currentScript, code);
+    }
+    
     addOutput('Starting test mode...', 'info');
     studio.startTestMode();
 }
@@ -509,6 +515,12 @@ function restoreCursorPosition(savedOffset) {
 }
 
 function updateUI() {
+    // Sync any dirty code to hierarchy before refreshing from it
+    if (_studioInitialized && isDirty && currentScript) {
+        studio.updateScriptSource(currentScript, getCode());
+        isDirty = false;
+    }
+
     // If studio is initialized, sync scripts from hierarchy
     if (_studioInitialized) {
         const hScripts = studio.getScriptsFromHierarchy();

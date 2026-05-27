@@ -8,9 +8,9 @@ export function luaToJS(lua) {
     const _transforms = [
         (_s) => _s.replace(/--\[\[[\s\S]*?\]\]/g, ''),
         (_s) => _s.replace(/--.*$/gm, ''),
-        (_s) => _s.replace(/\blocal\s+function\s+(\w+)\s*\(/g, 'exports.$1 = function('),
-        (_s) => _s.replace(/\bfunction\s+(\w+)\s*\(/g, 'exports.$1 = function('),
-        (_s) => _s.replace(/\bfunction\s*\(/g, 'function('),
+        (_s) => _s.replace(/\blocal\s+function\s+(\w+)\s*\(/g, 'exports.$1 = async function('),
+        (_s) => _s.replace(/\bfunction\s+(\w+)\s*\(/g, 'exports.$1 = async function('),
+        (_s) => _s.replace(/(?<!\basync\s)\bfunction\s*\(/g, 'async function('),
         (_s) => _s.replace(/^(\s*)end\b/gm, '$1}'),
         (_s) => _s.replace(/(\bfunction\s*\([^)]*\))(?!\s*\{)/g, '$1 {'),
         // Wrap if/while/elseif conditions in parens (skip if already wrapped)
@@ -75,6 +75,22 @@ export function luaToJS(lua) {
         (_s) => _s.replace(/\btostring\s*\(/g, 'String('),
         (_s) => _s.replace(/\btonumber\s*\(/g, 'Number('),
         (_s) => _s.replace(/\btype\s*\(/g, '_luaType('),
+        // Compound assignment operators: += -= *= /= //= %= ^= ..=
+        // Placed after table-key transforms to avoid {x = …} → {x: …} conflict
+        (_s) => _s.replace(
+            /(\w+(?:\s*\.\s*\w+)*(?:\s*\[[^\]]+\])*)\s*([+\-*/%]|\.\.)=\s*/g,
+            (_m, _v, _op) => {
+                if (_op === '..') return `${_v} = ${_v} + `;
+                return `${_v} = ${_v} ${_op} `;
+            }
+        ),
+        // ^=  →  **=  (JS supports **= natively)
+        (_s) => _s.replace(/\^=(?=\s|$)/g, '**='),
+        // //=  →  Math.floor(x / rhs) — capture RHS up to ; or newline
+        (_s) => _s.replace(
+            /(\w+(?:\s*\.\s*\w+)*(?:\s*\[[^\]]+\])*)\s*\/\/=\s*([^;\n]+)/g,
+            (_m, _v, _rhs) => `${_v} = Math.floor(${_v} / ${_rhs})`
+        ),
     ];
 
     return _transforms.reduce((_acc, _fn) => _fn(_acc), lua);
@@ -274,9 +290,10 @@ export function createInstanceProxy(inst) {
             if (prop === 'Parent') return createInstanceProxy(target.Parent);
             if (prop === 'Children') return (target.Children || []).map(c => createInstanceProxy(c));
 
-            if (isPart) {
+            if (isPart || target.ClassName === 'Player') {
                 if (prop === 'Position') {
                     if (target.mesh) return _v3ToObj(target.mesh.position);
+                    if (target._characterRef) return _v3ToObj(target._characterRef.position);
                     return _v3ToObj(target.Position);
                 }
                 if (prop === 'Size') return _v3ToObj(target.Size);
@@ -407,15 +424,17 @@ export function createInstanceProxy(inst) {
                 return true;
             }
             if (target[prop] instanceof Signal) return true;
-            if (isPart) {
+            if (isPart || target.ClassName === 'Player') {
                 if (prop === 'Position') {
                     const arr = _v3ToArray(value);
-                    target.Position = arr;
+                    if (isPart) target.Position = arr;
                     if (target.mesh) {
                         target.mesh.position.set(arr[0], arr[1], arr[2]);
                         target.setProperty?.('px', arr[0]);
                         target.setProperty?.('py', arr[1]);
                         target.setProperty?.('pz', arr[2]);
+                    } else if (target._characterRef) {
+                        target._characterRef.position.set(arr[0], arr[1], arr[2]);
                     }
                     return true;
                 }
@@ -747,9 +766,30 @@ export function createScriptContext(api) {
             throw new Error(msg);
         },
         assert: (v, msg) => { if (!v) throw new Error(msg ?? 'assertion failed'); return v; },
-        wait: (seconds) => new Promise(resolve => setTimeout(resolve, (seconds || 0) * 1000)),
-        spawn: (fn) => { setTimeout(() => { try { fn(); } catch(e) { console.error('[Script spawn]', e); } }, 0); },
-        delay: (seconds, fn) => setTimeout(() => { try { fn(); } catch(e) { console.error('[Script delay]', e); } }, (seconds || 0) * 1000),
+        wait: (seconds) => new Promise((resolve, reject) => {
+            if (api.signal?.aborted) { resolve(); return; }
+            const timer = setTimeout(resolve, (seconds || 0) * 1000);
+            api.signal?.addEventListener('abort', () => {
+                clearTimeout(timer);
+                reject(new Error('Script stopped'));
+            }, { once: true });
+        }),
+        spawn: (fn) => {
+            if (api.signal?.aborted) return;
+            const timer = setTimeout(() => {
+                if (api.signal?.aborted) return;
+                try { fn(); } catch(e) { console.error('[Script spawn]', e); }
+            }, 0);
+            api.signal?.addEventListener('abort', () => clearTimeout(timer), { once: true });
+        },
+        delay: (seconds, fn) => {
+            if (api.signal?.aborted) return;
+            const timer = setTimeout(() => {
+                if (api.signal?.aborted) return;
+                try { fn(); } catch(e) { console.error('[Script delay]', e); }
+            }, (seconds || 0) * 1000);
+            api.signal?.addEventListener('abort', () => clearTimeout(timer), { once: true });
+        },
         pcall: (fn, ...args) => {
             try { return [true, fn(...args)]; } catch (e) { return [false, String(e?.message ?? e)]; }
         },
@@ -814,7 +854,8 @@ export function createScriptContext(api) {
 
 export function executeScript(code, api) {
     const ctx = createScriptContext(api);
-    const jsCode = luaToJS(code);
+    const isJS = api.isJS === true || (api.scriptInstance && api.scriptInstance.Name.endsWith('.js'));
+    const jsCode = isJS ? code : luaToJS(code);
 
     const gameProxy = ctx.game;
     const scriptInstance = api.scriptInstance;
@@ -843,7 +884,7 @@ export function executeScript(code, api) {
         (async () => {
             ${jsCode}
         })()
-        .catch(e => { console.error('[Script Runtime] Async error:', e); if (typeof _onError === 'function') _onError(e); });
+        .catch(e => { if (e.message !== 'Script stopped') { console.error('[Script Runtime] Async error:', e); if (typeof _onError === 'function') _onError(e); } });
     `;
     try {
         const fn = new Function(
@@ -856,7 +897,7 @@ export function executeScript(code, api) {
             'ipairs', 'pairs', 'unpack', 'select', 'next',
             'string', 'table', 'math',
             'tostring', 'tonumber', '_luaType', 'require',
-            '_onError',
+            '_onError', 'character',
             wrapped
         );
         fn(
@@ -869,7 +910,8 @@ export function executeScript(code, api) {
             ctx.ipairs, ctx.pairs, ctx.unpack, ctx.select, ctx.next,
             ctx.string, ctx.table, ctx.math,
             (v) => String(v ?? 'nil'), (v) => Number(v), _luaType, ctx.require,
-            (e) => { if (api.onOutput) api.onOutput('Script error: ' + e.message, 'error'); }
+            (e) => { if (api.onOutput) api.onOutput('Script error: ' + e.message, 'error'); },
+            api.character || null
         );
         return ctx.exports;
     } catch (e) {
