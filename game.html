@@ -1090,14 +1090,15 @@
         GetPlayers: () => getCurrentPlayers(),
         GetLocalPlayer: () => auth.currentUser ? makePlayerObj(auth.currentUser.uid, _currentUsername || auth.currentUser.displayName || 'Player') : null,
         FindPlayer: (id) => getCurrentPlayers().find(p => p.id === id || p.userId === id) || null,
-        GetGameTime: () => bv()?.getGameTime?.() ?? 0,
+        GetGameTime: () => bv()?.getGameTime?.() ?? (Date.now() / 1000),
         GetProperty: (k) => gameProperties[k] ?? null,
         SetProperty: (k, v) => { gameProperties[k] = v; },
         Broadcast: (msg) => appendChatMessage({ system: true, message: msg }),
         SendChat: (msg) => {
           const userId = auth.currentUser?.uid || 'game';
           const username = 'Time Tag';
-          dispatchScriptChat({ username, userId, message: msg, local: true, game: true });
+          // Don't dispatch locally — the server will echo it back to all clients
+          // including the sender, so onChat will fire exactly once for everyone
           sendChat(msg, username, userId, false);
         },
         Fire: (event, ...args) => {
@@ -1135,6 +1136,12 @@
             const footOffset = bv()?.getCharFootOffset() ?? 2;
             char.position.set(x, y + footOffset, z);
           }
+        },
+        SetPlayerVelocity: (vx, vy, vz) => {
+          window._bloxverse?.setFlingVelocity?.(vx, vy, vz);
+        },
+        SetPlayerBodyColor: (userId, hexColor) => {
+          window._bloxverse?.setPlayerBodyColor?.(userId, hexColor);
         },
         GetPartPosition: (name) => {
           const parts = window._mapParts || [];

@@ -1,9 +1,9 @@
 local ball = game:GetPart("PhysicsBall")
 local ballInst = workspace:FindFirstChild("PhysicsBall")
 
-local BASE_KICK_POWER = 10
+local BASE_KICK_POWER = 30
 local BASE_KICK_UP = 15
-local CHARGED_KICK_POWER = 60
+local CHARGED_KICK_POWER = 75
 local CHARGED_KICK_UP = 50
 local CHARGE_TIME = 1.5
 local WALK_SPEED = 16

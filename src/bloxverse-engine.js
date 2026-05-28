@@ -2536,6 +2536,22 @@ window._bloxverse = {
     getGrounded:   () => grounded,
     getVelY:       () => velY,
     getClimbState: () => climbState,
+    setFlingVelocity(vx, vy, vz) {
+        extraVelX = vx;
+        extraVelZ = vz;
+        velY = vy;
+        grounded = false;
+    },
+    setPlayerBodyColor(userId, hexColor) {
+        if (typeof hexColor === 'string' && !hexColor.startsWith('#')) hexColor = '#' + hexColor;
+        const colors = { Body: hexColor };
+        if (userId === currentUserId) {
+            if (character) _applyColorsToModel(character, colors);
+        } else {
+            const p = otherPlayers.get(userId);
+            if (p && p.mesh) _applyColorsToModel(p.mesh, colors);
+        }
+    },
     keys,
     setSens(mult) {
         CAM_H_SENS = 0.002 * Math.PI * mult;

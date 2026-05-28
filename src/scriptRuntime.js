@@ -66,9 +66,12 @@ export function luaToJS(lua) {
         (_s) => _s.replace(/#(\w+(?:\.\w+)*)/g, '$1.length'),
         (_s) => _s.replace(/\{(\s*\w+)\s*=\s*/g, '{$1: '),
         (_s) => _s.replace(/(,\s*)(\w+)\s*=\s*/g, '$1$2: '),
-        // Fix return { key: value }
-        (_s) => _s.replace(/return\s*\{([^}]*)\}/g, (_match, _inner) =>
-            'return {' + _inner.replace(/(\w+)\s*:\s*([a-zA-Z_]\w*)/g, '$1: exports.$2') + '}'
+        // Convert top-level return { k = v } to Object.assign(exports, {k: v})
+        // local functions become exports.fn (not bare names), so fall back to exports.fn
+        (_s) => _s.replace(/^return\s*\{([^}]*)\}\s*;?\s*$/m, (_match, _inner) =>
+            'Object.assign(exports, {' + _inner.replace(/(\w+)\s*:\s*([a-zA-Z_]\w*)/g, (_m, _k, _v) =>
+                `${_k}: (typeof ${_v} !== 'undefined' ? ${_v} : exports.${_v})`
+            ) + '});'
         ),
         (_s) => _s.replace(/\bmath\./g, 'Math.'),
         (_s) => _s.replace(/\bwait\s*\(/g, 'await wait('),

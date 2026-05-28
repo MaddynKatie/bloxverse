@@ -8,7 +8,7 @@ Welcome to BloxVerse! This guide explains how to write scripts for your BloxVers
 1. [Getting Started](#getting-started)
 2. [Script Types](#script-types)
 3. [Global Functions](#global-functions)
-4. [Game Object](#game-object) — includes `TeleportPlayer`, `GetPartPosition`, `GetCharacterData`
+4. [Game Object](#game-object) — includes `TeleportPlayer`, `SetPlayerVelocity`, `GetPartPosition`, `GetCharacterData`
 5. [Player Object](#player-object)
 6. [The Instance Tree](#instance-tree)
 7. [Part/Object System](#partobject-system)
@@ -321,6 +321,29 @@ Instantly move the local player to the given world coordinates.
 -- Teleport to a named part's location
 local pos = game:GetPartPosition("Field2")
 game:TeleportPlayer(pos.x, pos.y + 5, pos.z)
+```
+
+### `game:SetPlayerVelocity(vx, vy, vz)`
+Apply an instantaneous velocity to the local player, launching them with physics-based momentum. Horizontal velocity decays over time; vertical velocity is affected by gravity.
+
+```lua
+-- Launch the player upward and to the side (like a knockback/fling)
+game:SetPlayerVelocity(30, 100, 0)
+
+-- Apply only horizontal momentum (no vertical launch)
+game:SetPlayerVelocity(-50, 0, 20)
+```
+
+### `game:SetPlayerBodyColor(playerId, hexColor)`
+Change the body color of any player (local or remote) by their player ID. The color persists for the session.
+
+```lua
+-- Turn the local player red
+local p = game:GetLocalPlayer()
+game:SetPlayerBodyColor(p.id, "ff4444")
+
+-- Turn a joining player blue (inside onPlayerJoin)
+game:SetPlayerBodyColor(player.id, "4444ff")
 ```
 
 ### `game:GetCharacterData()`
@@ -1474,9 +1497,26 @@ return { onPlayerJoin = onPlayerJoin, onUpdate = onUpdate }
 ### Example 4: Team System with Leaderstats
 
 ```lua
+local assignTeam
+assignTeam = function(player, teamNumber)
+    player:SetProperty("team", teamNumber)
+    local color = teamNumber == 1 and "ff4444" or "4444ff"
+    game:SetPlayerBodyColor(player.id, color)
+end
+
+local function onGameStart()
+    local p = game:GetLocalPlayer()
+    if p then
+        local teamNum = math.random(1, 2)
+        assignTeam(p, teamNum)
+        local teamName = teamNum == 1 and "Red" or "Blue"
+        game:Broadcast("You joined Team " .. teamName)
+    end
+end
+
 local function onPlayerJoin(player)
     local teamNum = math.random(1, 2)
-    player:SetProperty("team", teamNum)
+    assignTeam(player, teamNum)
     local teamName = teamNum == 1 and "Red" or "Blue"
     game:Broadcast(player.name .. " joined Team " .. teamName)
 

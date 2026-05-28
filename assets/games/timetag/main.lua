@@ -1,13 +1,17 @@
 local ROUND_TIME = 45
-local PASS_DISTANCE = 8
+local PASS_DISTANCE = 2
 local PASS_COOLDOWN = 1.2
 local COMMAND_PREFIX = "TT"
 local BAR_WIDTH = 360
+local SPAWN_RADIUS = 50
+local TELEPORT_MIN_Y = 20
+local TELEPORT_MAX_Y = 40
 
 local running = false
 local holderId = ""
 local holderName = ""
 local timeLeft = 0
+local initialTime = ROUND_TIME
 local lastPassTime = 0
 local lastWholeSecond = -1
 local lastProtocol = ""
@@ -57,11 +61,25 @@ local setHolder = function(id, name)
     ; lastPassTime = game:GetGameTime()
 end
 
-local startRound = function(id, name)
+local teleportRandom = function()
+    local x = math.floor(math.random() * (SPAWN_RADIUS * 2 + 1)) - SPAWN_RADIUS
+    local z = math.floor(math.random() * (SPAWN_RADIUS * 2 + 1)) - SPAWN_RADIUS
+    local y = math.floor(math.random() * (TELEPORT_MAX_Y - TELEPORT_MIN_Y + 1)) + TELEPORT_MIN_Y
+    game:TeleportPlayer(x, y, z)
+end
+
+local flingPlayer = function()
+    local x = math.floor(math.random() * 61) - 30
+    game:SetPlayerVelocity(x, 100, 0)
+end
+
+local startRound = function(id, name, time)
     ; running = true
-    ; timeLeft = ROUND_TIME
+    ; timeLeft = time or ROUND_TIME
+    ; initialTime = timeLeft
     ; lastWholeSecond = -1
     setHolder(id, name)
+    teleportRandom()
     game:Broadcast("Time Tag: " .. holderName .. " has the time bomb. Run.")
 end
 
@@ -70,6 +88,7 @@ local stopRound = function(message)
     ; holderId = ""
     ; holderName = ""
     ; timeLeft = 0
+    ; initialTime = ROUND_TIME
     ; lastWholeSecond = -1
     game:Broadcast(message)
 end
@@ -81,11 +100,11 @@ local updateGui = function()
         ; localId = localPlayer.id
     end
 
-    local ratio = math.max(0, math.min(timeLeft / ROUND_TIME, 1))
+    local ratio = math.max(0, math.min(timeLeft / initialTime, 1))
     ; barFill.SizeX = BAR_WIDTH * ratio
 
     if running then
-        if localId == holderId then
+        if tostring(localId) == holderId then
             ; title.Text = "YOU HAVE THE TIME BOMB - " .. tostring(math.ceil(timeLeft)) .. "s"
             ; barFill.BackgroundColor = 0xef4444
         else
@@ -101,13 +120,13 @@ end
 local tryPassBomb = function()
     local localPlayer = game:GetLocalPlayer()
     if localPlayer then
-        if localPlayer.id == holderId then
+        if tostring(localPlayer.id) == holderId then
             local now = game:GetGameTime()
             if now - lastPassTime >= PASS_COOLDOWN then
                 local players = game:GetPlayers()
                 local passed = false
                 players:forEach(function(player)
-                    if not passed and player.id ~= localPlayer.id then
+                    if not passed and tostring(player.id) ~= tostring(localPlayer.id) then
                         local dx = localPlayer.x - player.x
                         local dy = localPlayer.y - player.y
                         local dz = localPlayer.z - player.z
@@ -140,6 +159,15 @@ local function onChat(player, message, data)
                 end
             end
 
+            if command == "TIME" then
+                if running then
+                    local t = tonumber(parts[2])
+                    if t and t > 0 then
+                        ; timeLeft = t
+                    end
+                end
+            end
+
             if command == "PASS" then
                 if running then
                     setHolder(parts[4], parts[5])
@@ -150,6 +178,12 @@ local function onChat(player, message, data)
             if command == "BOOM" then
                 stopRound("Time Tag: BOOM. " .. parts[2] .. " ran out of time.")
             end
+
+            if command == "END" then
+                if running then
+                    stopRound("Time Tag: Round ended by " .. parts[2] .. ".")
+                end
+            end
         end
     end
 
@@ -157,7 +191,8 @@ local function onChat(player, message, data)
         return
     end
 
-    if message == "/start" then
+    local wordParts = message:split(" ")
+    if wordParts[0] == "/start" then
         if not data.local then
             return
         end
@@ -168,18 +203,53 @@ local function onChat(player, message, data)
         end
 
         local players = game:GetPlayers()
-        if #players <= 0 then
-            game:Broadcast("Time Tag: Need at least one player to start.")
+        if #players < 2 then
+            game:Broadcast("Time Tag: Need at least 2 players to start.")
             return
         end
 
-        local starter = players[0]
-        sendState("START|" .. starter.id .. "|" .. starter.name)
+        local rTime = ROUND_TIME
+        local n = tonumber(wordParts[1])
+        if n and n > 0 then
+            ; rTime = n
+        end
+
+        local idx = math.floor(math.random() * #players)
+        local tagger = players[idx]
+        sendState("START|" .. tagger.id .. "|" .. tagger.name)
+        ; running = true
+        ; timeLeft = rTime
+        ; initialTime = rTime
+        ; lastWholeSecond = -1
+        setHolder(tagger.id, tagger.name)
+        teleportRandom()
+        if rTime ~= ROUND_TIME then
+            sendState("TIME|" .. tostring(rTime))
+        end
+    end
+
+    if message == "/end" then
+        if not data.local then
+            return
+        end
+
+        if not running then
+            return
+        end
+
+        sendState("END|" .. player.name)
     end
 end
 
 local function onUpdate(dt)
     if running then
+        local players = game:GetPlayers()
+        if #players < 2 then
+            stopRound("Time Tag: Not enough players. Round ended.")
+            updateGui()
+            return
+        end
+
         ; timeLeft = math.max(0, timeLeft - dt)
         local whole = math.ceil(timeLeft)
         if whole ~= lastWholeSecond then
@@ -193,8 +263,10 @@ local function onUpdate(dt)
 
         local localPlayer = game:GetLocalPlayer()
         if localPlayer then
-            if timeLeft <= 0 and localPlayer.id == holderId then
+            if timeLeft <= 0 and tostring(localPlayer.id) == holderId then
                 sendState("BOOM|" .. holderName)
+                flingPlayer()
+                ; running = false
             end
         end
     end
