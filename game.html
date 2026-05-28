@@ -330,6 +330,7 @@
     }
 
     function exitPointerLockIfNeeded() {
+      if (window._bloxverseCustomCursorEvent) return;
       if (document.pointerLockElement) {
         document.exitPointerLock();
       }
@@ -349,6 +350,22 @@
       }
     });
 
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Tab') return;
+      const active = document.activeElement;
+      const isTyping = active && (
+        active === chatInput ||
+        active.tagName === 'INPUT' ||
+        active.tagName === 'TEXTAREA' ||
+        active.tagName === 'SELECT' ||
+        active.isContentEditable
+      );
+      if (isTyping) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      document.getElementById('leaderboard')?.classList.toggle('collapsed');
+    }, true);
+
     chatInput.addEventListener('focus', () => { window._chatFocused = true; });
     chatInput.addEventListener('blur', () => { window._chatFocused = false; });
 
@@ -360,6 +377,7 @@
     }
 
     function appendChatMessage(data) {
+      if (!data.system && data.message.startsWith('TT|')) return;
       if (!data.system && data.message.startsWith('/resetparts')) {
         if (window._bloxverse) window._bloxverse.resetParts();
         return;
@@ -385,11 +403,24 @@
       chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
+    function dispatchScriptChat(data) {
+      const message = data?.message || '';
+      const playerObj = data?.userId ? makePlayerObj(data.userId, data.username || 'Player') : null;
+      for (const ex of scriptExports) {
+        try { ex.onChat?.(playerObj, message, data); } catch (e) { console.error('[Script] onChat error:', e); }
+      }
+    }
+
     function doSendChat() {
       const val = chatInput.value.trim();
       if (val) {
         const userId = auth.currentUser?.uid;
         const username = _currentUsername || auth.currentUser?.displayName || 'Player';
+        dispatchScriptChat({ username, userId, message: val, local: true });
+        if (val.startsWith('/resetparts') && window._bloxverse) {
+          const resetState = window._bloxverse.resetParts();
+          if (resetState && resetState.length > 0) sendPhysicsState(resetState);
+        }
         // 13+ users always send original; receiver decides what to show
         const profanityToggle = document.getElementById('profanityToggle');
         const filterEnabled = profanityToggle ? profanityToggle.checked : true;
@@ -460,7 +491,7 @@
       lbList.querySelectorAll('.leaderboard-item').forEach(item => {
         item.addEventListener('click', (e) => {
           e.stopPropagation();
-          if (document.pointerLockElement) document.exitPointerLock();
+          if (document.pointerLockElement && !e._bloxverseCustomCursor && !window._bloxverseCustomCursorEvent) document.exitPointerLock();
           const userId = item.dataset.userId;
           const username = _playerUsernames.get(userId);
           showPlayerMenu(userId, username);
@@ -527,12 +558,13 @@
     const uiClickContainers = [chatContainer, playerMenu, document.querySelector('.top-bar'), document.querySelector('.leaderboard'), settingsModal];
     uiClickContainers.forEach((container) => {
       if (!container) return;
-      container.addEventListener('pointerdown', () => exitPointerLockIfNeeded());
-      container.addEventListener('click', () => exitPointerLockIfNeeded());
+      container.addEventListener('pointerdown', (e) => { if (!e._bloxverseCustomCursor) exitPointerLockIfNeeded(); });
+      container.addEventListener('click', (e) => { if (!e._bloxverseCustomCursor) exitPointerLockIfNeeded(); });
     });
 
     document.addEventListener('mousedown', (e) => {
       if (!document.pointerLockElement) return;
+      if (e._bloxverseCustomCursor || window._bloxverseCustomCursorEvent) return;
       if (e.target.closest('.chat-container, .modal-overlay, .leaderboard, .player-menu, .top-bar')) {
         document.exitPointerLock();
       }
@@ -732,7 +764,7 @@
 
     btnSettings.addEventListener('click', () => {
       settingsModal.style.display = 'flex';
-      if (document.pointerLockElement) document.exitPointerLock();
+      if (document.pointerLockElement && !window._bloxverseCustomCursorEvent) document.exitPointerLock();
     });
 
     btnCloseSettings.addEventListener('click', () => {
@@ -766,7 +798,11 @@
     const _playerPositions = new Map(); // userId -> { x, y, z }
 
     const makePlayerObj = (id, name) => {
-      const pos = _playerPositions.get(id) || { x: 0, y: 0, z: 0 };
+      let pos = _playerPositions.get(id) || { x: 0, y: 0, z: 0 };
+      if (auth.currentUser?.uid === id && window._bloxverse?.getCharacter) {
+        const char = window._bloxverse.getCharacter();
+        if (char) pos = { x: char.position.x, y: char.position.y, z: char.position.z };
+      }
       return {
         id, name,
         x: pos.x, y: pos.y, z: pos.z,
@@ -1041,7 +1077,7 @@
         lbList.querySelectorAll('.leaderboard-item').forEach(item => {
           item.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (document.pointerLockElement) document.exitPointerLock();
+            if (document.pointerLockElement && !e._bloxverseCustomCursor && !window._bloxverseCustomCursorEvent) document.exitPointerLock();
             showPlayerMenu(item.dataset.userId, _playerUsernames.get(item.dataset.userId) || item.dataset.userId);
           });
         });
@@ -1052,11 +1088,18 @@
       const bv = () => window._bloxverse;
       return {
         GetPlayers: () => getCurrentPlayers(),
+        GetLocalPlayer: () => auth.currentUser ? makePlayerObj(auth.currentUser.uid, _currentUsername || auth.currentUser.displayName || 'Player') : null,
         FindPlayer: (id) => getCurrentPlayers().find(p => p.id === id || p.userId === id) || null,
         GetGameTime: () => bv()?.getGameTime?.() ?? 0,
         GetProperty: (k) => gameProperties[k] ?? null,
         SetProperty: (k, v) => { gameProperties[k] = v; },
         Broadcast: (msg) => appendChatMessage({ system: true, message: msg }),
+        SendChat: (msg) => {
+          const userId = auth.currentUser?.uid || 'game';
+          const username = 'Time Tag';
+          dispatchScriptChat({ username, userId, message: msg, local: true, game: true });
+          sendChat(msg, username, userId, false);
+        },
         Fire: (event, ...args) => {
           (gameEventListeners[event] || []).forEach(cb => cb(...args));
         },
@@ -1067,6 +1110,18 @@
         IsKeyDown: (key) => !!bv()?.keys?.[key],
         SetWalkSpeed: (s) => bv()?.setWalkSpeed?.(s),
         GetWalkSpeed: () => bv()?.getWalkSpeed?.() ?? 16,
+        GetCharacterData: () => {
+          const char = bv()?.getCharacter();
+          if (!char) return null;
+          return {
+            x: char.position.x,
+            y: char.position.y,
+            z: char.position.z,
+            ry: char.rotation.y,
+            moving: !!(bv()?.keys?.['KeyW'] || bv()?.keys?.['KeyA'] || bv()?.keys?.['KeyS'] || bv()?.keys?.['KeyD']),
+            grounded: !!bv()?.getGrounded(),
+          };
+        },
         GetPart: (name) => {
           const parts = window._mapParts || [];
           const found = parts.find(p => p.name === name);
@@ -1427,6 +1482,7 @@
                     } else {
                       appendChatMessage(chatData);
                     }
+                    dispatchScriptChat(chatData);
                   },
                   (userId, bodies) => {
                     if (window._bloxverse) window._bloxverse.applyPhysicsState(userId, bodies);

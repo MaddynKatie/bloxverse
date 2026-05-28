@@ -40,6 +40,9 @@ let currentUserId = null;
 const CHUNK_SIZE = 4;
 const PUSH_SCALE = 8;
 let _skipPhysicsSyncUntil = 0;
+const PHYSICS_OWNER_LEASE_MS = 900;
+const PHYSICS_OWNER_SEND_EXTEND_MS = 700;
+const PHYSICS_OWNER_CLAIM_SUFFIX = Math.floor(Math.random() * 1000);
 let _worldFloorEnabled = true;
 let _respawnY = -100;
 
@@ -342,6 +345,27 @@ physicsWorld.defaultContactMaterial.restitution = 0.2;
 
 // Track physics bodies synced with mesh
 const physicsBodies = new Map(); // mesh -> { body, anchored, mesh }
+
+function markLocalPhysicsOwner(mesh, durationMs = PHYSICS_OWNER_LEASE_MS) {
+    if (!mesh || !currentUserId) return;
+    mesh.userData.physicsOwnerId = currentUserId;
+    mesh.userData.physicsOwnerUntil = performance.now() + durationMs;
+    mesh.userData.physicsOwnerClaimId = Date.now() * 1000 + PHYSICS_OWNER_CLAIM_SUFFIX;
+}
+
+function hasActivePhysicsOwner(mesh, ownerId = mesh?.userData?.physicsOwnerId) {
+    return !!mesh && !!ownerId && performance.now() < (mesh.userData.physicsOwnerUntil || 0);
+}
+
+function isLocalPhysicsOwner(mesh) {
+    return !!currentUserId && mesh?.userData?.physicsOwnerId === currentUserId && hasActivePhysicsOwner(mesh, currentUserId);
+}
+
+function shouldKeepLocalPhysicsOwner(mesh, remoteClaimId) {
+    if (!isLocalPhysicsOwner(mesh)) return false;
+    const localClaimId = mesh.userData.physicsOwnerClaimId || 0;
+    return !remoteClaimId || localClaimId >= remoteClaimId;
+}
 
 // ─── Geometry / Material caches ──────────────────────────────────────────────
 const geoCache = new Map();
@@ -689,7 +713,16 @@ let joystickActive = false;
 let mobileUIInjected = false;
 let _touchUI = null;
 window.addEventListener('touchstart', (e) => {
-    if (mobileUIInjected) return;
+    if (mobileUIInjected) {
+        if (_touchUI) {
+            _touchUI.style.display = '';
+            locked = true;
+            overlay.style.display = 'none';
+            cursorEl.style.display = 'none';
+            document.body.style.cursor = 'none';
+        }
+        return;
+    }
     mobileUIInjected = true;
     locked = true;
     overlay.style.display = 'none';
@@ -828,6 +861,7 @@ window.addEventListener('touchstart', (e) => {
         e.preventDefault(); e.stopPropagation();
         if (window._bloxverse?.shiftLockEnabled === false) return;
         shiftLock = !shiftLock;
+        shiftLockIndicator.classList.toggle('visible', shiftLock);
         dot.style.background = shiftLock ? '#4ade80' : 'rgba(255,255,255,0.6)';
         lockIcon.style.borderColor = shiftLock ? '#4ade80' : 'rgba(255,255,255,0.6)';
         if (!shiftLock && character) {
@@ -875,7 +909,6 @@ window.addEventListener('touchstart', (e) => {
 document.addEventListener('keydown', () => {
     if (_touchUI) {
         _touchUI.style.display = 'none';
-        _touchUI = null;
     }
 });
 
@@ -945,6 +978,75 @@ renderer.domElement.addEventListener('click', () => {
     renderer.domElement.requestPointerLock();
 });
 overlay.addEventListener('click', () => renderer.domElement.requestPointerLock());
+
+let customCursorDownTarget = null;
+let suppressNextCustomCursorClick = false;
+
+function getCustomCursorTarget() {
+    if (!locked || shiftLock || rmb) return null;
+    if (cursorEl.style.display === 'none') return null;
+
+    const x = Math.max(0, Math.min(window.innerWidth - 1, cursorX));
+    const y = Math.max(0, Math.min(window.innerHeight - 1, cursorY));
+    const target = document.elementFromPoint(x, y);
+    if (!target || target === renderer.domElement || target === cursorEl || target === overlay || target === document.body || target === document.documentElement) return null;
+    return target;
+}
+
+function dispatchCustomCursorMouse(target, type, sourceEvent) {
+    const event = new MouseEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        button: sourceEvent.button,
+        buttons: sourceEvent.buttons,
+        clientX: cursorX,
+        clientY: cursorY,
+        screenX: sourceEvent.screenX,
+        screenY: sourceEvent.screenY,
+        ctrlKey: sourceEvent.ctrlKey,
+        shiftKey: sourceEvent.shiftKey,
+        altKey: sourceEvent.altKey,
+        metaKey: sourceEvent.metaKey,
+    });
+    Object.defineProperty(event, '_bloxverseCustomCursor', { value: true });
+    window._bloxverseCustomCursorEvent = true;
+    target.dispatchEvent(event);
+    window._bloxverseCustomCursorEvent = false;
+}
+
+document.addEventListener('mousedown', e => {
+    if (!e.isTrusted || e.button !== 0) return;
+    const target = getCustomCursorTarget();
+    if (!target) return;
+    customCursorDownTarget = target;
+    const focusTarget = target.closest?.('input, textarea, select, button, a[href], [tabindex]');
+    if (focusTarget?.focus) focusTarget.focus({ preventScroll: true });
+    dispatchCustomCursorMouse(target, 'mousedown', e);
+    e.preventDefault();
+    e.stopPropagation();
+}, true);
+
+document.addEventListener('mouseup', e => {
+    if (!e.isTrusted || e.button !== 0 || !customCursorDownTarget) return;
+    const upTarget = getCustomCursorTarget() || customCursorDownTarget;
+    const downTarget = customCursorDownTarget;
+    customCursorDownTarget = null;
+    dispatchCustomCursorMouse(upTarget, 'mouseup', e);
+    if (upTarget === downTarget || downTarget.contains(upTarget) || upTarget.contains(downTarget)) {
+        dispatchCustomCursorMouse(upTarget, 'click', e);
+        suppressNextCustomCursorClick = true;
+        setTimeout(() => { suppressNextCustomCursorClick = false; }, 0);
+    }
+    e.preventDefault();
+    e.stopPropagation();
+}, true);
+
+document.addEventListener('click', e => {
+    if (!e.isTrusted || !suppressNextCustomCursorClick) return;
+    suppressNextCustomCursorClick = false;
+    e.preventDefault();
+    e.stopPropagation();
+}, true);
 
 renderer.domElement.addEventListener('mousedown', e => { if (e.button === 2) rmb = true; });
 document.addEventListener('mouseup', e => { if (e.button === 2) rmb = false; });
@@ -1869,6 +1971,7 @@ function resolveOBBH(nearby, pushVx = 0, pushVz = 0, dt = 1/60) {
             const pushSpeed = Math.sqrt(pushVx * pushVx + pushVz * pushVz);
             const horzNorm = Math.sqrt(nx * nx + nz * nz);
             if (horzNorm > 0.001) {
+                markLocalPhysicsOwner(b._meshRef);
                 const targetVx = (-nx / horzNorm) * pushSpeed;
                 const targetVz = (-nz / horzNorm) * pushSpeed;
                 const factor = Math.min(1, dt * PUSH_SCALE * depth / m);
@@ -1904,6 +2007,30 @@ function resolveOBBV(nearby) {
             if (_ti && _ti.Touched) _ti.Touched.Fire(window._bloxverse._charInstance);
         }
     }
+}
+
+let _dynTouchLastLog = 0;
+function checkDynamicTouched() {
+    if (!window._bloxverse._charInstance || !character) return;
+    const cx = character.position.x, cy = character.position.y, cz = character.position.z;
+    const footY = cy - CHAR_FOOT_OFFSET;
+    const headY = footY + CHAR_HEIGHT;
+
+    physicsBodies.forEach(({ body, anchored, mesh }) => {
+        if (anchored) return;
+        if (!mesh._instRef || !mesh._instRef.Touched) return;
+
+        const bx = mesh.position.x, by = mesh.position.y, bz = mesh.position.z;
+        const hs = mesh.userData.halfSize || { sw: 2, sh: 2, sd: 2 };
+        const hw = hs.sw / 2 + CHAR_HALF_W + 0.5;
+        const hd = hs.sd / 2 + CHAR_HALF_D + 0.5;
+        const bMinY = by - hs.sh / 2;
+        const bMaxY = by + hs.sh / 2;
+
+        if (Math.abs(cx - bx) < hw && Math.abs(cz - bz) < hd && footY < bMaxY + 0.5 && headY > bMinY - 0.5) {
+            mesh._instRef.Touched.Fire(window._bloxverse._charInstance);
+        }
+    });
 }
 
 function resolveBlocksH(nearby) {
@@ -2119,7 +2246,8 @@ function updatePhysics(dt) {
             body._obb = {
                 isOBB:true, cx,cy,cz, hx,hy,hz, ux,uy,uz, vx,vy,vz, wx,wy,wz,
                 minX:cx-exx, maxX:cx+exx, minY:cy-eyy, maxY:cy+eyy, minZ:cz-ezz, maxZ:cz+ezz,
-                _bodyRef: body
+                _bodyRef: body,
+                _meshRef: mesh
             };
         }
     });
@@ -2352,6 +2480,7 @@ function update(dt) {
 
     resolveBlocksV(nearby);
     resolveOBBV(nearby);
+    checkDynamicTouched();
 
     if (jumpBuffer > 0 && (grounded || coyoteTimer > 0)) {
         velY = JUMP_POWER;
@@ -2778,6 +2907,7 @@ window._bloxverse = {
     _setPartVelocity(mesh, vx, vy, vz) {
         const entry = physicsBodies.get(mesh);
         if (entry && entry.body) {
+            markLocalPhysicsOwner(mesh, PHYSICS_OWNER_LEASE_MS * 2);
             entry.body.velocity.set(vx, vy, vz);
         }
     },
@@ -2879,10 +3009,13 @@ window._bloxverse = {
         const bodies = [];
         physicsBodies.forEach(({ body, anchored, mesh }) => {
             if (!anchored && body && mesh.userData.physicsId) {
+                if (!isLocalPhysicsOwner(mesh)) return;
                 const speed = Math.sqrt(body.velocity.x ** 2 + body.velocity.y ** 2 + body.velocity.z ** 2);
                 if (speed < 0.1) return; // only sync moving bodies
+                mesh.userData.physicsOwnerUntil = performance.now() + PHYSICS_OWNER_SEND_EXTEND_MS;
                 bodies.push({
                     id: mesh.userData.physicsId,
+                    ownerClaimId: mesh.userData.physicsOwnerClaimId || 0,
                     x: body.position.x,
                     y: body.position.y,
                     z: body.position.z,
@@ -2896,12 +3029,32 @@ window._bloxverse = {
     },
     applyPhysicsState: (userId, bodies) => {
         if (!userId || !bodies) return;
+        if (userId === currentUserId) return;
         if (performance.now() < _skipPhysicsSyncUntil) return;
-        const lerp = 0.3;
+        const now = performance.now();
+        const lerp = 0.55;
         physicsBodies.forEach(({ body, anchored, mesh }) => {
             if (anchored || !body || !mesh.userData.physicsId) return;
             for (const s of bodies) {
                 if (s.id === mesh.userData.physicsId) {
+                    if (s.snap) {
+                        body.position.set(s.x, s.y, s.z);
+                        if (s.qx !== undefined) body.quaternion.set(s.qx, s.qy, s.qz, s.qw);
+                        body.velocity.set(s.vx || 0, s.vy || 0, s.vz || 0);
+                        body.angularVelocity.set(0, 0, 0);
+                        body.force.set(0, 0, 0);
+                        body.torque.set(0, 0, 0);
+                        delete mesh.userData.physicsOwnerId;
+                        delete mesh.userData.physicsOwnerUntil;
+                        delete mesh.userData.physicsOwnerClaimId;
+                        mesh.position.copy(body.position);
+                        mesh.quaternion.copy(body.quaternion);
+                        break;
+                    }
+                    if (shouldKeepLocalPhysicsOwner(mesh, s.ownerClaimId)) break;
+                    mesh.userData.physicsOwnerId = userId;
+                    mesh.userData.physicsOwnerUntil = now + PHYSICS_OWNER_LEASE_MS;
+                    mesh.userData.physicsOwnerClaimId = s.ownerClaimId || 0;
                     body.position.x += (s.x - body.position.x) * lerp;
                     body.position.y += (s.y - body.position.y) * lerp;
                     body.position.z += (s.z - body.position.z) * lerp;
@@ -2914,7 +3067,8 @@ window._bloxverse = {
         });
     },
     resetParts: () => {
-        _skipPhysicsSyncUntil = performance.now() + 0.5;
+        _skipPhysicsSyncUntil = performance.now() + 500;
+        const resetState = [];
         physicsBodies.forEach(({ body, anchored, mesh }) => {
             if (anchored || !body || !mesh.userData.initialPos) return;
             const ip = mesh.userData.initialPos;
@@ -2925,9 +3079,29 @@ window._bloxverse = {
             body.angularVelocity.set(0, 0, 0);
             body.force.set(0, 0, 0);
             body.torque.set(0, 0, 0);
+            delete mesh.userData.physicsOwnerId;
+            delete mesh.userData.physicsOwnerUntil;
+            delete mesh.userData.physicsOwnerClaimId;
             mesh.position.copy(ip);
             mesh.quaternion.copy(iq);
+            if (mesh.userData.physicsId) {
+                resetState.push({
+                    id: mesh.userData.physicsId,
+                    x: ip.x,
+                    y: ip.y,
+                    z: ip.z,
+                    qx: iq.x,
+                    qy: iq.y,
+                    qz: iq.z,
+                    qw: iq.w,
+                    vx: 0,
+                    vy: 0,
+                    vz: 0,
+                    snap: true
+                });
+            }
         });
+        return resetState;
     },
     clearLocalAccessories: () => {
         _clearPlayerAccessories(currentUserId);

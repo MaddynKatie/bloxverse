@@ -8,7 +8,7 @@ Welcome to BloxVerse! This guide explains how to write scripts for your BloxVers
 1. [Getting Started](#getting-started)
 2. [Script Types](#script-types)
 3. [Global Functions](#global-functions)
-4. [Game Object](#game-object)
+4. [Game Object](#game-object) — includes `TeleportPlayer`, `GetPartPosition`, `GetCharacterData`
 5. [Player Object](#player-object)
 6. [The Instance Tree](#instance-tree)
 7. [Part/Object System](#partobject-system)
@@ -296,12 +296,50 @@ print("Current speed:", game:GetWalkSpeed())
 ```
 
 ### `game:GetPart(name)` / `game:GetAllParts()` / `game:RemovePart(name)`
-Find, list, or remove parts from the world.
+Find, list, or remove parts from the world. Returns a **part proxy** with full physics methods (`SetVelocity`, `GetVelocity`, `SetPosition`, `GetPosition`).
 
 ```lua
 local platform = game:GetPart("MyPlatform")
 local allParts = game:GetAllParts()
 game:RemovePart("MyPlatform")
+```
+
+> **Note:** `workspace:FindFirstChild(name)` returns a `PartInstance` (for signals like `Touched`), while `game:GetPart(name)` returns a part proxy (for physics methods). Use both together when needed — see [Touched Events on Unanchored Parts](#touched-unanchored).
+
+### `game:GetPartPosition(name)`
+Get the world position of a named part as `{x, y, z}`. Works on both anchored and unanchored parts.
+
+```lua
+local pos = game:GetPartPosition("SpawnPoint")
+game:TeleportPlayer(pos.x, pos.y + 5, pos.z)
+```
+
+### `game:TeleportPlayer(x, y, z)`
+Instantly move the local player to the given world coordinates.
+
+```lua
+-- Teleport to a named part's location
+local pos = game:GetPartPosition("Field2")
+game:TeleportPlayer(pos.x, pos.y + 5, pos.z)
+```
+
+### `game:GetCharacterData()`
+Returns a table of the local player's current character state.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `x, y, z` | number | World position |
+| `ry` | number | Facing direction in radians |
+| `moving` | boolean | True if player is pressing movement keys |
+| `grounded` | boolean | True if player is on the ground |
+
+```lua
+local char = game:GetCharacterData()
+local facingX = math.sin(char.ry)
+local facingZ = math.cos(char.ry)
+if char.moving then
+    print("Player is running")
+end
 ```
 
 ### `game:CreateScreenGui(name)`
@@ -482,20 +520,40 @@ local boolVal   = Instance.new("BoolValue")
 
 | Signal | Fires When |
 |--------|------------|
-| `part.Touched` | Another part touches this part |
+| `part.Touched` | The local player touches this part |
 | `button.MouseButton1Click` | The button is clicked |
 | `sound.Ended` | The sound finishes playing |
 | `player.CharacterAdded` | A Character is assigned to the player |
 
 ```lua
-local part = game.Workspace.Part
-part.Touched:Connect(function(otherPart)
-    print("Touched by:", otherPart.Name)
+-- Anchored part touch (e.g. a teleport pad)
+local pad = workspace:FindFirstChild("TeleportPad")
+pad.Touched:Connect(function(hit)
+    print("Player stepped on the pad!")
 end)
 
 local button = game.StarterGui.ScreenGui.Button
 button.MouseButton1Click:Connect(function()
     print("Button clicked!")
+end)
+```
+
+<a id="touched-unanchored"></a>
+#### Touched Events on Unanchored Parts
+
+Unanchored (physics) parts also support `Touched`. Retrieve the `PartInstance` via `workspace:FindFirstChild` for the signal, and use `game:GetPart` for physics methods.
+
+```lua
+-- Use FindFirstChild for the Touched signal
+local ballInst = workspace:FindFirstChild("PhysicsBall")
+-- Use GetPart for SetVelocity / GetVelocity
+local ball = game:GetPart("PhysicsBall")
+
+ballInst.Touched:Connect(function(hit)
+    local char = game:GetCharacterData()
+    local facingX = math.sin(char.ry)
+    local facingZ = math.cos(char.ry)
+    ball:SetVelocity(facingX * 60, 18, facingZ * 60)
 end)
 ```
 
@@ -1352,7 +1410,46 @@ end
 <a id="examples"></a>
 ## Examples
 
-### Example 1: Simple Respawner
+### Example 1: Teleporter Pads
+
+```lua
+local field1 = workspace:FindFirstChild("Field1")
+local field2 = workspace:FindFirstChild("Field2")
+
+field1.Touched:Connect(function(hit)
+    local pos = game:GetPartPosition("Field2")
+    game:TeleportPlayer(pos.x, pos.y + 5, pos.z)
+end)
+
+field2.Touched:Connect(function(hit)
+    local pos = game:GetPartPosition("Field1")
+    game:TeleportPlayer(pos.x, pos.y + 5, pos.z)
+end)
+```
+
+> **Tip:** Make sure teleporter pads have `Anchored: true` in your map JSON — unanchored parts don't register as static colliders and won't fire `Touched` reliably.
+
+### Example 2: Kickable Physics Ball
+
+```lua
+local ballInst = workspace:FindFirstChild("PhysicsBall")
+local ball = game:GetPart("PhysicsBall")
+
+local KICK_POWER    = 60
+local KICK_UP       = 18
+local MOVING_MULT   = 1.4
+local STANDING_MULT = 0.8
+
+ballInst.Touched:Connect(function(hit)
+    local char = game:GetCharacterData()
+    local facingX = math.sin(char.ry)
+    local facingZ = math.cos(char.ry)
+    local speedMult = char.moving and MOVING_MULT or STANDING_MULT
+    ball:SetVelocity(facingX * KICK_POWER * speedMult, KICK_UP * speedMult, facingZ * KICK_POWER * speedMult)
+end)
+```
+
+### Example 3: Simple Respawner
 
 ```lua
 local function onPlayerJoin(player)
@@ -1374,7 +1471,7 @@ end
 return { onPlayerJoin = onPlayerJoin, onUpdate = onUpdate }
 ```
 
-### Example 2: Team System with Leaderstats
+### Example 4: Team System with Leaderstats
 
 ```lua
 local function onPlayerJoin(player)
@@ -1404,7 +1501,7 @@ end
 return { onPlayerJoin = onPlayerJoin }
 ```
 
-### Example 3: Timed Game Mode with HUD
+### Example 5: Timed Game Mode with HUD
 
 ```lua
 local GAME_DURATION = 300
@@ -1446,7 +1543,7 @@ end
 return { onGameStart = onGameStart, onUpdate = onUpdate }
 ```
 
-### Example 4: Capture the Flag
+### Example 6: Capture the Flag
 
 ```lua
 local FLAG_POS   = { x = 0, y = 3, z = 20 }

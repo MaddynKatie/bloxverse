@@ -1,8 +1,6 @@
 let ws = null;
 let currentUserId = null;
 
-// Replace this with the Render URL once deployed
-// For local testing, use ws://localhost:8080
 const SERVER_URL = 'wss://bloxverse.onrender.com';
 
 export function connectMultiplayer(gameId, userId, username, onPlayerUpdate, onPlayerLeave, onPlayerList, onChatMsg, onPhysicsState) {
