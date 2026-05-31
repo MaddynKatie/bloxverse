@@ -89,6 +89,15 @@ export const clothingItems = [
     category: 'Shirts',
     texturePath: new URL('../assets/clothing/ronaldoShirt.png', import.meta.url).href,
   },
+  {
+    id: 'fadebearhoodie',
+    name: 'Fade Bear Hoodie',
+    description: 'A cozy gradient hoodie with a bear design.',
+    price: 25,
+    author: 'BloxVerse',
+    category: 'Shirts',
+    texturePath: new URL('../assets/clothing/fadeBearHoodie.png', import.meta.url).href,
+  },
 ];
 
 export function getAllClothing() {
