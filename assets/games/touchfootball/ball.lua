@@ -1,7 +1,10 @@
 local ball = game:GetPart("PhysicsBall")
 local ballInst = workspace:FindFirstChild("PhysicsBall")
 
+local BOUNCE = 0.6
 local BASE_KICK_POWER = 30
+
+ball:SetBounciness(BOUNCE)
 local BASE_KICK_UP = 15
 local CHARGED_KICK_POWER = 75
 local CHARGED_KICK_UP = 50

@@ -306,6 +306,12 @@ export function createInstanceProxy(inst) {
                         if (target.mesh && bv?._setPartVelocity) bv._setPartVelocity(target.mesh, vx, vy, vz);
                     };
                 }
+                if (prop === 'SetBounciness') {
+                    return (restitution) => {
+                        const bv = window._bloxverse;
+                        if (target.mesh && bv?._setPartBounciness) bv._setPartBounciness(target.mesh, restitution);
+                    };
+                }
                 if (prop === 'GetVelocity') {
                     return () => {
                         const bv = window._bloxverse;

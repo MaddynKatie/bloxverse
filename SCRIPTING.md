@@ -334,18 +334,6 @@ game:SetPlayerVelocity(30, 100, 0)
 game:SetPlayerVelocity(-50, 0, 20)
 ```
 
-### `game:SetPlayerBodyColor(playerId, hexColor)`
-Change the body color of any player (local or remote) by their player ID. The color persists for the session.
-
-```lua
--- Turn the local player red
-local p = game:GetLocalPlayer()
-game:SetPlayerBodyColor(p.id, "ff4444")
-
--- Turn a joining player blue (inside onPlayerJoin)
-game:SetPlayerBodyColor(player.id, "4444ff")
-```
-
 ### `game:GetCharacterData()`
 Returns a table of the local player's current character state.
 
@@ -1497,26 +1485,23 @@ return { onPlayerJoin = onPlayerJoin, onUpdate = onUpdate }
 ### Example 4: Team System with Leaderstats
 
 ```lua
-local assignTeam
-assignTeam = function(player, teamNumber)
-    player:SetProperty("team", teamNumber)
-    local color = teamNumber == 1 and "ff4444" or "4444ff"
-    game:SetPlayerBodyColor(player.id, color)
-end
+local playerCount = 0
 
 local function onGameStart()
     local p = game:GetLocalPlayer()
     if p then
-        local teamNum = math.random(1, 2)
-        assignTeam(p, teamNum)
+        playerCount = playerCount + 1
+        local teamNum = (playerCount % 2 == 1) and 1 or 2
+        p:SetProperty("team", teamNum)
         local teamName = teamNum == 1 and "Red" or "Blue"
         game:Broadcast("You joined Team " .. teamName)
     end
 end
 
 local function onPlayerJoin(player)
-    local teamNum = math.random(1, 2)
-    assignTeam(player, teamNum)
+    playerCount = playerCount + 1
+    local teamNum = (playerCount % 2 == 1) and 1 or 2
+    player:SetProperty("team", teamNum)
     local teamName = teamNum == 1 and "Red" or "Blue"
     game:Broadcast(player.name .. " joined Team " .. teamName)
 

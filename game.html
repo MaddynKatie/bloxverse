@@ -867,6 +867,7 @@
         set canCollide(v) {},
         SetVelocity(vx, vy, vz) { bv._setPartVelocity(mesh, vx, vy, vz); },
         GetVelocity() { return bv._getPartVelocity(mesh); },
+        SetBounciness(v) { bv._setPartBounciness(mesh, v); },
         SetPosition(x, y, z) { bv._setPartPos(mesh, x, y, z); },
         GetPosition() { return { x: mesh.position.x, y: mesh.position.y, z: mesh.position.z }; },
       };
@@ -1139,9 +1140,6 @@
         },
         SetPlayerVelocity: (vx, vy, vz) => {
           window._bloxverse?.setFlingVelocity?.(vx, vy, vz);
-        },
-        SetPlayerBodyColor: (userId, hexColor) => {
-          window._bloxverse?.setPlayerBodyColor?.(userId, hexColor);
         },
         GetPartPosition: (name) => {
           const parts = window._mapParts || [];

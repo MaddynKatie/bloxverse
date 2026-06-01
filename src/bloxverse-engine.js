@@ -341,7 +341,18 @@ scene.add(sun);
 const physicsWorld = new CANNON.World();
 physicsWorld.gravity.set(0, GRAVITY, 0);
 physicsWorld.defaultContactMaterial.friction = 0.4;
-physicsWorld.defaultContactMaterial.restitution = 0.2;
+
+// Patch solver to use body._bounciness for restitution (bypasses broken material system)
+const origAddEq = physicsWorld.solver.addEquation.bind(physicsWorld.solver);
+physicsWorld.solver.addEquation = function(eq) {
+    if (eq.restitution !== undefined && eq.bi && eq.bj) {
+        const br = eq.bi._bounciness;
+        eq.restitution = typeof br === 'number' ? br : eq.restitution;
+        const br2 = eq.bj._bounciness;
+        eq.restitution = typeof br2 === 'number' ? br2 : eq.restitution;
+    }
+    return origAddEq(eq);
+};
 
 // Track physics bodies synced with mesh
 const physicsBodies = new Map(); // mesh -> { body, anchored, mesh }
@@ -2542,14 +2553,10 @@ window._bloxverse = {
         velY = vy;
         grounded = false;
     },
-    setPlayerBodyColor(userId, hexColor) {
-        if (typeof hexColor === 'string' && !hexColor.startsWith('#')) hexColor = '#' + hexColor;
-        const colors = { Body: hexColor };
-        if (userId === currentUserId) {
-            if (character) _applyColorsToModel(character, colors);
-        } else {
-            const p = otherPlayers.get(userId);
-            if (p && p.mesh) _applyColorsToModel(p.mesh, colors);
+    _setPartBounciness(mesh, restitution) {
+        const entry = physicsBodies.get(mesh);
+        if (entry && entry.body) {
+            entry.body._bounciness = restitution;
         }
     },
     keys,
