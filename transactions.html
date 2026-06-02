@@ -198,16 +198,19 @@
 
         let username = user.displayName || 'Player';
         let bux = 0;
+        let userNum = null;
         try {
           const userDoc = await getDoc(doc(db, 'users', user.uid));
           if (userDoc.exists()) {
             const data = userDoc.data();
             username = data.username || username;
             bux = data.bux || 0;
+            userNum = data.userIdNum;
           }
         } catch {}
 
         const initial = username.charAt(0).toUpperCase();
+        const ownProfileLink = userNum ? `/bloxverse/profile?user=${userNum}` : '/bloxverse/profile';
         navRight.innerHTML = `
           <div class="user-info">
             <div class="bux-wrapper" id="buxWrapper">
@@ -236,7 +239,7 @@
                   <span class="dropdown-name">${username}</span>
                   <span class="dropdown-email">${user.email}</span>
                 </div>
-                <button class="dropdown-item" onclick="window.location.href='/bloxverse/profile'">
+                <button class="dropdown-item" onclick="window.location.href='${ownProfileLink}'">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                   Profile
                 </button>

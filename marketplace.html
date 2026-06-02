@@ -558,16 +558,19 @@
 
         let username = user.displayName || 'Player';
         let bux = 0;
+        let userNum = null;
         try {
           const userDoc = await getDoc(doc(db, 'users', user.uid));
           if (userDoc.exists()) {
             const data = userDoc.data();
             username = data.username || username;
             bux = data.bux || 0;
+            userNum = data.userIdNum;
           }
         } catch {}
 
         const initial = username.charAt(0).toUpperCase();
+        const ownProfileLink = userNum ? `/bloxverse/profile?user=${userNum}` : '/bloxverse/profile';
         navRight.innerHTML = `
           <div class="user-info">
             <div class="bux-wrapper" id="buxWrapper">
@@ -594,7 +597,7 @@
                   <span class="dropdown-name">${username}</span>
                   <span class="dropdown-email">${user.email}</span>
                 </div>
-                <button class="dropdown-item" onclick="window.location.href='/bloxverse/profile'"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Profile</button>
+                <button class="dropdown-item" onclick="window.location.href='${ownProfileLink}'"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Profile</button>
                 <button class="dropdown-item" onclick="window.location.href='/bloxverse/avatar'"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>Avatar</button>
                 <button class="dropdown-item" onclick="window._logout()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Log Out</button>
               </div>

@@ -93,37 +93,66 @@
     </div>
   </div>
 
-  <!-- Settings Modal -->
-  <div id="settingsModal" class="modal-overlay" style="display: none;">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3>Settings</h3>
-        <button id="btnCloseSettings" class="modal-close">×</button>
+  <!-- Pause Menu (ESC) -->
+  <div id="settingsPanel" class="settings-panel">
+    <div class="settings-panel-backdrop" id="settingsPanelBackdrop"></div>
+    <div class="settings-panel-content">
+      <div class="settings-panel-header">
+        <h3>Menu</h3>
+        <div class="settings-header-buttons">
+          <button id="btnResume" class="settings-btn settings-btn-primary">Resume</button>
+          <button id="btnLeaveGame" class="settings-btn settings-btn-danger">Leave</button>
+        </div>
       </div>
-      <div class="modal-body">
-        <div class="setting-row">
-          <label>Camera Sensitivity</label>
-          <div class="setting-control">
-            <input type="range" id="sensSlider" min="0.1" max="3" step="0.1" value="1" />
-            <span id="sensValue">1.0</span>
+      <div class="settings-tabs">
+        <button class="settings-tab active" data-tab="people">People</button>
+        <button class="settings-tab" data-tab="settings">Settings</button>
+        <button class="settings-tab" data-tab="report">Report</button>
+      </div>
+      <div class="settings-panel-body">
+        <div class="settings-tab-content active" id="tabPeople">
+          <div class="people-list" id="peopleList"></div>
+        </div>
+        <div class="settings-tab-content" id="tabSettings">
+          <div class="setting-row">
+            <label>Camera Sensitivity</label>
+            <div class="setting-control">
+              <input type="range" id="sensSlider" min="0.1" max="3" step="0.1" value="1" />
+              <span id="sensValue">1.0</span>
+            </div>
+          </div>
+          <div class="setting-row">
+            <label>Shift Lock</label>
+            <div class="setting-control">
+              <label class="toggle-switch">
+                <input type="checkbox" id="shiftlockToggle" checked />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
           </div>
         </div>
-        <div class="setting-row">
-          <label>Shift Lock</label>
-          <div class="setting-control">
-            <label class="toggle-switch">
-              <input type="checkbox" id="shiftlockToggle" checked />
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
-        </div>
-        <div class="setting-row" id="profanitySettingRow" style="display: none;">
-          <label>Chat Filter</label>
-          <div class="setting-control">
-            <label class="toggle-switch">
-              <input type="checkbox" id="profanityToggle" checked />
-              <span class="toggle-slider"></span>
-            </label>
+        <div class="settings-tab-content" id="tabReport">
+          <div class="report-form">
+            <div class="report-field">
+              <label>Player</label>
+              <select id="reportPlayerSelect"><option value="">Select a player...</option></select>
+            </div>
+            <div class="report-field">
+              <label>Reason</label>
+              <select id="reportReasonSelect">
+                <option value="Harassment">Harassment</option>
+                <option value="Cheating">Cheating / Exploiting</option>
+                <option value="Inappropriate">Inappropriate Content</option>
+                <option value="Spam">Spam</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div class="report-field">
+              <label>Details</label>
+              <textarea id="reportDescription" placeholder="Describe what happened..." rows="4"></textarea>
+            </div>
+            <button id="btnSubmitReport" class="settings-btn settings-btn-danger" style="width:100%;padding:10px;">Submit Report</button>
+            <div id="reportStatus" style="margin-top:8px;font-size:13px;text-align:center;"></div>
           </div>
         </div>
       </div>
@@ -148,7 +177,7 @@
   <script type="module">
     import * as THREE from 'three';
     import { games } from './src/games.js';
-    import { auth, db, getDoc, doc, setDoc, incrementGameVisits, rewardUniqueVisit, getFollowing, followUser, unfollowUser, getUserProfile, calculateAge, addTrustedFriend, removeTrustedFriend, checkBan, getRoles, banGuard, trackPresence, onSnapshot, collection } from './src/firebase.js';
+    import { auth, db, getDoc, doc, setDoc, incrementGameVisits, rewardUniqueVisit, getFollowing, followUser, unfollowUser, getUserProfile, calculateAge, addTrustedFriend, removeTrustedFriend, checkBan, getRoles, banGuard, trackPresence, onSnapshot, collection, assignUserIdNum, submitReport } from './src/firebase.js';
     import { connectMultiplayer, sendLocalTransform, sendPhysicsState, disconnectMultiplayer, sendChat } from './src/multiplayer.js';
     import { onFriendRequests, sendFriendRequest as dbSendFriendRequest, acceptFriendRequest as dbAcceptFriendRequest, declineFriendRequest as dbDeclineFriendRequest, removeFriend } from './src/friends.js';
     import { executeScript, loadScriptsFromStorage, createInstanceProxy } from './src/scriptRuntime.js';
@@ -165,10 +194,8 @@
       fuzzyToleranceLevel: 0.8
     });
 
-    let _profanityFilterEnabled = true;
-
     function filterProfanity(text) {
-      if (!_profanityFilterEnabled || !text) return text;
+      if (!text) return text;
       const result = _profanityCheck.checkProfanity(text);
       if (!result.containsProfanity) return text;
 
@@ -192,7 +219,7 @@
         'z': '[zZ2\u0240]'
       };
 
-      result.profaneWords.forEach(word => {
+      result.profaneWords.filter(w => w.length >= 3).forEach(word => {
         const pattern = word.split('').map(c => {
           const l = c.toLowerCase();
           return (leetMap[l] || l) + '[\\s._\\-*]*';
@@ -247,7 +274,7 @@
     const chatInput = document.getElementById('chatInput');
     const btnSendChat = document.getElementById('btnSendChat');
     const btnChatToggle = document.getElementById('btnChat');
-    const settingsModal = document.getElementById('settingsModal');
+    const settingsPanel = document.getElementById('settingsPanel');
     const friendRequestToastContainer = document.getElementById('friendRequestToastContainer');
     const activeFriendRequestToasts = new Map();
     let friendRequestUnsubscribe = null;
@@ -379,8 +406,19 @@
     function appendChatMessage(data) {
       if (!data.system && data.message.startsWith('TT|')) return;
       if (!data.system && data.message.startsWith('/resetparts')) {
-        if (window._bloxverse) window._bloxverse.resetParts();
+        if (window._bloxverse) {
+          const resetState = window._bloxverse.resetParts();
+          if (resetState && resetState.length > 0) sendPhysicsState(resetState);
+        }
         return;
+      }
+      // Apply profanity filter for non-trusted friends
+      let displayMessage = data.message;
+      const isTrustedSender = !data.system && data.userId &&
+        currentUserTrustedFriends.has(data.userId) &&
+        (_playerTrustedFriends.get(data.userId)?.has(auth.currentUser?.uid) ?? false);
+      if (!data.system && data.userId && !isTrustedSender) {
+        displayMessage = filterProfanity(data.message);
       }
       const msgEl = document.createElement('div');
       msgEl.className = 'chat-message';
@@ -393,10 +431,10 @@
         const nameHtml = isDev
           ? `<span class="chat-username-dev">${data.username}</span>`
           : `<span class="chat-username" style="color:${userColor}">${data.username}</span>`;
-        msgEl.innerHTML = `${nameHtml}<span style="color:white"> : </span><span class="chat-text">${data.message}</span>`;
-        // Show Roblox-style chat bubble above player
+        const trustIcon = isTrustedSender ? '<span class="chat-trusted-icon" title="Trusted friend"><i class="fa-solid fa-shield-halved"></i></span>' : '';
+        msgEl.innerHTML = `${nameHtml}<span style="color:white"> : </span>${trustIcon}<span class="chat-text">${displayMessage}</span>`;
         if (window._bloxverse && data.userId) {
-          window._bloxverse.showBubble(data.userId, data.message);
+          window._bloxverse.showBubble(data.userId, displayMessage);
         }
       }
       chatMessages.appendChild(msgEl);
@@ -421,15 +459,8 @@
           const resetState = window._bloxverse.resetParts();
           if (resetState && resetState.length > 0) sendPhysicsState(resetState);
         }
-        // 13+ users always send original; receiver decides what to show
-        const profanityToggle = document.getElementById('profanityToggle');
-        const filterEnabled = profanityToggle ? profanityToggle.checked : true;
-
-        if (currentUserAge >= 13 && !filterEnabled) {
-          sendChat(val, username, userId, true);
-        } else {
-          sendChat(filterProfanity(val), username, userId, false);
-        }
+        // Always send raw message; receiver decides what to show based on trusted friends
+        sendChat(val, username, userId, true);
         chatInput.value = '';
         chatInput.blur();
       }
@@ -447,7 +478,11 @@
     const btnFriendRequest = document.getElementById('btnFriendRequest');
     const btnFollow = document.getElementById('btnFollow');
     const _playerUsernames = new Map(); // userId -> username
+    const _playerUserIds = new Map(); // userId -> userIdNum
+    const _fetchedAvatarPlayers = new Set(); // userIds whose avatar data we've fetched
+    const _playerTrustedFriends = new Map(); // userId -> Set of trusted userIds
     const _playerRoles = new Map();     // userId -> role
+    let _currentPlayerList = []; // current remote players from server
     let _selectedPlayerId = null;
 
     async function renderLeaderboard(players) {
@@ -460,6 +495,7 @@
       const rolePromises = [];
       for (const p of players) {
         _playerUsernames.set(p.userId, p.username);
+        if (p.userIdNum) _playerUserIds.set(p.userId, p.userIdNum);
         if (!_playerRoles.has(p.userId)) {
           rolePromises.push((async () => {
             const roles = await getRoles(p.userId);
@@ -471,9 +507,9 @@
       if (rolePromises.length > 0) await Promise.all(rolePromises);
 
       const ROLE_ICONS = {
-        developer: `<i class="fa-solid fa-code" style="color: #ffffff; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
-        admin:     `<i class="fa-solid fa-shield-halved" style="color: #ffffff; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
-        mod:       `<i class="fa-solid fa-gavel" style="color: #ffffff; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
+        developer: `<i class="fa-solid fa-code" style="color: #44d9e6; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
+        admin:     `<i class="fa-solid fa-shield-halved" style="color: #ff4444; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
+        mod:       `<i class="fa-solid fa-gavel" style="color: #facc15; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
       };
 
       lbList.innerHTML = players.map(p => {
@@ -521,10 +557,20 @@
       if (e.target === playerMenu) hidePlayerMenu();
     });
 
-    btnViewProfile.addEventListener('click', () => {
+    btnViewProfile.addEventListener('click', async () => {
       if (_selectedPlayerId) {
-        const username = _playerUsernames.get(_selectedPlayerId);
-        window.open(`profile?user=${encodeURIComponent(_selectedPlayerId)}`, '_blank');
+        let num = _playerUserIds?.get(_selectedPlayerId);
+        if (!num) {
+          try {
+            const uDoc = await getDoc(doc(db, 'users', _selectedPlayerId));
+            if (uDoc.exists()) {
+              num = uDoc.data().userIdNum;
+              if (!_playerUserIds) _playerUserIds = new Map();
+              _playerUserIds.set(_selectedPlayerId, num);
+            }
+          } catch {}
+        }
+        window.open(`profile?user=${encodeURIComponent(num || _selectedPlayerId)}`, '_blank');
         hidePlayerMenu();
       }
     });
@@ -536,10 +582,8 @@
         try {
           await removeFriend(auth.currentUser.uid, _selectedPlayerId);
           currentUserFriends.delete(_selectedPlayerId);
-          appendChatMessage({ system: true, message: `You are no longer friends with ${targetName}.` });
         } catch (e) {
-          console.error('Error removing friend', e);
-          appendChatMessage({ system: true, message: `Unable to remove ${targetName} as friend.` });
+          console.error('Unable to remove friend', e);
         }
       } else {
         await sendFriendRequest(auth.currentUser.uid, _selectedPlayerId, targetName);
@@ -555,7 +599,7 @@
       }
     });
 
-    const uiClickContainers = [chatContainer, playerMenu, document.querySelector('.top-bar'), document.querySelector('.leaderboard'), settingsModal];
+    const uiClickContainers = [chatContainer, playerMenu, document.querySelector('.top-bar'), document.querySelector('.leaderboard'), settingsPanel];
     uiClickContainers.forEach((container) => {
       if (!container) return;
       container.addEventListener('pointerdown', (e) => { if (!e._bloxverseCustomCursor) exitPointerLockIfNeeded(); });
@@ -565,7 +609,7 @@
     document.addEventListener('mousedown', (e) => {
       if (!document.pointerLockElement) return;
       if (e._bloxverseCustomCursor || window._bloxverseCustomCursorEvent) return;
-      if (e.target.closest('.chat-container, .modal-overlay, .leaderboard, .player-menu, .top-bar')) {
+      if (e.target.closest('.chat-container, .settings-panel, .leaderboard, .player-menu, .top-bar')) {
         document.exitPointerLock();
       }
     });
@@ -631,17 +675,14 @@
         if (isAlreadyTrusted) {
           await removeTrustedFriend(auth.currentUser.uid, _selectedPlayerId);
           currentUserTrustedFriends.delete(_selectedPlayerId);
-          appendChatMessage({ system: true, message: `Removed trusted status.` });
         } else {
           await addTrustedFriend(auth.currentUser.uid, _selectedPlayerId);
           currentUserTrustedFriends.add(_selectedPlayerId);
-          appendChatMessage({ system: true, message: `Player added to trusted friends. Chats are now unfiltered.` });
         }
         checkTrustedStatus(_selectedPlayerId);
         hidePlayerMenu();
       } catch (e) {
         console.error('Error toggling trusted friend', e);
-        appendChatMessage({ system: true, message: `Unable to update trusted status.` });
       }
     });
 
@@ -655,10 +696,8 @@
     async function sendFriendRequest(fromUserId, toUserId, toUsername) {
       try {
         await dbSendFriendRequest(fromUserId, toUserId, toUsername);
-        appendChatMessage({ system: true, message: `Friend request sent to ${toUsername}.` });
       } catch (e) {
         console.error('Error sending friend request', e);
-        appendChatMessage({ system: true, message: `Unable to send friend request to ${toUsername}.` });
       }
     }
 
@@ -743,10 +782,6 @@
       if (saved.shiftLock != null) {
         shiftlockToggle.checked = saved.shiftLock;
       }
-      if (saved.chatFilter != null) {
-        const profToggle = document.getElementById('profanityToggle');
-        if (profToggle) profToggle.checked = saved.chatFilter;
-      }
     } catch (_) {}
 
     function saveSetting(key, val) {
@@ -757,19 +792,177 @@
       } catch (_) {}
     }
 
-    const profanityToggle = document.getElementById('profanityToggle');
-    profanityToggle?.addEventListener('change', () => {
-      saveSetting('chatFilter', profanityToggle.checked);
-    });
-
-    btnSettings.addEventListener('click', () => {
-      settingsModal.style.display = 'flex';
+    function openSettings() {
+      settingsPanel.classList.add('open');
+      renderPeopleTab();
       if (document.pointerLockElement && !window._bloxverseCustomCursorEvent) document.exitPointerLock();
+    }
+
+    function closeSettings() {
+      settingsPanel.classList.remove('open');
+      if (window._bloxverse) window._bloxverse.requestLock();
+    }
+
+    btnSettings.addEventListener('click', openSettings);
+
+    document.getElementById('btnResume').addEventListener('click', closeSettings);
+
+    document.getElementById('btnLeaveGame').addEventListener('click', () => {
+      disconnectMultiplayer();
+      window.location.href = '/bloxverse/';
     });
 
-    btnCloseSettings.addEventListener('click', () => {
-      settingsModal.style.display = 'none';
-      if (window._bloxverse) window._bloxverse.requestLock();
+    document.querySelectorAll('.settings-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.settings-tab-content').forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        const content = document.getElementById('tab' + tab.dataset.tab.charAt(0).toUpperCase() + tab.dataset.tab.slice(1));
+        if (content) content.classList.add('active');
+        if (tab.dataset.tab === 'people') renderPeopleTab();
+      });
+    });
+
+    function renderPeopleTab() {
+      const list = document.getElementById('peopleList');
+      const localUserId = auth.currentUser?.uid;
+      const localUsername = _currentUsername || auth.currentUser?.displayName || 'Player';
+      
+      const rows = [];
+      
+      if (localUserId) {
+        const localRoles = _playerRoles.get(localUserId) || [];
+        rows.push(buildPlayerRow(localUserId, localUsername, 'You', localRoles, false, true));
+      }
+      
+      for (const p of _currentPlayerList) {
+        if (p.userId === localUserId) continue;
+        const roles = _playerRoles.get(p.userId) || [];
+        const isFriend = currentUserFriends.has(p.userId);
+        rows.push(buildPlayerRow(p.userId, p.username, '', roles, isFriend, false));
+      }
+      
+      list.innerHTML = rows.join('');
+      
+      // Click name to open player menu
+      list.querySelectorAll('.people-item-left').forEach(el => {
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          closeSettings();
+          const item = el.closest('.people-item');
+          showPlayerMenu(item.dataset.userId, item.dataset.username);
+        });
+      });
+      
+      // Friend buttons
+      list.querySelectorAll('.people-btn-friend').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const userId = btn.dataset.userId;
+          const username = btn.dataset.username;
+          if (btn.dataset.state === 'sent') return;
+          btn.textContent = 'Sent';
+          btn.dataset.state = 'sent';
+          btn.classList.add('sent');
+          await sendFriendRequest(auth.currentUser.uid, userId, username);
+        });
+      });
+    }
+
+    function buildPlayerRow(userId, username, label, roles, isFriend, isSelf) {
+      const ROLE_ICONS = {
+        developer: `<i class="fa-solid fa-code" style="color: #44d9e6; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
+        admin:     `<i class="fa-solid fa-shield-halved" style="color: #ff4444; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
+        mod:       `<i class="fa-solid fa-gavel" style="color: #facc15; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
+      };
+      const badges = roles.map(r => ROLE_ICONS[r] || '').join('');
+      const labelHtml = label ? `<span class="people-label">${label}</span>` : '';
+      
+      let actions = '';
+      if (!isSelf) {
+        if (!isFriend) {
+          actions += `<button class="people-btn people-btn-friend" data-user-id="${userId}" data-username="${username}" data-state="add">+ Friend</button>`;
+        }
+        actions += `<button class="people-btn people-btn-report" data-user-id="${userId}" data-username="${username}">Report</button>`;
+      }
+      
+      return `<div class="people-item" data-user-id="${userId}" data-username="${username}">
+        <div class="people-item-left">${badges}<span class="people-name">${username}</span>${labelHtml}</div>
+        <div class="people-item-right">${actions}</div>
+      </div>`;
+    }
+
+    // Report tab logic
+    document.getElementById('btnSubmitReport').addEventListener('click', async () => {
+      const playerSelect = document.getElementById('reportPlayerSelect');
+      const reasonSelect = document.getElementById('reportReasonSelect');
+      const description = document.getElementById('reportDescription');
+      const status = document.getElementById('reportStatus');
+      
+      if (!playerSelect.value) { status.textContent = 'Please select a player.'; status.style.color = '#f87171'; return; }
+      if (!description.value.trim()) { status.textContent = 'Please provide details.'; status.style.color = '#f87171'; return; }
+      
+      status.textContent = 'Submitting...';
+      status.style.color = '#9ca3af';
+      
+      const ok = await submitReport(auth.currentUser?.uid, playerSelect.value, reasonSelect.value, description.value.trim());
+      if (ok) {
+        status.textContent = 'Report submitted.';
+        status.style.color = '#4ade80';
+        playerSelect.value = '';
+        reasonSelect.value = 'Harassment';
+        description.value = '';
+      } else {
+        status.textContent = 'Failed to submit report.';
+        status.style.color = '#f87171';
+      }
+    });
+
+    // Populate report player select when tab is opened
+    document.querySelector('[data-tab="report"]').addEventListener('click', () => {
+      const select = document.getElementById('reportPlayerSelect');
+      const localUserId = auth.currentUser?.uid;
+      select.innerHTML = '<option value="">Select a player...</option>';
+      for (const p of _currentPlayerList) {
+        if (p.userId === localUserId) continue;
+        const opt = document.createElement('option');
+        opt.value = p.userId;
+        opt.textContent = p.username;
+        select.appendChild(opt);
+      }
+    });
+
+    document.getElementById('settingsPanelBackdrop').addEventListener('click', closeSettings);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        // Close chat first if open
+        if (chatContainer.classList.contains('visible')) {
+          chatContainer.classList.remove('visible');
+          chatInput.blur();
+          return;
+        }
+        if (settingsPanel.classList.contains('open')) {
+          closeSettings();
+        } else if (!document.pointerLockElement) {
+          // Pointer lock already inactive — open settings directly
+          openSettings();
+        }
+        // If pointer lock is active, the browser will exit it on ESC and
+        // pointerlockchange will open settings
+      }
+    });
+
+    // Permanently hide the click-to-play overlay and open settings on pointer lock exit
+    const clickOverlay = document.getElementById('overlay');
+    if (clickOverlay) clickOverlay.style.display = 'none';
+    document.addEventListener('pointerlockchange', () => {
+      const o = document.getElementById('overlay');
+      if (o) o.style.display = 'none';
+      // Open settings when pointer lock is lost (ESC press, etc.)
+      if (!document.pointerLockElement && !settingsPanel.classList.contains('open') && !chatContainer.classList.contains('visible') && window._bloxverse?.getCharacter?.()) {
+        openSettings();
+      }
     });
 
     sensSlider.addEventListener('input', (e) => {
@@ -1065,9 +1258,9 @@
             `<span style="margin-left:8px;color:#babbbe;font-size:11px;">${stats[col] ?? ''}</span>`
           ).join('');
           const roleIcons = (_playerRoles.get(uid) || []).map(r => ({
-            developer: `<i class="fa-solid fa-code" style="color:#fff;font-size:14px;margin-right:6px;opacity:0.85;"></i>`,
-            admin: `<i class="fa-solid fa-shield-halved" style="color:#fff;font-size:14px;margin-right:6px;opacity:0.85;"></i>`,
-            mod: `<i class="fa-solid fa-gavel" style="color:#fff;font-size:14px;margin-right:6px;opacity:0.85;"></i>`,
+            developer: `<i class="fa-solid fa-code" style="color:#44d9e6;font-size:14px;margin-right:6px;opacity:0.85;"></i>`,
+            admin: `<i class="fa-solid fa-shield-halved" style="color:#ff4444;font-size:14px;margin-right:6px;opacity:0.85;"></i>`,
+            mod: `<i class="fa-solid fa-gavel" style="color:#facc15;font-size:14px;margin-right:6px;opacity:0.85;"></i>`,
           }[r] || '')).join('');
           return `<div class="leaderboard-item" data-user-id="${uid}" style="justify-content:space-between;">
             <div style="display:flex;align-items:center;">${roleIcons}<span class="lb-name">${p.username ?? p.name ?? uid}</span></div>
@@ -1295,7 +1488,8 @@
             const api = {
               game: Object.assign(gameRoot, makeGameAPI()),
               onOutput: (msg, type) => {
-                const prefix = type === 'error' ? '⚠️' : type === 'warn' ? '⚡' : '📜';
+                if (type === 'info') return; // print() → console only, not chat
+                const prefix = type === 'error' ? '⚠️' : '⚡';
                 chatContainer.classList.add('visible');
                 appendChatMessage({ system: true, message: `${prefix} ${msg}` });
               }
@@ -1376,26 +1570,24 @@
 
                 const presence = trackPresence(user.uid, gameId);
                 await loadCurrentUserFriends(user.uid);
+                // Ensure existing users get a userIdNum
+                assignUserIdNum(user.uid).catch(() => {});
 
                 if (window._bloxverse) {
                   window._bloxverse.setCurrentUserId(user.uid);
                 }
 
                 let username = 'Player';
+                let currentUserIdNum = null;
                 try {
                   const profile = await getUserProfile(user.uid);
                   if (profile) {
                     username = profile.username || user.displayName || 'Player';
                     _currentUsername = username;
-                    if (typeof profile.profanityFilter === 'boolean') {
-                      _profanityFilterEnabled = profile.profanityFilter;
-                    }
+                    currentUserIdNum = profile.userIdNum || null;
                     currentUserAge = calculateAge(profile.birthday);
                     currentUserTrustedFriends = new Set(profile.trustedFriends || []);
-                    const profRow = document.getElementById('profanitySettingRow');
-                    if (profRow && currentUserAge >= 13) {
-                      profRow.style.display = 'flex';
-                    }
+                    getRoles(user.uid).then(r => _playerRoles.set(user.uid, r)).catch(() => {});
                   }
                 } catch (e) {
                   console.error('Error loading user settings', e);
@@ -1439,26 +1631,25 @@
                   (id) => {
                     if (window._bloxverse) window._bloxverse.removeOtherPlayer(id);
                     _knownPlayerIds.delete(id);
+                    _fetchedAvatarPlayers.delete(id);
+                    _playerTrustedFriends.delete(id);
                     const playerObj = getCurrentPlayers().find(p => p.id === id) || makePlayerObj(id, _playerUsernames.get(id) || 'Player');
                     for (const ex of scriptExports) {
                       try { ex.onPlayerLeave?.(playerObj); } catch (e) { console.error('[Script] onPlayerLeave error:', e); }
                     }
                   },
-                  async (players) => {
-                    renderLeaderboard(players);
+                  (players) => {
+                    _currentPlayerList = players;
                     for (const p of players) {
-                      if (!_knownPlayerIds.has(p.userId)) {
-                        _knownPlayerIds.add(p.userId);
-                        const playerObj = makePlayerObj(p.userId, p.username);
-                        for (const ex of scriptExports) {
-                          try { ex.onPlayerJoin?.(playerObj); } catch (e) { console.error('[Script] onPlayerJoin error:', e); }
-                        }
-                        // Fetch and sync avatar data for new players
-                        try {
-                          const avatarSnap = await getDoc(doc(db, 'users', p.userId));
-                          if (avatarSnap.exists()) {
-                            const ad = avatarSnap.data();
-                            if ((ad.avatarColors || ad.avatarClothing || ad.avatarAccessories) && window._bloxverse) {
+                      _playerUsernames.set(p.userId, p.username);
+                      _playerUserIds.set(p.userId, p.userIdNum);
+                      // Fetch avatar data for remote players once
+                      if (p.userId !== user.uid && !_fetchedAvatarPlayers.has(p.userId)) {
+                        _fetchedAvatarPlayers.add(p.userId);
+                        getDoc(doc(db, 'users', p.userId)).then(snap => {
+                          if (snap.exists() && window._bloxverse) {
+                            const ad = snap.data();
+                            if (ad.avatarColors || ad.avatarClothing || ad.avatarAccessories) {
                               window._bloxverse._setPlayerAvatarData(p.userId, {
                                 colors: ad.avatarColors || {},
                                 clothing: ad.avatarClothing || null,
@@ -1466,32 +1657,23 @@
                                 face: ad.avatarFace,
                               });
                             }
+                            // Cache this player's trusted friends for mutual trust check
+                            if (ad.trustedFriends) {
+                              _playerTrustedFriends.set(p.userId, new Set(ad.trustedFriends));
+                            }
                           }
-                        } catch (e) {
-                          console.error('[Avatar] Error fetching for', p.userId, e);
-                        }
+                        }).catch(() => {});
                       }
                     }
+                    renderLeaderboard(players);
                   },
-                  (chatData) => {
-                    if (chatData.unfiltered) {
-                      const isOwnMessage = chatData.userId === auth.currentUser?.uid;
-                      const receiverTrustsSender = currentUserAge >= 13 && currentUserTrustedFriends.has(chatData.userId);
-                      const profToggle = document.getElementById('profanityToggle');
-                      const filterAnyway = profToggle ? profToggle.checked : true;
-                      if (isOwnMessage || (receiverTrustsSender && !filterAnyway)) {
-                        appendChatMessage(chatData);
-                      } else {
-                        appendChatMessage({ ...chatData, message: filterProfanity(chatData.message) });
-                      }
-                    } else {
-                      appendChatMessage(chatData);
-                    }
-                    dispatchScriptChat(chatData);
+                  (data) => {
+                    appendChatMessage(data);
                   },
                   (userId, bodies) => {
-                    if (window._bloxverse) window._bloxverse.applyPhysicsState(userId, bodies);
-                  }
+                    if (window._bloxverse) window._bloxverse.updatePhysicsBodies(userId, bodies);
+                  },
+                  currentUserIdNum
                 );
 
                 window._mpUpdate = (dt) => {

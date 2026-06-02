@@ -1,4 +1,4 @@
-import { auth, db, banGuard } from './firebase.js';
+import { auth, db, banGuard, isUsernameTaken, assignUserIdNum } from './firebase.js';
 import { sitePath } from './paths.js';
 import {
   createUserWithEmailAndPassword,
@@ -6,7 +6,7 @@ import {
   updateProfile,
   onAuthStateChanged
 } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, runTransaction } from 'firebase/firestore';
 import { ProfanityFilter } from 'glin-profanity';
 
 const _filter = new ProfanityFilter({ leetspeakLevel: 'aggressive', normalizeUnicode: true });
@@ -112,6 +112,15 @@ document.getElementById('signupForm')?.addEventListener('submit', async (e) => {
     return;
   }
 
+  // Check if username is already taken
+  if (await isUsernameTaken(username)) {
+    errorEl.textContent = 'This username is already taken. Please choose another.';
+    errorEl.classList.add('visible');
+    btn.disabled = false;
+    btn.textContent = 'Sign Up';
+    return;
+  }
+
   btn.disabled = true;
   btn.textContent = 'Creating account...';
 
@@ -129,6 +138,8 @@ document.getElementById('signupForm')?.addEventListener('submit', async (e) => {
         lastDailyClaim: '',
         createdAt: new Date().toISOString(),
       });
+      // Assign sequential userIdNum
+      await assignUserIdNum(cred.user.uid);
 
     const successEl = document.getElementById('authSuccess');
     successEl.textContent = 'Account created! Redirecting...';

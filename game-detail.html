@@ -350,7 +350,7 @@
   <script src="https://upload-widget.cloudinary.com/global/all.js" type="text/javascript"></script>
   <script type="module">
     import { games, findGameAsync } from './src/games.js';
-    import { auth, trackPresence, deleteGame, updateGame, banGuard, db, doc, onSnapshot } from './src/firebase.js';
+    import { auth, trackPresence, deleteGame, updateGame, banGuard, db, doc, getDoc, onSnapshot, assignUserIdNum } from './src/firebase.js';
     import { onAuthStateChanged } from 'firebase/auth';
 
     const params = new URLSearchParams(window.location.search);
@@ -397,6 +397,20 @@
       if (game.authorName) {
         metaAuthor.textContent = game.authorName;
         metaAuthor.style.color = '#00b06f';
+        metaAuthor.style.cursor = 'pointer';
+        // Look up author's userIdNum for profile link
+        (async () => {
+          try {
+            if (game.authorId) {
+              const uDoc = await getDoc(doc(db, 'users', game.authorId));
+              if (uDoc.exists() && uDoc.data().userIdNum) {
+                metaAuthor.onclick = () => { window.location.href = '/bloxverse/profile?user=' + uDoc.data().userIdNum; };
+                return;
+              }
+            }
+          } catch {}
+          metaAuthor.onclick = () => { window.location.href = '/bloxverse/profile?user=' + (game.authorId || ''); };
+        })();
       }
 
       _gameAuthorId = game.authorId || null;

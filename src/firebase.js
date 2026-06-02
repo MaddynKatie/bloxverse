@@ -1,7 +1,7 @@
 import { sitePath } from './paths.js';
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore, doc, setDoc, updateDoc, getDoc, deleteDoc, onSnapshot, serverTimestamp, arrayUnion, arrayRemove, increment, collection, getDocs, query, where } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, updateDoc, getDoc, deleteDoc, onSnapshot, serverTimestamp, arrayUnion, arrayRemove, increment, collection, getDocs, query, where, runTransaction } from 'firebase/firestore';
 import { ProfanityFilter } from 'glin-profanity';
 
 const _filter = new ProfanityFilter({
@@ -131,18 +131,31 @@ export async function banGuard(userId) {
     window.location.href = sitePath('ban.html');
     return true;
   }
-  return false;
+    return false;
+}
+
+export async function submitReport(reporterId, reportedId, reason, description) {
+  try {
+    await setDoc(doc(collection(db, 'reports')), {
+      reporterId,
+      reportedId,
+      reason,
+      description,
+      createdAt: serverTimestamp(),
+      status: 'pending'
+    });
+    return true;
+  } catch (e) {
+    console.error('Error submitting report:', e);
+    return false;
+  }
 }
 
 export function listenBux(userId, callback) {
-  const userRef = doc(db, 'users', userId);
-  return onSnapshot(userRef, (snap) => {
-    if (snap.exists()) {
-      callback(snap.data()?.bux || 0);
-    } else {
-      callback(0);
-    }
-  });
+  return onSnapshot(doc(db, 'users', userId), (snap) => {
+    const data = snap.data();
+    if (data && typeof data.bux === 'number') callback(data.bux);
+  }, (err) => console.warn('listenBux error:', err));
 }
 
 export async function setBux(userId, amount) {
@@ -524,5 +537,77 @@ export async function removeTrustedFriend(userId, friendId) {
   } catch (e) {
     console.error('Error removing trusted friend:', e);
     throw e;
+  }
+}
+
+/**
+ * Assigns a sequential userIdNum to a user if they don't already have one.
+ * Uses a Firestore transaction for atomic increment.
+ * Also creates a userIds/{num} lookup document for reverse lookup.
+ * Returns the assigned userIdNum.
+ */
+export async function assignUserIdNum(uid) {
+  // Quick pre-check to avoid transaction overhead
+  const preCheck = await getDoc(doc(db, 'users', uid));
+  if (preCheck.exists() && preCheck.data().userIdNum) {
+    return preCheck.data().userIdNum;
+  }
+
+  const counterRef = doc(db, 'counters', 'userIdNum');
+  const userRef = doc(db, 'users', uid);
+
+  try {
+    return await runTransaction(db, async (transaction) => {
+      const userSnap = await transaction.get(userRef);
+      if (userSnap.exists() && userSnap.data().userIdNum) {
+        return userSnap.data().userIdNum;
+      }
+
+      const counterSnap = await transaction.get(counterRef);
+      let nextNum = 1;
+      if (counterSnap.exists()) {
+        nextNum = (counterSnap.data().current || 0) + 1;
+      }
+
+      transaction.set(counterRef, { current: nextNum }, { merge: true });
+      transaction.set(userRef, { userIdNum: nextNum }, { merge: true });
+      transaction.set(doc(db, 'userIds', String(nextNum)), { uid });
+
+      return nextNum;
+    });
+  } catch (e) {
+    console.error('Error assigning userIdNum:', e);
+    return null;
+  }
+}
+
+/**
+ * Resolves a profile identifier to a Firebase Auth UID.
+ * If the input is a numeric string, looks up via userIds/{num}.
+ * Otherwise assumes it's already a UID.
+ */
+export async function resolveProfileUser(profileUserId) {
+  if (!profileUserId) return null;
+  if (/^\d+$/.test(profileUserId)) {
+    const lookup = await getDoc(doc(db, 'userIds', profileUserId));
+    if (lookup.exists()) {
+      return lookup.data().uid;
+    }
+    return null;
+  }
+  return profileUserId;
+}
+
+/**
+ * Checks if a username is already taken by another user.
+ */
+export async function isUsernameTaken(username) {
+  try {
+    const q = query(collection(db, 'users'), where('username', '==', username));
+    const snap = await getDocs(q);
+    return !snap.empty;
+  } catch (e) {
+    console.error('Error checking username:', e);
+    return false;
   }
 }

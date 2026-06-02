@@ -3,9 +3,9 @@ let currentUserId = null;
 
 const SERVER_URL = 'wss://bloxverse.onrender.com';
 
-export function connectMultiplayer(gameId, userId, username, onPlayerUpdate, onPlayerLeave, onPlayerList, onChatMsg, onPhysicsState) {
+export function connectMultiplayer(gameId, userId, username, onPlayerUpdate, onPlayerLeave, onPlayerList, onChatMsg, onPhysicsState, userIdNum) {
   currentUserId = userId;
-  const url = `${SERVER_URL}?gameId=${gameId}&userId=${userId}&username=${encodeURIComponent(username)}`;
+  const url = `${SERVER_URL}?gameId=${gameId}&userId=${userId}&username=${encodeURIComponent(username)}${userIdNum ? `&userIdNum=${userIdNum}` : ''}`;
 
   ws = new WebSocket(url);
 

@@ -177,9 +177,9 @@
       margin-left: 8px;
       opacity: 0.9;
     }
-    .role-badge.developer { }
-    .role-badge.admin     { }
-    .role-badge.mod       { }
+    .role-badge.developer { color: #44d9e6; }
+    .role-badge.admin     { color: #ff4444; }
+    .role-badge.mod       { color: #facc15; }
     .profile-info h1 { display:flex; align-items:center; flex-wrap:wrap; gap:0; }
   </style>
 </head>
@@ -202,14 +202,13 @@
   <div class="profile-page" id="profilePage"></div>
 
   <script type="module">
-    import { auth, db, calculateAge, addTrustedFriend, removeTrustedFriend, getRoles, banGuard } from './src/firebase.js';
+    import { auth, db, calculateAge, addTrustedFriend, removeTrustedFriend, getRoles, banGuard, resolveProfileUser, assignUserIdNum } from './src/firebase.js';
     import { onAuthStateChanged, signOut } from 'firebase/auth';
     import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 
     const navRight = document.getElementById('navRight');
     const profilePage = document.getElementById('profilePage');
     const urlParams = new URLSearchParams(window.location.search);
-    const profileUserId = urlParams.get('user');
 
     onAuthStateChanged(auth, async (user) => {
       if (!user) {
@@ -227,7 +226,10 @@
       });
       // ──────────────────────────────────────────────────────────────
 
-      const viewingUserId = profileUserId || user.uid;
+      // Resolve profile view target: handle numeric userIdNum or UID
+      const rawTarget = urlParams.get('user');
+      const resolvedUid = await resolveProfileUser(rawTarget);
+      const viewingUserId = resolvedUid || user.uid;
       const isOwnProfile = viewingUserId === user.uid;
 
       const userDoc = await getDoc(doc(db, 'users', viewingUserId));
@@ -245,28 +247,12 @@
       const followingIds = userData.following || [];
       const createdAt = userData.createdAt ? new Date(userData.createdAt).toLocaleDateString() : 'Unknown';
       const birthday = userData.birthday || '';
+      const userIdNum = userData.userIdNum;
+      const hasUserIdNum = !!userIdNum;
 
-      // Fetch role badges
-      const roles = await getRoles(viewingUserId);
-      const ROLE_BADGES = {
-        developer: `<span class="role-badge" title="Developer"><i class="fa-solid fa-code"></i></span>`,
-        admin:     `<span class="role-badge" title="Admin"><i class="fa-solid fa-shield-halved"></i></span>`,
-        mod:       `<span class="role-badge" title="Moderator"><i class="fa-solid fa-gavel"></i></span>`,
-      };
-      const badgeHtml = roles.map(r => ROLE_BADGES[r] || '').join('');
-
-      // Determine online status
-      const statusDoc = await getDoc(doc(db, 'presence', viewingUserId));
-      let status = 'offline';
-      if (statusDoc.exists()) {
-        const presence = statusDoc.data();
-        const lastSeen = presence.lastSeen?.toMillis?.() ?? presence.lastSeen;
-        const twoMinAgo = Date.now() - 120000;
-        if (lastSeen && lastSeen < twoMinAgo) {
-          status = 'offline';
-        } else {
-          status = presence.inGame ? 'in-game' : 'online';
-        }
+      // Migration for existing users without a userIdNum
+      if (isOwnProfile && !hasUserIdNum) {
+        assignUserIdNum(user.uid).catch(() => {});
       }
 
       const initial = username.charAt(0).toUpperCase();
@@ -274,41 +260,36 @@
       const isThirteenPlus = age >= 13;
       const trustedFriendIds = userData.trustedFriends || [];
 
-      // Fetch trusted friends
-      let trustedFriendsList = [];
-      for (const fid of trustedFriendIds.slice(0, 12)) {
-        try {
-          const fDoc = await getDoc(doc(db, 'users', fid));
-          if (fDoc.exists()) {
+      // Fetch all user data in parallel
+      const fetchUsers = async (ids) => {
+        const results = await Promise.all(ids.slice(0, 12).map(fid =>
+          getDoc(doc(db, 'users', fid)).then(fDoc => {
+            if (!fDoc.exists()) return null;
             const fData = fDoc.data();
-            trustedFriendsList.push({ id: fid, username: fData.username || 'Unknown' });
-          }
-        } catch {}
-      }
+            return { id: fid, num: fData.userIdNum, username: fData.username || 'Unknown' };
+          }).catch(() => null)
+        ));
+        return results.filter(Boolean);
+      };
 
-      // Fetch friends
-      let friendsList = [];
-      for (const fid of friendIds.slice(0, 12)) {
-        try {
-          const fDoc = await getDoc(doc(db, 'users', fid));
-          if (fDoc.exists()) {
-            const fData = fDoc.data();
-            friendsList.push({ id: fid, username: fData.username || 'Unknown' });
-          }
-        } catch {}
-      }
+      const [trustedFriendsList, friendsList, followersList, viewingRoles] = await Promise.all([
+        fetchUsers(trustedFriendIds),
+        fetchUsers(friendIds),
+        fetchUsers(followerIds),
+        getRoles(viewingUserId),
+      ]);
 
-      // Fetch followers
-      let followersList = [];
-      for (const fid of followerIds.slice(0, 12)) {
-        try {
-          const fDoc = await getDoc(doc(db, 'users', fid));
-          if (fDoc.exists()) {
-            const fData = fDoc.data();
-            followersList.push({ id: fid, username: fData.username || 'Unknown' });
-          }
-        } catch {}
-      }
+      const ROLE_BADGE_CONFIG = {
+        developer: { icon: 'fa-solid fa-code', color: '#44d9e6', label: 'Developer' },
+        admin:     { icon: 'fa-solid fa-shield-halved', color: '#ff4444', label: 'Admin' },
+        mod:       { icon: 'fa-solid fa-gavel', color: '#facc15', label: 'Moderator' },
+      };
+      const roleBadgeHtml = (r) => {
+        const cfg = ROLE_BADGE_CONFIG[r];
+        if (!cfg) return '';
+        return `<span class="role-badge ${r}" title="${cfg.label}"><i class="${cfg.icon}"></i></span>`;
+      };
+      const badgeHtml = viewingRoles.map(roleBadgeHtml).join(' ');
 
       profilePage.innerHTML = `
          <a href="/" class="profile-back">
@@ -362,7 +343,7 @@
           ${friendsList.length === 0 ? '<div class="empty">No friends yet</div>' : `
             <div class="profile-friends-grid">
               ${friendsList.map(f => `
-                <div class="profile-friend-item" onclick="window.location.href='/bloxverse/profile?user=${f.id}'">
+                <div class="profile-friend-item" onclick="window.location.href='/bloxverse/profile?user=${f.num || f.id}'">
                   <div class="friend-avatar-small">${f.username.charAt(0).toUpperCase()}</div>
                   <span class="friend-name-small">${f.username}</span>
                 </div>
@@ -376,7 +357,7 @@
           ${followersList.length === 0 ? '<div class="empty">No followers yet</div>' : `
             <div class="profile-friends-grid">
               ${followersList.map(f => `
-                <div class="profile-friend-item" onclick="window.location.href='/bloxverse/profile?user=${f.id}'">
+                <div class="profile-friend-item" onclick="window.location.href='/bloxverse/profile?user=${f.num || f.id}'">
                   <div class="friend-avatar-small">${f.username.charAt(0).toUpperCase()}</div>
                   <span class="friend-name-small">${f.username}</span>
                 </div>
@@ -474,6 +455,8 @@
       // Nav
       const ownUserData = isOwnProfile ? userData : await getDoc(doc(db, 'users', user.uid)).then(d => d.exists() ? d.data() : {});
       const ownBux = ownUserData.bux || 0;
+      const ownNum = ownUserData.userIdNum;
+      const ownProfileLink = ownNum ? `/bloxverse/profile?user=${ownNum}` : '/bloxverse/profile';
       const ownInitial = (ownUserData.username || 'P').charAt(0).toUpperCase();
 
       navRight.innerHTML = `
@@ -504,7 +487,7 @@
                 <span class="dropdown-name">${ownUserData.username || 'Player'}</span>
                 <span class="dropdown-email">${user.email}</span>
               </div>
-              <button class="dropdown-item" onclick="window.location.href='/bloxverse/profile'">
+              <button class="dropdown-item" onclick="window.location.href='${ownProfileLink}'">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                   <circle cx="12" cy="7" r="4" />

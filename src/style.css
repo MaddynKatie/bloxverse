@@ -186,6 +186,12 @@ body.shift-lock-active #game-cursor {
   color: #ffffff;
 }
 
+.chat-trusted-icon {
+  color: #4ade80;
+  margin-right: 4px;
+  font-size: 11px;
+}
+
 .chat-input-area {
   display: flex;
   padding: 8px;
@@ -343,6 +349,276 @@ body.shift-lock-active #game-cursor {
 
 input[type=range] {
   accent-color: #f2cd37;
+}
+
+/* Settings Panel (slide-down from top) */
+.settings-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s ease-out;
+}
+
+.settings-panel.open {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+.settings-panel-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  opacity: 0;
+  transition: opacity 0.2s ease-out;
+}
+
+.settings-panel.open .settings-panel-backdrop {
+  opacity: 1;
+}
+
+.settings-panel-content {
+  background: #1e1e1e;
+  width: 100%;
+  max-width: 560px;
+  max-height: 75vh;
+  margin: 60px auto 0;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  transform: translateY(-120%);
+  transition: transform 0.25s ease-out;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: #fff;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.settings-panel.open .settings-panel-content {
+  transform: translateY(0);
+}
+
+.settings-panel-header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  text-align: center;
+}
+
+.settings-panel-header h3 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.settings-header-buttons {
+  position: absolute;
+  right: 16px;
+  display: flex;
+  gap: 6px;
+}
+
+.settings-btn {
+  padding: 7px 18px;
+  border-radius: 6px;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  text-align: center;
+}
+
+.settings-btn:hover {
+  opacity: 0.85;
+}
+
+.settings-btn-primary {
+  background: #5865f2;
+  color: #fff;
+}
+
+.settings-btn-danger {
+  background: #da373c;
+  color: #fff;
+}
+
+.settings-btn-small {
+  padding: 4px 10px;
+  font-size: 11px;
+  border-radius: 4px;
+}
+
+.settings-tabs {
+  display: flex;
+  justify-content: center;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.settings-tab {
+  padding: 12px 24px;
+  background: none;
+  border: none;
+  color: #9ca3af;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.settings-tab:hover {
+  color: #d1d5db;
+}
+
+.settings-tab.active {
+  color: #fff;
+  border-bottom-color: #fff;
+}
+
+.settings-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 200px;
+}
+
+.settings-tab-content {
+  display: none;
+  padding: 20px;
+}
+
+.settings-tab-content.active {
+  display: block;
+}
+
+.people-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.people-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 8px;
+  transition: background-color 0.15s;
+}
+
+.people-item:hover {
+  background-color: rgba(255,255,255,0.06);
+}
+
+.people-item-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  flex: 1;
+}
+
+.people-name {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.people-item-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.people-label {
+  font-size: 12px;
+  color: #9ca3af;
+  background: rgba(255,255,255,0.08);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.people-btn {
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: none;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+}
+
+.people-btn:hover {
+  opacity: 0.85;
+}
+
+.people-btn-friend {
+  background: #5865f2;
+  color: #fff;
+}
+
+.people-btn-friend.sent {
+  background: #4b5563;
+  color: #9ca3af;
+}
+
+.people-btn-report {
+  background: rgba(255,255,255,0.1);
+  color: #d1d5db;
+}
+
+/* Report Form */
+.report-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.report-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.report-field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #d1d5db;
+}
+
+.report-field select,
+.report-field textarea {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  padding: 10px 12px;
+  color: #fff;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.report-field select option {
+  background: #1e1e1e;
+  color: #fff;
+}
+
+.report-field select:focus,
+.report-field textarea:focus {
+  border-color: #5865f2;
+}
+
+.report-field textarea {
+  resize: vertical;
+  min-height: 80px;
 }
 
 .player-menu-btn.unfriend {

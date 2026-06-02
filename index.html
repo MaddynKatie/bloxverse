@@ -78,7 +78,7 @@
 
   <script type="module">
     import { games } from './src/games.js';
-    import { auth, db, trackPresence, listenBux, getBux, checkBan, banGuard, claimDailyBux } from './src/firebase.js';
+    import { auth, db, trackPresence, listenBux, getBux, checkBan, banGuard, claimDailyBux, assignUserIdNum } from './src/firebase.js';
     import { onAuthStateChanged, signOut } from 'firebase/auth';
     import { doc, getDoc, collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
     import { searchUsers, sendFriendRequest, acceptFriendRequest, declineFriendRequest, removeFriend, getFriendRequests, getFriends } from './src/friends.js';
@@ -291,6 +291,10 @@
       return friends.map((f, i) => ({ ...f, status: statuses[i] }));
     }
 
+    function getProfileLink(f) {
+      return f.userIdNum ? `/bloxverse/profile?user=${f.userIdNum}` : `/bloxverse/profile?user=${f.id}`;
+    }
+
     function statusLabel(status) {
       if (status === 'in-game') return 'In Game';
       if (status === 'online') return 'Online';
@@ -303,7 +307,7 @@
         return;
       }
       friendsGrid.innerHTML = friendsWithStatus.map(f => `
-                <div class="friend-card" onclick="window.location.href='/bloxverse/profile?user=${f.id}'" 
+                <div class="friend-card" onclick="window.location.href='${getProfileLink(f)}'" 
 style="cursor:pointer;">
           <div class="avatar-with-status">
             <div class="friend-avatar">${f.username.charAt(0).toUpperCase()}</div>
@@ -403,6 +407,7 @@ style="cursor:pointer;">
         currentUserId = user.uid;
         let username = user.displayName || 'Player';
         let bux = 0;
+        let userNum = null;
 
         try {
           const userDoc = await getDoc(doc(db, 'users', user.uid));
@@ -410,8 +415,12 @@ style="cursor:pointer;">
             const data = userDoc.data();
             username = data.username || username;
             bux = data.bux || 0;
+            userNum = data.userIdNum;
           }
         } catch {}
+
+        // Ensure existing users get a sequential userIdNum
+        assignUserIdNum(user.uid).catch(() => {});
 
         presence = trackPresence(user.uid);
 
@@ -427,6 +436,7 @@ style="cursor:pointer;">
         }).catch(() => {});
 
         const initial = username.charAt(0).toUpperCase();
+        const ownProfileLink = userNum ? `/bloxverse/profile?user=${userNum}` : '/bloxverse/profile';
 
         navCenter.innerHTML = renderFriendSearch();
         document.getElementById('friendSearchInput').addEventListener('input', onFriendSearch);
@@ -460,7 +470,7 @@ style="cursor:pointer;">
                   <span class="dropdown-name">${username}</span>
                   <span class="dropdown-email">${user.email}</span>
                 </div>
-                <button class="dropdown-item" onclick="window.location.href='/bloxverse/profile'">
+                <button class="dropdown-item" onclick="window.location.href='${ownProfileLink}'">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                     <circle cx="12" cy="7" r="4" />

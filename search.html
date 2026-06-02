@@ -60,7 +60,7 @@
   </main>
 
   <script type="module">
-    import { auth, db, banGuard } from './src/firebase.js';
+    import { auth, db, banGuard, assignUserIdNum } from './src/firebase.js';
     import { onAuthStateChanged } from 'firebase/auth';
     import { doc, onSnapshot } from 'firebase/firestore';
     import { searchUsers } from './src/friends.js';
@@ -73,6 +73,8 @@
     onAuthStateChanged(auth, async (user) => {
       if (user) {
         if (await banGuard(user.uid)) return;
+        // Ensure existing users get a sequential userIdNum
+        assignUserIdNum(user.uid).catch(() => {});
         // ── Real-time ban listener ────────────────────────────────────
         onSnapshot(doc(db, 'bans', user.uid), (snap) => {
           if (snap.exists() && snap.data().banned) {
@@ -149,7 +151,7 @@
         </div>
         <div class="player-grid">
           ${users.map(u => `
-            <div class="player-card" onclick="window.location.href='/bloxverse/profile?user=${u.id}'">
+            <div class="player-card" onclick="window.location.href='/bloxverse/profile?user=${u.userIdNum || u.id}'">
               <div class="player-avatar">${(u.username || '?').charAt(0).toUpperCase()}</div>
               <div class="player-info">
                 <div class="player-name">${u.username}</div>
