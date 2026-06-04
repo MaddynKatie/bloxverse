@@ -233,7 +233,7 @@ body.shift-lock-active #game-cursor {
 /* Leaderboard Redesign */
 .leaderboard {
   position: fixed;
-  top: 12px;
+  top: 22px;
   right: 12px;
   width: 180px;
   background-color: rgba(10, 16, 30, 0.55);
@@ -418,13 +418,6 @@ input[type=range] {
   margin: 0;
 }
 
-.settings-header-buttons {
-  position: absolute;
-  right: 16px;
-  display: flex;
-  gap: 6px;
-}
-
 .settings-btn {
   padding: 7px 18px;
   border-radius: 6px;
@@ -496,6 +489,62 @@ input[type=range] {
 
 .settings-tab-content.active {
   display: block;
+}
+
+.settings-panel-footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.settings-panel-footer .settings-btn {
+  min-width: 100px;
+}
+
+.confirm-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  border-radius: 12px;
+}
+
+.confirm-box {
+  background: #2a2a2a;
+  border-radius: 10px;
+  padding: 24px;
+  text-align: center;
+  max-width: 300px;
+  width: 90%;
+}
+
+.confirm-title {
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.confirm-text {
+  font-size: 13px;
+  color: #b0b0b0;
+  margin-bottom: 18px;
+  line-height: 1.4;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.confirm-actions .settings-btn {
+  min-width: 90px;
 }
 
 .people-list {
@@ -897,4 +946,27 @@ input[type=range] {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* Health Bar */
+.healthbar {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  width: 180px;
+  height: 6px;
+  z-index: 501;
+  background-color: rgba(10, 16, 30, 0.5);
+  border-radius: 3px;
+  overflow: hidden;
+  display: none;
+  pointer-events: none;
+}
+
+.healthbar-fill {
+  position: absolute;
+  inset: 0;
+  background-color: #00ff00;
+  transition: width 0.2s ease, background-color 0.2s ease;
+  border-radius: 3px;
 }

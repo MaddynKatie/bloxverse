@@ -376,28 +376,16 @@ export async function getTransactions(userId, max = 100) {
     const snap = await getDocs(q);
     const txns = [];
     snap.forEach(d => txns.push({ id: d.id, ...d.data() }));
-    txns.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    txns.sort((a, b) => {
+      const at = a.createdAt?.toDate?.()?.getTime() ?? new Date(a.createdAt).getTime();
+      const bt = b.createdAt?.toDate?.()?.getTime() ?? new Date(b.createdAt).getTime();
+      return bt - at;
+    });
     return txns.slice(0, max);
   } catch (e) {
     console.warn('Could not load transactions:', e);
     return [];
   }
-}
-
-export async function claimDailyBux(userId) {
-  const snap = await getDoc(doc(db, 'users', userId));
-  if (!snap.exists()) return false;
-  const today = new Date().toISOString().slice(0, 10);
-  const data = snap.data();
-  if (data.lastDailyClaim === today) return false;
-  const oldBalance = data.bux || 0;
-  const newBalance = oldBalance + 5;
-  await updateDoc(doc(db, 'users', userId), {
-    bux: increment(5),
-    lastDailyClaim: today,
-  });
-  await logTransaction(userId, 5, newBalance, 'daily_login', 'Daily Login Reward');
-  return true;
 }
 
 export async function rewardUniqueVisit(authorId, visitorId, gameId, gameName) {
@@ -406,35 +394,52 @@ export async function rewardUniqueVisit(authorId, visitorId, gameId, gameName) {
   const snap = await getDoc(visitRef);
   if (snap.exists()) return false;
   await setDoc(visitRef, { visitedAt: new Date().toISOString() });
-  const userSnap = await getDoc(doc(db, 'users', authorId));
-  const oldBalance = userSnap.exists() ? (userSnap.data().bux || 0) : 0;
-  const newBalance = oldBalance + 1;
+  const today = new Date().toISOString().slice(0, 10);
+  const txnRef = doc(db, 'transactions', `${authorId}_visits_${today}`);
   await updateDoc(doc(db, 'users', authorId), {
     bux: increment(1),
   });
-  
-  // Combine all visits into one log
-  const txnRef = doc(db, 'transactions', `${authorId}_visits`);
-  const txnSnap = await getDoc(txnRef);
-  
-  if (txnSnap.exists()) {
-    await updateDoc(txnRef, {
-      amount: increment(1),
-      balance: newBalance,
-      createdAt: new Date().toISOString(), // Update date so it appears at top
-    });
-  } else {
+  const userSnap = await getDoc(doc(db, 'users', authorId));
+  const balance = userSnap.exists() ? (userSnap.data().bux || 0) : 0;
+  try {
     await setDoc(txnRef, {
       userId: authorId,
-      amount: 1,
-      balance: newBalance,
+      amount: increment(1),
+      balance,
       source: 'Place Visits',
-      description: 'Earnings from unique visits across your games',
+      description: `Visit earnings for ${today}`,
       createdAt: new Date().toISOString(),
-    });
+    }, { merge: true });
+  } catch (e) {
+    console.error('Failed to log visit transaction:', e);
   }
-  
   return true;
+}
+
+export async function claimDailyBux(userId) {
+  try {
+    const result = await runTransaction(db, async (txn) => {
+      const snap = await txn.get(doc(db, 'users', userId));
+      if (!snap.exists()) return { claimed: false };
+      const today = new Date().toISOString().slice(0, 10);
+      const data = snap.data();
+      if (data.lastDailyClaim === today) return { claimed: false };
+      const oldBalance = data.bux || 0;
+      const newBalance = oldBalance + 5;
+      txn.update(doc(db, 'users', userId), {
+        bux: increment(5),
+        lastDailyClaim: today,
+      });
+      return { claimed: true, newBalance };
+    });
+    if (result.claimed) {
+      await logTransaction(userId, 5, result.newBalance, 'daily_login', 'Daily Login Reward');
+    }
+    return result.claimed;
+  } catch (e) {
+    console.error('Failed to claim daily bux:', e);
+    return false;
+  }
 }
 
 export async function followUser(followerId, followingId) {

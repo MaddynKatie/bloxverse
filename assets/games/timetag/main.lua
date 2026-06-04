@@ -69,8 +69,11 @@ local teleportRandom = function()
 end
 
 local flingPlayer = function()
-    local x = math.floor(math.random() * 61) - 30
-    game:SetPlayerVelocity(x, 100, 0)
+    local x = math.floor(math.random() * 121) - 60
+    local localPlayer = game:GetLocalPlayer()
+    if localPlayer then
+        game:SetPlayerVelocity(x, 200, 0)
+    end
 end
 
 local startRound = function(id, name, time)
@@ -112,7 +115,18 @@ local updateGui = function()
             ; barFill.BackgroundColor = 0x38bdf8
         end
     else
-        ; title.Text = "Type /start to begin Time Tag"
+        local playerCount = 0
+        local players = game:GetPlayers()
+        if players then
+            for _, p in pairs(players) do
+                playerCount = playerCount + 1
+            end
+        end
+        if playerCount < 2 then
+            ; title.Text = "Need 2+ players to start - " .. tostring(playerCount) .. " player" .. (playerCount == 1 and "" or "s")
+        else
+            ; title.Text = "Type /start to begin Time Tag"
+        end
         ; barFill.BackgroundColor = 0x38bdf8
     end
 end
@@ -155,7 +169,8 @@ local function onChat(player, message, data)
 
             if command == "START" then
                 if not running then
-                    startRound(parts[2], parts[3])
+                    local t = tonumber(parts[4])
+                    startRound(parts[2], parts[3], t)
                 end
             end
 
@@ -164,6 +179,7 @@ local function onChat(player, message, data)
                     local t = tonumber(parts[2])
                     if t and t > 0 then
                         ; timeLeft = t
+                        ; initialTime = t
                     end
                 end
             end
@@ -216,7 +232,7 @@ local function onChat(player, message, data)
 
         local idx = math.floor(math.random() * #players)
         local tagger = players[idx]
-        sendState("START|" .. tagger.id .. "|" .. tagger.name)
+        sendState("START|" .. tagger.id .. "|" .. tagger.name .. "|" .. tostring(rTime))
         ; running = true
         ; timeLeft = rTime
         ; initialTime = rTime

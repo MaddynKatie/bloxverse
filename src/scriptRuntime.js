@@ -8,6 +8,10 @@ export function luaToJS(lua) {
     const _transforms = [
         (_s) => _s.replace(/--\[\[[\s\S]*?\]\]/g, ''),
         (_s) => _s.replace(/--.*$/gm, ''),
+        // Convert Lua table constructors {key = value} to {key: value}
+        // Placed early, before block statements are converted to {, so only actual table { is matched
+        (_s) => _s.replace(/\{(\s*\w+)\s*=\s*/g, '{$1: '),
+        (_s) => _s.replace(/(,\s*)(\w+)\s*=\s*/g, '$1$2: '),
         (_s) => _s.replace(/\blocal\s+function\s+(\w+)\s*\(/g, 'exports.$1 = async function('),
         (_s) => _s.replace(/\bfunction\s+(\w+)\s*\(/g, 'exports.$1 = async function('),
         (_s) => _s.replace(/(?<!\basync\s)\bfunction\s*\(/g, 'async function('),
@@ -21,14 +25,10 @@ export function luaToJS(lua) {
         (_s) => _s.replace(/\bthen\b/g, '{'),
         (_s) => _s.replace(/\belseif\b/g, '} else if'),
         (_s) => _s.replace(/\belse\b(?!\s*\{)/g, '} else {'),
-        // Convert bare Lua do...end to { ... }
-        (_s) => _s.replace(/\bdo\b(?!\s*\{)/g, '{'),
-        // Convert repeat...until to do...while
-        (_s) => _s.replace(/\brepeat\b/g, 'do {'),
-        (_s) => _s.replace(/\buntil\b\s*/g, '} while (!('),
         // Convert `:` method calls to `.` BEFORE pairs/ipairs conversion
         (_s) => _s.replace(/(\w+(?:\.\w+)*):([\w]+)\s*\(/g, '$1.$2('),
         // Convert Lua ipairs/pairs for loops to JS for loops
+        // MUST run before `do` → `{` conversion (below) so the `do` keyword is still present
         (_s) => {
             let _forIdx = 0;
             const _np = /((?:[^()]|(?:\([^()]*\)))*)/;
@@ -43,6 +43,7 @@ export function luaToJS(lua) {
             return _s;
         },
         // Numeric for loops: for i = start, stop[, step] do
+        // MUST run before `do` → `{` conversion (below) so the `do` keyword is still present
         (_s) => {
             let _nfi = 0;
             return _s.replace(/for\s+(\w+)\s*=\s*([^,\n]+)\s*,\s*([^,\n{]+?)(?:\s*,\s*([^,\n{]+?))?\s+do/g,
@@ -54,7 +55,14 @@ export function luaToJS(lua) {
                     return `for (let ${_v}=${_start.trim()}; ${_v}${_cmp}${_stop.trim()}; ${_v}+=(${_st})) {`;
                 });
         },
+        // Convert bare Lua do...end to { ... } — must run AFTER for-loop conversions above
+        (_s) => _s.replace(/\bdo\b(?!\s*\{)/g, '{'),
+        // Convert repeat...until to do...while
+        (_s) => _s.replace(/\brepeat\b/g, 'do {'),
+        (_s) => _s.replace(/\buntil\b\s*/g, '} while (!('),
         (_s) => _s.replace(/\bthen\b/g, '{'),
+        // Convert remaining `end` on same line as `{` to `}` (single-line blocks like `if x then return end`)
+        (_s) => _s.replace(/\{([^{}]*?)\bend\b\s*$/gm, '{$1}'),
         (_s) => _s.replace(/\bnot\s+/g, '!'),
         (_s) => _s.replace(/\band\b/g, '&&'),
         (_s) => _s.replace(/\bor\b/g, '||'),
@@ -64,8 +72,6 @@ export function luaToJS(lua) {
         (_s) => _s.replace(/(?<![=!<>])===(?!=)/g, '==='), // keep existing ===
         (_s) => _s.replace(/(?<![=!<>])==(?!=)/g, '==='),
         (_s) => _s.replace(/#(\w+(?:\.\w+)*)/g, '$1.length'),
-        (_s) => _s.replace(/\{(\s*\w+)\s*=\s*/g, '{$1: '),
-        (_s) => _s.replace(/(,\s*)(\w+)\s*=\s*/g, '$1$2: '),
         // Convert top-level return { k = v } to Object.assign(exports, {k: v})
         // local functions become exports.fn (not bare names), so fall back to exports.fn
         (_s) => _s.replace(/^return\s*\{([^}]*)\}\s*;?\s*$/m, (_match, _inner) =>
@@ -78,6 +84,8 @@ export function luaToJS(lua) {
         (_s) => _s.replace(/\btostring\s*\(/g, 'String('),
         (_s) => _s.replace(/\btonumber\s*\(/g, 'Number('),
         (_s) => _s.replace(/\btype\s*\(/g, '_luaType('),
+        // os.clock() → Date.now()/1000 (wall-clock seconds, usable for cooldowns)
+        (_s) => _s.replace(/\bos\.clock\s*\(\s*\)/g, '(Date.now()/1000)'),
         // Compound assignment operators: += -= *= /= //= %= ^= ..=
         // Placed after table-key transforms to avoid {x = …} → {x: …} conflict
         (_s) => _s.replace(

@@ -848,7 +848,7 @@ export function loadMapData(data) {
 
   for (const p of parts) {
     if (p.Type !== 'Part') continue;
-    const inst = addPart(p.Name, p.Size[0], p.Size[1], p.Size[2], p.Color ? new THREE.Color(p.Color[0], p.Color[1], p.Color[2]) : 0x808080, p.Position[0], p.Position[1], p.Position[2], p.Anchored, p.Shape, workspace, p.Rotation);
+    const inst = addPart(p.Name, p.Size[0], p.Size[1], p.Size[2], p.Color ? new THREE.Color(p.Color[0], p.Color[1], p.Color[2]) : 0x808080, p.Position[0], p.Position[1], p.Position[2], p.Anchored, p.Shape, workspace, p.Rotation, p.CanCollide);
     if (p.Transparency != null && p.Transparency > 0) {
       inst.Transparency = Math.max(0, Math.min(1, p.Transparency));
       if (inst.mesh) {
@@ -928,12 +928,13 @@ export function clearAllParts() {
   updateProps();
 }
 
-export function addPart(name, sw, sh, sd, colorHex, px, py, pz, anchored, shape, parent, rotation) {
+export function addPart(name, sw, sh, sd, colorHex, px, py, pz, anchored, shape, parent, rotation, canCollide) {
   _saveUndo();
   const inst = new PartInstance(name || 'Part');
   inst.Size = [sw, sh, sd];
   inst.Color = new THREE.Color(colorHex);
   inst.Anchored = anchored;
+  inst.CanCollide = canCollide !== undefined ? canCollide : true;
   inst.Shape = shape || 'Block';
 
   const geo = createGeometry(inst.Shape, sw, sh, sd);

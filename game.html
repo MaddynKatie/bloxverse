@@ -93,16 +93,17 @@
     </div>
   </div>
 
+  <!-- Health Bar -->
+  <div class="healthbar" id="healthBar">
+    <div class="healthbar-fill" id="healthBarFill"></div>
+  </div>
+
   <!-- Pause Menu (ESC) -->
   <div id="settingsPanel" class="settings-panel">
     <div class="settings-panel-backdrop" id="settingsPanelBackdrop"></div>
     <div class="settings-panel-content">
       <div class="settings-panel-header">
         <h3>Menu</h3>
-        <div class="settings-header-buttons">
-          <button id="btnResume" class="settings-btn settings-btn-primary">Resume</button>
-          <button id="btnLeaveGame" class="settings-btn settings-btn-danger">Leave</button>
-        </div>
       </div>
       <div class="settings-tabs">
         <button class="settings-tab active" data-tab="people">People</button>
@@ -153,6 +154,21 @@
             </div>
             <button id="btnSubmitReport" class="settings-btn settings-btn-danger" style="width:100%;padding:10px;">Submit Report</button>
             <div id="reportStatus" style="margin-top:8px;font-size:13px;text-align:center;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="settings-panel-footer">
+        <button id="btnResume" class="settings-btn settings-btn-primary">Resume</button>
+        <button id="btnRespawn" class="settings-btn settings-btn-danger">Respawn</button>
+        <button id="btnLeaveGame" class="settings-btn settings-btn-danger">Leave</button>
+      </div>
+      <div id="respawnConfirm" class="confirm-overlay" style="display:none;">
+        <div class="confirm-box">
+          <div class="confirm-title">Respawn</div>
+          <div class="confirm-text">Are you sure you want to respawn? Your character will be reset.</div>
+          <div class="confirm-actions">
+            <button id="btnConfirmRespawn" class="settings-btn settings-btn-danger">Respawn</button>
+            <button id="btnCancelRespawn" class="settings-btn settings-btn-primary">Cancel</button>
           </div>
         </div>
       </div>
@@ -512,13 +528,31 @@
         mod:       `<i class="fa-solid fa-gavel" style="color: #facc15; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
       };
 
-      lbList.innerHTML = players.map(p => {
+      const defaultStatsPerGame = (game && game.id === 'blockyfights') ? { Kills: 0 } : {};
+      lbList.innerHTML = players
+        .map(p => ({ p, stats: { ...defaultStatsPerGame, ...(_playerStats.get(p.userId) || {}) } }))
+        .sort((a, b) => {
+          const aKills = a.stats.Kills || 0;
+          const bKills = b.stats.Kills || 0;
+          if (aKills !== bKills) return bKills - aKills;
+          const ak = Object.keys(a.stats);
+          const bk = Object.keys(b.stats);
+          if (ak.length === 1 && bk.length === 1) return (b.stats[ak[0]] || 0) - (a.stats[ak[0]] || 0);
+          return 0;
+        })
+        .map(({ p, stats }) => {
         const roles = _playerRoles.get(p.userId) || [];
         const badges = roles.map(r => ROLE_ICONS[r] || '').join('');
+        const statStr = Object.entries(stats)
+          .filter(([k]) => k !== 'Streak')
+          .map(([k, v]) =>
+            `<span style="color:#f87171;font-size:12px;font-weight:700;margin-left:6px;">${k}: ${v}</span>`
+          ).join('');
         return `
           <div class="leaderboard-item" data-user-id="${p.userId}">
             <div style="display:flex; align-items:center;">${badges}</div>
             <span class="lb-name">${p.username}</span>
+            <div style="margin-left:auto;">${statStr}</div>
           </div>
         `;
       }).join('');
@@ -800,6 +834,7 @@
 
     function closeSettings() {
       settingsPanel.classList.remove('open');
+      if (document.activeElement) document.activeElement.blur();
       if (window._bloxverse) window._bloxverse.requestLock();
     }
 
@@ -810,6 +845,22 @@
     document.getElementById('btnLeaveGame').addEventListener('click', () => {
       disconnectMultiplayer();
       window.location.href = '/bloxverse/';
+    });
+
+    const respawnConfirm = document.getElementById('respawnConfirm');
+
+    document.getElementById('btnRespawn').addEventListener('click', () => {
+      respawnConfirm.style.display = 'flex';
+    });
+
+    document.getElementById('btnConfirmRespawn').addEventListener('click', () => {
+      respawnConfirm.style.display = 'none';
+      if (window._bloxverse) window._bloxverse.killPlayer();
+      closeSettings();
+    });
+
+    document.getElementById('btnCancelRespawn').addEventListener('click', () => {
+      respawnConfirm.style.display = 'none';
     });
 
     document.querySelectorAll('.settings-tab').forEach(tab => {
@@ -989,18 +1040,49 @@
     let gameEventListeners = {};
     const _knownPlayerIds = new Set();
     const _playerPositions = new Map(); // userId -> { x, y, z }
+    const _playerHealth = new Map(); // userId -> health
+    const _playerStats = new Map(); // userId -> { statName: value }
+    let _lastLeaderboardPlayers = [];
+    let _localPlayerHealth = 100;
+    let _localPlayerMaxHealth = 100;
+    let _lastDamageTime = 0;
+    const REGEN_DELAY = 5;
+    const REGEN_RATE = 1 / 0.3;
+    let _lastPunchTime = 0;
+    const PUNCH_CD = 0.4;
+
+    function _syncHealth() {
+      const uid = auth.currentUser?.uid;
+      if (uid) sendChat(`TT|HP|${uid}|${_localPlayerHealth}`, '', uid);
+    }
+
+    function updateHealthBar() {
+      const bar = document.getElementById('healthBar');
+      const fill = document.getElementById('healthBarFill');
+      if (!bar || !fill) return;
+      const ratio = _localPlayerHealth / _localPlayerMaxHealth;
+      fill.style.width = `${ratio * 100}%`;
+      const r = ratio > 0.5 ? Math.floor(255 * (1 - (ratio - 0.5) * 2)) : 255;
+      const g = ratio > 0.5 ? 255 : Math.floor(255 * (ratio * 2));
+      fill.style.backgroundColor = `rgb(${r},${g},0)`;
+      bar.style.display = _localPlayerHealth < _localPlayerMaxHealth ? 'block' : 'none';
+      if (_localPlayerHealth <= 0 && window._bloxverse && !window._bloxverse.isDead()) {
+        window._bloxverse.killPlayer();
+      }
+    }
 
     const makePlayerObj = (id, name) => {
       let pos = _playerPositions.get(id) || { x: 0, y: 0, z: 0 };
-      if (auth.currentUser?.uid === id && window._bloxverse?.getCharacter) {
+      const isLocal = auth.currentUser?.uid === id;
+      if (isLocal && window._bloxverse?.getCharacter) {
         const char = window._bloxverse.getCharacter();
         if (char) pos = { x: char.position.x, y: char.position.y, z: char.position.z };
       }
       return {
         id, name,
         x: pos.x, y: pos.y, z: pos.z,
-        health: 100,
-        maxHealth: 100,
+        health: isLocal ? _localPlayerHealth : (_playerHealth.get(id) ?? 100),
+        maxHealth: isLocal ? _localPlayerMaxHealth : 100,
         _props: {},
         GetProperty: function(k) { return this._props[k]; },
         SetProperty: function(k, v) { this._props[k] = v; },
@@ -1008,15 +1090,103 @@
           appendChatMessage({ system: true, message: `[${this.name}] ${msg}` });
         },
         Teleport: function(x, y, z) {
-          if (auth.currentUser?.uid === this.id && window._bloxverse) {
+          if (isLocal && window._bloxverse) {
             window._bloxverse.setSpawn(x, y, z, 0);
           }
         },
-        Damage: function(amt) { this.health = Math.max(0, this.health - amt); },
-        Heal: function(amt) { this.health = Math.min(this.maxHealth, this.health + amt); },
-        Respawn: function() { this.health = this.maxHealth; }
+        Damage: function(amt) { this.health = Math.max(0, this.health - amt); if (isLocal) { _localPlayerHealth = this.health; _lastDamageTime = performance.now(); updateHealthBar(); _syncHealth(); } },
+        Heal: function(amt) { this.health = Math.min(this.maxHealth, this.health + amt); if (isLocal) { _localPlayerHealth = this.health; updateHealthBar(); _syncHealth(); } },
+        Respawn: function() { this.health = this.maxHealth; if (isLocal) { _localPlayerHealth = this.health; updateHealthBar(); _syncHealth(); } },
+        ShowPunchIndicator: function() {
+          _ensurePunchUI();
+          _lastPunchTime = performance.now();
+          const el = document.getElementById('punchIndicator');
+          if (!el) return;
+          el.classList.remove('active');
+          void el.offsetWidth;
+          el.classList.add('active');
+          clearTimeout(el._timeout);
+          el._timeout = setTimeout(() => el.classList.remove('active'), 350);
+        },
+        ShowMissIndicator: function() {
+          _ensurePunchUI();
+          _lastPunchTime = performance.now();
+          const el = document.getElementById('missIndicator');
+          if (!el) return;
+          el.classList.remove('active');
+          void el.offsetWidth;
+          el.classList.add('active');
+          clearTimeout(el._timeout);
+          el._timeout = setTimeout(() => el.classList.remove('active'), 350);
+        },
+        ShowFinisherIndicator: function() {
+          _ensurePunchUI();
+          const el = document.getElementById('finisherIndicator');
+          if (!el) return;
+          el.classList.remove('active');
+          void el.offsetWidth;
+          el.classList.add('active');
+          clearTimeout(el._timeout);
+          el._timeout = setTimeout(() => el.classList.remove('active'), 1200);
+        }
       };
     };
+
+    function _ensurePunchUI() {
+      if (document.getElementById('_punchStyles')) return;
+      document.body.insertAdjacentHTML('beforeend',
+        '<div id="punchIndicator" class="punch-indicator"><div class="pi-ring"></div><div class="pi-slash pi-slash-1"></div><div class="pi-slash pi-slash-2"></div></div>' +
+        '<div id="punchCooldown" class="pi-cooldown"><div class="pi-cooldown-fill" id="punchCooldownFill"></div></div>' +
+        '<div id="finisherIndicator" class="finisher-indicator"><div class="fi-skull"></div><div class="fi-burst fi-burst-1"></div><div class="fi-burst fi-burst-2"></div><div class="fi-burst fi-burst-3"></div><div class="fi-burst fi-burst-4"></div></div>' +
+        '<div id="missIndicator" class="miss-indicator"><div class="mi-ring"></div><div class="mi-slash"></div></div>'
+      );
+      const s = document.createElement('style');
+      s.id = '_punchStyles';
+      s.textContent = PUNCH_CSS;
+      document.head.appendChild(s);
+    }
+    const PUNCH_CSS =
+`.punch-indicator{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:2000;opacity:0}
+.punch-indicator.active{opacity:1}
+.pi-ring{position:absolute;top:50%;left:50%;width:0;height:0;border:3px solid rgba(255,80,80,.9);border-radius:50%;transform:translate(-50%,-50%)}
+.punch-indicator.active .pi-ring{animation:pi-ring .3s ease-out forwards}
+@keyframes pi-ring{0%{width:0;height:0;opacity:1;border-width:3px}100%{width:80px;height:80px;opacity:0;border-width:1px}}
+.pi-slash{position:absolute;top:50%;left:50%;width:32px;height:3px;background:rgba(255,200,50,.9);border-radius:2px;transform-origin:center;opacity:0}
+.pi-slash-1{transform:translate(-50%,-50%) rotate(45deg)}
+.pi-slash-2{transform:translate(-50%,-50%) rotate(-45deg)}
+.punch-indicator.active .pi-slash-1{animation:pi-slash-1 .25s ease-out forwards}
+.punch-indicator.active .pi-slash-2{animation:pi-slash-2 .25s ease-out forwards}
+@keyframes pi-slash-1{0%{opacity:0;width:0}20%{opacity:1;width:32px}100%{opacity:0;width:40px}}
+@keyframes pi-slash-2{0%{opacity:0;width:0}20%{opacity:1;width:32px}100%{opacity:0;width:40px}}
+.pi-cooldown{position:fixed;top:calc(50% + 55px);left:50%;transform:translateX(-50%);width:40px;height:4px;background:rgba(255,255,255,.15);border-radius:2px;pointer-events:none;z-index:2000;opacity:0;transition:opacity .1s}
+.pi-cooldown.active{opacity:1}
+.pi-cooldown-fill{height:100%;width:100%;background:rgba(255,200,50,.9);border-radius:2px;transition:none}
+.finisher-indicator{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:2000;opacity:0}
+.finisher-indicator.active{opacity:1}
+.fi-skull{position:absolute;top:50%;left:50%;width:0;height:0;transform:translate(-50%,-50%);border:2px solid rgba(255,60,60,.95);border-radius:50%}
+.finisher-indicator.active .fi-skull{animation:fi-skull .5s ease-out forwards}
+@keyframes fi-skull{0%{width:0;height:0;opacity:1;border-width:3px}40%{width:60px;height:60px;opacity:1;border-width:2px;border-color:rgba(255,60,60,.95)}100%{width:80px;height:80px;opacity:0;border-width:1px;border-color:rgba(255,200,50,.8)}}
+.fi-burst{position:absolute;top:50%;left:50%;width:4px;height:4px;background:rgba(255,200,50,.9);border-radius:50%;opacity:0}
+.fi-burst-1{transform:translate(-50%,-50%)}
+.fi-burst-2{transform:translate(-50%,-50%)}
+.fi-burst-3{transform:translate(-50%,-50%)}
+.fi-burst-4{transform:translate(-50%,-50%)}
+.finisher-indicator.active .fi-burst-1{animation:fi-burst-1 .5s ease-out forwards}
+.finisher-indicator.active .fi-burst-2{animation:fi-burst-2 .5s ease-out forwards}
+.finisher-indicator.active .fi-burst-3{animation:fi-burst-3 .5s ease-out forwards}
+.finisher-indicator.active .fi-burst-4{animation:fi-burst-4 .5s ease-out forwards}
+@keyframes fi-burst-1{0%{opacity:0;width:4px;height:4px;transform:translate(-50%,-50%) translate(0,0)}20%{opacity:1;width:6px;height:6px}100%{opacity:0;width:2px;height:2px;transform:translate(-50%,-50%) translate(-30px,-30px)}}
+@keyframes fi-burst-2{0%{opacity:0;width:4px;height:4px;transform:translate(-50%,-50%) translate(0,0)}20%{opacity:1;width:6px;height:6px}100%{opacity:0;width:2px;height:2px;transform:translate(-50%,-50%) translate(30px,-30px)}}
+@keyframes fi-burst-3{0%{opacity:0;width:4px;height:4px;transform:translate(-50%,-50%) translate(0,0)}20%{opacity:1;width:6px;height:6px}100%{opacity:0;width:2px;height:2px;transform:translate(-50%,-50%) translate(-30px,30px)}}
+@keyframes fi-burst-4{0%{opacity:0;width:4px;height:4px;transform:translate(-50%,-50%) translate(0,0)}20%{opacity:1;width:6px;height:6px}100%{opacity:0;width:2px;height:2px;transform:translate(-50%,-50%) translate(30px,30px)}}
+.miss-indicator{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:2000;opacity:0}
+.miss-indicator.active{opacity:1}
+.mi-ring{position:absolute;top:50%;left:50%;width:0;height:0;border:2px solid rgba(100,180,255,.7);border-radius:50%;transform:translate(-50%,-50%)}
+.miss-indicator.active .mi-ring{animation:mi-ring .3s ease-out forwards}
+@keyframes mi-ring{0%{width:0;height:0;opacity:.8;border-width:2px}100%{width:60px;height:60px;opacity:0;border-width:1px}}
+.mi-slash{position:absolute;top:50%;left:50%;width:0;height:2px;background:rgba(100,180,255,.6);border-radius:1px;transform:translate(-50%,-50%) rotate(45deg);opacity:0}
+.miss-indicator.active .mi-slash{animation:mi-slash .25s ease-out forwards}
+@keyframes mi-slash{0%{opacity:0;width:0}20%{opacity:.8;width:24px}100%{opacity:0;width:30px}}`;
 
     const getCurrentPlayers = () => {
       const players = [];
@@ -1226,6 +1396,7 @@
       if (!playersService) return;
 
       setInterval(() => {
+        updateHealthBar();
         const players = getCurrentPlayers();
         if (players.length === 0) return;
 
@@ -1288,11 +1459,14 @@
         GetProperty: (k) => gameProperties[k] ?? null,
         SetProperty: (k, v) => { gameProperties[k] = v; },
         Broadcast: (msg) => appendChatMessage({ system: true, message: msg }),
+        SetPlayerStat: (playerId, statName, value) => {
+          if (!_playerStats.has(playerId)) _playerStats.set(playerId, {});
+          _playerStats.get(playerId)[statName] = value;
+          if (_lastLeaderboardPlayers.length > 0) renderLeaderboard(_lastLeaderboardPlayers);
+        },
         SendChat: (msg) => {
           const userId = auth.currentUser?.uid || 'game';
           const username = 'Time Tag';
-          // Don't dispatch locally — the server will echo it back to all clients
-          // including the sender, so onChat will fire exactly once for everyone
           sendChat(msg, username, userId, false);
         },
         Fire: (event, ...args) => {
@@ -1472,6 +1646,27 @@
             };
 
             window._scriptUpdate = (dt) => {
+              updateHealthBar();
+              if (_localPlayerHealth > 0 && _localPlayerHealth < _localPlayerMaxHealth && performance.now() - _lastDamageTime >= REGEN_DELAY * 1000) {
+                _localPlayerHealth = Math.min(_localPlayerMaxHealth, _localPlayerHealth + REGEN_RATE * dt);
+                updateHealthBar();
+                _syncHealth();
+              }
+
+              // Cooldown bar (lazy-init via _ensurePunchUI)
+              const cdEl = document.getElementById('punchCooldown');
+              const cdFill = document.getElementById('punchCooldownFill');
+              if (cdEl && cdFill) {
+                const now = performance.now();
+                const elapsed = (now - _lastPunchTime) / 1000;
+                if (_lastPunchTime > 0 && elapsed < PUNCH_CD) {
+                  cdEl.classList.add('active');
+                  cdFill.style.width = `${(1 - elapsed / PUNCH_CD) * 100}%`;
+                } else {
+                  cdEl.classList.remove('active');
+                }
+              }
+
               activeClientEffect?.update?.(dt);
               if (!gameStarted) {
                 gameStarted = true;
@@ -1575,6 +1770,14 @@
 
                 if (window._bloxverse) {
                   window._bloxverse.setCurrentUserId(user.uid);
+                  window._bloxverse.onRespawn(() => {
+                    _localPlayerHealth = _localPlayerMaxHealth;
+                    updateHealthBar();
+                  });
+                  window._bloxverse.onDeath(() => {
+                    _localPlayerHealth = 0;
+                    updateHealthBar();
+                  });
                 }
 
                 let username = 'Player';
@@ -1621,12 +1824,13 @@
                 friendRequestUnsubscribe = startFriendRequestListener(user.uid);
 
                 connectMultiplayer(gameId, user.uid, username, 
-                  (id, x, y, z, ry, moving, grounded, climbState) => {
+                  (id, x, y, z, ry, moving, grounded, climbState, qx, qy, qz, qw, dead, health) => {
                     if (window._bloxverse) {
                       const playerUsername = _playerUsernames.get(id);
-                      window._bloxverse.updateOtherPlayer(id, x, y, z, ry, moving, grounded, climbState, playerUsername);
+                      window._bloxverse.updateOtherPlayer(id, x, y, z, ry, moving, grounded, climbState, playerUsername, qx, qy, qz, qw, dead, health);
                     }
                     _playerPositions.set(id, { x, y, z });
+                    if (health !== undefined && !isNaN(health)) _playerHealth.set(id, health);
                   }, 
                   (id) => {
                     if (window._bloxverse) window._bloxverse.removeOtherPlayer(id);
@@ -1643,6 +1847,14 @@
                     for (const p of players) {
                       _playerUsernames.set(p.userId, p.username);
                       _playerUserIds.set(p.userId, p.userIdNum);
+                      // Call onPlayerJoin for new players
+                      if (!_knownPlayerIds.has(p.userId)) {
+                        _knownPlayerIds.add(p.userId);
+                        const playerObj = makePlayerObj(p.userId, p.username);
+                        for (const ex of scriptExports) {
+                          try { ex.onPlayerJoin?.(playerObj); } catch (e) { console.error('[Script] onPlayerJoin error:', e); }
+                        }
+                      }
                       // Fetch avatar data for remote players once
                       if (p.userId !== user.uid && !_fetchedAvatarPlayers.has(p.userId)) {
                         _fetchedAvatarPlayers.add(p.userId);
@@ -1666,12 +1878,67 @@
                       }
                     }
                     renderLeaderboard(players);
+                    _lastLeaderboardPlayers = players;
                   },
                   (data) => {
+                    if (data.message?.startsWith('TT|HP|')) {
+                      const parts = data.message.split('|');
+                      const hp = parseInt(parts[3]);
+                      if (data.userId && !isNaN(hp)) {
+                        _playerHealth.set(data.userId, hp);
+                        if (window._bloxverse) window._bloxverse.setOtherPlayerHealth(data.userId, hp);
+                      }
+                      return;
+                    }
+                    if (data.message?.startsWith('TT|STREAK|')) {
+                      const parts = data.message.split('|');
+                      const pid = parts[2];
+                      const raw = parts[3];
+                      if (pid && raw !== undefined) {
+                        const current = _playerStats.get(pid)?.Streak;
+                        let value;
+                        if (typeof raw === 'string' && raw.startsWith('+')) {
+                          const delta = Number(raw.slice(1));
+                          value = !isNaN(delta) ? (Number(current) || 0) + delta : raw;
+                        } else {
+                          value = isNaN(Number(raw)) ? raw : Number(raw);
+                        }
+                        // Only persist and display streaks when in blockyfights game
+                        if (game && game.id === 'blockyfights') {
+                          if (!_playerStats.has(pid)) _playerStats.set(pid, {});
+                          _playerStats.get(pid).Streak = value;
+                          if (window._bloxverse) window._bloxverse.setPlayerStreak(pid, Number(value) || 0);
+                        }
+                      }
+                      dispatchScriptChat(data);
+                      return;
+                    }
+                    if (data.message?.startsWith('TT|STAT|')) {
+                      const parts = data.message.split('|');
+                      const pid = parts[2];
+                      const statName = parts[3];
+                      const raw = parts[4];
+                      if (pid && statName && raw !== undefined) {
+                        if (!_playerStats.has(pid)) _playerStats.set(pid, {});
+                        const current = _playerStats.get(pid)[statName];
+                        let value;
+                        if (typeof raw === 'string' && raw.startsWith('+')) {
+                          const delta = Number(raw.slice(1));
+                          value = !isNaN(delta) ? (Number(current) || 0) + delta : raw;
+                        } else {
+                          value = isNaN(Number(raw)) ? raw : Number(raw);
+                        }
+                        _playerStats.get(pid)[statName] = value;
+                        if (_lastLeaderboardPlayers.length > 0) renderLeaderboard(_lastLeaderboardPlayers);
+                      }
+                      dispatchScriptChat(data);
+                      return;
+                    }
+                    dispatchScriptChat(data);
                     appendChatMessage(data);
                   },
                   (userId, bodies) => {
-                    if (window._bloxverse) window._bloxverse.updatePhysicsBodies(userId, bodies);
+                    if (window._bloxverse) window._bloxverse.applyPhysicsState(userId, bodies);
                   },
                   currentUserIdNum
                 );
@@ -1681,7 +1948,7 @@
                     if (window._mpTimer >= 0.1 && window._bloxverse) {
                         window._mpTimer = 0;
                         const loc = window._bloxverse.getLocalTransform();
-                        if (loc) sendLocalTransform(loc.x, loc.y, loc.z, loc.ry, loc.moving, loc.grounded, loc.climbState);
+                        if (loc) sendLocalTransform(loc.x, loc.y, loc.z, loc.ry, loc.moving, loc.grounded, loc.climbState, loc.qx, loc.qy, loc.qz, loc.qw, loc.dead, _localPlayerHealth);
                         const phys = window._bloxverse.getPhysicsState();
                         if (phys && phys.length > 0) sendPhysicsState(phys);
                     }
