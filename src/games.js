@@ -131,7 +131,7 @@ export const games = [
     id: 'blockyfights',
     name: 'Blocky Fights',
     official: true,
-    icon: './assets/icons/demo.png',
+    icon: './assets/icons/blockyfights.png',
     mapPath: './assets/models/blockyfights.json',
     scriptsPath: './assets/games/blockyfights',
     description: 'A competitive fighting game where players battle it out in an a variety of maps using their fists. Last one standing wins!',
