@@ -107,6 +107,24 @@ export const clothingItems = [
     category: 'Shirts',
     texturePath: new URL('../assets/clothing/blockyFightShirt.png', import.meta.url).href,
   },
+  {
+    id: 'yellowcamoshirt',
+    name: 'Yellow Camo Shirt',
+    description: 'A yellow camo shirt to stay hidden by blending in with nearby environments.',
+    price: 30,
+    author: 'BloxVerse',
+    category: 'Shirts',
+    texturePath: new URL('../assets/clothing/yellowCamoShirt.png', import.meta.url).href,
+  },
+  {
+    id: 'perkypolosweater',
+    name: 'Polo Sweater',
+    description: 'A cozy and comfy sweater with appealing colors.',
+    price: 25,
+    author: 'Perky',
+    category: 'Shirts',
+    texturePath: new URL('../assets/clothing/perkyPoloSweater.png', import.meta.url).href,
+  },
 ];
 
 export function getAllClothing() {
