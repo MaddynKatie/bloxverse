@@ -98,6 +98,15 @@ export const clothingItems = [
     category: 'Shirts',
     texturePath: new URL('../assets/clothing/fadeBearHoodie.png', import.meta.url).href,
   },
+  {
+    id: 'blockyfightshirt',
+    name: 'Blocky Fight Shirt',
+    description: 'A shirt to represent your fighting skills.',
+    price: 15,
+    author: 'BloxVerse',
+    category: 'Shirts',
+    texturePath: new URL('../assets/clothing/blockyFightShirt.png', import.meta.url).href,
+  },
 ];
 
 export function getAllClothing() {
