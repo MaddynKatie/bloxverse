@@ -125,6 +125,24 @@ export const clothingItems = [
     category: 'Shirts',
     texturePath: new URL('../assets/clothing/perkyPoloSweater.png', import.meta.url).href,
   },
+  {
+    id: 'tancamoshirt',
+    name: 'Tan Camo Shirt',
+    description: 'A tan camo shirt to stay hidden by blending in with nearby environments.',
+    price: 30,
+    author: 'BloxVerse',
+    category: 'Shirts',
+    texturePath: new URL('../assets/clothing/tanCamoShirt.png', import.meta.url).href,
+  },
+  {
+    id: 'mikushirt',
+    name: 'Miku Shirt',
+    description: 'A cute shirt based on the popular character Miku.',
+    price: 39,
+    author: 'BloxVerse',
+    category: 'Shirts',
+    texturePath: new URL('../assets/clothing/ukiMShirt.png', import.meta.url).href,
+  },
 ];
 
 export function getAllClothing() {
