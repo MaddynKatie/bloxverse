@@ -1838,6 +1838,8 @@
                   const avatarSnap = await getDoc(doc(db, 'users', user.uid));
                   if (avatarSnap.exists()) {
                     const avatarData = avatarSnap.data();
+                    const isStalePreview = avatarData.avatarPreview && typeof avatarData.avatarPreview === 'string' && avatarData.avatarPreview.includes('/image/upload');
+                    const needPreview = !avatarData.avatarPreview || isStalePreview;
                     if ((avatarData.avatarColors || avatarData.avatarClothing || avatarData.avatarAccessories || avatarData.avatarFace) && window._bloxverse) {
                       const waitForChar = setInterval(() => {
                         if (window._bloxverse.getCharacter()) {
@@ -1848,6 +1850,9 @@
                             accessories: avatarData.avatarAccessories || [],
                             face: avatarData.avatarFace,
                           });
+                          if (needPreview) {
+                            setTimeout(() => generateGameThumbnail(user.uid).catch(e => console.warn('Thumbnail gen failed:', e)), 1500);
+                          }
                         }
                       }, 200);
                     } else if (window._bloxverse) {
@@ -1861,6 +1866,9 @@
                             accessories: [],
                             face: 'smile',
                           });
+                          if (needPreview) {
+                            setTimeout(() => generateGameThumbnail(user.uid).catch(e => console.warn('Thumbnail gen failed:', e)), 1500);
+                          }
                         }
                       }, 200);
                     }
@@ -2216,6 +2224,28 @@
           }
         }, 100);
       }
+
+    async function generateGameThumbnail(uid) {
+      try {
+        const blob = await window._bloxverse?._renderThumbnail();
+        console.log('[Thumbnail] blob size:', blob?.size, 'type:', blob?.type);
+        if (!blob) { console.warn('[Thumbnail] no blob'); return; }
+        if (blob.size < 50) { console.warn('[Thumbnail] blob too small'); return; }
+        const CLOUD_NAME = 'dvkbiobph';
+        const UPLOAD_PRESET = 'bloxverse_upload';
+        const formData = new FormData();
+        formData.append('file', blob, 'avatar.png');
+        formData.append('upload_preset', UPLOAD_PRESET);
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/raw/upload`, { method: 'POST', body: formData });
+        const data = await res.json();
+        console.log('[Thumbnail] Cloudinary response:', data);
+        if (data.secure_url) {
+          await setDoc(doc(db, 'users', uid), { avatarPreview: data.secure_url }, { merge: true });
+        }
+      } catch (e) {
+        console.warn('[Thumbnail] error:', e);
+      }
+    }
 
     if (game) {
       if (document.readyState === 'complete') {

@@ -2947,6 +2947,70 @@ window._bloxverse = {
     setWalkSpeed(speed) { WALK_SPEED = speed; },
     getWalkSpeed() { return WALK_SPEED; },
     requestLock() { renderer.domElement.requestPointerLock(); },
+    async _renderThumbnail() {
+      if (!character) return null;
+      const clone = SkeletonUtils.clone(character);
+      const tempScene = new THREE.Scene();
+      tempScene.background = new THREE.Color(0x000000);
+      const ambient = new THREE.AmbientLight(0xffffff, 0.8);
+      tempScene.add(ambient);
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+      dirLight.position.set(4, 6, 8);
+      tempScene.add(dirLight);
+      const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
+      fillLight.position.set(-3, 2, -4);
+      tempScene.add(fillLight);
+      clone.position.set(0, 0, 0);
+      tempScene.add(clone);
+      clone.updateMatrixWorld(true);
+
+      const target = new THREE.WebGLRenderTarget(256, 256, {
+        minFilter: THREE.LinearFilter,
+        magFilter: THREE.LinearFilter,
+      });
+
+      const thumbCam = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
+      thumbCam.position.set(5, 5, 11);
+      thumbCam.lookAt(0, 2.8, 0);
+
+      const prevTarget = renderer.getRenderTarget();
+      renderer.setRenderTarget(target);
+      renderer.clear();
+      renderer.render(tempScene, thumbCam);
+
+      const pixels = new Uint8Array(256 * 256 * 4);
+      renderer.readRenderTargetPixels(target, 0, 0, 256, 256, pixels);
+      renderer.setRenderTarget(prevTarget);
+
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 256;
+      const ctx = canvas.getContext('2d');
+      const imageData = ctx.createImageData(256, 256);
+      for (let y = 0; y < 256; y++) {
+        for (let x = 0; x < 256; x++) {
+          const srcIdx = (y * 256 + x) * 4;
+          const dstIdx = ((255 - y) * 256 + x) * 4;
+          imageData.data[dstIdx]     = pixels[srcIdx];
+          imageData.data[dstIdx + 1] = pixels[srcIdx + 1];
+          imageData.data[dstIdx + 2] = pixels[srcIdx + 2];
+          imageData.data[dstIdx + 3] = pixels[srcIdx + 3];
+        }
+      }
+      ctx.putImageData(imageData, 0, 0);
+
+      target.dispose();
+      tempScene.remove(clone);
+      clone.traverse(child => {
+        if (child.isMesh) {
+          child.geometry?.dispose();
+          if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+          else child.material?.dispose();
+        }
+      });
+
+      return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    },
     _disableShiftLock() {
         if (shiftLock) {
             shiftLock = false;

@@ -142,6 +142,21 @@ body {
   border-color: rgba(255, 255, 255, 0.3);
 }
 
+.avatar-circle-img {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  cursor: pointer;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  transition: border-color 0.15s ease;
+}
+
+.avatar-circle-img:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
 .login-btn {
   padding: 8px 16px;
   background-color: #00b06f;
@@ -668,8 +683,64 @@ body {
 /* Friends Section */
 .friends-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 8px;
+}
+
+.friend-thumb {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 6px;
+  border-radius: 10px;
+  transition: background 0.15s;
+  text-align: center;
+}
+
+.friend-thumb:hover {
+  background: rgba(255,255,255,0.06);
+}
+
+.friend-thumb-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0d69ac, #00b06f);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 700;
+  flex-shrink: 0;
+  border: 2px solid rgba(255,255,255,0.1);
+}
+
+.add-friend-circle {
+  background: rgba(0,176,111,0.12);
+  border: 2px dashed rgba(0,176,111,0.35);
+  color: #00b06f;
+}
+
+.friend-thumb-name {
+  font-size: 11px;
+  font-weight: 500;
+  color: #babbbe;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 72px;
+}
+
+.friend-thumb .status-dot {
+  border-color: #232527;
+}
+
+.friend-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .friend-card {
@@ -1037,6 +1108,26 @@ body {
 }
 .thumb-option:hover { border-color: rgba(88,101,242,0.5); }
 .thumb-option.selected { border-color: #5865f2; }
+
+/* Settings nav button */
+.settings-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: none;
+  color: #8a8c8e;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.settings-nav-btn:hover {
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+}
 
 /* Daily Reward Toast */
 .daily-reward-toast {

@@ -80,7 +80,7 @@
     import { games } from './src/games.js';
     import { auth, db, trackPresence, listenBux, getBux, checkBan, banGuard, claimDailyBux, assignUserIdNum } from './src/firebase.js';
     import { onAuthStateChanged, signOut } from 'firebase/auth';
-    import { doc, getDoc, collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
+    import { doc, getDoc, setDoc, collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
     import { searchUsers, sendFriendRequest, acceptFriendRequest, declineFriendRequest, removeFriend, getFriendRequests, getFriends } from './src/friends.js';
 
     const navCenter = document.getElementById('navCenter');
@@ -301,27 +301,50 @@
       return 'Offline';
     }
 
+    const _cb = Date.now();
+
+    window.__handleBrokenAvatar = async function(imgEl, uid) {
+      try {
+        const initial = imgEl.getAttribute('data-initial') || 'U';
+        const letter = document.createElement('div');
+        if (imgEl.className && imgEl.className.includes('avatar-circle-img')) {
+          letter.className = 'friend-thumb-avatar';
+        } else {
+          letter.className = 'friend-thumb-avatar';
+        }
+        letter.textContent = initial;
+        imgEl.replaceWith(letter);
+        // If broken avatar belongs to current user, clear so it can regenerate later
+        try {
+          if (auth && auth.currentUser && auth.currentUser.uid === uid) {
+            await setDoc(doc(db, 'users', uid), { avatarPreview: null }, { merge: true });
+            console.log('[Avatar] Cleared stale avatarPreview for current user to trigger regeneration');
+          }
+        } catch (e) { console.warn('Could not clear avatarPreview:', e); }
+      } catch (e) { console.warn('Broken avatar handler error:', e); }
+    };
+
     function renderFriends(friendsWithStatus) {
+      const addBtn = `
+        <div class="friend-thumb" onclick="window.location.href='/bloxverse/friends'" style="cursor:pointer;">
+          <div class="friend-thumb-avatar add-friend-circle">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+          </div>
+          <span class="friend-thumb-name" style="color:#00b06f;">Add Friends</span>
+        </div>
+      `;
+
       if (friendsWithStatus.length === 0) {
-        friendsGrid.innerHTML = '<p style="color:#8a8c8e;font-size:13px;padding:8px 0;">No friends yet. Search players above to add friends!</p>';
+        friendsGrid.innerHTML = addBtn;
         return;
       }
-      friendsGrid.innerHTML = friendsWithStatus.map(f => `
-                <div class="friend-card" onclick="window.location.href='${getProfileLink(f)}'" 
-style="cursor:pointer;">
+      friendsGrid.innerHTML = addBtn + friendsWithStatus.map(f => `
+        <div class="friend-thumb" onclick="window.location.href='${getProfileLink(f)}'" style="cursor:pointer;">
           <div class="avatar-with-status">
-            <div class="friend-avatar">${f.username.charAt(0).toUpperCase()}</div>
+            ${f.avatarPreview ? `<div style="width:56px;height:56px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2px solid rgba(255,255,255,0.1);background:#1a1d2e;"><img src="${f.avatarPreview}?_cb=${_cb}" alt="" data-initial="${f.username.charAt(0).toUpperCase()}" onerror="window.__handleBrokenAvatar(this, '${f.id}')" style="width:100%;height:100%;object-fit:cover;display:block;"/></div>` : `<div class="friend-thumb-avatar">${f.username.charAt(0).toUpperCase()}</div>`}
             <div class="status-dot ${f.status}"></div>
           </div>
-          <div class="friend-info">
-            <div class="friend-name">${f.username}</div>
-            <div class="friend-status ${f.status}">${statusLabel(f.status)}</div>
-          </div>
-          <div class="friend-actions" onclick="event.stopPropagation()">
-            <button class="friend-action-btn" title="Remove Friend" onclick="window._removeFriend('${f.id}')">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
-            </button>
-          </div>
+          <span class="friend-thumb-name">${f.username}</span>
         </div>
       `).join('');
     }
@@ -416,8 +439,10 @@ style="cursor:pointer;">
             username = data.username || username;
             bux = data.bux || 0;
             userNum = data.userIdNum;
+            var ownPreview = data.avatarPreview || null;
           }
         } catch {}
+        if (typeof ownPreview === 'undefined') var ownPreview = null;
 
         // Ensure existing users get a sequential userIdNum
         assignUserIdNum(user.uid).catch(() => {});
@@ -463,8 +488,14 @@ style="cursor:pointer;">
                 </button>
               </div>
             </div>
+            <button class="settings-nav-btn" onclick="window.location.href='/bloxverse/settings'" title="Settings">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+            </button>
             <div class="avatar-dropdown" id="userDropdown">
-              <div class="avatar-circle">${initial}</div>
+              ${ownPreview ? `<img src="${ownPreview}?_cb=${_cb}" alt="" class="avatar-circle-img" data-initial="${initial}" onerror="window.__handleBrokenAvatar(this, '${user.uid}')"/>` : `<div class="avatar-circle">${initial}</div>`}
               <div class="dropdown-menu">
                 <div class="dropdown-header">
                   <span class="dropdown-name">${username}</span>
@@ -496,7 +527,7 @@ style="cursor:pointer;">
           </div>
         `;
 
-        const avatarCircle = document.querySelector('#userDropdown .avatar-circle');
+        const avatarCircle = document.querySelector('#userDropdown .avatar-circle, #userDropdown .avatar-circle-img');
         const dropdown = document.getElementById('userDropdown');
         avatarCircle.addEventListener('click', (e) => {
           e.stopPropagation();

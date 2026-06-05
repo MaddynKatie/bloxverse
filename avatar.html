@@ -500,6 +500,7 @@
     floor.rotation.x = -Math.PI / 2;
     floor.position.y = -0.01;
     floor.receiveShadow = true;
+    floor.userData.isGround = true;
     scene.add(floor);
 
     const ringGeo = new THREE.RingGeometry(0.7, 0.9, 48);
@@ -512,6 +513,7 @@
     const ring = new THREE.Mesh(ringGeo, ringMat);
     ring.rotation.x = -Math.PI / 2;
     ring.position.y = 0.001;
+    ring.userData.isGround = true;
     scene.add(ring);
 
     let avatar = null;
@@ -1221,11 +1223,82 @@
           avatarFace: _equippedFaceId,
         }, { merge: true });
         showToast('Avatar saved!');
+
+        // Render and upload a thumbnail preview
+        captureAndUploadThumbnail().catch(e => console.warn('Thumbnail upload failed:', e));
       } catch (e) {
         console.error('Error saving avatar:', e);
         showToast('Failed to save');
       }
     });
+
+    async function captureAndUploadThumbnail() {
+      // Create a temporary offscreen renderer at 256×256
+      const thumbCanvas = document.createElement('canvas');
+      thumbCanvas.width = 256;
+      thumbCanvas.height = 256;
+      const thumbRenderer = new THREE.WebGLRenderer({
+        canvas: thumbCanvas,
+        antialias: true,
+        preserveDrawingBuffer: true,
+        alpha: false,
+      });
+      thumbRenderer.setPixelRatio(1);
+      thumbRenderer.outputColorSpace = THREE.SRGBColorSpace;
+      thumbRenderer.toneMapping = renderer.toneMapping;
+      thumbRenderer.toneMappingExposure = renderer.toneMappingExposure;
+      thumbRenderer.setClearColor(0x000000);
+
+      // Set up a dedicated camera for the full-body shot
+      const thumbCam = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
+      thumbCam.position.set(5, 5, 11);
+      thumbCam.lookAt(0, 2.8, 0);
+
+      // Temporarily hide ground elements
+      const hidden = [];
+      scene.traverse(child => {
+        if (child.userData?.isGround) {
+          hidden.push(child);
+          child.visible = false;
+        }
+      });
+      const prevBg = scene.background ? scene.background.clone() : null;
+      scene.background = new THREE.Color(0x000000);
+      thumbRenderer.render(scene, thumbCam);
+      if (prevBg) scene.background = prevBg;
+      for (const m of hidden) m.visible = true;
+
+      // Convert to blob and upload to Cloudinary
+      const blob = await new Promise(resolve => thumbCanvas.toBlob(resolve, 'image/png'));
+      thumbRenderer.dispose();
+
+      const CLOUD_NAME = 'dvkbiobph';
+      const UPLOAD_PRESET = 'bloxverse_upload';
+
+      // Get username to use as asset name
+      let publicId = 'avatar';
+      try {
+        const snap = await getDoc(doc(db, 'users', auth.currentUser.uid));
+        if (snap.exists() && snap.data().username) {
+          publicId = snap.data().username.replace(/[^a-zA-Z0-9_-]/g, '_');
+        }
+      } catch (e) { /* fallback to 'avatar' */ }
+
+      const formData = new FormData();
+      formData.append('file', blob, `${publicId}.png`);
+      formData.append('upload_preset', UPLOAD_PRESET);
+      formData.append('public_id', publicId);
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.secure_url) {
+        await setDoc(doc(db, 'users', auth.currentUser.uid), {
+          avatarPreview: data.secure_url,
+        }, { merge: true });
+      }
+    }
 
     const toast = document.getElementById('saveToast');
     let toastTimeout = null;
