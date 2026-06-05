@@ -26,6 +26,7 @@ const JUMP_BUFFER_T    = 0.15;
 const CAM_KEY_ZOOM_SPEED = 32;
 const CAM_PIVOT_Y        = 2.56;
 const SHIFT_LOCK_OFFSET  = 1.75;
+const FIRST_PERSON_RANGE = 3.0;
 
 const CLIMB_RISE_SPEED  = 11.2;
 const CLIMB_REACH       = 0.1;
@@ -820,7 +821,10 @@ let _charMoving = false;
 
 // ─── Camera state ─────────────────────────────────────────────────────────────
 const cam = { yaw: 0, pitch: 0.35, distance: 25.6, targetDistance: 25.6,
-    minPitch: -0.5, maxPitch: 1.35, minDist: 3.2, maxDist: 128 };
+    minPitch: -0.5, maxPitch: 1.35, minDist: 0.5, maxDist: 128 };
+let _firstPerson = false;
+let _firstPersonBlend = 0;
+const FP_BLEND_SPEED = 8;
 
 let CAM_H_SENS = 0.002 * Math.PI;
 let CAM_V_SENS = 0.0015 * Math.PI;
@@ -1238,7 +1242,7 @@ document.addEventListener('mouseup', e => { if (e.button === 2) rmb = false; });
 
 document.addEventListener('mousemove', e => {
     if (!locked) return;
-    if (shiftLock || rmb) {
+    if (shiftLock || rmb || _firstPerson) {
         cam.yaw   -= e.movementX * CAM_H_SENS;
         cam.pitch  = Math.max(cam.minPitch, Math.min(cam.maxPitch, cam.pitch + e.movementY * CAM_V_SENS));
     } else {
@@ -1976,6 +1980,33 @@ function _setLocalAvatarVisible(visible) {
         });
     }
 }
+
+function _setLocalAvatarOpacity(opacity) {
+    if (!character) return;
+    const setMatOpacity = (mat) => {
+        mat.transparent = true;
+        mat.opacity = opacity;
+    };
+    character.traverse(child => {
+        if (child.isMesh) {
+            const mats = Array.isArray(child.material) ? child.material : [child.material];
+            for (const mat of mats) setMatOpacity(mat);
+        }
+    });
+    const accMap = _playerAccessoryInstances.get(currentUserId);
+    if (accMap) {
+        for (const entry of accMap.values()) {
+            if (entry.wrapper) {
+                entry.wrapper.traverse(child => {
+                    if (child.isMesh) {
+                        const mats = Array.isArray(child.material) ? child.material : [child.material];
+                        for (const mat of mats) setMatOpacity(mat);
+                    }
+                });
+            }
+        }
+    }
+}
 fbxLoader.setResourcePath(''); // Prevent FBXLoader from auto-loading external textures
 
 fbxLoader.load(playerModelUrl, (fbx) => {
@@ -2690,7 +2721,7 @@ function update(dt) {
         if (Math.abs(extraVelZ) < 0.3) extraVelZ = 0;
     }
 
-    if (shiftLock) character.rotation.y = cam.yaw + Math.PI;
+    if (shiftLock || _firstPerson) character.rotation.y = cam.yaw + Math.PI;
 
     climbCooldown = Math.max(0, climbCooldown - dt);
 
@@ -2746,7 +2777,7 @@ function update(dt) {
 }
 
 // ─── Camera update ────────────────────────────────────────────────────────────
-function updateCamera() {
+function updateCamera(fpDt) {
     if (!character) return;
 
     const sinYaw   = Math.sin(cam.yaw);
@@ -2754,23 +2785,74 @@ function updateCamera() {
     const sinPitch = Math.sin(cam.pitch);
     const cosPitch = Math.cos(cam.pitch);
 
+    // Continuous blend: 0 at normal zoom, 1 when fully zoomed into head
+    // Uses cam.distance (the actual lerped value) so blend and orbit position stay in sync
+    const fpBlendTarget = THREE.MathUtils.clamp(
+        1 - (cam.distance - cam.minDist) / FIRST_PERSON_RANGE,
+        0, 1
+    );
+    _firstPersonBlend = THREE.MathUtils.lerp(_firstPersonBlend, fpBlendTarget, Math.min(1, FP_BLEND_SPEED * fpDt));
+
+    // Orbit position (normal third person)
     const pivot = new THREE.Vector3(
         character.position.x,
         character.position.y + CAM_PIVOT_Y,
         character.position.z
     );
-
     if (shiftLock) {
         pivot.x += cosYaw * SHIFT_LOCK_OFFSET;
         pivot.z += -sinYaw * SHIFT_LOCK_OFFSET;
     }
-
-    camera.position.set(
+    const orbitPos = new THREE.Vector3(
         pivot.x + cam.distance * cosPitch * sinYaw,
         pivot.y + cam.distance * sinPitch,
         pivot.z + cam.distance * cosPitch * cosYaw
     );
-    camera.lookAt(pivot);
+
+    // Head position (only computed when blend is active)
+    let headPos = null;
+    if (_firstPersonBlend > 0.001) {
+        const headAttachment = _findHeadAttachment(character);
+        if (headAttachment?.object) {
+            headPos = new THREE.Vector3();
+            headAttachment.object.getWorldPosition(headPos);
+            headPos.y += 0.3;
+        }
+    }
+
+    // Blend camera position
+    if (headPos && _firstPersonBlend > 0.001) {
+        camera.position.lerpVectors(orbitPos, headPos, _firstPersonBlend);
+        // Negate orbit direction so camera looks forward, not backward at pivot
+        const lookDir = new THREE.Vector3(
+            -cosPitch * sinYaw,
+            -sinPitch,
+            -cosPitch * cosYaw
+        );
+        camera.lookAt(camera.position.clone().add(lookDir));
+    } else {
+        camera.position.copy(orbitPos);
+        camera.lookAt(pivot);
+    }
+
+    // Smooth character opacity fade based on blend amount
+    const opacity = 1 - _firstPersonBlend;
+    _setLocalAvatarOpacity(opacity);
+    character.visible = opacity > 0.0001;
+    if (opacity > 0.0001) {
+        _setLocalAvatarVisible(true);
+    } else {
+        _setLocalAvatarVisible(false);
+    }
+
+    // Toggle mouse-look state (no right-click needed, cursor hidden)
+    if (_firstPersonBlend > 0.99 && !_firstPerson) {
+        _firstPerson = true;
+        if (!shiftLock) cursorEl.style.display = 'none';
+    } else if (_firstPersonBlend < 0.01 && _firstPerson) {
+        _firstPerson = false;
+        if (!shiftLock) cursorEl.style.display = 'block';
+    }
 }
 
 function _die() {
@@ -3725,7 +3807,7 @@ function loop(now) {
     if (keys['KeyI']) cam.targetDistance = Math.max(cam.minDist, cam.targetDistance - CAM_KEY_ZOOM_SPEED * frameDt);
     if (keys['KeyO']) cam.targetDistance = Math.min(cam.maxDist, cam.targetDistance + CAM_KEY_ZOOM_SPEED * frameDt);
     cam.distance = THREE.MathUtils.lerp(cam.distance, cam.targetDistance, Math.min(1, 10 * frameDt));
-    updateCamera();
+    updateCamera(frameDt);
 
     if (charDebugMesh && character) {
         const fy = character.position.y - CHAR_FOOT_OFFSET;

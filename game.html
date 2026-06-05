@@ -209,11 +209,47 @@
       allowObfuscatedMatch: true,
       fuzzyToleranceLevel: 0.8
     });
+    let _profanityCheckRelaxed = null;
+
+    // Safe words that should never be censored despite appearing in non-English profanity lists
+    const _safeWords = new Set(['top', 'xx', 'xxx', 'kk', 'kkk', 'wt']);
 
     function filterProfanity(text) {
       if (!text) return text;
-      const result = _profanityCheck.checkProfanity(text);
-      if (!result.containsProfanity) return text;
+
+      // Strip separators and convert leet pipe to 'i' for detection
+      const normalized = text.replace(/[._\-*]+/g, '').replace(/[|]/g, 'i');
+      const result = _profanityCheck.checkProfanity(normalized);
+      let hasProfanity = result.containsProfanity;
+
+      // Secondary check for concatenated profanity (e.g. "bitchshutthefuckup")
+      if (!_profanityCheckRelaxed) {
+        _profanityCheckRelaxed = new ProfanityFilter({
+          detectLeetspeak: true,
+          leetspeakLevel: 'moderate',
+          normalizeUnicode: true,
+          allLanguages: true,
+          wordBoundaries: false,
+          allowObfuscatedMatch: true,
+          fuzzyToleranceLevel: 0.8
+        });
+      }
+      const relaxed = _profanityCheckRelaxed.checkProfanity(normalized);
+      if (relaxed.containsProfanity) {
+        hasProfanity = true;
+        for (const word of relaxed.profaneWords) {
+          // >= 4 length to catch "fuck"/"shit" in concatenated strings
+          if (word.length >= 4 && !result.profaneWords.includes(word)) {
+            result.profaneWords.push(word);
+          }
+        }
+      }
+
+      if (!hasProfanity) return text;
+
+      // Remove safe words that falsely match due to allLanguages
+      const filteredWords = result.profaneWords.filter(w => !_safeWords.has(w.toLowerCase()));
+      if (filteredWords.length === 0) return text;
 
       let cleaned = text;
       const leetMap = {
@@ -235,10 +271,10 @@
         'z': '[zZ2\u0240]'
       };
 
-      result.profaneWords.filter(w => w.length >= 3).forEach(word => {
+      filteredWords.filter(w => w.length >= 3).forEach(word => {
         const pattern = word.split('').map(c => {
           const l = c.toLowerCase();
-          return (leetMap[l] || l) + '[\\s._\\-*]*';
+          return (leetMap[l] || l) + '[\\s._\\-*|]*';
         }).join('');
         const regex = new RegExp(pattern, "gi");
         cleaned = cleaned.replace(regex, (m) => '*'.repeat(m.length));
@@ -1802,7 +1838,7 @@
                   const avatarSnap = await getDoc(doc(db, 'users', user.uid));
                   if (avatarSnap.exists()) {
                     const avatarData = avatarSnap.data();
-                    if ((avatarData.avatarColors || avatarData.avatarClothing || avatarData.avatarAccessories) && window._bloxverse) {
+                    if ((avatarData.avatarColors || avatarData.avatarClothing || avatarData.avatarAccessories || avatarData.avatarFace) && window._bloxverse) {
                       const waitForChar = setInterval(() => {
                         if (window._bloxverse.getCharacter()) {
                           clearInterval(waitForChar);
@@ -1811,6 +1847,19 @@
                             clothing: avatarData.avatarClothing || null,
                             accessories: avatarData.avatarAccessories || [],
                             face: avatarData.avatarFace,
+                          });
+                        }
+                      }, 200);
+                    } else if (window._bloxverse) {
+                      // No customization — apply defaults once character is ready
+                      const waitForChar = setInterval(() => {
+                        if (window._bloxverse.getCharacter()) {
+                          clearInterval(waitForChar);
+                          window._bloxverse._setPlayerAvatarData(user.uid, {
+                            colors: { Body: '#1e3a5f', Legs: '#2d5a27', Arms: '#1e3a5f', Head: '#c4a882' },
+                            clothing: null,
+                            accessories: [],
+                            face: 'smile',
                           });
                         }
                       }, 200);
@@ -1858,10 +1907,17 @@
                       // Fetch avatar data for remote players once
                       if (p.userId !== user.uid && !_fetchedAvatarPlayers.has(p.userId)) {
                         _fetchedAvatarPlayers.add(p.userId);
+                        // Set defaults immediately to prevent flash of local player's colors/accessories
+                        window._bloxverse._setPlayerAvatarData(p.userId, {
+                          colors: { Body: '#1e3a5f', Legs: '#2d5a27', Arms: '#1e3a5f', Head: '#c4a882' },
+                          clothing: null,
+                          accessories: [],
+                          face: 'smile',
+                        });
                         getDoc(doc(db, 'users', p.userId)).then(snap => {
                           if (snap.exists() && window._bloxverse) {
                             const ad = snap.data();
-                            if (ad.avatarColors || ad.avatarClothing || ad.avatarAccessories) {
+                            if (ad.avatarColors || ad.avatarClothing || ad.avatarAccessories || ad.avatarFace) {
                               window._bloxverse._setPlayerAvatarData(p.userId, {
                                 colors: ad.avatarColors || {},
                                 clothing: ad.avatarClothing || null,

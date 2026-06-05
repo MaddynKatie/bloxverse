@@ -1126,7 +1126,6 @@
           loadSavedColors();
           renderClothingGrid();
           renderFacesGrid();
-          renderAccGrid();
         }, 100);
       }, undefined, () => {
         if (loadAttempts < maxLoadAttempts) {
@@ -1184,6 +1183,7 @@
           equipFace('smile');
         }
         renderClothingGrid();
+        renderAccGrid();
       } catch (e) {
         console.error('Error loading avatar data:', e);
       }
