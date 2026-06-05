@@ -17,7 +17,7 @@
   </script>
   <base href="/bloxverse/">
 
-    <meta charset="UTF-8" />
+  <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BloxVerse - Play</title>
@@ -42,7 +42,9 @@
     <button class="top-btn" id="btnSettings" title="Settings">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="12" cy="12" r="3"></circle>
-        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        <path
+          d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+        </path>
       </svg>
     </button>
     <button class="top-btn" id="btnChat" title="Chat">
@@ -62,23 +64,32 @@
   </div>
 
   <!-- Disconnection Overlay -->
-  <div id="disconnectOverlay" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);justify-content:center;align-items:center;">
-    <div style="background:#1c1c1e;border:1px solid #2a2a2c;border-radius:16px;padding:40px 48px;max-width:420px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.5);">
+  <div id="disconnectOverlay"
+    style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);justify-content:center;align-items:center;">
+    <div
+      style="background:#1c1c1e;border:1px solid #2a2a2c;border-radius:16px;padding:40px 48px;max-width:420px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.5);">
       <div style="font-size:48px;margin-bottom:16px;color:#f44336;">
         <i class="fa-solid fa-wifi"></i>
       </div>
       <h2 style="color:#fff;font-size:22px;font-weight:700;margin-bottom:6px;">Connection Lost</h2>
-      <div style="color:#888;font-size:12px;font-family:monospace;margin-bottom:16px;" id="disconnectErrorCode">ERR_CONNECTION_LOST</div>
-      <p style="color:#a0a0a0;font-size:14px;margin-bottom:24px;line-height:1.5;">Your connection to the game server has been interrupted. Please check your internet connection and try again.</p>
+      <div style="color:#888;font-size:12px;font-family:monospace;margin-bottom:16px;" id="disconnectErrorCode">
+        ERR_CONNECTION_LOST</div>
+      <p style="color:#a0a0a0;font-size:14px;margin-bottom:24px;line-height:1.5;">Your connection to the game server has
+        been interrupted. Please check your internet connection and try again.</p>
       <div style="display:flex;flex-direction:column;gap:10px;">
-        <button id="disconnectReconnectBtn" style="background:#5865f2;color:#fff;border:none;padding:12px 24px;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;transition:opacity 0.15s;">Reconnect</button>
-        <button id="disconnectHomeBtn" style="background:rgba(255,255,255,0.08);color:#ccc;border:none;padding:10px 24px;border-radius:8px;font-size:14px;cursor:pointer;transition:opacity 0.15s;">Return to Home</button>
+        <button id="disconnectReconnectBtn"
+          style="background:#5865f2;color:#fff;border:none;padding:12px 24px;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;transition:opacity 0.15s;">Reconnect</button>
+        <button id="disconnectHomeBtn"
+          style="background:rgba(255,255,255,0.08);color:#ccc;border:none;padding:10px 24px;border-radius:8px;font-size:14px;cursor:pointer;transition:opacity 0.15s;">Return
+          to Home</button>
       </div>
     </div>
   </div>
 
   <!-- Toast Notifications -->
-  <div id="toastContainer" style="position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none;max-width:480px;width:90%;"></div>
+  <div id="toastContainer"
+    style="position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none;max-width:480px;width:90%;">
+  </div>
 
   <!-- Script GUI Layer -->
   <div id="scriptGuiContainer" style="position:fixed;inset:0;pointer-events:none;z-index:500;overflow:hidden;"></div>
@@ -136,7 +147,9 @@
           <div class="report-form">
             <div class="report-field">
               <label>Player</label>
-              <select id="reportPlayerSelect"><option value="">Select a player...</option></select>
+              <select id="reportPlayerSelect">
+                <option value="">Select a player...</option>
+              </select>
             </div>
             <div class="report-field">
               <label>Reason</label>
@@ -152,7 +165,8 @@
               <label>Details</label>
               <textarea id="reportDescription" placeholder="Describe what happened..." rows="4"></textarea>
             </div>
-            <button id="btnSubmitReport" class="settings-btn settings-btn-danger" style="width:100%;padding:10px;">Submit Report</button>
+            <button id="btnSubmitReport" class="settings-btn settings-btn-danger"
+              style="width:100%;padding:10px;">Submit Report</button>
             <div id="reportStatus" style="margin-top:8px;font-size:13px;text-align:center;"></div>
           </div>
         </div>
@@ -253,8 +267,8 @@
 
       let cleaned = text;
       const leetMap = {
-        'a': '[aA4@\u00C0-\u00C5\u0430\u03B1\u0250]', 
-        'b': '[bB8\u03B2\u0299]', 
+        'a': '[aA4@\u00C0-\u00C5\u0430\u03B1\u0250]',
+        'b': '[bB8\u03B2\u0299]',
         'c': '[cC(<{\u00A2\u0441\u03C2\u03BF\u0254]',
         'd': '[dD|)]',
         'e': '[eE3\u00E8-\u00EB\u0435\u03B5\u01DD]',
@@ -448,11 +462,11 @@
     chatInput.addEventListener('focus', () => { window._chatFocused = true; });
     chatInput.addEventListener('blur', () => { window._chatFocused = false; });
 
-    const NAME_COLORS = ['#60a5fa','#34d399','#f87171','#fbbf24','#a78bfa','#fb923c','#f472b6'];
+    const NAME_COLORS = ['#60a5fa', '#34d399', '#f87171', '#fbbf24', '#a78bfa', '#fb923c', '#f472b6'];
     function nameColor(name) {
-        let h = 0;
-        for (const c of name) h = (h * 31 + c.charCodeAt(0)) & 0xFFFF;
-        return NAME_COLORS[h % NAME_COLORS.length];
+      let h = 0;
+      for (const c of name) h = (h * 31 + c.charCodeAt(0)) & 0xFFFF;
+      return NAME_COLORS[h % NAME_COLORS.length];
     }
 
     function appendChatMessage(data) {
@@ -542,7 +556,7 @@
         lbList.innerHTML = '<div style="padding:8px 12px;color:#babbbe;font-size:12px;">No players</div>';
         return;
       }
-      
+
       // Store usernames and fetch missing roles
       const rolePromises = [];
       for (const p of players) {
@@ -555,13 +569,13 @@
           })());
         }
       }
-      
+
       if (rolePromises.length > 0) await Promise.all(rolePromises);
 
       const ROLE_ICONS = {
         developer: `<i class="fa-solid fa-code" style="color: #44d9e6; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
-        admin:     `<i class="fa-solid fa-shield-halved" style="color: #ff4444; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
-        mod:       `<i class="fa-solid fa-gavel" style="color: #facc15; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
+        admin: `<i class="fa-solid fa-shield-halved" style="color: #ff4444; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
+        mod: `<i class="fa-solid fa-gavel" style="color: #facc15; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
       };
 
       const defaultStatsPerGame = (game && game.id === 'blockyfights') ? { Kills: 0 } : {};
@@ -577,22 +591,22 @@
           return 0;
         })
         .map(({ p, stats }) => {
-        const roles = _playerRoles.get(p.userId) || [];
-        const badges = roles.map(r => ROLE_ICONS[r] || '').join('');
-        const statStr = Object.entries(stats)
-          .filter(([k]) => k !== 'Streak')
-          .map(([k, v]) =>
-            `<span style="color:#f87171;font-size:12px;font-weight:700;margin-left:6px;">${k}: ${v}</span>`
-          ).join('');
-        return `
+          const roles = _playerRoles.get(p.userId) || [];
+          const badges = roles.map(r => ROLE_ICONS[r] || '').join('');
+          const statStr = Object.entries(stats)
+            .filter(([k]) => k !== 'Streak')
+            .map(([k, v]) =>
+              `<span style="color:#f87171;font-size:12px;font-weight:700;margin-left:6px;">${k}: ${v}</span>`
+            ).join('');
+          return `
           <div class="leaderboard-item" data-user-id="${p.userId}">
             <div style="display:flex; align-items:center;">${badges}</div>
             <span class="lb-name">${p.username}</span>
             <div style="margin-left:auto;">${statStr}</div>
           </div>
         `;
-      }).join('');
-      
+        }).join('');
+
       // Add click handlers to leaderboard items
       lbList.querySelectorAll('.leaderboard-item').forEach(item => {
         item.addEventListener('click', (e) => {
@@ -609,7 +623,7 @@
       _selectedPlayerId = userId;
       playerMenuUsername.textContent = username;
       playerMenu.style.display = 'block';
-      
+
       // Reload friends list to ensure button state is correct
       await loadCurrentUserFriends(auth.currentUser?.uid);
       await checkFollowingStatus(userId);
@@ -638,7 +652,7 @@
               if (!_playerUserIds) _playerUserIds = new Map();
               _playerUserIds.set(_selectedPlayerId, num);
             }
-          } catch {}
+          } catch { }
         }
         window.open(`profile?user=${encodeURIComponent(num || _selectedPlayerId)}`, '_blank');
         hidePlayerMenu();
@@ -700,13 +714,13 @@
       try {
         const following = await getFollowing(currentUserId);
         const isFollowing = following.includes(targetUserId);
-        
+
         if (isFollowing) {
           await unfollowUser(currentUserId, targetUserId);
         } else {
           await followUser(currentUserId, targetUserId);
         }
-        
+
         checkFollowingStatus(targetUserId);
       } catch (e) {
         console.error('Error toggling follow', e);
@@ -852,14 +866,14 @@
       if (saved.shiftLock != null) {
         shiftlockToggle.checked = saved.shiftLock;
       }
-    } catch (_) {}
+    } catch (_) { }
 
     function saveSetting(key, val) {
       try {
         const data = JSON.parse(localStorage.getItem('bloxverse_settings') || '{}');
         data[key] = val;
         localStorage.setItem('bloxverse_settings', JSON.stringify(data));
-      } catch (_) {}
+      } catch (_) { }
     }
 
     function openSettings() {
@@ -914,23 +928,23 @@
       const list = document.getElementById('peopleList');
       const localUserId = auth.currentUser?.uid;
       const localUsername = _currentUsername || auth.currentUser?.displayName || 'Player';
-      
+
       const rows = [];
-      
+
       if (localUserId) {
         const localRoles = _playerRoles.get(localUserId) || [];
         rows.push(buildPlayerRow(localUserId, localUsername, 'You', localRoles, false, true));
       }
-      
+
       for (const p of _currentPlayerList) {
         if (p.userId === localUserId) continue;
         const roles = _playerRoles.get(p.userId) || [];
         const isFriend = currentUserFriends.has(p.userId);
         rows.push(buildPlayerRow(p.userId, p.username, '', roles, isFriend, false));
       }
-      
+
       list.innerHTML = rows.join('');
-      
+
       // Click name to open player menu
       list.querySelectorAll('.people-item-left').forEach(el => {
         el.addEventListener('click', (e) => {
@@ -940,7 +954,7 @@
           showPlayerMenu(item.dataset.userId, item.dataset.username);
         });
       });
-      
+
       // Friend buttons
       list.querySelectorAll('.people-btn-friend').forEach(btn => {
         btn.addEventListener('click', async (e) => {
@@ -959,12 +973,12 @@
     function buildPlayerRow(userId, username, label, roles, isFriend, isSelf) {
       const ROLE_ICONS = {
         developer: `<i class="fa-solid fa-code" style="color: #44d9e6; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
-        admin:     `<i class="fa-solid fa-shield-halved" style="color: #ff4444; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
-        mod:       `<i class="fa-solid fa-gavel" style="color: #facc15; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
+        admin: `<i class="fa-solid fa-shield-halved" style="color: #ff4444; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
+        mod: `<i class="fa-solid fa-gavel" style="color: #facc15; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
       };
       const badges = roles.map(r => ROLE_ICONS[r] || '').join('');
       const labelHtml = label ? `<span class="people-label">${label}</span>` : '';
-      
+
       let actions = '';
       if (!isSelf) {
         if (!isFriend) {
@@ -972,7 +986,7 @@
         }
         actions += `<button class="people-btn people-btn-report" data-user-id="${userId}" data-username="${username}">Report</button>`;
       }
-      
+
       return `<div class="people-item" data-user-id="${userId}" data-username="${username}">
         <div class="people-item-left">${badges}<span class="people-name">${username}</span>${labelHtml}</div>
         <div class="people-item-right">${actions}</div>
@@ -985,13 +999,13 @@
       const reasonSelect = document.getElementById('reportReasonSelect');
       const description = document.getElementById('reportDescription');
       const status = document.getElementById('reportStatus');
-      
+
       if (!playerSelect.value) { status.textContent = 'Please select a player.'; status.style.color = '#f87171'; return; }
       if (!description.value.trim()) { status.textContent = 'Please provide details.'; status.style.color = '#f87171'; return; }
-      
+
       status.textContent = 'Submitting...';
       status.style.color = '#9ca3af';
-      
+
       const ok = await submitReport(auth.currentUser?.uid, playerSelect.value, reasonSelect.value, description.value.trim());
       if (ok) {
         status.textContent = 'Report submitted.';
@@ -1120,20 +1134,20 @@
         health: isLocal ? _localPlayerHealth : (_playerHealth.get(id) ?? 100),
         maxHealth: isLocal ? _localPlayerMaxHealth : 100,
         _props: {},
-        GetProperty: function(k) { return this._props[k]; },
-        SetProperty: function(k, v) { this._props[k] = v; },
-        Message: function(msg) {
+        GetProperty: function (k) { return this._props[k]; },
+        SetProperty: function (k, v) { this._props[k] = v; },
+        Message: function (msg) {
           appendChatMessage({ system: true, message: `[${this.name}] ${msg}` });
         },
-        Teleport: function(x, y, z) {
+        Teleport: function (x, y, z) {
           if (isLocal && window._bloxverse) {
             window._bloxverse.setSpawn(x, y, z, 0);
           }
         },
-        Damage: function(amt) { this.health = Math.max(0, this.health - amt); if (isLocal) { _localPlayerHealth = this.health; _lastDamageTime = performance.now(); updateHealthBar(); _syncHealth(); } },
-        Heal: function(amt) { this.health = Math.min(this.maxHealth, this.health + amt); if (isLocal) { _localPlayerHealth = this.health; updateHealthBar(); _syncHealth(); } },
-        Respawn: function() { this.health = this.maxHealth; if (isLocal) { _localPlayerHealth = this.health; updateHealthBar(); _syncHealth(); } },
-        ShowPunchIndicator: function() {
+        Damage: function (amt) { this.health = Math.max(0, this.health - amt); if (isLocal) { _localPlayerHealth = this.health; _lastDamageTime = performance.now(); updateHealthBar(); _syncHealth(); } },
+        Heal: function (amt) { this.health = Math.min(this.maxHealth, this.health + amt); if (isLocal) { _localPlayerHealth = this.health; updateHealthBar(); _syncHealth(); } },
+        Respawn: function () { this.health = this.maxHealth; if (isLocal) { _localPlayerHealth = this.health; updateHealthBar(); _syncHealth(); } },
+        ShowPunchIndicator: function () {
           _ensurePunchUI();
           _lastPunchTime = performance.now();
           const el = document.getElementById('punchIndicator');
@@ -1144,7 +1158,7 @@
           clearTimeout(el._timeout);
           el._timeout = setTimeout(() => el.classList.remove('active'), 350);
         },
-        ShowMissIndicator: function() {
+        ShowMissIndicator: function () {
           _ensurePunchUI();
           _lastPunchTime = performance.now();
           const el = document.getElementById('missIndicator');
@@ -1155,7 +1169,7 @@
           clearTimeout(el._timeout);
           el._timeout = setTimeout(() => el.classList.remove('active'), 350);
         },
-        ShowFinisherIndicator: function() {
+        ShowFinisherIndicator: function () {
           _ensurePunchUI();
           const el = document.getElementById('finisherIndicator');
           if (!el) return;
@@ -1182,7 +1196,7 @@
       document.head.appendChild(s);
     }
     const PUNCH_CSS =
-`.punch-indicator{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:2000;opacity:0}
+      `.punch-indicator{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:2000;opacity:0}
 .punch-indicator.active{opacity:1}
 .pi-ring{position:absolute;top:50%;left:50%;width:0;height:0;border:3px solid rgba(255,80,80,.9);border-radius:50%;transform:translate(-50%,-50%)}
 .punch-indicator.active .pi-ring{animation:pi-ring .3s ease-out forwards}
@@ -1263,7 +1277,7 @@
         get mass() { return bv._getPartMass(mesh); },
         set mass(v) { bv._setPartMass(mesh, v); },
         get canCollide() { return true; },
-        set canCollide(v) {},
+        set canCollide(v) { },
         SetVelocity(vx, vy, vz) { bv._setPartVelocity(mesh, vx, vy, vz); },
         GetVelocity() { return bv._getPartVelocity(mesh); },
         SetBounciness(v) { bv._setPartBounciness(mesh, v); },
@@ -1296,22 +1310,22 @@
       el.dataset.bvGuiType = type;
 
       const state = {
-        Text:                 props.Text                 ?? (type === 'TextButton' ? 'Button' : type === 'TextLabel' ? 'Label' : ''),
-        Visible:              props.Visible              !== undefined ? props.Visible : true,
-        PositionX:            props.PositionX            ?? 0,
-        PositionY:            props.PositionY            ?? 0,
-        SizeX:                props.SizeX                ?? 100,
-        SizeY:                props.SizeY                ?? 30,
-        TextColor:            props.TextColor            ?? '#ffffff',
-        BackgroundColor:      props.BackgroundColor      ?? (type === 'TextButton' ? '#5865f2' : type === 'Frame' ? '#333333' : 'transparent'),
+        Text: props.Text ?? (type === 'TextButton' ? 'Button' : type === 'TextLabel' ? 'Label' : ''),
+        Visible: props.Visible !== undefined ? props.Visible : true,
+        PositionX: props.PositionX ?? 0,
+        PositionY: props.PositionY ?? 0,
+        SizeX: props.SizeX ?? 100,
+        SizeY: props.SizeY ?? 30,
+        TextColor: props.TextColor ?? '#ffffff',
+        BackgroundColor: props.BackgroundColor ?? (type === 'TextButton' ? '#5865f2' : type === 'Frame' ? '#333333' : 'transparent'),
         BackgroundTransparency: props.BackgroundTransparency ?? 0,
-        FontSize:             props.FontSize             ?? 14,
-        ZIndex:               props.ZIndex               ?? 1,
-        TextTransparency:     props.TextTransparency     ?? 0,
+        FontSize: props.FontSize ?? 14,
+        ZIndex: props.ZIndex ?? 1,
+        TextTransparency: props.TextTransparency ?? 0,
       };
 
       function applyStyles() {
-        const pw = _scriptGuiContainer.clientWidth  || window.innerWidth;
+        const pw = _scriptGuiContainer.clientWidth || window.innerWidth;
         const ph = _scriptGuiContainer.clientHeight || window.innerHeight;
         const sw = state.SizeX <= 1 ? state.SizeX * pw : state.SizeX;
         const sh = state.SizeY <= 1 ? state.SizeY * ph : state.SizeY;
@@ -1319,24 +1333,24 @@
         const py = state.PositionY <= 1 ? state.PositionY * ph : state.PositionY;
 
         Object.assign(el.style, {
-          position:    'absolute',
-          left:        (px - sw / 2) + 'px',
-          top:         py + 'px',
-          width:       sw + 'px',
-          height:      sh + 'px',
-          zIndex:      String(state.ZIndex),
-          fontSize:    state.FontSize + 'px',
-          display:     state.Visible ? 'flex' : 'none',
-          alignItems:  'center',
+          position: 'absolute',
+          left: (px - sw / 2) + 'px',
+          top: py + 'px',
+          width: sw + 'px',
+          height: sh + 'px',
+          zIndex: String(state.ZIndex),
+          fontSize: state.FontSize + 'px',
+          display: state.Visible ? 'flex' : 'none',
+          alignItems: 'center',
           justifyContent: 'center',
-          textAlign:   'center',
-          lineHeight:  '1.2',
-          boxSizing:   'border-box',
-          border:      'none',
-          outline:     'none',
-          cursor:      type === 'TextButton' ? 'pointer' : 'default',
-          overflow:    'hidden',
-          userSelect:  'none',
+          textAlign: 'center',
+          lineHeight: '1.2',
+          boxSizing: 'border-box',
+          border: 'none',
+          outline: 'none',
+          cursor: type === 'TextButton' ? 'pointer' : 'default',
+          overflow: 'hidden',
+          userSelect: 'none',
           pointerEvents: (type === 'TextButton' || type === 'TextLabel' || type === 'Frame') ? 'auto' : 'none',
         });
 
@@ -1349,8 +1363,8 @@
           // Parse color to apply alpha
           const tmp = document.createElement('canvas').getContext('2d');
           tmp.fillStyle = bgCss;
-          tmp.fillRect(0,0,1,1);
-          const d = tmp.getImageData(0,0,1,1).data;
+          tmp.fillRect(0, 0, 1, 1);
+          const d = tmp.getImageData(0, 0, 1, 1).data;
           el.style.background = `rgba(${d[0]},${d[1]},${d[2]},${bgAlpha})`;
         }
 
@@ -1360,8 +1374,8 @@
           const tCss = _cssColorFromValue(state.TextColor);
           const tmp2 = document.createElement('canvas').getContext('2d');
           tmp2.fillStyle = tCss;
-          tmp2.fillRect(0,0,1,1);
-          const d2 = tmp2.getImageData(0,0,1,1).data;
+          tmp2.fillRect(0, 0, 1, 1);
+          const d2 = tmp2.getImageData(0, 0, 1, 1).data;
           el.style.color = `rgba(${d2[0]},${d2[1]},${d2[2]},${txtAlpha})`;
           el.textContent = state.Text;
         }
@@ -1373,15 +1387,15 @@
       // Proxy so scripts can write element.Text = "...", element.Visible = false, etc.
       const proxy = new Proxy(state, {
         get(t, prop) {
-          if (prop === 'Destroy')  return () => { el.remove(); };
+          if (prop === 'Destroy') return () => { el.remove(); };
           if (prop === 'Connect') {
             return (evtName, fn) => {
               const dom = evtName === 'click' ? 'click'
                 : evtName === 'mouseenter' ? 'mouseenter'
-                : evtName === 'mouseleave' ? 'mouseleave'
-                : evtName === 'mousedown'  ? 'mousedown'
-                : evtName === 'mouseup'    ? 'mouseup'
-                : evtName;
+                  : evtName === 'mouseleave' ? 'mouseleave'
+                    : evtName === 'mousedown' ? 'mousedown'
+                      : evtName === 'mouseup' ? 'mouseup'
+                        : evtName;
               el.addEventListener(dom, fn);
               return { Disconnect: () => el.removeEventListener(dom, fn) };
             };
@@ -1547,9 +1561,9 @@
         GetPartPosition: (name) => {
           const parts = window._mapParts || [];
           const found = parts.find(p => p.name === name);
-          if (!found?.mesh) return {x: 0, y: 0, z: 0};
+          if (!found?.mesh) return { x: 0, y: 0, z: 0 };
           const p = found.mesh.position;
-          return {x: p.x, y: p.y, z: p.z};
+          return { x: p.x, y: p.y, z: p.z };
         },
         // GUI API
         CreateScreenGui: (name) => _createScreenGuiContainer(name || 'ScreenGui'),
@@ -1561,493 +1575,487 @@
     }
 
     function startGame() {
-        setLoad(15, 'Initializing engine...');
-        const poll = setInterval(async () => {
-          if (window._bloxverse) {
-            clearInterval(poll);
-            setLoad(30, 'Loading map...');
+      setLoad(15, 'Initializing engine...');
+      const poll = setInterval(async () => {
+        if (window._bloxverse) {
+          clearInterval(poll);
+          setLoad(30, 'Loading map...');
 
-            if (game.mapPath) {
-              if (game.mapPath.endsWith('.js')) {
-                await window._bloxverse.loadJSMap(game.mapPath);
-              } else {
-                const mapOffset = game.mapOffset || {};
-                const spawn = game.spawn || {};
-                await window._bloxverse.loadMap(game.mapPath, mapOffset.x ?? 0, mapOffset.y ?? 0, mapOffset.z ?? 0);
-                if (spawn.x != null || spawn.y != null || spawn.z != null || spawn.ry != null) {
-                  window._bloxverse.setSpawn(
-                    spawn.x ?? 0,
-                    spawn.y ?? 0,
-                    spawn.z ?? 0,
-                    spawn.ry ?? Math.PI
-                  );
+          if (game.mapPath) {
+            if (game.mapPath.endsWith('.js')) {
+              await window._bloxverse.loadJSMap(game.mapPath);
+            } else {
+              const mapOffset = game.mapOffset || {};
+              const spawn = game.spawn || {};
+              await window._bloxverse.loadMap(game.mapPath, mapOffset.x ?? 0, mapOffset.y ?? 0, mapOffset.z ?? 0);
+              if (spawn.x != null || spawn.y != null || spawn.z != null || spawn.ry != null) {
+                window._bloxverse.setSpawn(
+                  spawn.x ?? 0,
+                  spawn.y ?? 0,
+                  spawn.z ?? 0,
+                  spawn.ry ?? Math.PI
+                );
+              }
+              window._bloxverse.setWorldFloorEnabled(game.worldFloor !== false);
+              if (game.respawnY != null) {
+                window._bloxverse.setRespawnY(game.respawnY);
+              }
+            }
+            window._bloxverse.setSens(parseFloat(sensSlider.value));
+            window._bloxverse.shiftLockEnabled = shiftlockToggle.checked;
+          }
+          setupClientEffect(window._mapConfig || game);
+          incrementGameVisits(gameId).catch(err => console.error('Visit increment failed:', err));
+          // Reward the game author 1 bux for a unique visit
+          if (game.authorId) {
+            const visitorId = auth.currentUser?.uid;
+            rewardUniqueVisit(game.authorId, visitorId, gameId, game.name).catch(() => { });
+          }
+
+          const gameRoot = initGameHierarchy();
+          const workspace = gameRoot.Children.find(c => c.ClassName === 'Workspace');
+
+          // Wire up PartInstances for all parts loaded by loadMap.
+          // loadMap runs before initGameHierarchy so the workspace didn't exist yet —
+          // we create PartInstance objects now and parent them in so scripts can find
+          // them via workspace:WaitForChild("Field1") etc.
+          for (const entry of window._mapParts || []) {
+            if (entry.mesh && entry.name && !entry.mesh._instRef) {
+              const partInst = new PartInstance(entry.name);
+              partInst.mesh = entry.mesh;
+              entry.mesh._instRef = partInst;
+              partInst.setParent(workspace);
+            }
+          }
+          const playersService = gameRoot.Children.find(c => c.ClassName === 'Players');
+
+          const playerName = auth.currentUser?.displayName || 'Player';
+          const localPlayer = new Instance('Player', playerName);
+          localPlayer.UserId = auth.currentUser?.uid;
+          localPlayer.setParent(playersService);
+          const character = new Instance('Model', playerName);
+          character.setParent(workspace);
+          localPlayer.Character = character;
+
+          const gameProxy = createInstanceProxy(gameRoot);
+          const playerProxy = gameProxy.Players[playerName];
+          window._bloxverse.setCharInstance(playerProxy.Character);
+
+          // Start watching for leaderstats folders added by scripts
+          _setupLeaderstatsWatcher(gameRoot);
+
+          function linkInstanceToEngine(inst) {
+            if (inst.ClassName === 'Part' && inst.mesh) {
+              inst.Changed = (prop, val) => {
+                const bv = window._bloxverse;
+                if (prop === 'Color') {
+                  const hex = (Math.round(val.r * 255) << 16) | (Math.round(val.g * 255) << 8) | Math.round(val.b * 255);
+                  bv._setPartColor(inst.mesh, hex);
+                } else if (prop === 'Transparency') {
+                  bv._setPartTransparency(inst.mesh, val);
+                } else if (prop === 'Anchored') {
+                  bv._setPartAnchored(inst.mesh, val);
+                } else if (prop === 'px') {
+                  bv._setPartPos(inst.mesh, val, inst.mesh.position.y, inst.mesh.position.z);
+                } else if (prop === 'py') {
+                  bv._setPartPos(inst.mesh, inst.mesh.position.x, val, inst.mesh.position.z);
+                } else if (prop === 'pz') {
+                  bv._setPartPos(inst.mesh, inst.mesh.position.x, inst.mesh.position.y, val);
+                } else if (prop === 'Size') {
+                  const [sw, sh, sd] = val;
+                  bv._resizePart(inst.mesh, sw, sh, sd);
                 }
-                window._bloxverse.setWorldFloorEnabled(game.worldFloor !== false);
-                if (game.respawnY != null) {
-                  window._bloxverse.setRespawnY(game.respawnY);
-                }
-              }
-              window._bloxverse.setSens(parseFloat(sensSlider.value));
-              window._bloxverse.shiftLockEnabled = shiftlockToggle.checked;
+              };
             }
-            setupClientEffect(window._mapConfig || game);
-            incrementGameVisits(gameId).catch(err => console.error('Visit increment failed:', err));
-            // Reward the game author 1 bux for a unique visit
-            if (game.authorId) {
-              const visitorId = auth.currentUser?.uid;
-              rewardUniqueVisit(game.authorId, visitorId, gameId, game.name).catch(() => {});
-            }
+          }
 
-            const gameRoot = initGameHierarchy();
-            const workspace = gameRoot.Children.find(c => c.ClassName === 'Workspace');
-
-            // Wire up PartInstances for all parts loaded by loadMap.
-            // loadMap runs before initGameHierarchy so the workspace didn't exist yet —
-            // we create PartInstance objects now and parent them in so scripts can find
-            // them via workspace:WaitForChild("Field1") etc.
-            for (const entry of window._mapParts || []) {
-              if (entry.mesh && entry.name && !entry.mesh._instRef) {
-                const partInst = new PartInstance(entry.name);
-                partInst.mesh = entry.mesh;
-                entry.mesh._instRef = partInst;
-                partInst.setParent(workspace);
+          Instance._onPartCreateMesh = (partInst) => {
+            const bv = window._bloxverse;
+            if (!bv || partInst.mesh) return;
+            const [sw, sh, sd] = partInst.Size;
+            const color = partInst.Color.getHex();
+            const [px, py, pz] = partInst.Position || [0, 0, 0];
+            const mesh = bv.addStud(sw, sh, sd, color, px, py, pz, 0, 0, 0, partInst.Anchored, partInst.Shape);
+            if (mesh) {
+              mesh.name = partInst.Name;
+              mesh.userData.partName = partInst.Name;
+              partInst.mesh = mesh;
+              if (partInst.Transparency > 0) {
+                bv._setPartTransparency(mesh, partInst.Transparency);
               }
+              linkInstanceToEngine(partInst);
+              window._mapParts.push({ name: partInst.Name, mesh });
             }
-            const playersService = gameRoot.Children.find(c => c.ClassName === 'Players');
+          };
 
-            const playerName = auth.currentUser?.displayName || 'Player';
-            const localPlayer = new Instance('Player', playerName);
-            localPlayer.UserId = auth.currentUser?.uid;
-            localPlayer.setParent(playersService);
-            const character = new Instance('Model', playerName);
-            character.setParent(workspace);
-            localPlayer.Character = character;
+          Instance._onPartDestroyMesh = (partInst) => {
+            if (!partInst.mesh) return;
+            const bv = window._bloxverse;
+            if (bv) bv.removePart(partInst.Name);
+            partInst.mesh = null;
+          };
 
-            const gameProxy = createInstanceProxy(gameRoot);
-            const playerProxy = gameProxy.Players[playerName];
-            window._bloxverse.setCharInstance(playerProxy.Character);
-
-            // Start watching for leaderstats folders added by scripts
-            _setupLeaderstatsWatcher(gameRoot);
-
-            function linkInstanceToEngine(inst) {
-              if (inst.ClassName === 'Part' && inst.mesh) {
-                inst.Changed = (prop, val) => {
-                  const bv = window._bloxverse;
-                  if (prop === 'Color') {
-                    const hex = (Math.round(val.r*255)<<16)|(Math.round(val.g*255)<<8)|Math.round(val.b*255);
-                    bv._setPartColor(inst.mesh, hex);
-                  } else if (prop === 'Transparency') {
-                    bv._setPartTransparency(inst.mesh, val);
-                  } else if (prop === 'Anchored') {
-                    bv._setPartAnchored(inst.mesh, val);
-                  } else if (prop === 'px') {
-                    bv._setPartPos(inst.mesh, val, inst.mesh.position.y, inst.mesh.position.z);
-                  } else if (prop === 'py') {
-                    bv._setPartPos(inst.mesh, inst.mesh.position.x, val, inst.mesh.position.z);
-                  } else if (prop === 'pz') {
-                    bv._setPartPos(inst.mesh, inst.mesh.position.x, inst.mesh.position.y, val);
-                  } else if (prop === 'Size') {
-                    const [sw, sh, sd] = val;
-                    bv._resizePart(inst.mesh, sw, sh, sd);
-                  }
-                };
-              }
-            }
-
-            Instance._onPartCreateMesh = (partInst) => {
-              const bv = window._bloxverse;
-              if (!bv || partInst.mesh) return;
-              const [sw, sh, sd] = partInst.Size;
-              const color = partInst.Color.getHex();
-              const [px, py, pz] = partInst.Position || [0, 0, 0];
-              const mesh = bv.addStud(sw, sh, sd, color, px, py, pz, 0, 0, 0, partInst.Anchored, partInst.Shape);
-              if (mesh) {
-                mesh.name = partInst.Name;
-                mesh.userData.partName = partInst.Name;
-                partInst.mesh = mesh;
-                if (partInst.Transparency > 0) {
-                  bv._setPartTransparency(mesh, partInst.Transparency);
-                }
-                linkInstanceToEngine(partInst);
-                window._mapParts.push({ name: partInst.Name, mesh });
-              }
-            };
-
-            Instance._onPartDestroyMesh = (partInst) => {
-              if (!partInst.mesh) return;
-              const bv = window._bloxverse;
-              if (bv) bv.removePart(partInst.Name);
-              partInst.mesh = null;
-            };
-
-            window._scriptUpdate = (dt) => {
+          window._scriptUpdate = (dt) => {
+            updateHealthBar();
+            if (_localPlayerHealth > 0 && _localPlayerHealth < _localPlayerMaxHealth && performance.now() - _lastDamageTime >= REGEN_DELAY * 1000) {
+              _localPlayerHealth = Math.min(_localPlayerMaxHealth, _localPlayerHealth + REGEN_RATE * dt);
               updateHealthBar();
-              if (_localPlayerHealth > 0 && _localPlayerHealth < _localPlayerMaxHealth && performance.now() - _lastDamageTime >= REGEN_DELAY * 1000) {
-                _localPlayerHealth = Math.min(_localPlayerMaxHealth, _localPlayerHealth + REGEN_RATE * dt);
-                updateHealthBar();
-                _syncHealth();
-              }
+              _syncHealth();
+            }
 
-              // Cooldown bar (lazy-init via _ensurePunchUI)
-              const cdEl = document.getElementById('punchCooldown');
-              const cdFill = document.getElementById('punchCooldownFill');
-              if (cdEl && cdFill) {
-                const now = performance.now();
-                const elapsed = (now - _lastPunchTime) / 1000;
-                if (_lastPunchTime > 0 && elapsed < PUNCH_CD) {
-                  cdEl.classList.add('active');
-                  cdFill.style.width = `${(1 - elapsed / PUNCH_CD) * 100}%`;
-                } else {
-                  cdEl.classList.remove('active');
-                }
+            // Cooldown bar (lazy-init via _ensurePunchUI)
+            const cdEl = document.getElementById('punchCooldown');
+            const cdFill = document.getElementById('punchCooldownFill');
+            if (cdEl && cdFill) {
+              const now = performance.now();
+              const elapsed = (now - _lastPunchTime) / 1000;
+              if (_lastPunchTime > 0 && elapsed < PUNCH_CD) {
+                cdEl.classList.add('active');
+                cdFill.style.width = `${(1 - elapsed / PUNCH_CD) * 100}%`;
+              } else {
+                cdEl.classList.remove('active');
               }
+            }
 
-              activeClientEffect?.update?.(dt);
-              if (!gameStarted) {
-                gameStarted = true;
-                for (const ex of scriptExports) {
-                  try { ex.onGameStart?.(); } catch (e) { console.error('[Script] onGameStart error:', e); }
-                }
-              }
+            activeClientEffect?.update?.(dt);
+            if (!gameStarted) {
+              gameStarted = true;
               for (const ex of scriptExports) {
-                try { ex.onUpdate?.(dt); } catch (e) { console.error('[Script] onUpdate error:', e); }
+                try { ex.onGameStart?.(); } catch (e) { console.error('[Script] onGameStart error:', e); }
               }
-            };
+            }
+            for (const ex of scriptExports) {
+              try { ex.onUpdate?.(dt); } catch (e) { console.error('[Script] onUpdate error:', e); }
+            }
+          };
 
-            setLoad(60, 'Loading scripts...');
-            const api = {
-              game: Object.assign(gameRoot, makeGameAPI()),
-              onOutput: (msg, type) => {
-                if (type === 'info') return; // print() → console only, not chat
-                const prefix = type === 'error' ? '⚠️' : '⚡';
-                chatContainer.classList.add('visible');
-                appendChatMessage({ system: true, message: `${prefix} ${msg}` });
+          setLoad(60, 'Loading scripts...');
+          const api = {
+            game: Object.assign(gameRoot, makeGameAPI()),
+            onOutput: (msg, type) => {
+              if (type === 'info') return; // print() → console only, not chat
+              const prefix = type === 'error' ? '⚠️' : '⚡';
+              chatContainer.classList.add('visible');
+              appendChatMessage({ system: true, message: `${prefix} ${msg}` });
+            }
+          };
+
+          const userScripts = loadScriptsFromStorage();
+          for (const [name, script] of Object.entries(userScripts)) {
+            try {
+              const exports = executeScript(script.code, api);
+              if (exports && Object.keys(exports).length > 0) {
+                scriptExports.push(exports);
+                console.log(`[Scripts] Loaded "${name}"`);
               }
-            };
+            } catch (err) {
+              console.error(`[Scripts] Error in "${name}":`, err);
+            }
+          }
 
-            const userScripts = loadScriptsFromStorage();
-            for (const [name, script] of Object.entries(userScripts)) {
+          if (window._mapScripts && window._mapScripts.length > 0) {
+            for (const mapScript of window._mapScripts) {
+              const code = mapScript.code || mapScript;
               try {
-                const exports = executeScript(script.code, api);
+                const exports = executeScript(code, api);
                 if (exports && Object.keys(exports).length > 0) {
                   scriptExports.push(exports);
-                  console.log(`[Scripts] Loaded "${name}"`);
+                  console.log(`[Scripts] Loaded map script`);
                 }
               } catch (err) {
-                console.error(`[Scripts] Error in "${name}":`, err);
+                console.error(`[Scripts] Error in map script:`, err);
               }
             }
+          }
 
-            if (window._mapScripts && window._mapScripts.length > 0) {
-              for (const mapScript of window._mapScripts) {
-                const code = mapScript.code || mapScript;
-                try {
-                  const exports = executeScript(code, api);
-                  if (exports && Object.keys(exports).length > 0) {
-                    scriptExports.push(exports);
-                    console.log(`[Scripts] Loaded map script`);
-                  }
-                } catch (err) {
-                  console.error(`[Scripts] Error in map script:`, err);
-                }
-              }
-            }
-
-            if (game.scriptsPath) {
-              const gameScriptModules = await loadGameScriptModules();
-              const basePath = game.scriptsPath.replace(/^\./, '');
-              const gameScriptKeys = Object.keys(gameScriptModules);
-              let scriptIdx = 0;
-              for (const [filePath, code] of Object.entries(gameScriptModules)) {
-                const normalizedPath = filePath.replace(/^.*?(\/assets\/)/, '$1');
-                if (normalizedPath.startsWith(basePath)) {
-                  const scriptName = filePath.split('/').pop();
-                  try {
-                    const exports = executeScript(code, api);
-                    scriptExports.push(exports || {});
-                    console.log(`[Scripts] Loaded game script "${scriptName}"`);
-                  } catch (err) {
-                    console.error(`[Scripts] Error in game script "${scriptName}":`, err);
-                  }
-                }
-                scriptIdx++;
-                const scriptPct = 85 + (scriptIdx / gameScriptKeys.length) * 10;
-                setLoad(scriptPct);
-              }
-            }
-
-            if (window._publishedScripts) {
-              for (const [scriptName, code] of Object.entries(window._publishedScripts)) {
+          if (game.scriptsPath) {
+            const gameScriptModules = await loadGameScriptModules();
+            const basePath = game.scriptsPath.replace(/^\./, '');
+            const gameScriptKeys = Object.keys(gameScriptModules);
+            let scriptIdx = 0;
+            for (const [filePath, code] of Object.entries(gameScriptModules)) {
+              const normalizedPath = filePath.replace(/^.*?(\/assets\/)/, '$1');
+              if (normalizedPath.startsWith(basePath)) {
+                const scriptName = filePath.split('/').pop();
                 try {
                   const exports = executeScript(code, api);
                   scriptExports.push(exports || {});
-                  console.log(`[Scripts] Loaded published script "${scriptName}"`);
+                  console.log(`[Scripts] Loaded game script "${scriptName}"`);
                 } catch (err) {
-                  console.error(`[Scripts] Error in published script "${scriptName}":`, err);
+                  console.error(`[Scripts] Error in game script "${scriptName}":`, err);
                 }
               }
+              scriptIdx++;
+              const scriptPct = 85 + (scriptIdx / gameScriptKeys.length) * 10;
+              setLoad(scriptPct);
             }
+          }
 
-            setLoad(100, 'Ready!');
-            setTimeout(() => {
-              loadingScreen.style.display = 'none';
-            }, 400);
+          if (window._publishedScripts) {
+            for (const [scriptName, code] of Object.entries(window._publishedScripts)) {
+              try {
+                const exports = executeScript(code, api);
+                scriptExports.push(exports || {});
+                console.log(`[Scripts] Loaded published script "${scriptName}"`);
+              } catch (err) {
+                console.error(`[Scripts] Error in published script "${scriptName}":`, err);
+              }
+            }
+          }
 
-            // Connect Multiplayer
-            auth.onAuthStateChanged(async (user) => {
-              if (user && gameId) {
-                if (await banGuard(user.uid)) return;
+          setLoad(100, 'Ready!');
+          setTimeout(() => {
+            loadingScreen.style.display = 'none';
+          }, 400);
 
-                const presence = trackPresence(user.uid, gameId);
-                await loadCurrentUserFriends(user.uid);
-                // Ensure existing users get a userIdNum
-                assignUserIdNum(user.uid).catch(() => {});
+          // Connect Multiplayer
+          auth.onAuthStateChanged(async (user) => {
+            if (user && gameId) {
+              if (await banGuard(user.uid)) return;
 
-                if (window._bloxverse) {
-                  window._bloxverse.setCurrentUserId(user.uid);
-                  window._bloxverse.onRespawn(() => {
-                    _localPlayerHealth = _localPlayerMaxHealth;
-                    updateHealthBar();
-                  });
-                  window._bloxverse.onDeath(() => {
-                    _localPlayerHealth = 0;
-                    updateHealthBar();
-                  });
+              const presence = trackPresence(user.uid, gameId);
+              await loadCurrentUserFriends(user.uid);
+              // Ensure existing users get a userIdNum
+              assignUserIdNum(user.uid).catch(() => { });
+
+              if (window._bloxverse) {
+                window._bloxverse.setCurrentUserId(user.uid);
+                window._bloxverse.onRespawn(() => {
+                  _localPlayerHealth = _localPlayerMaxHealth;
+                  updateHealthBar();
+                });
+                window._bloxverse.onDeath(() => {
+                  _localPlayerHealth = 0;
+                  updateHealthBar();
+                });
+              }
+
+              let username = 'Player';
+              let currentUserIdNum = null;
+              try {
+                const profile = await getUserProfile(user.uid);
+                if (profile) {
+                  username = profile.username || user.displayName || 'Player';
+                  _currentUsername = username;
+                  currentUserIdNum = profile.userIdNum || null;
+                  currentUserAge = calculateAge(profile.birthday);
+                  currentUserTrustedFriends = new Set(profile.trustedFriends || []);
+                  getRoles(user.uid).then(r => _playerRoles.set(user.uid, r)).catch(() => { });
                 }
+              } catch (e) {
+                console.error('Error loading user settings', e);
+                username = user.displayName || 'Player';
+              }
 
-                let username = 'Player';
-                let currentUserIdNum = null;
-                try {
-                  const profile = await getUserProfile(user.uid);
-                  if (profile) {
-                    username = profile.username || user.displayName || 'Player';
-                    _currentUsername = username;
-                    currentUserIdNum = profile.userIdNum || null;
-                    currentUserAge = calculateAge(profile.birthday);
-                    currentUserTrustedFriends = new Set(profile.trustedFriends || []);
-                    getRoles(user.uid).then(r => _playerRoles.set(user.uid, r)).catch(() => {});
-                  }
-                } catch (e) {
-                  console.error('Error loading user settings', e);
-                  username = user.displayName || 'Player';
-                }
-
-                // Load and apply avatar colors and accessories from Firestore
-                try {
-                  const avatarSnap = await getDoc(doc(db, 'users', user.uid));
-                  if (avatarSnap.exists()) {
-                    const avatarData = avatarSnap.data();
-                    const isStalePreview = avatarData.avatarPreview && typeof avatarData.avatarPreview === 'string' && avatarData.avatarPreview.includes('/image/upload');
-                    const needPreview = !avatarData.avatarPreview || isStalePreview;
-                    if ((avatarData.avatarColors || avatarData.avatarClothing || avatarData.avatarAccessories || avatarData.avatarFace) && window._bloxverse) {
-                      const waitForChar = setInterval(() => {
-                        if (window._bloxverse.getCharacter()) {
-                          clearInterval(waitForChar);
-                          window._bloxverse._setPlayerAvatarData(user.uid, {
-                            colors: avatarData.avatarColors || {},
-                            clothing: avatarData.avatarClothing || null,
-                            accessories: avatarData.avatarAccessories || [],
-                            face: avatarData.avatarFace,
-                          });
-                          if (needPreview) {
-                            setTimeout(() => generateGameThumbnail(user.uid).catch(e => console.warn('Thumbnail gen failed:', e)), 1500);
-                          }
-                        }
-                      }, 200);
-                    } else if (window._bloxverse) {
-                      // No customization — apply defaults once character is ready
-                      const waitForChar = setInterval(() => {
-                        if (window._bloxverse.getCharacter()) {
-                          clearInterval(waitForChar);
-                          window._bloxverse._setPlayerAvatarData(user.uid, {
-                            colors: { Body: '#1e3a5f', Legs: '#2d5a27', Arms: '#1e3a5f', Head: '#c4a882' },
-                            clothing: null,
-                            accessories: [],
-                            face: 'smile',
-                          });
-                          if (needPreview) {
-                            setTimeout(() => generateGameThumbnail(user.uid).catch(e => console.warn('Thumbnail gen failed:', e)), 1500);
-                          }
-                        }
-                      }, 200);
-                    }
-                  }
-                } catch (e) {
-                  console.error('Error loading avatar data:', e);
-                }
-
-                friendRequestUnsubscribe?.();
-                friendRequestUnsubscribe = startFriendRequestListener(user.uid);
-
-                connectMultiplayer(gameId, user.uid, username, 
-                  (id, x, y, z, ry, moving, grounded, climbState, qx, qy, qz, qw, dead, health) => {
-                    if (window._bloxverse) {
-                      const playerUsername = _playerUsernames.get(id);
-                      window._bloxverse.updateOtherPlayer(id, x, y, z, ry, moving, grounded, climbState, playerUsername, qx, qy, qz, qw, dead, health);
-                    }
-                    _playerPositions.set(id, { x, y, z });
-                    if (health !== undefined && !isNaN(health)) _playerHealth.set(id, health);
-                  }, 
-                  (id) => {
-                    if (window._bloxverse) window._bloxverse.removeOtherPlayer(id);
-                    _knownPlayerIds.delete(id);
-                    _fetchedAvatarPlayers.delete(id);
-                    _playerTrustedFriends.delete(id);
-                    const playerObj = getCurrentPlayers().find(p => p.id === id) || makePlayerObj(id, _playerUsernames.get(id) || 'Player');
-                    for (const ex of scriptExports) {
-                      try { ex.onPlayerLeave?.(playerObj); } catch (e) { console.error('[Script] onPlayerLeave error:', e); }
-                    }
-                  },
-                  (players) => {
-                    _currentPlayerList = players;
-                    for (const p of players) {
-                      _playerUsernames.set(p.userId, p.username);
-                      _playerUserIds.set(p.userId, p.userIdNum);
-                      // Call onPlayerJoin for new players
-                      if (!_knownPlayerIds.has(p.userId)) {
-                        _knownPlayerIds.add(p.userId);
-                        const playerObj = makePlayerObj(p.userId, p.username);
-                        for (const ex of scriptExports) {
-                          try { ex.onPlayerJoin?.(playerObj); } catch (e) { console.error('[Script] onPlayerJoin error:', e); }
-                        }
+              // Load and apply avatar colors and accessories from Firestore
+              try {
+                const avatarSnap = await getDoc(doc(db, 'users', user.uid));
+                if (avatarSnap.exists()) {
+                  const avatarData = avatarSnap.data();
+                  const isStalePreview = avatarData.avatarPreview && typeof avatarData.avatarPreview === 'string' && avatarData.avatarPreview.includes('/image/upload');
+                  const needPreview = !avatarData.avatarPreview || isStalePreview;
+                  if ((avatarData.avatarColors || avatarData.avatarClothing || avatarData.avatarAccessories || avatarData.avatarFace) && window._bloxverse) {
+                    const waitForChar = setInterval(() => {
+                      if (window._bloxverse.getCharacter()) {
+                        clearInterval(waitForChar);
+                        window._bloxverse._setPlayerAvatarData(user.uid, {
+                          colors: avatarData.avatarColors || {},
+                          clothing: avatarData.avatarClothing || null,
+                          accessories: avatarData.avatarAccessories || [],
+                          face: avatarData.avatarFace,
+                        });
                       }
-                      // Fetch avatar data for remote players once
-                      if (p.userId !== user.uid && !_fetchedAvatarPlayers.has(p.userId)) {
-                        _fetchedAvatarPlayers.add(p.userId);
-                        // Set defaults immediately to prevent flash of local player's colors/accessories
-                        window._bloxverse._setPlayerAvatarData(p.userId, {
+                    }, 200);
+                  } else if (window._bloxverse) {
+                    // No customization — apply defaults once character is ready
+                    const waitForChar = setInterval(() => {
+                      if (window._bloxverse.getCharacter()) {
+                        clearInterval(waitForChar);
+                        window._bloxverse._setPlayerAvatarData(user.uid, {
                           colors: { Body: '#1e3a5f', Legs: '#2d5a27', Arms: '#1e3a5f', Head: '#c4a882' },
                           clothing: null,
                           accessories: [],
                           face: 'smile',
                         });
-                        getDoc(doc(db, 'users', p.userId)).then(snap => {
-                          if (snap.exists() && window._bloxverse) {
-                            const ad = snap.data();
-                            if (ad.avatarColors || ad.avatarClothing || ad.avatarAccessories || ad.avatarFace) {
-                              window._bloxverse._setPlayerAvatarData(p.userId, {
-                                colors: ad.avatarColors || {},
-                                clothing: ad.avatarClothing || null,
-                                accessories: ad.avatarAccessories || [],
-                                face: ad.avatarFace,
-                              });
-                            }
-                            // Cache this player's trusted friends for mutual trust check
-                            if (ad.trustedFriends) {
-                              _playerTrustedFriends.set(p.userId, new Set(ad.trustedFriends));
-                            }
+                      }
+                    }, 200);
+                  }
+                }
+              } catch (e) {
+                console.error('Error loading avatar data:', e);
+              }
+
+              friendRequestUnsubscribe?.();
+              friendRequestUnsubscribe = startFriendRequestListener(user.uid);
+
+              connectMultiplayer(gameId, user.uid, username,
+                (id, x, y, z, ry, moving, grounded, climbState, qx, qy, qz, qw, dead, health) => {
+                  if (window._bloxverse) {
+                    const playerUsername = _playerUsernames.get(id);
+                    window._bloxverse.updateOtherPlayer(id, x, y, z, ry, moving, grounded, climbState, playerUsername, qx, qy, qz, qw, dead, health);
+                  }
+                  _playerPositions.set(id, { x, y, z });
+                  if (health !== undefined && !isNaN(health)) _playerHealth.set(id, health);
+                },
+                (id) => {
+                  if (window._bloxverse) window._bloxverse.removeOtherPlayer(id);
+                  _knownPlayerIds.delete(id);
+                  _fetchedAvatarPlayers.delete(id);
+                  _playerTrustedFriends.delete(id);
+                  const playerObj = getCurrentPlayers().find(p => p.id === id) || makePlayerObj(id, _playerUsernames.get(id) || 'Player');
+                  for (const ex of scriptExports) {
+                    try { ex.onPlayerLeave?.(playerObj); } catch (e) { console.error('[Script] onPlayerLeave error:', e); }
+                  }
+                },
+                (players) => {
+                  _currentPlayerList = players;
+                  for (const p of players) {
+                    _playerUsernames.set(p.userId, p.username);
+                    _playerUserIds.set(p.userId, p.userIdNum);
+                    // Call onPlayerJoin for new players
+                    if (!_knownPlayerIds.has(p.userId)) {
+                      _knownPlayerIds.add(p.userId);
+                      const playerObj = makePlayerObj(p.userId, p.username);
+                      for (const ex of scriptExports) {
+                        try { ex.onPlayerJoin?.(playerObj); } catch (e) { console.error('[Script] onPlayerJoin error:', e); }
+                      }
+                    }
+                    // Fetch avatar data for remote players once
+                    if (p.userId !== user.uid && !_fetchedAvatarPlayers.has(p.userId)) {
+                      _fetchedAvatarPlayers.add(p.userId);
+                      // Set defaults immediately to prevent flash of local player's colors/accessories
+                      window._bloxverse._setPlayerAvatarData(p.userId, {
+                        colors: { Body: '#1e3a5f', Legs: '#2d5a27', Arms: '#1e3a5f', Head: '#c4a882' },
+                        clothing: null,
+                        accessories: [],
+                        face: 'smile',
+                      });
+                      getDoc(doc(db, 'users', p.userId)).then(snap => {
+                        if (snap.exists() && window._bloxverse) {
+                          const ad = snap.data();
+                          if (ad.avatarColors || ad.avatarClothing || ad.avatarAccessories || ad.avatarFace) {
+                            window._bloxverse._setPlayerAvatarData(p.userId, {
+                              colors: ad.avatarColors || {},
+                              clothing: ad.avatarClothing || null,
+                              accessories: ad.avatarAccessories || [],
+                              face: ad.avatarFace,
+                            });
                           }
-                        }).catch(() => {});
-                      }
-                    }
-                    renderLeaderboard(players);
-                    _lastLeaderboardPlayers = players;
-                  },
-                  (data) => {
-                    if (data.message?.startsWith('TT|HP|')) {
-                      const parts = data.message.split('|');
-                      const hp = parseInt(parts[3]);
-                      if (data.userId && !isNaN(hp)) {
-                        _playerHealth.set(data.userId, hp);
-                        if (window._bloxverse) window._bloxverse.setOtherPlayerHealth(data.userId, hp);
-                      }
-                      return;
-                    }
-                    if (data.message?.startsWith('TT|STREAK|')) {
-                      const parts = data.message.split('|');
-                      const pid = parts[2];
-                      const raw = parts[3];
-                      if (pid && raw !== undefined) {
-                        const current = _playerStats.get(pid)?.Streak;
-                        let value;
-                        if (typeof raw === 'string' && raw.startsWith('+')) {
-                          const delta = Number(raw.slice(1));
-                          value = !isNaN(delta) ? (Number(current) || 0) + delta : raw;
-                        } else {
-                          value = isNaN(Number(raw)) ? raw : Number(raw);
+                          // Cache this player's trusted friends for mutual trust check
+                          if (ad.trustedFriends) {
+                            _playerTrustedFriends.set(p.userId, new Set(ad.trustedFriends));
+                          }
                         }
-                        // Only persist and display streaks when in blockyfights game
-                        if (game && game.id === 'blockyfights') {
-                          if (!_playerStats.has(pid)) _playerStats.set(pid, {});
-                          _playerStats.get(pid).Streak = value;
-                          if (window._bloxverse) window._bloxverse.setPlayerStreak(pid, Number(value) || 0);
-                        }
-                      }
-                      dispatchScriptChat(data);
-                      return;
+                      }).catch(() => { });
                     }
-                    if (data.message?.startsWith('TT|STAT|')) {
-                      const parts = data.message.split('|');
-                      const pid = parts[2];
-                      const statName = parts[3];
-                      const raw = parts[4];
-                      if (pid && statName && raw !== undefined) {
+                  }
+                  renderLeaderboard(players);
+                  _lastLeaderboardPlayers = players;
+                },
+                (data) => {
+                  if (data.message?.startsWith('TT|HP|')) {
+                    const parts = data.message.split('|');
+                    const hp = parseInt(parts[3]);
+                    if (data.userId && !isNaN(hp)) {
+                      _playerHealth.set(data.userId, hp);
+                      if (window._bloxverse) window._bloxverse.setOtherPlayerHealth(data.userId, hp);
+                    }
+                    return;
+                  }
+                  if (data.message?.startsWith('TT|STREAK|')) {
+                    const parts = data.message.split('|');
+                    const pid = parts[2];
+                    const raw = parts[3];
+                    if (pid && raw !== undefined) {
+                      const current = _playerStats.get(pid)?.Streak;
+                      let value;
+                      if (typeof raw === 'string' && raw.startsWith('+')) {
+                        const delta = Number(raw.slice(1));
+                        value = !isNaN(delta) ? (Number(current) || 0) + delta : raw;
+                      } else {
+                        value = isNaN(Number(raw)) ? raw : Number(raw);
+                      }
+                      // Only persist and display streaks when in blockyfights game
+                      if (game && game.id === 'blockyfights') {
                         if (!_playerStats.has(pid)) _playerStats.set(pid, {});
-                        const current = _playerStats.get(pid)[statName];
-                        let value;
-                        if (typeof raw === 'string' && raw.startsWith('+')) {
-                          const delta = Number(raw.slice(1));
-                          value = !isNaN(delta) ? (Number(current) || 0) + delta : raw;
-                        } else {
-                          value = isNaN(Number(raw)) ? raw : Number(raw);
-                        }
-                        _playerStats.get(pid)[statName] = value;
-                        if (_lastLeaderboardPlayers.length > 0) renderLeaderboard(_lastLeaderboardPlayers);
+                        _playerStats.get(pid).Streak = value;
+                        if (window._bloxverse) window._bloxverse.setPlayerStreak(pid, Number(value) || 0);
                       }
-                      dispatchScriptChat(data);
-                      return;
                     }
                     dispatchScriptChat(data);
-                    appendChatMessage(data);
-                  },
-                  (userId, bodies) => {
-                    if (window._bloxverse) window._bloxverse.applyPhysicsState(userId, bodies);
-                  },
-                  currentUserIdNum
-                );
+                    return;
+                  }
+                  if (data.message?.startsWith('TT|STAT|')) {
+                    const parts = data.message.split('|');
+                    const pid = parts[2];
+                    const statName = parts[3];
+                    const raw = parts[4];
+                    if (pid && statName && raw !== undefined) {
+                      if (!_playerStats.has(pid)) _playerStats.set(pid, {});
+                      const current = _playerStats.get(pid)[statName];
+                      let value;
+                      if (typeof raw === 'string' && raw.startsWith('+')) {
+                        const delta = Number(raw.slice(1));
+                        value = !isNaN(delta) ? (Number(current) || 0) + delta : raw;
+                      } else {
+                        value = isNaN(Number(raw)) ? raw : Number(raw);
+                      }
+                      _playerStats.get(pid)[statName] = value;
+                      if (_lastLeaderboardPlayers.length > 0) renderLeaderboard(_lastLeaderboardPlayers);
+                    }
+                    dispatchScriptChat(data);
+                    return;
+                  }
+                  dispatchScriptChat(data);
+                  appendChatMessage(data);
+                },
+                (userId, bodies) => {
+                  if (window._bloxverse) window._bloxverse.applyPhysicsState(userId, bodies);
+                },
+                currentUserIdNum
+              );
 
-                window._mpUpdate = (dt) => {
-                    window._mpTimer = (window._mpTimer || 0) + dt;
-                    if (window._mpTimer >= 0.1 && window._bloxverse) {
-                        window._mpTimer = 0;
-                        const loc = window._bloxverse.getLocalTransform();
-                        if (loc) sendLocalTransform(loc.x, loc.y, loc.z, loc.ry, loc.moving, loc.grounded, loc.climbState, loc.qx, loc.qy, loc.qz, loc.qw, loc.dead, _localPlayerHealth);
-                        const phys = window._bloxverse.getPhysicsState();
-                        if (phys && phys.length > 0) sendPhysicsState(phys);
-                    }
-                    if (window._bloxverse) {
-                        window._bloxverse._updateNonMeshInstances(gameRoot);
-                        window._bloxverse._updateGuiInstances(gameRoot);
-                    }
+              window._mpUpdate = (dt) => {
+                window._mpTimer = (window._mpTimer || 0) + dt;
+                if (window._mpTimer >= 0.1 && window._bloxverse) {
+                  window._mpTimer = 0;
+                  const loc = window._bloxverse.getLocalTransform();
+                  if (loc) sendLocalTransform(loc.x, loc.y, loc.z, loc.ry, loc.moving, loc.grounded, loc.climbState, loc.qx, loc.qy, loc.qz, loc.qw, loc.dead, _localPlayerHealth);
+                  const phys = window._bloxverse.getPhysicsState();
+                  if (phys && phys.length > 0) sendPhysicsState(phys);
+                }
+                if (window._bloxverse) {
+                  window._bloxverse._updateNonMeshInstances(gameRoot);
+                  window._bloxverse._updateGuiInstances(gameRoot);
+                }
+              };
+
+              window.addEventListener('beforeunload', () => {
+                window._bloxverse?.clearLocalAccessories?.();
+                presence.goOffline();
+                disconnectMultiplayer();
+                if (_banUnsub) { _banUnsub(); _banUnsub = null; }
+              });
+
+              // ─── Toast Notification System ──────────────────────────────────
+              const toastContainer = document.getElementById('toastContainer');
+              function showToast(message, type = 'info', duration = 0) {
+                const icons = {
+                  ban: '<i class="fa-solid fa-gavel" style="font-size:18px;"></i>',
+                  deleted: '<i class="fa-solid fa-trash" style="font-size:18px;"></i>',
+                  multiaccount: '<i class="fa-solid fa-users" style="font-size:18px;"></i>',
+                  disconnected: '<i class="fa-solid fa-wifi" style="font-size:18px;"></i>',
+                  info: '<i class="fa-solid fa-info-circle" style="font-size:18px;"></i>',
                 };
-
-                window.addEventListener('beforeunload', () => {
-                  window._bloxverse?.clearLocalAccessories?.();
-                  presence.goOffline();
-                  disconnectMultiplayer();
-                  if (_banUnsub) { _banUnsub(); _banUnsub = null; }
-                });
-
-                // ─── Toast Notification System ──────────────────────────────────
-                const toastContainer = document.getElementById('toastContainer');
-                function showToast(message, type = 'info', duration = 0) {
-                  const icons = {
-                    ban: '<i class="fa-solid fa-gavel" style="font-size:18px;"></i>',
-                    deleted: '<i class="fa-solid fa-trash" style="font-size:18px;"></i>',
-                    multiaccount: '<i class="fa-solid fa-users" style="font-size:18px;"></i>',
-                    disconnected: '<i class="fa-solid fa-wifi" style="font-size:18px;"></i>',
-                    info: '<i class="fa-solid fa-info-circle" style="font-size:18px;"></i>',
-                  };
-                  const colors = {
-                    ban: 'rgba(244,67,54,0.95)',
-                    deleted: 'rgba(255,152,0,0.95)',
-                    multiaccount: 'rgba(255,193,7,0.95)',
-                    disconnected: 'rgba(33,150,243,0.95)',
-                    info: 'rgba(0,0,0,0.85)',
-                  };
-                  const el = document.createElement('div');
-                  el.style.cssText = `
+                const colors = {
+                  ban: 'rgba(244,67,54,0.95)',
+                  deleted: 'rgba(255,152,0,0.95)',
+                  multiaccount: 'rgba(255,193,7,0.95)',
+                  disconnected: 'rgba(33,150,243,0.95)',
+                  info: 'rgba(0,0,0,0.85)',
+                };
+                const el = document.createElement('div');
+                el.style.cssText = `
                     display:flex;align-items:center;gap:12px;padding:14px 18px;
                     background:${colors[type] || colors.info};
                     color:#fff;border-radius:8px;font-size:14px;font-weight:500;
@@ -2055,196 +2063,174 @@
                     pointer-events:auto;animation:slideDown 0.3s ease;
                     backdrop-filter:blur(4px);
                   `;
-                  el.innerHTML = `${icons[type] || icons.info}<span style="flex:1;">${message}</span>`;
-                  toastContainer.appendChild(el);
-                  // Slide in animation
-                  if (!document.getElementById('_toastStyle')) {
-                    const style = document.createElement('style');
-                    style.id = '_toastStyle';
-                    style.textContent = `
+                el.innerHTML = `${icons[type] || icons.info}<span style="flex:1;">${message}</span>`;
+                toastContainer.appendChild(el);
+                // Slide in animation
+                if (!document.getElementById('_toastStyle')) {
+                  const style = document.createElement('style');
+                  style.id = '_toastStyle';
+                  style.textContent = `
                       @keyframes slideDown { from { opacity:0; transform:translateY(-20px); } to { opacity:1; transform:translateY(0); } }
                       @keyframes fadeOut { from { opacity:1; } to { opacity:0; transform:translateY(-10px); } }
                     `;
-                    document.head.appendChild(style);
-                  }
-                  if (duration > 0) {
-                    setTimeout(() => {
-                      el.style.animation = 'fadeOut 0.3s ease forwards';
-                      setTimeout(() => el.remove(), 300);
-                    }, duration);
-                  }
-                  return el;
+                  document.head.appendChild(style);
                 }
-
-                // ─── Ban Listener (instant) ────────────────────────────────────
-                let _banUnsub;
-                if (user.uid) {
-                  _banUnsub = onSnapshot(doc(db, 'bans', user.uid), (snap) => {
-                    if (snap.exists() && snap.data().banned) {
-                      const data = snap.data();
-                      disconnectMultiplayer();
-                      presence.goOffline();
-                      window._bloxverse?.clearLocalAccessories?.();
-                      window._bloxverse?.setWalkSpeed?.(0);
-                      showOverlay(
-                        'fa-solid fa-gavel', 'You Have Been Banned', 'ERR_BANNED',
-                        `Reason: "${data.reason || 'Terms of Service Violation'}"`,
-                        { text: 'Go to Ban Page', action: () => { window.location.href = '/bloxverse/ban'; } }
-                      );
-                    }
-                  });
-                }
-
-                // ─── helpers to show overlay ──────────────────────────────────
-                const _overlay = document.getElementById('disconnectOverlay');
-                const _overlayIcon = document.querySelector('#disconnectOverlay i');
-                const _overlayTitle = document.querySelector('#disconnectOverlay h2');
-                const _overlayCode = document.getElementById('disconnectErrorCode');
-                const _overlayDesc = document.querySelector('#disconnectOverlay p');
-                const _rBtn = document.getElementById('disconnectReconnectBtn');
-                const _hBtn = document.getElementById('disconnectHomeBtn');
-
-                function showOverlay(icon, title, code, desc, btn1, btn2) {
-                  _overlayIcon.className = icon;
-                  _overlayTitle.textContent = title;
-                  _overlayCode.textContent = code;
-                  _overlayDesc.textContent = desc;
-                  if (btn1) {
-                    _rBtn.style.display = '';
-                    _rBtn.textContent = btn1.text;
-                    _rBtn.onclick = btn1.action;
-                  } else {
-                    _rBtn.style.display = 'none';
-                  }
-                  if (btn2) {
-                    _hBtn.style.display = '';
-                    _hBtn.textContent = btn2.text;
-                    _hBtn.onclick = btn2.action;
-                  } else {
-                    _hBtn.style.display = 'none';
-                  }
-                  _overlay.style.display = 'flex';
-                }
-
-                function hideOverlay() {
-                  _overlay.style.display = 'none';
-                }
-
-                // ─── Game Deletion/Recovery Listener (instant) ────────────────
-                let _gameDelUnsub;
-                if (gameId) {
-                  _gameDelUnsub = onSnapshot(doc(db, 'publishedGames', gameId), (snap) => {
-                    if (!snap.exists()) return;
-                    const data = snap.data();
-                    if (data.deleted) {
-                      disconnectMultiplayer();
-                      presence.goOffline();
-                      window._bloxverse?.clearLocalAccessories?.();
-                      window._bloxverse?.setWalkSpeed?.(0);
-                      showOverlay(
-                        'fa-solid fa-trash', 'Game Removed', 'GAME_REMOVED',
-                        'This game has been removed by an administrator.',
-                        { text: 'Back to Games', action: () => { window.location.href = '/bloxverse/'; } }
-                      );
-                    } else if (_overlay.style.display === 'flex' && _overlayCode.textContent === 'GAME_REMOVED') {
-                      // Game was recovered
-                      hideOverlay();
-                      showToast('Game has been restored.', 'info', 3000);
-                      // Reconnect by reloading
-                      setTimeout(() => window.location.reload(), 1500);
-                    }
-                  });
-                }
-
-                // ─── Multi-Device Detection ────────────────────────────────────
-                let _multiDeviceUnsub;
-                if (user.uid) {
-                  const presenceRef = doc(db, 'presence', user.uid);
-                  // Store this session's ID BEFORE setting up the listener
-                  window._bloxverseSessionId = Date.now() + '_' + Math.random().toString(36).slice(2);
-                  window._sessionInitialized = false;
-
-                  _multiDeviceUnsub = onSnapshot(presenceRef, (snap) => {
-                    // Ignore initial snapshots until we've written our own session ID
-                    if (!window._sessionInitialized) return;
-                    if (!snap.exists()) return;
-                    const data = snap.data();
-                    if (data._sessionId && data._sessionId !== window._bloxverseSessionId) {
-                      disconnectMultiplayer();
-                      presence.goOffline();
-                      window._bloxverse?.clearLocalAccessories?.();
-                      showOverlay(
-                        'fa-solid fa-users', 'Account Conflict', 'ERR_MULTI_DEVICE',
-                        'Same account launched game from a different device. Reconnect if you prefer to use this device.',
-                        {
-                          text: 'Reconnect',
-                          action: () => {
-                            window._bloxverseSessionId = Date.now() + '_' + Math.random().toString(36).slice(2);
-                            setDoc(presenceRef, { _sessionId: window._bloxverseSessionId }, { merge: true }).catch(() => {});
-                            hideOverlay();
-                            window.location.reload();
-                          }
-                        },
-                        { text: 'Leave', action: () => { window.location.href = '/bloxverse/'; } }
-                      );
-                    }
-                  });
-                  // Update presence with session ID (do this after the initial presence setup)
+                if (duration > 0) {
                   setTimeout(() => {
-                    setDoc(presenceRef, { _sessionId: window._bloxverseSessionId }, { merge: true }).catch(() => {});
-                    window._sessionInitialized = true;
-                  }, 1000);
+                    el.style.animation = 'fadeOut 0.3s ease forwards';
+                    setTimeout(() => el.remove(), 300);
+                  }, duration);
                 }
+                return el;
+              }
 
-                // ─── Internet Loss Detection ───────────────────────────────────
-                let _wasOffline = false;
-                window.addEventListener('offline', () => {
-                  _wasOffline = true;
-                  window._bloxverse?.clearLocalAccessories?.();
-                  showOverlay(
-                    'fa-solid fa-wifi', 'Connection Lost', 'ERR_CONNECTION_LOST',
-                    'Your connection to the game server has been interrupted. Please check your internet connection and try again.',
-                    { text: 'Reconnect', action: () => { window.location.reload(); } },
-                    { text: 'Return to Home', action: () => { window.location.href = '/bloxverse/'; } }
-                  );
-                });
-                window.addEventListener('online', () => {
-                  if (_wasOffline) {
-                    _wasOffline = false;
-                    hideOverlay();
-                    showToast('Connection restored.', 'info', 3000);
-                    if (window._bloxverse) window._bloxverse.resetParts?.();
+              // ─── Ban Listener (instant) ────────────────────────────────────
+              let _banUnsub;
+              if (user.uid) {
+                _banUnsub = onSnapshot(doc(db, 'bans', user.uid), (snap) => {
+                  if (snap.exists() && snap.data().banned) {
+                    const data = snap.data();
+                    disconnectMultiplayer();
+                    presence.goOffline();
+                    window._bloxverse?.clearLocalAccessories?.();
+                    window._bloxverse?.setWalkSpeed?.(0);
+                    showOverlay(
+                      'fa-solid fa-gavel', 'You Have Been Banned', 'ERR_BANNED',
+                      `Reason: "${data.reason || 'Terms of Service Violation'}"`,
+                      { text: 'Go to Ban Page', action: () => { window.location.href = '/bloxverse/ban'; } }
+                    );
                   }
                 });
-              } else if (friendRequestUnsubscribe) {
-                friendRequestUnsubscribe();
-                friendRequestUnsubscribe = null;
               }
-            });
-          }
-        }, 100);
-      }
 
-    async function generateGameThumbnail(uid) {
-      try {
-        const blob = await window._bloxverse?._renderThumbnail();
-        console.log('[Thumbnail] blob size:', blob?.size, 'type:', blob?.type);
-        if (!blob) { console.warn('[Thumbnail] no blob'); return; }
-        if (blob.size < 50) { console.warn('[Thumbnail] blob too small'); return; }
-        const CLOUD_NAME = 'dvkbiobph';
-        const UPLOAD_PRESET = 'bloxverse_upload';
-        const formData = new FormData();
-        formData.append('file', blob, 'avatar.png');
-        formData.append('upload_preset', UPLOAD_PRESET);
-        const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/raw/upload`, { method: 'POST', body: formData });
-        const data = await res.json();
-        console.log('[Thumbnail] Cloudinary response:', data);
-        if (data.secure_url) {
-          await setDoc(doc(db, 'users', uid), { avatarPreview: data.secure_url }, { merge: true });
+              // ─── helpers to show overlay ──────────────────────────────────
+              const _overlay = document.getElementById('disconnectOverlay');
+              const _overlayIcon = document.querySelector('#disconnectOverlay i');
+              const _overlayTitle = document.querySelector('#disconnectOverlay h2');
+              const _overlayCode = document.getElementById('disconnectErrorCode');
+              const _overlayDesc = document.querySelector('#disconnectOverlay p');
+              const _rBtn = document.getElementById('disconnectReconnectBtn');
+              const _hBtn = document.getElementById('disconnectHomeBtn');
+
+              function showOverlay(icon, title, code, desc, btn1, btn2) {
+                _overlayIcon.className = icon;
+                _overlayTitle.textContent = title;
+                _overlayCode.textContent = code;
+                _overlayDesc.textContent = desc;
+                if (btn1) {
+                  _rBtn.style.display = '';
+                  _rBtn.textContent = btn1.text;
+                  _rBtn.onclick = btn1.action;
+                } else {
+                  _rBtn.style.display = 'none';
+                }
+                if (btn2) {
+                  _hBtn.style.display = '';
+                  _hBtn.textContent = btn2.text;
+                  _hBtn.onclick = btn2.action;
+                } else {
+                  _hBtn.style.display = 'none';
+                }
+                _overlay.style.display = 'flex';
+              }
+
+              function hideOverlay() {
+                _overlay.style.display = 'none';
+              }
+
+              // ─── Game Deletion/Recovery Listener (instant) ────────────────
+              let _gameDelUnsub;
+              if (gameId) {
+                _gameDelUnsub = onSnapshot(doc(db, 'publishedGames', gameId), (snap) => {
+                  if (!snap.exists()) return;
+                  const data = snap.data();
+                  if (data.deleted) {
+                    disconnectMultiplayer();
+                    presence.goOffline();
+                    window._bloxverse?.clearLocalAccessories?.();
+                    window._bloxverse?.setWalkSpeed?.(0);
+                    showOverlay(
+                      'fa-solid fa-trash', 'Game Removed', 'GAME_REMOVED',
+                      'This game has been removed by an administrator.',
+                      { text: 'Back to Games', action: () => { window.location.href = '/bloxverse/'; } }
+                    );
+                  } else if (_overlay.style.display === 'flex' && _overlayCode.textContent === 'GAME_REMOVED') {
+                    // Game was recovered
+                    hideOverlay();
+                    showToast('Game has been restored.', 'info', 3000);
+                    // Reconnect by reloading
+                    setTimeout(() => window.location.reload(), 1500);
+                  }
+                });
+              }
+
+              // ─── Multi-Device Detection ────────────────────────────────────
+              let _multiDeviceUnsub;
+              if (user.uid) {
+                const presenceRef = doc(db, 'presence', user.uid);
+                // Store this session's ID BEFORE setting up the listener
+                window._bloxverseSessionId = Date.now() + '_' + Math.random().toString(36).slice(2);
+                window._sessionInitialized = false;
+
+                _multiDeviceUnsub = onSnapshot(presenceRef, (snap) => {
+                  // Ignore initial snapshots until we've written our own session ID
+                  if (!window._sessionInitialized) return;
+                  if (!snap.exists()) return;
+                  const data = snap.data();
+                  if (data._sessionId && data._sessionId !== window._bloxverseSessionId) {
+                    disconnectMultiplayer();
+                    presence.goOffline();
+                    window._bloxverse?.clearLocalAccessories?.();
+                    showOverlay(
+                      'fa-solid fa-users', 'Account Conflict', 'ERR_MULTI_DEVICE',
+                      'Same account launched game from a different device. Reconnect if you prefer to use this device.',
+                      {
+                        text: 'Reconnect',
+                        action: () => {
+                          window._bloxverseSessionId = Date.now() + '_' + Math.random().toString(36).slice(2);
+                          setDoc(presenceRef, { _sessionId: window._bloxverseSessionId }, { merge: true }).catch(() => { });
+                          hideOverlay();
+                          window.location.reload();
+                        }
+                      },
+                      { text: 'Leave', action: () => { window.location.href = '/bloxverse/'; } }
+                    );
+                  }
+                });
+                // Update presence with session ID (do this after the initial presence setup)
+                setTimeout(() => {
+                  setDoc(presenceRef, { _sessionId: window._bloxverseSessionId }, { merge: true }).catch(() => { });
+                  window._sessionInitialized = true;
+                }, 1000);
+              }
+
+              // ─── Internet Loss Detection ───────────────────────────────────
+              let _wasOffline = false;
+              window.addEventListener('offline', () => {
+                _wasOffline = true;
+                window._bloxverse?.clearLocalAccessories?.();
+                showOverlay(
+                  'fa-solid fa-wifi', 'Connection Lost', 'ERR_CONNECTION_LOST',
+                  'Your connection to the game server has been interrupted. Please check your internet connection and try again.',
+                  { text: 'Reconnect', action: () => { window.location.reload(); } },
+                  { text: 'Return to Home', action: () => { window.location.href = '/bloxverse/'; } }
+                );
+              });
+              window.addEventListener('online', () => {
+                if (_wasOffline) {
+                  _wasOffline = false;
+                  hideOverlay();
+                  showToast('Connection restored.', 'info', 3000);
+                  if (window._bloxverse) window._bloxverse.resetParts?.();
+                }
+              });
+            } else if (friendRequestUnsubscribe) {
+              friendRequestUnsubscribe();
+              friendRequestUnsubscribe = null;
+            }
+          });
         }
-      } catch (e) {
-        console.warn('[Thumbnail] error:', e);
-      }
+      }, 100);
     }
 
     if (game) {
