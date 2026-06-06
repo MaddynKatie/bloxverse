@@ -121,17 +121,17 @@ const games = new Map();
 
 wss.on('connection', (ws, req) => {
   const parsedUrl = url.parse(req.url, true);
-  const { gameId, userIdNum, username, userId } = parsedUrl.query;
+  const { gameId, userId, username } = parsedUrl.query;
 
-  if (!gameId || !userIdNum) {
-    ws.close(1008, 'Missing gameId or userIdNum');
+  if (!gameId || !userId) {
+    ws.close(1008, 'Missing gameId or userId');
     return;
   }
 
   ws.gameId = gameId;
-  ws.userIdNum = Number(userIdNum);
+  ws.userId = userId;
   ws.username = username || 'Player';
-  ws.firebaseUid = userId || null; // kept for legacy logging
+  ws.userIdNum = userIdNum ? Number(userIdNum) : null;
 
   if (!games.has(gameId)) {
     games.set(gameId, new Set());
@@ -140,14 +140,14 @@ wss.on('connection', (ws, req) => {
   room.add(ws);
 
   function broadcastPlayerList(targetRoom) {
-    const players = Array.from(targetRoom).map(c => ({ userIdNum: c.userIdNum, username: c.username, uid: c.firebaseUid }));
+    const players = Array.from(targetRoom).map(c => ({ userId: c.userId, username: c.username }));
     const msg = JSON.stringify({ type: 'playerList', players });
     for (const client of targetRoom) {
       if (client.readyState === 1) client.send(msg);
     }
   }
 
-  console.log(`User ${userIdNum || ws.firebaseUid} joined game ${gameId}. Total in game: ${room.size}`);
+  console.log(`User ${userId} joined game ${gameId}. Total in game: ${room.size}`);
   
   broadcastPlayerList(room);
   const joinMsg = JSON.stringify({ type: 'chat', system: true, message: `${ws.username} joined.` });
@@ -164,8 +164,8 @@ wss.on('connection', (ws, req) => {
         data = JSON.parse(message);
         if (data.type === 'chat') {
           isChat = true;
-          // Ensure userIdNum is included in chat messages
-          if (!data.userIdNum) data.userIdNum = ws.userIdNum;
+          // Ensure userId is included in chat messages
+          if (!data.userId) data.userId = userId;
         }
       } catch (e) {}
       
@@ -186,7 +186,7 @@ wss.on('connection', (ws, req) => {
       if (currentRoom.size === 0) {
         games.delete(gameId);
       } else {
-        const leaveMsg = JSON.stringify({ type: 'leave', userIdNum: ws.userIdNum });
+        const leaveMsg = JSON.stringify({ type: 'leave', userId });
         const chatMsg = JSON.stringify({ type: 'chat', system: true, message: `${ws.username} left.` });
         for (const client of currentRoom) {
           if (client.readyState === 1) {
@@ -197,7 +197,7 @@ wss.on('connection', (ws, req) => {
         broadcastPlayerList(currentRoom);
       }
     }
-    console.log(`User ${ws.userIdNum} left game ${gameId}.`);
+    console.log(`User ${userId} left game ${gameId}.`);
   });
 });
 
