@@ -1,5 +1,5 @@
 local function onUpdate(dt)
-    if game:IsKeyDown("KeyC") then
+    if game:IsKeyDown("KeyQ") then
         game:SetWalkSpeed(25)
     else
         game:SetWalkSpeed(16)
