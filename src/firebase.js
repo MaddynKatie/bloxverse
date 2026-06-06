@@ -1,7 +1,7 @@
 import { sitePath } from './paths.js';
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore, doc, setDoc, updateDoc, getDoc, deleteDoc, onSnapshot, serverTimestamp, arrayUnion, arrayRemove, increment, collection, getDocs, query, where, runTransaction } from 'firebase/firestore';
+import { initializeFirestore, doc, setDoc, updateDoc, getDoc, deleteDoc, onSnapshot, serverTimestamp, arrayUnion, arrayRemove, increment, collection, getDocs, query, where, runTransaction } from 'firebase/firestore';
 import { ProfanityFilter } from 'glin-profanity';
 
 const _filter = new ProfanityFilter({
@@ -65,7 +65,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+export const db = initializeFirestore(app, { experimentalForceLongPolling: true });
 export { getDoc, doc, setDoc, deleteDoc, onSnapshot, collection } from 'firebase/firestore';
 
 /**

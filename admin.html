@@ -19,7 +19,7 @@
     <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin Panel – BloxVerse</title>
-  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="icon" type="image/png" href="assets/icons/bloxverseLogo.png" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -284,7 +284,7 @@
 </div><!-- /adminRoot -->
 
 <script type="module">
-  import { auth, db, getRoles, banGuard } from './src/firebase.js';
+  import { auth, db, getRoles, banGuard, resolveProfileUser } from './src/firebase.js';
   import { doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs, Timestamp, arrayUnion, arrayRemove, onSnapshot } from 'firebase/firestore';
   import { signOut } from 'firebase/auth';
 
@@ -344,9 +344,16 @@
     card.style.display = 'none'; _foundUid = null;
 
     try {
-      // Try as UID first, then search by username
-      let uid = raw, userData = null;
-      const directSnap = await getDoc(doc(db, 'users', raw));
+      // If input is all digits, resolve as userIdNum first
+      let searchUid = raw;
+      if (/^\d+$/.test(raw)) {
+        const resolved = await resolveProfileUser(raw);
+        if (resolved) searchUid = resolved;
+      }
+
+      // Try as UID first (or resolved userIdNum), then search by username
+      let uid = searchUid, userData = null;
+      const directSnap = await getDoc(doc(db, 'users', searchUid));
       if (directSnap.exists()) {
         userData = directSnap.data();
       } else {
@@ -367,7 +374,7 @@
       const isBanned = banSnap.exists() && banSnap.data().banned;
 
       document.getElementById('ucName').textContent = userData.username || '(no username)';
-      document.getElementById('ucId').textContent   = uid;
+      document.getElementById('ucId').textContent   = userData.userIdNum != null ? String(userData.userIdNum) : '(no id)';
       document.getElementById('ucRole').innerHTML   = roles.map(r => roleBadge(r)).join(' ');
       document.getElementById('ucBanBadge').innerHTML = isBanned
         ? '<span class="tag admin">BANNED</span>' : '';

@@ -17,7 +17,7 @@
   <base href="/bloxverse/">
 
     <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="icon" type="image/png" href="assets/icons/bloxverseLogo.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BloxVerse - Player Search</title>
   <link rel="stylesheet" href="src/main.css" />
@@ -27,7 +27,7 @@
   <nav class="navbar">
     <div class="nav-left">
       <div class="logo" onclick="window.location.reload()">
-        <div class="logo-icon"></div>
+        
         <span class="logo-text">BloxVerse</span>
       </div>
       <div class="nav-links">
@@ -151,7 +151,7 @@
         </div>
         <div class="player-grid">
           ${users.map(u => `
-            <div class="player-card" onclick="window.location.href='/bloxverse/profile?user=${u.userIdNum || u.id}'">
+            <div class="player-card" onclick="window.location.href='/bloxverse/profile?user=${u.userIdNum}'">
               <div class="player-avatar">${(u.username || '?').charAt(0).toUpperCase()}</div>
               <div class="player-info">
                 <div class="player-name">${u.username}</div>

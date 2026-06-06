@@ -25,26 +25,6 @@ body {
   margin-bottom: 32px;
 }
 
-.auth-logo {
-  width: 64px;
-  height: 64px;
-  background: linear-gradient(135deg, #00b06f, #00d4aa);
-  border-radius: 14px;
-  margin: 0 auto 16px;
-  position: relative;
-}
-
-.auth-logo::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 22px;
-  height: 22px;
-  background: #fff;
-  border-radius: 5px;
-}
 
 .auth-header h1 {
   font-size: 28px;

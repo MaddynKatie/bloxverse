@@ -18,7 +18,7 @@
   <base href="/bloxverse/">
 
     <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="icon" type="image/png" href="assets/icons/bloxverseLogo.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BloxVerse - Transactions</title>
   <link rel="stylesheet" href="src/main.css" />
@@ -131,7 +131,7 @@
   <nav class="navbar">
     <div class="nav-left">
       <div class="logo" onclick="window.location.href='/bloxverse/'">
-        <div class="logo-icon"></div>
+        
         <span class="logo-text">BloxVerse</span>
       </div>
       <div class="nav-links">
@@ -173,9 +173,9 @@
   </div>
 
   <script type="module">
-    import { auth, db, getTransactions, listenBux, banGuard } from './src/firebase.js';
+    import { auth, db, getTransactions, listenBux, banGuard, logTransaction, assignUserIdNum } from './src/firebase.js';
     import { onAuthStateChanged, signOut } from 'firebase/auth';
-    import { doc, getDoc } from 'firebase/firestore';
+    import { doc, getDoc, updateDoc, increment, collection, getDocs, query, where, limit } from 'firebase/firestore';
 
     const navRight = document.getElementById('navRight');
     const tbody = document.getElementById('txBody');
@@ -195,6 +195,8 @@
 
       if (user) {
         if (await banGuard(user.uid)) return;
+
+        assignUserIdNum(user.uid).catch(() => {});
 
         let username = user.displayName || 'Player';
         let bux = 0;
@@ -226,6 +228,10 @@
                   <span class="bux-dropdown-label">Balance</span>
                   <span class="bux-dropdown-balance" id="buxDropdownBalance">${bux.toLocaleString()}</span>
                 </div>
+                <button class="bux-dropdown-item" onclick="window.openSendBuxModal()">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-2 8-10V5l-8-3-8 3v7c0 8 8 10 8 10z"/></svg>
+                  Send Bux
+                </button>
                 <button class="bux-dropdown-item" onclick="window.location.href='/bloxverse/transactions'">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
                   Transactions
@@ -328,6 +334,163 @@
       if (!s) return '';
       return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
+
+    // ── Send Bux ─────────────────────────────────────────────────────────
+    window.openSendBuxModal = () => {
+      if (!auth.currentUser) return;
+      const bux = Number(String(document.getElementById('buxDropdownBalance')?.textContent || '0').replace(/,/g, '')) || 0;
+      let selectedUserId = null;
+
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.innerHTML = `
+        <div class="modal-content" style="max-width:500px;">
+          <div class="modal-header">
+            <h2>Send Bux</h2>
+            <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="modal-field">
+              <label>Recipient</label>
+              <input type="text" id="sendBuxSearch" placeholder="Search username..." autocomplete="off" />
+              <div id="sendBuxResults" class="search-list" style="display:none;"></div>
+            </div>
+
+            <div id="sendBuxSelected" style="display:none;">
+              <div class="modal-field">
+                <label>Selected User</label>
+                <div class="selected-badge">
+                  <img id="sendBuxAvatar" src="" class="selected-avatar" />
+                  <span id="sendBuxName"></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="modal-field">
+              <label>Amount</label>
+              <div class="amount-row">
+                <input type="number" id="sendBuxAmount" placeholder="Enter amount…" min="1" max="${bux}" />
+                <span class="bux-label">BUX</span>
+              </div>
+            </div>
+
+            <div class="warning-box" style="margin:0;">
+              <strong>Warning:</strong> Bux transfers are final and cannot be undone.
+            </div>
+            <div id="sendBuxErr" class="error-msg" style="display:none;"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="modal-btn cancel" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+            <button class="modal-btn confirm" id="sendBuxSendBtn" disabled>Send</button>
+          </div>
+        </div>`;
+
+      overlay.querySelector('#sendBuxSendBtn').addEventListener('click', () => {
+        const amount = parseInt(overlay.querySelector('#sendBuxAmount').value, 10);
+        const username = overlay.querySelector('#sendBuxName').textContent;
+        if (!selectedUserId || !amount || amount < 1) return;
+
+        const confirmOverlay = document.createElement('div');
+        confirmOverlay.className = 'modal-overlay';
+        confirmOverlay.style.cssText = 'z-index:10000;background:rgba(0,0,0,0.8);';
+        confirmOverlay.innerHTML = `
+          <div class="modal-content" style="max-width:400px;">
+            <div class="modal-header">
+              <h3 style="font-size:16px;margin:0;">Confirm Transfer</h3>
+            </div>
+            <div class="modal-body">
+              <p style="color:#ccc;font-size:14px;line-height:1.5;margin:0 0 16px;">
+                Are you sure you want to send <strong style="color:#4caf50;">${amount.toLocaleString()} BUX</strong>
+                to <strong style="color:#fff;">${username}</strong>?
+              </p>
+              <div class="warning-box" style="margin:0;">
+                This transfer is <strong>final</strong>. You will not be able to recover these BUX.
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="modal-btn cancel" id="confirmCancelBtn">Cancel</button>
+              <button class="modal-btn confirm" id="confirmYesBtn" style="background:rgba(244,67,54,0.8);">Yes, Send</button>
+            </div>
+          </div>`;
+        document.body.appendChild(confirmOverlay);
+
+        confirmOverlay.querySelector('#confirmCancelBtn').addEventListener('click', () => confirmOverlay.remove());
+        confirmOverlay.querySelector('#confirmYesBtn').addEventListener('click', async () => {
+          try {
+            await updateDoc(doc(db, 'users', auth.currentUser.uid), { bux: increment(-amount) });
+            await updateDoc(doc(db, 'users', selectedUserId), { bux: increment(amount) });
+
+            const _sSnap = await getDoc(doc(db, 'users', auth.currentUser.uid));
+            const _sData = _sSnap.data();
+            const _rSnap = await getDoc(doc(db, 'users', selectedUserId));
+            const _rData = _rSnap.data();
+            await logTransaction(auth.currentUser.uid, -amount, _sData?.bux || 0, 'SendBux', `Sent ${amount.toLocaleString()} BUX to ${username}`);
+            await logTransaction(selectedUserId, amount, _rData?.bux || 0, 'SendBux', `Received ${amount.toLocaleString()} BUX from ${_sData?.username || 'Someone'}`);
+
+            confirmOverlay.remove();
+            overlay.remove();
+          } catch (err) {
+            console.error(err);
+            overlay.querySelector('#sendBuxErr').textContent = 'Transfer failed. Try again.';
+            overlay.querySelector('#sendBuxErr').style.display = 'block';
+            confirmOverlay.remove();
+          }
+        });
+      });
+
+      document.body.appendChild(overlay);
+
+      const searchInput = overlay.querySelector('#sendBuxSearch');
+      const resultsEl = overlay.querySelector('#sendBuxResults');
+      const selectedEl = overlay.querySelector('#sendBuxSelected');
+      const nameEl = overlay.querySelector('#sendBuxName');
+      const avatarEl = overlay.querySelector('#sendBuxAvatar');
+      const sendBtn = overlay.querySelector('#sendBuxSendBtn');
+
+      let searchTimer;
+      searchInput.addEventListener('input', () => {
+        clearTimeout(searchTimer);
+        const term = searchInput.value.trim().toLowerCase();
+        if (!term) { resultsEl.style.display = 'none'; return; }
+        searchTimer = setTimeout(async () => {
+          try {
+            const snap = await getDocs(query(collection(db, 'users'), where('username', '>=', term), where('username', '<', term + '\uf8ff'), limit(20)));
+            const matches = snap.docs.filter(d => d.data().username?.toLowerCase().includes(term));
+            if (matches.length === 0) {
+              resultsEl.innerHTML = '<div class="empty-state">No users found</div>';
+            } else {
+              resultsEl.innerHTML = matches.map(f => `
+                <div class="search-item" data-uid="${f.id}" data-name="${f.data().username}" data-avatar="${f.data().avatarPreview || ''}">
+                  ${f.data().avatarPreview ? `<img src="${f.data().avatarPreview}" alt="" />` : `<div class="init-circle">${f.data().username.charAt(0).toUpperCase()}</div>`}
+                  <span>${f.data().username}</span>
+                </div>`).join('');
+              resultsEl.querySelectorAll('.search-item').forEach(el => {
+                el.addEventListener('click', () => {
+                  selectedUserId = el.dataset.uid;
+                  nameEl.textContent = el.dataset.name;
+                  avatarEl.src = el.dataset.avatar || '';
+                  selectedEl.style.display = 'block';
+                  resultsEl.style.display = 'none';
+                  searchInput.value = '';
+                  sendBtn.disabled = false;
+                  overlay.querySelector('#sendBuxErr').style.display = 'none';
+                  overlay.querySelector('#sendBuxAmount').focus();
+                });
+              });
+            }
+            resultsEl.style.display = 'block';
+          } catch (err) {
+            console.error(err);
+            resultsEl.innerHTML = '<div class="empty-state">Search error</div>';
+          }
+        }, 200);
+      });
+
+      document.addEventListener('click', (e) => {
+        if (overlay.contains(e.target)) return;
+        if (resultsEl.style.display === 'block') resultsEl.style.display = 'none';
+      }, { once: true });
+    };
   </script>
 </body>
 

@@ -82,25 +82,6 @@ body {
   padding: 4px 0;
 }
 
-.logo-icon {
-  width: 28px;
-  height: 28px;
-  background: linear-gradient(135deg, #00b06f, #00d4aa);
-  border-radius: 6px;
-  position: relative;
-}
-
-.logo-icon::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 10px;
-  height: 10px;
-  background: #fff;
-  border-radius: 2px;
-}
 
 .logo-text {
   font-size: 17px;
@@ -742,6 +723,89 @@ body {
   object-fit: cover;
   display: block;
 }
+
+/* ── Send Bux Modal ────── */
+.search-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  background: #12141e;
+}
+.search-item {
+  padding: 10px 12px;
+  border-bottom: 1px solid #2a2a3e;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #ccc;
+  font-size: 14px;
+}
+.search-item:last-child { border-bottom: none; }
+.search-item:hover { background: #2a2a4a; color: #fff; }
+.search-item img, .init-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #1a1d2e;
+  flex-shrink: 0;
+}
+.init-circle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #0d69ac, #00b06f);
+}
+.selected-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #2a2a4a;
+  padding: 10px;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+}
+.selected-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #1a1d2e;
+  flex-shrink: 0;
+}
+.bux-label {
+  padding: 11px 14px;
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  color: #00b06f;
+  font-weight: 700;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.amount-row {
+  display: flex;
+  gap: 12px;
+}
+.amount-row input { flex: 1; }
+.warning-box {
+  background: rgba(255,187,0,0.08);
+  border: 1px solid rgba(255,187,0,0.2);
+  color: #ffb700;
+  padding: 11px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.warning-box strong { color: #ffc800; }
+.error-msg { color: #e74c3c; font-size: 13px; margin: 4px 0 0; }
+.empty-state { padding: 20px; text-align: center; color: #666; }
+.modal-btn.danger { background: rgba(244,67,54,0.8); color: #fff; }
+.modal-btn.danger:hover { background: rgba(244,67,54,1); }
 
 .friend-card {
   display: flex;

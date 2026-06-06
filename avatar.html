@@ -17,7 +17,7 @@
   <base href="/bloxverse/">
 
     <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="icon" type="image/png" href="assets/icons/bloxverseLogo.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BloxVerse - Avatar Editor</title>
   <link rel="stylesheet" href="src/main.css" />
@@ -1225,7 +1225,11 @@
         showToast('Avatar saved!');
 
         // Render and upload a thumbnail preview
-        captureAndUploadThumbnail().catch(e => console.warn('Thumbnail upload failed:', e));
+        try {
+          await captureAndUploadThumbnail();
+        } catch (e) {
+          console.warn('Thumbnail upload failed:', e);
+        }
       } catch (e) {
         console.error('Error saving avatar:', e);
         showToast('Failed to save');
@@ -1264,39 +1268,79 @@
       });
       const prevBg = scene.background ? scene.background.clone() : null;
       scene.background = new THREE.Color(0x000000);
+
+      // Capture via render target (reliable, same WebGL context)
+      const W = 256, H = 256;
+      const rt = new THREE.WebGLRenderTarget(W, H);
+      rt.texture.colorSpace = THREE.SRGBColorSpace;
+      thumbRenderer.setRenderTarget(rt);
       thumbRenderer.render(scene, thumbCam);
+      thumbRenderer.setRenderTarget(null);
+
+      const pixels = new Uint8Array(W * H * 4);
+      thumbRenderer.readRenderTargetPixels(rt, 0, 0, W, H, pixels);
+      rt.dispose();
+
+      // Restore scene
       if (prevBg) scene.background = prevBg;
       for (const m of hidden) m.visible = true;
 
-      // Convert to blob and upload to Cloudinary
-      const blob = await new Promise(resolve => thumbCanvas.toBlob(resolve, 'image/png'));
       thumbRenderer.dispose();
 
+      // Flip Y for canvas ImageData (Y=0 at top)
+      const canvas = document.createElement('canvas');
+      canvas.width = W;
+      canvas.height = H;
+      const ctx = canvas.getContext('2d');
+      const imageData = ctx.createImageData(W, H);
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const si = (y * W + x) * 4;
+          const di = ((H - 1 - y) * W + x) * 4;
+          imageData.data[di] = pixels[si];
+          imageData.data[di + 1] = pixels[si + 1];
+          imageData.data[di + 2] = pixels[si + 2];
+          imageData.data[di + 3] = 255;
+        }
+      }
+      ctx.putImageData(imageData, 0, 0);
+
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      if (!blob || blob.size < 100) {
+        console.warn('[thumbnail] blob is null or too small');
+        return;
+      }
+
+      // Upload to Cloudinary
       const CLOUD_NAME = 'dvkbiobph';
       const UPLOAD_PRESET = 'bloxverse_upload';
 
-      // Get username to use as asset name
       let publicId = 'avatar';
       try {
         const snap = await getDoc(doc(db, 'users', auth.currentUser.uid));
         if (snap.exists() && snap.data().username) {
           publicId = snap.data().username.replace(/[^a-zA-Z0-9_-]/g, '_');
         }
-      } catch (e) { /* fallback to 'avatar' */ }
+      } catch (e) { /* fallback */ }
 
       const formData = new FormData();
       formData.append('file', blob, `${publicId}.png`);
       formData.append('upload_preset', UPLOAD_PRESET);
-      formData.append('public_id', publicId);
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await res.json();
-      if (data.secure_url) {
-        await setDoc(doc(db, 'users', auth.currentUser.uid), {
-          avatarPreview: data.secure_url,
-        }, { merge: true });
+      formData.append('public_id', `${publicId}_avatar_${Date.now()}`);
+
+      try {
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+          method: 'POST',
+          body: formData,
+        });
+        const data = await res.json();
+        if (data.secure_url) {
+          await setDoc(doc(db, 'users', auth.currentUser.uid), {
+            avatarPreview: data.secure_url + '?t=' + Date.now(),
+          }, { merge: true });
+        }
+      } catch (e) {
+        console.warn('[thumbnail] upload failed:', e);
       }
     }
 
