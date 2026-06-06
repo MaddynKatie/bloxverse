@@ -131,7 +131,6 @@ wss.on('connection', (ws, req) => {
   ws.gameId = gameId;
   ws.userId = userId;
   ws.username = username || 'Player';
-  ws.userIdNum = userIdNum ? Number(userIdNum) : null;
 
   if (!games.has(gameId)) {
     games.set(gameId, new Set());
