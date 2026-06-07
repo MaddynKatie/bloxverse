@@ -347,7 +347,7 @@
   </div>
 
   <script type="module">
-    import { auth, db, listenBux, banGuard, logTransaction, assignUserIdNum } from './src/firebase.js';
+    import { auth, db, listenBux, banGuard, logTransaction, assignUserIdNum, trackPresence } from './src/firebase.js';
     import { onAuthStateChanged, signOut } from 'firebase/auth';
     import { doc, getDoc, setDoc, arrayUnion, arrayRemove, updateDoc, increment, collection, getDocs, query, where, limit } from 'firebase/firestore';
     import { getAllAccessories } from './src/accessories.js';
@@ -557,6 +557,7 @@
         if (await banGuard(user.uid)) return;
 
         assignUserIdNum(user.uid).catch(() => {});
+        trackPresence(user.uid, null, 'marketplace');
 
         let username = user.displayName || 'Player';
         let bux = 0;

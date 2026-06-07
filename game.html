@@ -516,20 +516,22 @@
     }
 
     function doSendChat() {
-      const val = chatInput.value.trim();
-      if (val) {
-        const userId = auth.currentUser?.uid;
-        const username = _currentUsername || auth.currentUser?.displayName || 'Player';
-        dispatchScriptChat({ username, userId, message: val, local: true });
-        if (val.startsWith('/resetparts') && window._bloxverse) {
-          const resetState = window._bloxverse.resetParts();
-          if (resetState && resetState.length > 0) sendPhysicsState(resetState);
-        }
-        // Always send raw message; receiver decides what to show based on trusted friends
-        sendChat(val, username, userId, true);
-        chatInput.value = '';
-        chatInput.blur();
+      const raw = chatInput.value.trim();
+      if (!raw) return;
+      if (raw.length > 200) {
+        appendChatMessage({ system: true, message: 'Your message is too long (max 200 characters).' });
+        return;
       }
+      const userId = auth.currentUser?.uid;
+      const username = _currentUsername || auth.currentUser?.displayName || 'Player';
+      dispatchScriptChat({ username, userId, message: raw, local: true });
+      if (raw.startsWith('/resetparts') && window._bloxverse) {
+        const resetState = window._bloxverse.resetParts();
+        if (resetState && resetState.length > 0) sendPhysicsState(resetState);
+      }
+      sendChat(raw, username, userId, true);
+      chatInput.value = '';
+      chatInput.blur();
     }
 
     btnSendChat.addEventListener('click', doSendChat);
@@ -1515,6 +1517,10 @@
           if (_lastLeaderboardPlayers.length > 0) renderLeaderboard(_lastLeaderboardPlayers);
         },
         SendChat: (msg) => {
+          if (!msg || msg.length > 200) {
+            appendChatMessage({ system: true, message: 'Your message is too long (max 200 characters).' });
+            return;
+          }
           const userId = auth.currentUser?.uid || 'game';
           const username = 'Time Tag';
           sendChat(msg, username, userId, false);
@@ -1813,7 +1819,7 @@
             if (user && gameId) {
               if (await banGuard(user.uid)) return;
 
-              const presence = trackPresence(user.uid, gameId);
+              const presence = trackPresence(user.uid, gameId, 'game');
               await loadCurrentUserFriends(user.uid);
               // Ensure existing users get a userIdNum
               assignUserIdNum(user.uid).catch(() => { });

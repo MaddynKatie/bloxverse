@@ -284,7 +284,7 @@
 </div><!-- /adminRoot -->
 
 <script type="module">
-  import { auth, db, getRoles, banGuard, resolveProfileUser } from './src/firebase.js';
+  import { auth, db, getRoles, banGuard, resolveProfileUser, trackPresence } from './src/firebase.js';
   import { doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs, Timestamp, arrayUnion, arrayRemove, onSnapshot } from 'firebase/firestore';
   import { signOut } from 'firebase/auth';
 
@@ -300,6 +300,7 @@
       }
     });
     // ────────────────────────────────────────────────────────────────
+    trackPresence(user.uid, null, 'admin');
     const roles = await getRoles(user.uid);
     if (!roles.includes('admin')) {
       document.getElementById('loading').style.display = 'block';

@@ -272,23 +272,50 @@
     }
     window._addFriend = _addFriend;
 
-    async function getUserStatus(userId) {
-      try {
-        const pDoc = await getDoc(doc(db, 'presence', userId));
-        if (pDoc.exists()) {
-          const p = pDoc.data();
+    const friendStatusUnsubs = new Map();
+
+    function listenFriendStatus(friend) {
+      if (friendStatusUnsubs.has(friend.id)) {
+        friendStatusUnsubs.get(friend.id)();
+      }
+      const unsub = onSnapshot(doc(db, 'presence', friend.id), (snap) => {
+        const idx = _friendsWithStatus.findIndex(f => f.id === friend.id);
+        if (idx === -1) return;
+        let status = 'offline';
+        if (snap.exists()) {
+          const p = snap.data();
           const lastSeen = p.lastSeen?.toMillis?.() ?? p.lastSeen;
           const twoMinAgo = Date.now() - 120000;
-          if (lastSeen && lastSeen < twoMinAgo) return 'offline';
-          if (p.inGame) return 'in-game';
-          if (p.online) return 'online';
+          if (lastSeen && lastSeen < twoMinAgo) status = 'offline';
+          else if (p.inGame) status = 'in-game';
+          else if (p.online) status = 'online';
         }
-      } catch {}
-      return 'offline';
+        _friendsWithStatus[idx].status = status;
+        renderFriends(_friendsWithStatus);
+      }, () => {});
+      friendStatusUnsubs.set(friend.id, unsub);
+    }
+
+    function getStatusFromDoc(snap) {
+      let status = 'offline';
+      if (snap.exists()) {
+        const p = snap.data();
+        const lastSeen = p.lastSeen?.toMillis?.() ?? p.lastSeen;
+        const twoMinAgo = Date.now() - 120000;
+        if (lastSeen && lastSeen < twoMinAgo) status = 'offline';
+        else if (p.inGame) status = 'in-game';
+        else if (p.online) status = 'online';
+      }
+      return status;
     }
 
     async function getFriendsWithStatus(friends) {
-      const statuses = await Promise.all(friends.map(f => getUserStatus(f.id)));
+      const statuses = await Promise.all(friends.map(async (f) => {
+        try {
+          const snap = await getDoc(doc(db, 'presence', f.id));
+          return getStatusFromDoc(snap);
+        } catch { return 'offline'; }
+      }));
       return friends.map((f, i) => ({ ...f, status: statuses[i] }));
     }
 
@@ -385,14 +412,21 @@
       }
     };
 
+    let _friendsWithStatus = [];
+
     async function refreshFriends() {
       if (!currentUserId) return;
+
+      for (const unsub of friendStatusUnsubs.values()) unsub();
+      friendStatusUnsubs.clear();
+
       const [friends, requests] = await Promise.all([
         getFriends(currentUserId),
         getFriendRequests(currentUserId),
       ]);
 
       const friendsWithStatus = await getFriendsWithStatus(friends);
+      _friendsWithStatus = friendsWithStatus;
 
       for (const r of requests) {
         try {
@@ -403,6 +437,10 @@
 
       renderFriends(friendsWithStatus);
       renderFriendRequestsList(requests);
+
+      for (const friend of friendsWithStatus) {
+        listenFriendStatus(friend);
+      }
     }
 
     function toggleDropdown(dropdown) {
@@ -448,7 +486,7 @@
         // Ensure existing users get a sequential userIdNum
         assignUserIdNum(user.uid).catch(() => {});
 
-        presence = trackPresence(user.uid);
+        presence = trackPresence(user.uid, null, 'home');
 
         // ── Daily login reward ────────────────────────────────────────────
         claimDailyBux(user.uid).then(claimed => {

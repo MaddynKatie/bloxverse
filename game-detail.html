@@ -581,6 +581,7 @@
     onAuthStateChanged(auth, async (user) => {
       if (user) {
         if (await banGuard(user.uid)) return;
+        trackPresence(user.uid, null, 'game-detail');
         // ── Real-time ban listener ────────────────────────────────────
         onSnapshot(doc(db, 'bans', user.uid), (snap) => {
           if (snap.exists() && snap.data().banned) {

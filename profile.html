@@ -317,7 +317,7 @@
   <div class="profile-page" id="profilePage"></div>
 
   <script type="module">
-    import { auth, db, calculateAge, addTrustedFriend, removeTrustedFriend, getRoles, banGuard, resolveProfileUser, assignUserIdNum, logTransaction } from './src/firebase.js';
+    import { auth, db, calculateAge, addTrustedFriend, removeTrustedFriend, getRoles, banGuard, resolveProfileUser, assignUserIdNum, logTransaction, trackPresence } from './src/firebase.js';
     import { onAuthStateChanged, signOut } from 'firebase/auth';
     import { doc, getDoc, setDoc, onSnapshot, updateDoc, increment, collection, getDocs, query, where, limit } from 'firebase/firestore';
 
@@ -332,6 +332,8 @@
       }
       
       if (await banGuard(user.uid)) return;
+
+      trackPresence(user.uid, null, 'profile');
 
       // ── Real-time ban listener ────────────────────────────────────
       onSnapshot(doc(db, 'bans', user.uid), (snap) => {

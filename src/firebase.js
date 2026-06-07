@@ -166,27 +166,52 @@ export async function updateBux(userId, amount) {
   return updateDoc(doc(db, 'users', userId), { bux: amount });
 }
 
-export function trackPresence(userId, gameId) {
+export function trackPresence(userId, gameId, page) {
   const presenceRef = doc(db, 'presence', userId);
+  let active = true;
+  let currentInGame = !!gameId;
 
   function updatePresence(data) {
+    if (!active) return;
     return setDoc(presenceRef, { ...data, lastSeen: serverTimestamp() }, { merge: true });
   }
 
-  const inGame = !!gameId;
-  updatePresence({ online: true, inGame, gameId: inGame ? gameId : null });
+  updatePresence({ online: true, inGame: currentInGame, gameId: currentInGame ? gameId : null, page: page || null });
 
-  const cleanup = () => {
-    updatePresence({ online: false, inGame: false, gameId: null });
+  const goOffline = () => {
+    if (!active) return;
+    updatePresence({ online: false, inGame: false, gameId: null, page: null });
   };
-  window.addEventListener('beforeunload', cleanup);
+
+  const goOnline = () => {
+    if (!active) return;
+    updatePresence({ online: true, inGame: currentInGame, gameId: currentInGame ? gameId : null, page: page || null });
+  };
+
+  const onVisibilityChange = () => {
+    if (document.hidden) {
+      goOffline();
+    } else {
+      goOnline();
+    }
+  };
+
+  window.addEventListener('beforeunload', goOffline);
+  document.addEventListener('visibilitychange', onVisibilityChange);
 
   return {
-    setInGame(inGame) {
-      return updatePresence({ online: true, inGame, gameId: inGame ? gameId : null });
+    setInGame(val) {
+      currentInGame = val;
+      updatePresence({ online: true, inGame: val, gameId: val ? gameId : null });
     },
     goOffline() {
-      cleanup();
+      goOffline();
+    },
+    cleanup() {
+      active = false;
+      window.removeEventListener('beforeunload', goOffline);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      updatePresence({ online: false, inGame: false, gameId: null, page: null });
     }
   };
 }

@@ -154,7 +154,7 @@
   <div class="settings-page" id="settingsPage"></div>
 
   <script type="module">
-    import { auth, db, calculateAge, logTransaction, assignUserIdNum } from './src/firebase.js';
+    import { auth, db, calculateAge, logTransaction, assignUserIdNum, trackPresence } from './src/firebase.js';
     import { onAuthStateChanged, signOut } from 'firebase/auth';
     import { doc, getDoc, setDoc, onSnapshot, updateDoc, increment, collection, getDocs, query, where, limit } from 'firebase/firestore';
 
@@ -168,6 +168,7 @@
       }
 
       assignUserIdNum(user.uid).catch(() => {});
+      trackPresence(user.uid, null, 'settings');
 
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       const userData = userDoc.exists() ? userDoc.data() : {};

@@ -173,7 +173,7 @@
   </div>
 
   <script type="module">
-    import { auth, db, getTransactions, listenBux, banGuard, logTransaction, assignUserIdNum } from './src/firebase.js';
+    import { auth, db, getTransactions, listenBux, banGuard, logTransaction, assignUserIdNum, trackPresence } from './src/firebase.js';
     import { onAuthStateChanged, signOut } from 'firebase/auth';
     import { doc, getDoc, updateDoc, increment, collection, getDocs, query, where, limit } from 'firebase/firestore';
 
@@ -197,6 +197,7 @@
         if (await banGuard(user.uid)) return;
 
         assignUserIdNum(user.uid).catch(() => {});
+        trackPresence(user.uid, null, 'transactions');
 
         let username = user.displayName || 'Player';
         let bux = 0;

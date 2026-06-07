@@ -401,45 +401,42 @@ function _updateHealthBarSprite(bar, health, maxHealth) {
 
 function _updateNameLabelPositions() {
     if (!character) return;
-    const charHeight = window._bloxverse.getCharHeight();
     const userIds = new Set([..._playerNames.keys(), ..._playerHealthBars.keys(), ..._playerStreaks.keys()]);
     
     for (const userId of userIds) {
-        let pos;
-        let found = false;
+        let avatarObj = null;
         
         if (userId === currentUserId && character) {
-            pos = character.position;
-            found = true;
+            avatarObj = character;
         } else {
             const p = otherPlayers.get(userId);
             if (p && p.mesh) {
-                pos = p.mesh.position;
-                found = true;
+                avatarObj = p.mesh;
             }
         }
         
-        if (!found || !pos) continue;
-        const visualTop = _playerVisualTop.get(userId);
-        const baseY = visualTop !== undefined ? pos.y + visualTop : pos.y + charHeight - 1.2;
-        const nameY = baseY + 0.6;
-        // Move streak slightly higher above the username
+        if (!avatarObj) continue;
+
+        const headTop = _getHeadTopWorldPosition(avatarObj, userId);
+        if (!headTop) continue;
+
+        const nameY = headTop.y + 0.5;
         const streakY = nameY + 0.45;
-        const healthY = baseY + 0.2;
+        const healthY = headTop.y + 0.1;
 
         const nameData = _playerNames.get(userId);
         if (nameData && nameData.sprite) {
-            nameData.sprite.position.set(pos.x, nameY, pos.z);
+            nameData.sprite.position.set(headTop.x, nameY, headTop.z);
         }
 
         const streakData = _playerStreaks.get(userId);
         if (streakData && streakData.sprite) {
-            streakData.sprite.position.set(pos.x, streakY, pos.z);
+            streakData.sprite.position.set(headTop.x, streakY, headTop.z);
         }
 
         const bar = _playerHealthBars.get(userId);
         if (bar && bar.sprite && bar.sprite.visible) {
-            bar.sprite.position.set(pos.x, healthY, pos.z);
+            bar.sprite.position.set(headTop.x, healthY, headTop.z);
         }
     }
 }
@@ -634,10 +631,14 @@ function applyMeshTransparency(mesh, transparency) {
     // opacity so one invisible trigger does not hide later visible parts.
     if (opacity < 1) cloneMeshMaterials(mesh);
 
+    mesh.renderOrder = opacity < 1 ? 1 : 0;
+
     const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
     for (const mat of mats) {
         if (!mat) continue;
-        mat.transparent = opacity < 1;
+        const transparent = opacity < 1;
+        mat.transparent = transparent;
+        mat.depthWrite = !transparent;
         mat.opacity = opacity;
         mat.needsUpdate = true;
     }
@@ -1636,24 +1637,71 @@ function _getAttachmentTopWorldPosition(attachment) {
     return attachment.getWorldPosition(new THREE.Vector3());
 }
 
-function _getHeadTopWorldPosition(avatarObj) {
-    let topWorld = null;
-    avatarObj.traverse(child => {
-        if (_isAccessoryNode(child)) return;
-        if (child.isMesh) {
-            if (!child.geometry.boundingBox) {
-                child.geometry.computeBoundingBox();
-            }
+function _getHeadTopWorldPosition(avatarObj, userId) {
+    const headBone = avatarObj.getObjectByName('Head');
+    let topY = null;
+    let basePos = null;
+
+    if (headBone) {
+        headBone.updateWorldMatrix(true, false);
+        const headPos = new THREE.Vector3();
+        headBone.getWorldPosition(headPos);
+        basePos = headPos;
+
+        let headTopLocalY = 0;
+        avatarObj.traverse(child => {
+            if (!child.isMesh) return;
+            const matName = (Array.isArray(child.material) ? child.material[0] : child.material)?.name || '';
+            if (!child.name.toLowerCase().includes('head') && !matName.toLowerCase().includes('head')) return;
+            if (!child.geometry.boundingBox) child.geometry.computeBoundingBox();
             const bbox = child.geometry.boundingBox;
-            const topLocal = new THREE.Vector3((bbox.min.x + bbox.max.x) / 2, bbox.max.y, (bbox.min.z + bbox.max.z) / 2);
-            const worldPos = topLocal.clone();
-            child.localToWorld(worldPos);
-            if (!topWorld || worldPos.y > topWorld.y) {
-                topWorld = worldPos;
+            const localPt = new THREE.Vector3(0, bbox.max.y, 0);
+            child.localToWorld(localPt);
+            const localY = localPt.y - headPos.y;
+            if (localY > headTopLocalY) headTopLocalY = localY;
+        });
+
+        if (headTopLocalY > 0) {
+            topY = headPos.y + headTopLocalY;
+        } else {
+            const headSize = Math.min(CHAR_HEIGHT * 0.3, 1.2);
+            topY = headPos.y + headSize;
+        }
+    } else {
+        avatarObj.traverse(child => {
+            if (child.isMesh) {
+                if (!child.geometry.boundingBox) {
+                    child.geometry.computeBoundingBox();
+                }
+                const bbox = child.geometry.boundingBox;
+                const worldPos = new THREE.Vector3(0, bbox.max.y, 0);
+                child.localToWorld(worldPos);
+                if (topY === null || worldPos.y > topY) {
+                    topY = worldPos.y;
+                }
+                if (!basePos) {
+                    basePos = new THREE.Vector3();
+                    child.getWorldPosition(basePos);
+                }
+            }
+        });
+    }
+
+    const accMap = userId ? _playerAccessoryInstances.get(userId) : null;
+    if (accMap) {
+        for (const entry of accMap.values()) {
+            if (!entry.wrapper) continue;
+            const bbox = new THREE.Box3().setFromObject(entry.wrapper);
+            if (!bbox.isEmpty() && (topY === null || bbox.max.y > topY)) {
+                topY = bbox.max.y;
             }
         }
-    });
-    return topWorld;
+    }
+
+    if (topY !== null && basePos) {
+        return new THREE.Vector3(basePos.x, topY, basePos.z);
+    }
+    return null;
 }
 
 function _applyAccessoriesToModel(userId, model, accessoryIds) {
@@ -1949,7 +1997,7 @@ function _applyFaceToModel(mesh, faceId) {
         tex.colorSpace = THREE.SRGBColorSpace;
         const mat = new THREE.MeshStandardMaterial({
             map: tex, transparent: true, alphaTest: 0.05,
-            depthWrite: true, color: 0xffffff,
+            depthWrite: false, color: 0xffffff,
         });
         const faceSize = headSize * 0.85;
         const m = new THREE.Mesh(new THREE.PlaneGeometry(faceSize, faceSize), mat);
@@ -2089,7 +2137,7 @@ fbxLoader.load(playerModelUrl, (fbx) => {
                 if (isFaceMat) {
                     mat.transparent = true;
                     mat.alphaTest = 0.05;
-                    mat.depthWrite = true;
+                    mat.depthWrite = false;
                     mat.userData.isFace = true;
                     mat.color.set(0xff0000);
                     mat.emissive.setHex(0xff0000);

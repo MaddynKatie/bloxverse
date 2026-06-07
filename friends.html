@@ -257,7 +257,7 @@
   <div class="friends-page" id="friendsPage"></div>
 
   <script type="module">
-    import { auth, db, followUser, unfollowUser, logTransaction, assignUserIdNum } from './src/firebase.js';
+    import { auth, db, followUser, unfollowUser, logTransaction, assignUserIdNum, trackPresence } from './src/firebase.js';
     import { onAuthStateChanged, signOut } from 'firebase/auth';
     import { doc, getDoc, setDoc, onSnapshot, updateDoc, increment, collection, getDocs, query, where, limit } from 'firebase/firestore';
     import { getFriends, getFriendRequests, acceptFriendRequest, declineFriendRequest, removeFriend, sendFriendRequest } from './src/friends.js';
@@ -526,6 +526,7 @@
 
       currentUserId = user.uid;
       assignUserIdNum(user.uid).catch(() => {});
+      trackPresence(user.uid, null, 'friends');
 
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       const userData = userDoc.exists() ? userDoc.data() : {};

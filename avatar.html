@@ -431,7 +431,7 @@
     import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
     import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
     import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-    import { auth, db, getDoc, doc, setDoc } from './src/firebase.js';
+    import { auth, db, getDoc, doc, setDoc, trackPresence } from './src/firebase.js';
     import { accessories, getAllAccessories, findAccessory } from './src/accessories.js';
     import { applyAvatarClothing, findClothing, getAllClothing, removeAvatarClothing } from './src/clothing.js';
     import { getAllFaces, findFace } from './src/faces.js';
@@ -937,7 +937,7 @@
         tex.colorSpace = THREE.SRGBColorSpace;
         const mat = new THREE.MeshStandardMaterial({
           map: tex, transparent: true, alphaTest: 0.05,
-          depthWrite: true, color: 0xffffff,
+          depthWrite: false, color: 0xffffff,
         });
         const faceSize = headSize * 0.85;
         const mesh = new THREE.Mesh(new THREE.PlaneGeometry(faceSize, faceSize), mat);
@@ -1140,6 +1140,7 @@
     async function loadSavedColors() {
       await auth.authStateReady();
       if (!auth.currentUser) return;
+      trackPresence(auth.currentUser.uid, null, 'avatar');
       try {
         const snap = await getDoc(doc(db, 'users', auth.currentUser.uid));
         if (snap.exists()) {
