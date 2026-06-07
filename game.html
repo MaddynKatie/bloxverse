@@ -142,6 +142,23 @@
               </label>
             </div>
           </div>
+          <div class="setting-row">
+            <label>Graphics Quality</label>
+            <div class="setting-control">
+              <input type="range" id="graphicsQualitySlider" min="1" max="10" step="1" value="5" style="width:100px;" />
+              <span id="graphicsQualityValue" style="min-width:20px;text-align:center;">5</span>
+            </div>
+          </div>
+          <div class="setting-row">
+            <label>Graphics Mode</label>
+            <div class="setting-control">
+              <label class="toggle-switch">
+                <input type="checkbox" id="graphicsAutoToggle" checked />
+                <span class="toggle-slider"></span>
+              </label>
+              <span id="graphicsModeLabel" style="font-size:12px;color:#9ca3af;">Auto</span>
+            </div>
+          </div>
         </div>
         <div class="settings-tab-content" id="tabReport">
           <div class="report-form">
@@ -580,6 +597,9 @@
         mod: `<i class="fa-solid fa-gavel" style="color: #facc15; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
       };
 
+      // Default stats per game.
+      // Timetag previously injected a default { Wins: 0 } which caused the Wins column
+      // to show even when timetag should not display it.
       const defaultStatsPerGame = (game && game.id === 'blockyfights') ? { Kills: 0 } : {};
       lbList.innerHTML = players
         .map(p => ({ p, stats: { ...defaultStatsPerGame, ...(_playerStats.get(p.userId) || {}) } }))
@@ -856,6 +876,10 @@
     const sensSlider = document.getElementById('sensSlider');
     const sensValue = document.getElementById('sensValue');
     const shiftlockToggle = document.getElementById('shiftlockToggle');
+    const graphicsQualitySlider = document.getElementById('graphicsQualitySlider');
+    const graphicsQualityValue = document.getElementById('graphicsQualityValue');
+    const graphicsAutoToggle = document.getElementById('graphicsAutoToggle');
+    const graphicsModeLabel = document.getElementById('graphicsModeLabel');
 
     // Load saved settings
     try {
@@ -867,6 +891,26 @@
       }
       if (saved.shiftLock != null) {
         shiftlockToggle.checked = saved.shiftLock;
+      }
+      if (saved.graphicsQuality != null) {
+        graphicsQualitySlider.value = saved.graphicsQuality;
+        graphicsQualityValue.textContent = saved.graphicsQuality;
+        if (window._bloxverse) window._bloxverse.setQuality(Number(saved.graphicsQuality));
+      }
+      if (saved.graphicsAuto != null) {
+        graphicsAutoToggle.checked = saved.graphicsAuto;
+        graphicsModeLabel.textContent = saved.graphicsAuto ? 'Auto' : 'Manual';
+        if (window._bloxverse) window._bloxverse.setGraphicsAuto(saved.graphicsAuto);
+      }
+      if (graphicsAutoToggle.checked) {
+        graphicsQualitySlider.disabled = true;
+        graphicsQualitySlider.style.opacity = '0.4';
+      }
+      if (window._bloxverse) {
+        window._bloxverse.onQualityChange((level) => {
+          graphicsQualitySlider.value = level;
+          graphicsQualityValue.textContent = level;
+        });
       }
     } catch (_) { }
 
@@ -1082,6 +1126,29 @@
         window._bloxverse.shiftLockEnabled = enabled;
         // If turning off while shiftlock is active, deactivate it
         if (!enabled) window._bloxverse._disableShiftLock?.();
+      }
+    });
+
+    graphicsQualitySlider.addEventListener('input', () => {
+      if (graphicsAutoToggle.checked) return;
+      const val = parseInt(graphicsQualitySlider.value, 10);
+      graphicsQualityValue.textContent = val;
+      saveSetting('graphicsQuality', val);
+      if (window._bloxverse) window._bloxverse.setQuality(val);
+    });
+
+    graphicsAutoToggle.addEventListener('change', () => {
+      const auto = graphicsAutoToggle.checked;
+      graphicsModeLabel.textContent = auto ? 'Auto' : 'Manual';
+      graphicsQualitySlider.disabled = auto;
+      graphicsQualitySlider.style.opacity = auto ? '0.4' : '1';
+      saveSetting('graphicsAuto', auto);
+      if (window._bloxverse) {
+        window._bloxverse.setGraphicsAuto(auto);
+        if (!auto) {
+          const val = parseInt(graphicsQualitySlider.value, 10);
+          window._bloxverse.setQuality(val);
+        }
       }
     });
 
@@ -1582,6 +1649,13 @@
 
     function startGame() {
       setLoad(15, 'Initializing engine...');
+
+      // Early presence: mark online immediately so friends don't see "offline" during load
+      let presence = null;
+      if (auth.currentUser && gameId) {
+        presence = trackPresence(auth.currentUser.uid, gameId, 'game');
+      }
+
       const poll = setInterval(async () => {
         if (window._bloxverse) {
           clearInterval(poll);
@@ -1819,7 +1893,11 @@
             if (user && gameId) {
               if (await banGuard(user.uid)) return;
 
-              const presence = trackPresence(user.uid, gameId, 'game');
+              if (!presence) {
+                presence = trackPresence(user.uid, gameId, 'game');
+              } else {
+                presence.setInGame(true);
+              }
               await loadCurrentUserFriends(user.uid);
               // Ensure existing users get a userIdNum
               assignUserIdNum(user.uid).catch(() => { });

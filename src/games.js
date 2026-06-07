@@ -142,6 +142,21 @@ export const games = [
     visits: 0,
     createdAt: '2026/06/2',
   },
+  {
+    id: 'backrooms',
+    name: 'Backrooms',
+    official: true,
+    icon: './assets/icons/backroomsbv.png',
+    mapPath: './assets/models/backrooms.json',
+    scriptsPath: './assets/games/backrooms',
+    description: 'A exploration game set in the eerie and endless backrooms. Explore the maze-like environment.',
+    category: 'Exploration',
+    worldFloor: false,
+    respawnY: -200,
+    activePlayers: 0,
+    visits: 0,
+    createdAt: '2026/06/7',
+  },
 ];
 
 export async function loadGameStats() {

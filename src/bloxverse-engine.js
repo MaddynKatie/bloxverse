@@ -51,6 +51,14 @@ let _respawnTimer = 0;
 const _respawnCallbacks = [];
 const _deathCallbacks = [];
 
+// ─── Graphics Auto-Adjust ─────────────────────────────────────────────
+let _graphicsAuto = true;
+let _graphicsLevel = 5;
+const _fpsHistory = [];
+const _fpsWindow = 30;
+let _autoAdjustCooldown = 0;
+let _qualityChangeCallback = null;
+
 // ─── Chat Bubble Config ────────────────────────────────────────────────
 const BUBBLE_WORLD_W  = 3.2;
 const BUBBLE_CANVAS_W = 400;
@@ -478,6 +486,8 @@ sun.shadow.camera.top = 192;
 sun.shadow.camera.bottom = -192;
 sun.shadow.autoUpdate = true;
 scene.add(sun);
+
+_applyGraphicsLevel();
 
 // ─── Physics World ───────────────────────────────────────────────────────────
 const physicsWorld = new CANNON.World();
@@ -3153,6 +3163,14 @@ window._bloxverse = {
             }
         }
 
+        // Remove any previously loaded point lights
+        if (window._mapPointLights) {
+            for (const pl of window._mapPointLights) {
+                scene.remove(pl.light);
+            }
+            window._mapPointLights = null;
+        }
+
         // Remove any previously loaded parts from the scene
         for (const entry of window._mapParts || []) {
             if (entry.mesh) {
@@ -3198,7 +3216,32 @@ window._bloxverse = {
             applyMeshTransparency(mesh, p.Transparency || 0);
             partMap.set(partName, { mesh, anchored, canCollide, size: [sw,sh,sd], worldPos: [px+ox,py+oy,pz+oz], rotation: [rx,ry,rz] });
         }
-        
+
+        // Create PointLights attached to parts (capped to avoid shader uniform overflow)
+        const MAX_POINT_LIGHTS = 16;
+        const pointLights = [];
+        for (const p of valid) {
+            if (p.PointLight && pointLights.length < MAX_POINT_LIGHTS) {
+                const name = p.Name || `Part_${p.Position[0]}_${p.Position[1]}_${p.Position[2]}`;
+                const entry = partMap.get(name);
+                if (entry) {
+                    const pl = p.PointLight;
+                    const light = new THREE.PointLight(
+                        pl.Color ? new THREE.Color(pl.Color[0], pl.Color[1], pl.Color[2]) : 0xffffff,
+                        pl.Brightness != null ? pl.Brightness : 1,
+                        pl.Range != null ? pl.Range : 16
+                    );
+                    light.position.copy(entry.mesh.position);
+                    light.castShadow = false; // point light shadows are expensive
+                    light.visible = pl.Enabled !== false;
+                    scene.add(light);
+                    pointLights.push({ parentMesh: entry.mesh, light });
+                }
+            }
+        }
+        // Store for cleanup
+        window._mapPointLights = pointLights;
+
         // Apply lighting data (Sky/Atmosphere) if present
         if (data.lighting) {
             if (data.lighting.Sky) {
@@ -3893,8 +3936,37 @@ window._bloxverse = {
             _playerHealthBars.set(userId, bar);
         }
         _updateHealthBarSprite(bar, health, 100);
-    }
+    },
+    setQuality(level) {
+        _graphicsLevel = Math.max(1, Math.min(10, level));
+        _applyGraphicsLevel();
+        if (_qualityChangeCallback) _qualityChangeCallback(_graphicsLevel);
+    },
+    setGraphicsAuto(enabled) {
+        _graphicsAuto = enabled;
+        if (!enabled) {
+            _fpsHistory.length = 0;
+        }
+    },
+    getGraphicsLevel() { return _graphicsLevel; },
+    onQualityChange(fn) { _qualityChangeCallback = fn; },
 };
+
+function _applyGraphicsLevel() {
+    const t = (_graphicsLevel - 1) / 9;
+    const ratio = 0.5 + t * (Math.min(window.devicePixelRatio, 2) - 0.5);
+    renderer.setPixelRatio(ratio);
+    // No shadow map resizing to avoid flash from dispose/recreate
+    if (t < 0.15) {
+        renderer.shadowMap.enabled = false;
+    } else {
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFShadowMap;
+    }
+    scene.fog.near = 96 + t * 96;
+    scene.fog.far = 240 + t * 240;
+    sun.shadow.bias = -0.001 + t * 0.0005;
+}
 
 // ─── Game loop ────────────────────────────────────────────────────────────────
 let lastTime = performance.now();
@@ -4004,6 +4076,31 @@ function loop(now) {
     _updateLeaderstats(_gameRef);
 
     renderer.render(scene, camera);
+
+    // FPS-based auto quality adjust
+    if (_graphicsAuto) {
+        const fps = 1 / Math.max(frameDt, 0.001);
+        _fpsHistory.push(fps);
+        if (_fpsHistory.length > _fpsWindow) _fpsHistory.shift();
+        _autoAdjustCooldown -= frameDt;
+        if (_fpsHistory.length >= _fpsWindow && _autoAdjustCooldown <= 0) {
+            const avg = _fpsHistory.reduce((a, b) => a + b, 0) / _fpsHistory.length;
+            let newLevel = _graphicsLevel;
+            if (avg < 20) {
+                newLevel = Math.max(1, _graphicsLevel - 2);
+            } else if (avg < 30) {
+                newLevel = Math.max(1, _graphicsLevel - 1);
+            } else if (avg > 55) {
+                newLevel = Math.min(10, _graphicsLevel + 1);
+            }
+            if (newLevel !== _graphicsLevel) {
+                _graphicsLevel = newLevel;
+                _applyGraphicsLevel();
+                if (_qualityChangeCallback) _qualityChangeCallback(_graphicsLevel);
+            }
+            _autoAdjustCooldown = 10;
+        }
+    }
 }
 
 requestAnimationFrame(loop);

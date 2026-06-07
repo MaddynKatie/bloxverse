@@ -339,6 +339,7 @@
           await setDoc(doc(db, 'users', user.uid), { profilePrivacy: privacySelect.value }, { merge: true });
         });
       }
+
     });
 
     window._logout = async () => {

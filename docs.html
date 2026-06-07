@@ -429,10 +429,14 @@
         }
 
         function inlineFormat(text) {
+            const pageName = location.pathname.split('/').pop() || 'index.html';
             return text
                 .replace(/`([^`]+)`/g, '<code>$1</code>')
                 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>');
+                .replace(/\[(.*?)\]\((.*?)\)/g, (match, label, url) => {
+                    if (url.startsWith('#')) url = pageName + url;
+                    return '<a href="' + url + '">' + label + '</a>';
+                });
         }
 
         fetch('SCRIPTING.md')
@@ -444,13 +448,14 @@
 
                 const headings = document.querySelectorAll('#content h2, #content h3, #content h4');
                 const sidebar = document.getElementById('sidebar');
+                const pageName = location.pathname.split('/').pop() || 'index.html';
                 const tocLinks = [];
                 headings.forEach(heading => {
                     const level = heading.tagName === 'H2' ? 'toc-h2' : heading.tagName === 'H3' ? 'toc-h3' : 'toc-h4';
                     const id = 'section-' + Math.random().toString(36).slice(2, 8);
                     heading.id = id;
                     const link = document.createElement('a');
-                    link.href = '#' + id;
+                    link.href = pageName + '#' + id;
                     link.textContent = heading.textContent;
                     link.className = level;
                     sidebar.appendChild(link);
@@ -468,9 +473,9 @@
                     if (currentId && currentId !== lastActiveId) {
                         lastActiveId = currentId;
                         tocLinks.forEach(link => {
-                            link.classList.toggle('active', link.getAttribute('href') === '#' + currentId);
+                            link.classList.toggle('active', link.hash === '#' + currentId);
                         });
-                        const activeLink = tocLinks.find(link => link.getAttribute('href') === '#' + currentId);
+                        const activeLink = tocLinks.find(link => link.hash === '#' + currentId);
                         if (activeLink) activeLink.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
                     }
                 }

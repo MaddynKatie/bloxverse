@@ -351,6 +351,12 @@ input[type=range] {
   accent-color: #f2cd37;
 }
 
+.setting-control input[type=range] {
+  width: 100px;
+  height: 4px;
+  cursor: pointer;
+}
+
 /* Settings Panel (slide-down from top) */
 .settings-panel {
   position: fixed;

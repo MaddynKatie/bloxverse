@@ -330,7 +330,7 @@ export function getPartsData() {
   const data = [];
   function collect(node) {
     if (node.ClassName === 'Part') {
-      data.push({
+      const entry = {
         Name: node.Name,
         Type: 'Part',
         Shape: node.Shape,
@@ -341,7 +341,18 @@ export function getPartsData() {
         Transparency: node.Transparency || 0,
         Anchored: node.Anchored,
         CanCollide: node.CanCollide !== false,
-      });
+      };
+      const pl = node.Children.find(c => c.ClassName === 'PointLight');
+      if (pl) {
+        entry.PointLight = {
+          Color: [pl.Color.r, pl.Color.g, pl.Color.b],
+          Brightness: pl.Brightness,
+          Range: pl.Range,
+          Shadows: pl.Shadows,
+          Enabled: pl.Enabled !== false,
+        };
+      }
+      data.push(entry);
     }
     node.Children.forEach(collect);
   }
@@ -483,7 +494,7 @@ export function initStudio(container, explorerEl, propsEl, onChange) {
   renderer.setSize(w, h);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.2;
   container.appendChild(renderer.domElement);
@@ -855,6 +866,23 @@ export function loadMapData(data) {
         inst.mesh.material.transparent = true;
         inst.mesh.material.opacity = Math.max(0, 1 - inst.Transparency);
         inst.mesh.material.needsUpdate = true;
+      }
+    }
+  }
+
+  // Load PointLights attached to parts
+  for (const p of parts) {
+    if (p.PointLight) {
+      const partInst = workspace.Children.find(c => c.ClassName === 'Part' && c.Name === p.Name);
+      if (partInst) {
+        const pl = p.PointLight;
+        const plInst = new PointLight(p.Name + 'Light');
+        plInst.Color = new THREE.Color(pl.Color ? pl.Color[0] : 1, pl.Color ? pl.Color[1] : 1, pl.Color ? pl.Color[2] : 1);
+        plInst.Brightness = pl.Brightness != null ? pl.Brightness : 1;
+        plInst.Range = pl.Range != null ? pl.Range : 16;
+        plInst.Shadows = pl.Shadows === true;
+        plInst.Enabled = pl.Enabled !== false;
+        plInst.setParent(partInst);
       }
     }
   }
