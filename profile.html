@@ -296,6 +296,81 @@
     .role-badge.developer { color: #44d9e6; }
     .role-badge.admin     { color: #ff4444; }
     .role-badge.mod       { color: #facc15; }
+
+    /* ── Bio ────────────────────────────────── */
+    .profile-bio {
+      color: rgba(255,255,255,0.85);
+      font-size: 14px;
+      line-height: 1.5;
+      margin-top: 8px;
+      word-wrap: break-word;
+    }
+    .profile-bio-empty {
+      color: rgba(255,255,255,0.4);
+      font-style: italic;
+    }
+    .bio-edit-btn {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: rgba(255,255,255,0.8);
+      padding: 4px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: all 0.15s;
+    }
+    .bio-edit-btn:hover {
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+    }
+    .bio-editor {
+      margin-top: 8px;
+    }
+    .bio-textarea {
+      width: 100%;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 6px;
+      color: #fff;
+      font-size: 13px;
+      padding: 8px;
+      resize: vertical;
+      box-sizing: border-box;
+      font-family: inherit;
+    }
+    .bio-textarea:focus {
+      outline: none;
+      border-color: #0d69ac;
+    }
+    .bio-editor-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 6px;
+    }
+    .bio-char-count {
+      font-size: 12px;
+      color: #8a8c8e;
+    }
+    .bio-btn {
+      padding: 6px 14px;
+      border-radius: 6px;
+      border: none;
+      font-size: 13px;
+      cursor: pointer;
+      margin-left: 6px;
+    }
+    .bio-btn-cancel {
+      background: rgba(255,255,255,0.1);
+      color: #8a8c8e;
+    }
+    .bio-btn-cancel:hover { background: rgba(255,255,255,0.2); }
+    .bio-btn-save {
+      background: #0d69ac;
+      color: #fff;
+    }
+    .bio-btn-save:hover { background: #0b5a94; }
   </style>
 </head>
 
@@ -346,6 +421,10 @@
       // Resolve profile view target: handle numeric userIdNum or UID
       const rawTarget = urlParams.get('user');
       const resolvedUid = await resolveProfileUser(rawTarget);
+      if (rawTarget && !resolvedUid) {
+        profilePage.innerHTML = '<p style="text-align:center;color:#8a8c8e;padding:48px;">User not found</p>';
+        return;
+      }
       const viewingUserId = resolvedUid || user.uid;
       const isOwnProfile = viewingUserId === user.uid;
 
@@ -358,6 +437,7 @@
       const userData = userDoc.data();
       const username = userData.username || 'Unknown';
       const email = userData.email || '';
+      const bio = userData.bio || '';
       const bux = userData.bux || 0;
       const friendIds = userData.friends || [];
       const followerIds = userData.followers || [];
@@ -415,6 +495,25 @@
         return `<div class="profile-thumb-letter">${initial}</div>`;
       };
 
+      const _escapeHtml = (str) => {
+        const div = document.createElement('div');
+        div.appendChild(document.createTextNode(str));
+        return div.innerHTML;
+      };
+
+      window.saveBio = async function() {
+        const textarea = document.getElementById('bioTextarea');
+        const newBio = textarea.value.trim();
+        try {
+          await setDoc(doc(db, 'users', user.uid), { bio: newBio }, { merge: true });
+          document.getElementById('bioEditor').style.display = 'none';
+          document.querySelector('.bio-edit-btn').style.display = '';
+          location.reload();
+        } catch (e) {
+          alert('Failed to save bio: ' + e.message);
+        }
+      };
+
       // Fetch all user data in parallel
       const fetchUsers = async (ids) => {
         const results = await Promise.all(ids.slice(0, 12).map(fid =>
@@ -461,6 +560,22 @@
             <div class="profile-tagline">
               ${email && isOwnProfile ? email : ''}
             </div>
+            ${bio ? `<div class="profile-bio">${_escapeHtml(bio)}</div>` : (isOwnProfile ? '<div class="profile-bio profile-bio-empty">No bio yet</div>' : '')}
+            ${isOwnProfile ? `
+              <button class="bio-edit-btn" onclick="document.getElementById('bioEditor').style.display='block';this.style.display='none'">
+                <i class="fa-solid fa-pen"></i> Edit Bio
+              </button>
+              <div id="bioEditor" class="bio-editor" style="display:none">
+                <textarea id="bioTextarea" maxlength="500" rows="3" class="bio-textarea">${_escapeHtml(bio)}</textarea>
+                <div class="bio-editor-actions">
+                  <span class="bio-char-count"><span id="bioCount">${bio.length}</span>/500</span>
+                  <div>
+                    <button class="bio-btn bio-btn-cancel" onclick="document.getElementById('bioEditor').style.display='none';document.querySelector('.bio-edit-btn').style.display=''">Cancel</button>
+                    <button class="bio-btn bio-btn-save" onclick="saveBio()">Save</button>
+                  </div>
+                </div>
+              </div>
+            ` : ''}
           </div>
         </div>
 
@@ -586,6 +701,14 @@
               console.error('Error removing trusted friend:', e);
             }
           });
+        });
+      }
+
+      // Bio textarea character counter
+      const bioTextarea = document.getElementById('bioTextarea');
+      if (bioTextarea) {
+        bioTextarea.addEventListener('input', () => {
+          document.getElementById('bioCount').textContent = bioTextarea.value.length;
         });
       }
 

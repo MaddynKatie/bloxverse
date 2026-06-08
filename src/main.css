@@ -274,10 +274,10 @@ body {
   position: absolute;
   bottom: 0;
   right: 0;
-  width: 10px;
-  height: 10px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
-  border: 2px solid #393b3d;
+  border: 3px solid #393b3d;
 }
 
 .status-dot.offline { background-color: #6b6c6e; }
@@ -290,9 +290,9 @@ body {
 }
 
 .friend-avatar-wrapper .status-dot {
-  width: 10px;
-  height: 10px;
-  border: 2px solid #393b3d;
+  width: 16px;
+  height: 16px;
+  border: 3px solid #393b3d;
 }
 
 .dropdown-menu {

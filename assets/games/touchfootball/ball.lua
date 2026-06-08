@@ -64,11 +64,13 @@ end
 
 ballInst.Touched:Connect(function(hit)
     local char = game:GetCharacterData()
+    if not char.moving then return end
+
     local facingX = math.sin(char.ry)
     local facingZ = math.cos(char.ry)
     local walkSpeed = game:GetWalkSpeed()
     local speedRatio = walkSpeed / WALK_SPEED
-    local speedMult = char.moving and (speedRatio * MAX_SPEED_BONUS) or 0.8
+    local speedMult = speedRatio * MAX_SPEED_BONUS
     local chargeRatio = math.min(charge / CHARGE_TIME, 1)
     local basePower = BASE_KICK_POWER + ((CHARGED_KICK_POWER - BASE_KICK_POWER) * chargeRatio)
     local baseUp = BASE_KICK_UP + ((CHARGED_KICK_UP - BASE_KICK_UP) * chargeRatio)

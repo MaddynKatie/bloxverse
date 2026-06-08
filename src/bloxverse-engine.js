@@ -60,18 +60,18 @@ let _autoAdjustCooldown = 0;
 let _qualityChangeCallback = null;
 
 // ─── Chat Bubble Config ────────────────────────────────────────────────
-const BUBBLE_WORLD_W  = 3.2;
-const BUBBLE_CANVAS_W = 400;
+const BUBBLE_WORLD_W  = 4.0;
+const BUBBLE_CANVAS_W = 500;
 const BUBBLE_SCALE    = BUBBLE_WORLD_W / BUBBLE_CANVAS_W;
 const BUBBLE_DURATION = 15000;
 const MAX_BUBBLES     = 3;
 
-const B_PAD  = 18;
-const B_R    = 12;
-const B_FONT = '30px system-ui,sans-serif';
-const B_LINE = 38;
-const B_TRI  = 12;
-const B_GAP  = 6;
+const B_PAD  = 24;
+const B_R    = 16;
+const B_FONT = '38px system-ui,sans-serif';
+const B_LINE = 48;
+const B_TRI  = 14;
+const B_GAP  = 8;
 
 const _bubbles = new Map();
 const _measureCtx = document.createElement('canvas').getContext('2d');
@@ -485,6 +485,7 @@ sun.shadow.camera.right = 192;
 sun.shadow.camera.top = 192;
 sun.shadow.camera.bottom = -192;
 sun.shadow.autoUpdate = true;
+sun.shadow.camera.updateProjectionMatrix();
 scene.add(sun);
 
 _applyGraphicsLevel();
@@ -3729,7 +3730,6 @@ window._bloxverse = {
     if (!character) return; // Not fully loaded yet
     // Don't create/update a clone for the local player (same-account multi-device scenario)
     if (userId === currentUserId) return;
-
     // Normalize received angle to [-π, π] so lerpAngle never takes the long way around
     // and so a freshly spawned clone never starts 180° wrong.
     let correctedRy = ry % (2 * Math.PI);
@@ -3965,7 +3965,6 @@ function _applyGraphicsLevel() {
     }
     scene.fog.near = 96 + t * 96;
     scene.fog.far = 240 + t * 240;
-    sun.shadow.bias = -0.001 + t * 0.0005;
 }
 
 // ─── Game loop ────────────────────────────────────────────────────────────────

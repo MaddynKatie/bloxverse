@@ -1974,6 +1974,7 @@
 
               connectMultiplayer(gameId, user.uid, username,
                 (id, x, y, z, ry, moving, grounded, climbState, qx, qy, qz, qw, dead, health) => {
+                  if (!_knownPlayerIds.has(id)) return;
                   if (window._bloxverse) {
                     const playerUsername = _playerUsernames.get(id);
                     window._bloxverse.updateOtherPlayer(id, x, y, z, ry, moving, grounded, climbState, playerUsername, qx, qy, qz, qw, dead, health);
