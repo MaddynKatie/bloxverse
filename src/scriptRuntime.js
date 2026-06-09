@@ -61,8 +61,8 @@ export function luaToJS(lua) {
         (_s) => _s.replace(/\brepeat\b/g, 'do {'),
         (_s) => _s.replace(/\buntil\b\s*/g, '} while (!('),
         (_s) => _s.replace(/\bthen\b/g, '{'),
-        // Convert remaining `end` on same line as `{` to `}` (single-line blocks like `if x then return end`)
-        (_s) => _s.replace(/\{([^{}]*?)\bend\b\s*$/gm, '{$1}'),
+        // Convert remaining `end` at end-of-line to `}` (handles nested braces too)
+        (_s) => _s.replace(/\bend\b\s*$/gm, '}'),
         (_s) => _s.replace(/\bnot\s+/g, '!'),
         (_s) => _s.replace(/\band\b/g, '&&'),
         (_s) => _s.replace(/\bor\b/g, '||'),
@@ -298,6 +298,7 @@ export function createInstanceProxy(inst) {
 
     return new Proxy(inst, {
         get(target, prop) {
+            if (prop === '_target') return target;
             if (prop === 'Parent') return createInstanceProxy(target.Parent);
             if (prop === 'Children') return (target.Children || []).map(c => createInstanceProxy(c));
 
@@ -360,10 +361,6 @@ export function createInstanceProxy(inst) {
                 }
             };
 
-            if (prop in target) {
-                const val = target[prop];
-                return typeof val === 'function' ? val.bind(target) : val;
-            }
             if (prop === 'FindFirstChild') {
                 return (name, recursive) => {
                     const found = target.FindFirstChild(name, recursive);
@@ -391,8 +388,11 @@ export function createInstanceProxy(inst) {
                     return parts.join('.');
                 };
             }
-            if (prop === 'Destroy') return () => { if (target.Destroy) target.Destroy(); };
-            if (prop === 'ClearAllChildren') return () => { if (target.ClearAllChildren) target.ClearAllChildren(); };
+
+            if (prop in target) {
+                const val = target[prop];
+                return typeof val === 'function' ? val.bind(target) : val;
+            }
 
             // Child lookup by name
             const child = (target.Children || []).find(c => c.Name === prop);
@@ -700,6 +700,10 @@ export function createScriptContext(api) {
         IsKeyDown: (code) => {
             if (api.game?.IsKeyDown) return api.game.IsKeyDown(code);
             return !!(window._bloxverseKeys?.[code]);
+        },
+        GetCameraYaw: () => {
+            if (api.game?.GetCameraYaw) return api.game.GetCameraYaw();
+            return window._bloxverse?.getCameraYaw?.() ?? 0;
         },
         SetWalkSpeed: (speed) => { if (api.game?.SetWalkSpeed) api.game.SetWalkSpeed(speed); },
         GetWalkSpeed: () => api.game?.GetWalkSpeed ? api.game.GetWalkSpeed() : 16,

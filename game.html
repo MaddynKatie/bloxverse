@@ -1638,6 +1638,31 @@
           const p = found.mesh.position;
           return { x: p.x, y: p.y, z: p.z };
         },
+        CloneCharacter: (name, x, y, z) => {
+          const bv = window._bloxverse;
+          if (!bv) return null;
+          const mesh = bv.cloneCharacter?.(name, x, y, z);
+          if (!mesh) return null;
+          const ref = { _mesh: mesh };
+          ref.Position = { x: mesh.position.x, y: mesh.position.y, z: mesh.position.z };
+          Object.defineProperty(ref, 'Position', {
+            get: () => ({ x: mesh.position.x, y: mesh.position.y, z: mesh.position.z }),
+            enumerable: true,
+          });
+          return ref;
+        },
+        RemoveCharacterClone: (ref) => {
+          const bv = window._bloxverse;
+          if (bv && ref) bv.removeCharacterClone?.(ref._mesh);
+        },
+        RotateCharacterClone: (ref, ry) => {
+          const bv = window._bloxverse;
+          if (bv && ref) bv.rotateCharacterClone?.(ref._mesh, ry);
+        },
+        MoveCharacterClone: (ref, x, y, z) => {
+          const bv = window._bloxverse;
+          if (bv && ref) bv.moveCharacterClone?.(ref._mesh, x, y, z);
+        },
         // GUI API
         CreateScreenGui: (name) => _createScreenGuiContainer(name || 'ScreenGui'),
         CleanupGui: () => {

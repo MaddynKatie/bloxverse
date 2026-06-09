@@ -266,6 +266,19 @@ export class ModelInstance extends Instance {
     super('Model', name || 'Model');
     this.PrimaryPart = null;
   }
+
+  setParent(newParent) {
+    const wasInWs = _isInWorkspace(this);
+    super.setParent(newParent);
+    const nowInWs = _isInWorkspace(this);
+    if (!wasInWs && nowInWs) {
+      for (const child of this.Children) {
+        if (child.ClassName === 'Part' && !child.mesh) {
+          Instance._onPartCreateMesh?.(child);
+        }
+      }
+    }
+  }
 }
 
 export class PlayerInstance extends Instance {

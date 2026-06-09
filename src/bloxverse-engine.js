@@ -722,6 +722,88 @@ function buildOBB(sw, sh, sd, cx, cy, cz, rx, ry, rz) {
         minX:cx-ex, maxX:cx+ex, minY:cy-ey, maxY:cy+ey, minZ:cz-ez, maxZ:cz+ez };
 }
 
+// ─── Ray-vs-collider helpers (for camera collision) ──────────────────────────
+function rayVsAABB(origin, dir, aabb) {
+    const invDx = 1 / dir.x, invDy = 1 / dir.y, invDz = 1 / dir.z;
+    let t1 = (aabb.minX - origin.x) * invDx;
+    let t2 = (aabb.maxX - origin.x) * invDx;
+    if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; }
+    let tmin = t1, tmax = t2;
+    t1 = (aabb.minY - origin.y) * invDy;
+    t2 = (aabb.maxY - origin.y) * invDy;
+    if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; }
+    if (t1 > tmin) tmin = t1;
+    if (t2 < tmax) tmax = t2;
+    if (tmin > tmax) return null;
+    t1 = (aabb.minZ - origin.z) * invDz;
+    t2 = (aabb.maxZ - origin.z) * invDz;
+    if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; }
+    if (t1 > tmin) tmin = t1;
+    if (t2 < tmax) tmax = t2;
+    if (tmin > tmax) return null;
+    const t = tmin >= 0 ? tmin : tmax;
+    if (t <= 0 || !isFinite(t)) return null;
+    return t;
+}
+
+function rayVsOBB(origin, dir, obb) {
+    const dx = dir.x * obb.ux + dir.y * obb.uy + dir.z * obb.uz;
+    const dy = dir.x * obb.vx + dir.y * obb.vy + dir.z * obb.vz;
+    const dz = dir.x * obb.wx + dir.y * obb.wy + dir.z * obb.wz;
+    const ox = (origin.x - obb.cx) * obb.ux + (origin.y - obb.cy) * obb.uy + (origin.z - obb.cz) * obb.uz;
+    const oy = (origin.x - obb.cx) * obb.vx + (origin.y - obb.cy) * obb.vy + (origin.z - obb.cz) * obb.vz;
+    const oz = (origin.x - obb.cx) * obb.wx + (origin.y - obb.cy) * obb.wy + (origin.z - obb.cz) * obb.wz;
+    let tmin = -Infinity, tmax = Infinity;
+    for (let i = 0; i < 3; i++) {
+        const d = i === 0 ? dx : (i === 1 ? dy : dz);
+        const o = i === 0 ? ox : (i === 1 ? oy : oz);
+        const h = i === 0 ? obb.hx : (i === 1 ? obb.hy : obb.hz);
+        if (Math.abs(d) < 1e-10) {
+            if (o < -h || o > h) return null;
+            continue;
+        }
+        let t1 = (-h - o) / d;
+        let t2 = (h - o) / d;
+        if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; }
+        if (t1 > tmin) tmin = t1;
+        if (t2 < tmax) tmax = t2;
+        if (tmin > tmax) return null;
+    }
+    const t = tmin >= 0 ? tmin : tmax;
+    if (t <= 0 || !isFinite(t)) return null;
+    return t;
+}
+
+const _rayCache = new Set();
+function getCollidersAlongRay(x1, y1, z1, x2, y2, z2) {
+    _rayCache.clear();
+    const minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
+    const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
+    const minZ = Math.min(z1, z2), maxZ = Math.max(z1, z2);
+    const cx0 = worldToChunk(minX) - 1, cx1 = worldToChunk(maxX) + 1;
+    const cy0 = worldToChunk(minY) - 1, cy1 = worldToChunk(maxY) + 1;
+    const cz0 = worldToChunk(minZ) - 1, cz1 = worldToChunk(maxZ) + 1;
+    for (let cx = cx0; cx <= cx1; cx++)
+        for (let cy = cy0; cy <= cy1; cy++)
+            for (let cz = cz0; cz <= cz1; cz++) {
+                const bucket = chunkMap.get(chunkKey(cx, cy, cz));
+                if (bucket) bucket.forEach(b => {
+                    if (b._meshRef && (b._meshRef.userData.transparency || 0) >= 0.25) return;
+                    _rayCache.add(b);
+                });
+            }
+    for (const { body, anchored, mesh } of physicsBodies.values()) {
+        if (!anchored && body && body._obb && mesh.userData.canCollide !== false && (mesh.userData.transparency || 0) < 0.25) {
+            const dx = body._obb.minX > maxX || body._obb.maxX < minX;
+            const dy = body._obb.minY > maxY || body._obb.maxY < minY;
+            const dz = body._obb.minZ > maxZ || body._obb.maxZ < minZ;
+            if (dx || dy || dz) continue;
+            _rayCache.add(body._obb);
+        }
+    }
+    return _rayCache;
+}
+
 // ─── Map mode ────────────────────────────────────────────────────────────────
 const _urlParams = new URLSearchParams(window.location.search);
 const _gameMode = _urlParams.get('game') || 'demo';
@@ -2868,6 +2950,26 @@ function updateCamera(fpDt) {
         pivot.z + cam.distance * cosPitch * cosYaw
     );
 
+    // Camera collision: raycast from pivot toward orbitPos and push camera in
+    const rayOrigin = pivot;
+    const rayVec = new THREE.Vector3().copy(orbitPos).sub(pivot);
+    const rayLen = rayVec.length();
+    let finalPos = orbitPos;
+    if (rayLen > 0.01) {
+        const rayDir = rayVec.clone().normalize();
+        let minHitT = rayLen;
+        const candidates = getCollidersAlongRay(pivot.x, pivot.y, pivot.z, orbitPos.x, orbitPos.y, orbitPos.z);
+        for (const c of candidates) {
+            const t = c.isOBB ? rayVsOBB(rayOrigin, rayDir, c) : rayVsAABB(rayOrigin, rayDir, c);
+            if (t !== null && t > 0.3 && t < minHitT) {
+                minHitT = t;
+            }
+        }
+        if (minHitT < rayLen) {
+            finalPos = rayOrigin.clone().add(rayDir.multiplyScalar(Math.max(minHitT - 0.15, 0)));
+        }
+    }
+
     // Head position (only computed when blend is active)
     let headPos = null;
     if (_firstPersonBlend > 0.001) {
@@ -2881,7 +2983,7 @@ function updateCamera(fpDt) {
 
     // Blend camera position
     if (headPos && _firstPersonBlend > 0.001) {
-        camera.position.lerpVectors(orbitPos, headPos, _firstPersonBlend);
+        camera.position.lerpVectors(finalPos, headPos, _firstPersonBlend);
         // Negate orbit direction so camera looks forward, not backward at pivot
         const lookDir = new THREE.Vector3(
             -cosPitch * sinYaw,
@@ -2890,7 +2992,7 @@ function updateCamera(fpDt) {
         );
         camera.lookAt(camera.position.clone().add(lookDir));
     } else {
-        camera.position.copy(orbitPos);
+        camera.position.copy(finalPos);
         camera.lookAt(pivot);
     }
 
@@ -2983,6 +3085,66 @@ window._mapParts = [];
 window._bloxverse = {
     scene,
     getCharacter:  () => character,
+    cloneCharacter(name, x, y, z) {
+        if (!character) return null;
+        const clone = SkeletonUtils.clone(character);
+        clone.traverse(child => {
+            if ((child.isBone || child.type === 'Bone') && anim.rest[child.name]) {
+                const r = anim.rest[child.name];
+                child.rotation.set(r.x, r.y, r.z);
+                child.position.set(r.px, r.py, r.pz);
+            }
+        });
+        clone.traverse(child => {
+            if (child.isMesh) {
+                if (Array.isArray(child.material)) {
+                    child.material = child.material.map(m => m.clone());
+                } else if (child.material) {
+                    child.material = child.material.clone();
+                }
+            }
+        });
+        const toRemove = [];
+        clone.traverse(child => {
+            if (child.userData?.isClothingOverlay) toRemove.push(child);
+            if (child.userData?.isFaceOverlay) toRemove.push(child);
+        });
+        for (const overlay of toRemove) {
+            overlay.removeFromParent();
+            overlay.geometry?.dispose?.();
+            const mats = Array.isArray(overlay.material) ? overlay.material : [overlay.material];
+            for (const mat of mats) mat?.dispose?.();
+        }
+        _applyFaceToModel(clone);
+        clone.position.set(x, y ?? 0, z ?? 0);
+        clone.name = name || 'CharacterClone';
+        scene.add(clone);
+        if (!window._characterClones) window._characterClones = [];
+        window._characterClones.push(clone);
+        return clone;
+    },
+    removeCharacterClone(clone) {
+        if (!clone) return;
+        scene.remove(clone);
+        if (window._characterClones) {
+            const idx = window._characterClones.indexOf(clone);
+            if (idx !== -1) window._characterClones.splice(idx, 1);
+        }
+        clone.traverse(child => {
+            if (child.isMesh) {
+                child.geometry?.dispose();
+                if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+                else if (child.material) child.material.dispose();
+            }
+        });
+    },
+    rotateCharacterClone(clone, ry) {
+        if (clone) clone.rotation.y = ry;
+    },
+    moveCharacterClone(clone, x, y, z) {
+        if (clone) clone.position.set(x, y, z);
+    },
+    getCameraYaw() { return cam.yaw; },
     getGrounded:   () => grounded,
     getVelY:       () => velY,
     getClimbState: () => climbState,
