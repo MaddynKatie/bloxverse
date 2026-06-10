@@ -31,6 +31,36 @@ export const emoteItems = [
         icon: 'T',
         file: 'tpose.json',
     },
+    {
+        id: 'cheer',
+        name: 'Cheer',
+        description: 'Celebrate with a cheer!',
+        price: 0,
+        author: 'BloxVerse',
+        looping: false,
+        icon: '🎉',
+        file: 'cheer.json',
+    },
+    {
+        id: 'armthrow',
+        name: 'Arm Throw',
+        description: "I don't need this arm!",
+        price: 10,
+        author: 'BloxVerse',
+        looping: false,
+        icon: '🫳',
+        file: 'armthrow.json',
+    },
+    {
+        id: 'bibilicallyaccurateemote',
+        name: 'Biblically Accurate Emote',
+        description: "Become an angel",
+        price: 15,
+        author: 'BloxVerse',
+        looping: true,
+        icon: '😇',
+        file: 'armthrow.json',
+    },
 ];
 
 async function loadAnimData(entry) {
