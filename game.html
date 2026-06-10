@@ -229,6 +229,7 @@
     import { onFriendRequests, sendFriendRequest as dbSendFriendRequest, acceptFriendRequest as dbAcceptFriendRequest, declineFriendRequest as dbDeclineFriendRequest, removeFriend } from './src/friends.js';
     import { executeScript, loadScriptsFromStorage, createInstanceProxy } from './src/scriptRuntime.js';
     import { Instance, PartInstance, ScriptInstance, initGameHierarchy } from './src/instances.js';
+    import { findEmote, getAllEmotes } from './src/emotes.js';
     import { ProfanityFilter } from 'glin-profanity';
     import { loadGameScriptModules } from './src/game-scripts.js';
     const _profanityCheck = new ProfanityFilter({
@@ -532,6 +533,8 @@
       }
     }
 
+    let _ownedItems = [];
+
     function doSendChat() {
       const raw = chatInput.value.trim();
       if (!raw) return;
@@ -541,6 +544,39 @@
       }
       const userId = auth.currentUser?.uid;
       const username = _currentUsername || auth.currentUser?.displayName || 'Player';
+      if (raw === '/emotes') {
+        const all = getAllEmotes();
+        const owned = all.filter(e => _ownedItems.includes(e.id));
+        if (owned.length === 0) {
+          appendChatMessage({ system: true, message: 'You don\'t own any emotes.' });
+        } else {
+          appendChatMessage({ system: true, message: 'Your emotes: ' + owned.map(e => e.icon + ' /e ' + e.id).join(', ') });
+        }
+        chatInput.value = '';
+        chatInput.blur();
+        return;
+      }
+      if (raw.startsWith('/e ')) {
+        const emoteId = raw.slice(3).trim();
+        const def = findEmote(emoteId);
+        if (!def) {
+          appendChatMessage({ system: true, message: `Unknown emote: ${emoteId}` });
+          chatInput.value = '';
+          chatInput.blur();
+          return;
+        }
+        if (!_ownedItems.includes(emoteId)) {
+          appendChatMessage({ system: true, message: `You don't own the "${def.name}" emote. Buy it in the Marketplace!` });
+          chatInput.value = '';
+          chatInput.blur();
+          return;
+        }
+        window._bloxverse?.playEmote?.(emoteId);
+        chatInput.value = '';
+        chatInput.blur();
+        if (userId) sendChat('TT|EMOTE|' + userId + '|' + emoteId, '', userId, true);
+        return;
+      }
       dispatchScriptChat({ username, userId, message: raw, local: true });
       if (raw.startsWith('/resetparts') && window._bloxverse) {
         const resetState = window._bloxverse.resetParts();
@@ -1956,11 +1992,13 @@
                 username = user.displayName || 'Player';
               }
 
-              // Load and apply avatar colors and accessories from Firestore
+              // Load and apply avatar colors, accessories, owned items from Firestore
+              _ownedItems = [];
               try {
                 const avatarSnap = await getDoc(doc(db, 'users', user.uid));
                 if (avatarSnap.exists()) {
                   const avatarData = avatarSnap.data();
+                  _ownedItems = avatarData.ownedItems || [];
                   const isStalePreview = avatarData.avatarPreview && typeof avatarData.avatarPreview === 'string' && avatarData.avatarPreview.includes('/image/upload');
                   const needPreview = !avatarData.avatarPreview || isStalePreview;
                   if ((avatarData.avatarColors || avatarData.avatarClothing || avatarData.avatarAccessories || avatarData.avatarFace) && window._bloxverse) {
@@ -2114,6 +2152,18 @@
                       if (_lastLeaderboardPlayers.length > 0) renderLeaderboard(_lastLeaderboardPlayers);
                     }
                     dispatchScriptChat(data);
+                    return;
+                  }
+                  if (data.message?.startsWith('TT|EMOTE|')) {
+                    const parts = data.message.split('|');
+                    const fromUserId = parts[2];
+                    const emoteId = parts[3];
+                    if (fromUserId && emoteId && fromUserId !== auth.currentUser?.uid) {
+                      const def = findEmote(emoteId);
+                      if (def && window._bloxverse) {
+                        window._bloxverse.playOtherPlayerEmote(fromUserId, def);
+                      }
+                    }
                     return;
                   }
                   dispatchScriptChat(data);

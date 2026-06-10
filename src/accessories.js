@@ -29,6 +29,20 @@ export const accessories = [
     offset: { x: 0, y: 0.2, z: 0, rx: 0, ry: -3.1, rz: 0, scale: 1 },
     category: 'Hair',
   },
+  {
+    id: 'bloodfiendhair',
+    name: 'Bloodfiend Hair',
+    description: 'The hair of a true hero.',
+    price: 10,
+    author: 'Eliam',
+     icon: '👨‍🦰',
+    meshPath: new URL('../assets/accessories/BloodfiendHair/hair.fbx', import.meta.url).href,
+    textures: {
+      map: new URL('../assets/accessories/BloodfiendHair/109659719046608.png', import.meta.url).href,
+    },
+    offset: { x: 0.125, y: 0, z: -0.1, rx: 0, ry: -3.1, rz: 0, scale: 0.009 },
+    category: 'Hair',
+  },
 ]
 
 export function getAllAccessories() {

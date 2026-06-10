@@ -42,7 +42,6 @@ local onUpdate = function(dt)
     end
 
     if not mimicRef then
-        -- ~5% chance each time cooldown elapses
         if math.random() > 0.05 then
             cooldown = 5
             return
@@ -64,16 +63,12 @@ local onUpdate = function(dt)
     end
 
     local nearDist2 = 999999
-    local nearX = 0
-    local nearZ = 0
     for _, p in ipairs(players) do
         local dx = p.x - pos.x
         local dz = p.z - pos.z
         local d2 = dx * dx + dz * dz
         if d2 < nearDist2 then
             nearDist2 = d2
-            nearX = p.x
-            nearZ = p.z
         end
     end
 

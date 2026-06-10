@@ -728,6 +728,9 @@ export function createScriptContext(api) {
             // Also clean up any leftover screen guis
             document.querySelectorAll('[data-screen-gui]').forEach(el => el.remove());
         },
+        // Emotes
+        PlayEmote: (id) => { return window._bloxverse?.playEmote?.(id) ?? false; },
+        StopEmote: () => { window._bloxverse?.stopEmote?.(); },
     };
 
     // Merge game proxy with gameApi so scripts can call game:CreateScreenGui() etc.

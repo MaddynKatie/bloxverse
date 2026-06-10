@@ -8,6 +8,7 @@ const studTextureUrl = new URL('../assets/textures/stud.jpeg', import.meta.url).
 import { findAccessory } from './accessories.js';
 import { findFace } from './faces.js';
 import { applyAvatarClothing, removeAvatarClothing } from './avatar-clothing.js';
+import { findEmote } from './emotes.js';
 import { Instance } from './instances.js';
 
 // ─── Constants ───────────────────────────────────────────────
@@ -1351,13 +1352,174 @@ renderer.domElement.addEventListener('wheel', e => {
 }, { passive: true });
 
 // ─── Animation helpers ────────────────────────────────────────────────────────
-const anim = { time: 0, bones: {}, rest: {}, offset: {} };
+const anim = { time: 0, bones: {}, rest: {}, offset: {}, posOffset: {}, emote: null };
+
+function clearEmoteOffsets(def) {
+    const axesToClear = {};
+    const posAxesToClear = {};
+    function addBone(name, axis) {
+        if (!axesToClear[name]) axesToClear[name] = new Set();
+        axesToClear[name].add(axis);
+    }
+    function addPosBone(name) {
+        posAxesToClear[name] = true;
+    }
+    if (def.keyframes) {
+        for (const kf of def.keyframes) {
+            if (kf.bones) {
+                for (const bName in kf.bones)
+                    for (const axis in kf.bones[bName]) addBone(bName, axis);
+            }
+            if (kf.position) {
+                for (const bName in kf.position) addPosBone(bName);
+            }
+        }
+    } else {
+        for (const bName in def.bones)
+            for (const axis in def.bones[bName]) addBone(bName, axis);
+        if (def.oscillate) {
+            for (const bName in def.oscillate) {
+                if (bName === 'freq') continue;
+                for (const axis in def.oscillate[bName]) addBone(bName, axis);
+            }
+        }
+        if (def.position) {
+            for (const bName in def.position) addPosBone(bName);
+        }
+    }
+    for (const bName in axesToClear) {
+        if (!anim.offset[bName]) continue;
+        for (const axis of axesToClear[bName]) delete anim.offset[bName][axis];
+        if (Object.keys(anim.offset[bName]).length === 0) {
+            delete anim.offset[bName];
+            const bone = anim.bones[bName];
+            if (bone && anim.rest[bName]) {
+                const rest = anim.rest[bName];
+                if (rest.x !== undefined) bone.rotation.x = rest.x;
+                if (rest.y !== undefined) bone.rotation.y = rest.y;
+                if (rest.z !== undefined) bone.rotation.z = rest.z;
+            }
+        }
+    }
+    for (const bName in posAxesToClear) {
+        delete anim.posOffset[bName];
+        const bone = anim.bones[bName];
+        if (bone && anim.rest[bName]) {
+            const rest = anim.rest[bName];
+            if (rest.px != null) bone.position.x = rest.px;
+            if (rest.py != null) bone.position.y = rest.py;
+            if (rest.pz != null) bone.position.z = rest.pz;
+        }
+    }
+}
 
 function setRot(bone, axis, target, speed, dt) {
     if (!bone) return;
     const rest = anim.rest[bone.name]?.[axis] ?? 0;
     const offset = anim.offset[bone.name]?.[axis] ?? 0;
     bone.rotation[axis] = THREE.MathUtils.lerp(bone.rotation[axis], rest + offset + target, Math.min(1, speed * dt));
+}
+
+function updateEmote(dt) {
+    if (_charMoving && anim.emote) {
+        clearEmoteOffsets(anim.emote.def);
+        anim.emote = null;
+        return;
+    }
+    const e = anim.emote;
+    if (!e) return;
+    e.timer += dt;
+    if (e.timer >= e.def.duration) {
+        if (e.def.looping) {
+            e.timer = 0;
+        } else {
+            clearEmoteOffsets(e.def);
+            anim.emote = null;
+            return;
+        }
+    }
+    if (e.def.keyframes) {
+        const kfs = e.def.keyframes;
+        if (kfs.length === 0) return;
+        let prevKF = kfs[0];
+        let nextKF = kfs[kfs.length - 1];
+        if (kfs.length === 1 || e.timer <= kfs[0].time) {
+            prevKF = nextKF = kfs[0];
+        } else if (e.timer >= kfs[kfs.length - 1].time) {
+            prevKF = nextKF = kfs[kfs.length - 1];
+        } else {
+            for (let i = 0; i < kfs.length - 1; i++) {
+                if (e.timer >= kfs[i].time && e.timer <= kfs[i + 1].time) {
+                    prevKF = kfs[i];
+                    nextKF = kfs[i + 1];
+                    break;
+                }
+            }
+        }
+        const range = nextKF.time - prevKF.time;
+        const t = range === 0 ? 0 : (e.timer - prevKF.time) / range;
+        const allBones = {};
+        const allPosBones = {};
+        for (const kf of [prevKF, nextKF]) {
+            if (kf.bones) {
+                for (const bName in kf.bones) {
+                    if (!allBones[bName]) allBones[bName] = new Set();
+                    for (const axis in kf.bones[bName]) allBones[bName].add(axis);
+                }
+            }
+            if (kf.position) {
+                for (const bName in kf.position) allPosBones[bName] = true;
+            }
+        }
+        for (const bName in allBones) {
+            const prev = prevKF.bones?.[bName] || {};
+            const next = nextKF.bones?.[bName] || {};
+            if (!anim.offset[bName]) anim.offset[bName] = {};
+            for (const axis of allBones[bName]) {
+                const pv = prev[axis] ?? 0;
+                const nv = next[axis] ?? 0;
+                anim.offset[bName][axis] = pv + (nv - pv) * t;
+            }
+        }
+        for (const bName in allPosBones) {
+            const prev = prevKF.position?.[bName] || {};
+            const next = nextKF.position?.[bName] || {};
+            if (!anim.posOffset[bName]) anim.posOffset[bName] = {};
+            const allPosAxes = new Set([...Object.keys(prev), ...Object.keys(next)]);
+            for (const axis of allPosAxes) {
+                const pv = prev[axis] ?? 0;
+                const nv = next[axis] ?? 0;
+                anim.posOffset[bName][axis] = pv + (nv - pv) * t;
+            }
+        }
+        return;
+    }
+    for (const boneName in e.def.bones) {
+        if (!anim.offset[boneName]) anim.offset[boneName] = {};
+        for (const axis in e.def.bones[boneName]) {
+            anim.offset[boneName][axis] = e.def.bones[boneName][axis];
+        }
+    }
+    if (e.def.oscillate) {
+        const freq = e.def.oscillate.freq || 2;
+        const phase = e.timer * freq * 2 * Math.PI;
+        for (const boneName in e.def.oscillate) {
+            if (boneName === 'freq') continue;
+            if (!anim.offset[boneName]) anim.offset[boneName] = {};
+            for (const axis in e.def.oscillate[boneName]) {
+                const base = e.def.bones?.[boneName]?.[axis] ?? 0;
+                anim.offset[boneName][axis] = base + Math.sin(phase) * e.def.oscillate[boneName][axis];
+            }
+        }
+    }
+    if (e.def.position) {
+        for (const boneName in e.def.position) {
+            if (!anim.posOffset[boneName]) anim.posOffset[boneName] = {};
+            for (const axis in e.def.position[boneName]) {
+                anim.posOffset[boneName][axis] = e.def.position[boneName][axis];
+            }
+        }
+    }
 }
 
 function updateClimbAnimation(dt, moving) {
@@ -1421,6 +1583,8 @@ function updateOtherPlayers(dt) {
         if (!p.mesh) return;
         p.mesh.position.lerp(new THREE.Vector3(p.targetX, p.targetY, p.targetZ), Math.min(1, dt * 10));
         p.mesh.rotation.y = lerpAngle(p.mesh.rotation.y, p.targetRy, Math.min(1, dt * 10));
+
+        if (p._emote) { _applyRemoteEmote(p, p._emote, dt); return; }
 
         p.animTime = (p.animTime || 0) + dt;
         const t = p.animTime, sp = 12;
@@ -1529,6 +1693,128 @@ function _findHeadAttachment(avatarObj) {
     if (torso) return { object: torso, type: 'bone', fallback: true };
     return null;
 }
+
+// ─── Remote player emote ─────────────────────────────────────────────────────
+function _resetRemoteBonesToRest(p) {
+    for (const name in p.bones) {
+        const rest = p.rest[name];
+        const bone = p.bones[name];
+        if (rest && bone) {
+            bone.rotation.set(rest.x || 0, rest.y || 0, rest.z || 0);
+            bone.position.set(rest.px ?? 0, rest.py ?? 0, rest.pz ?? 0);
+        }
+    }
+}
+
+function _applyRemoteEmote(p, emote, dt) {
+    const def = emote.def;
+    emote.time += dt;
+
+    // Cancel on movement (matches local player behavior)
+    if (p.moving) {
+        _resetRemoteBonesToRest(p);
+        p._emote = null;
+        return;
+    }
+
+    if (!def.keyframes || def.keyframes.length === 0) return;
+
+    const kfs = def.keyframes;
+    const duration = def.duration || 1;
+    const looping = def.looping || false;
+
+    let elapsed = emote.time;
+    if (looping) {
+        if (elapsed >= duration) elapsed = elapsed % duration;
+    } else {
+        if (elapsed >= duration) {
+            _resetRemoteBonesToRest(p);
+            p._emote = null;
+            return;
+        }
+    }
+
+    // Find surrounding keyframes
+    let prevKF = kfs[0];
+    let nextKF = kfs[kfs.length - 1];
+    if (kfs.length > 1) {
+        if (elapsed <= kfs[0].time) {
+            prevKF = nextKF = kfs[0];
+        } else if (elapsed >= kfs[kfs.length - 1].time) {
+            prevKF = nextKF = kfs[kfs.length - 1];
+        } else {
+            for (let i = 0; i < kfs.length - 1; i++) {
+                if (elapsed >= kfs[i].time && elapsed <= kfs[i + 1].time) {
+                    prevKF = kfs[i];
+                    nextKF = kfs[i + 1];
+                    break;
+                }
+            }
+        }
+    }
+    const range = nextKF.time - prevKF.time;
+    const t = range === 0 ? 0 : (elapsed - prevKF.time) / range;
+
+    // Collect animated bone names
+    const allBones = new Set();
+    const allPosBones = new Set();
+    for (const kf of [prevKF, nextKF]) {
+        if (kf.bones) for (const b in kf.bones) allBones.add(b);
+        if (kf.position) for (const b in kf.position) allPosBones.add(b);
+    }
+
+    // Reset non-animated bones to rest
+    for (const name in p.bones) {
+        const rest = p.rest[name];
+        const bone = p.bones[name];
+        if (!rest || !bone) continue;
+        if (!allBones.has(name)) {
+            bone.rotation.x = rest.x || 0;
+            bone.rotation.y = rest.y || 0;
+            bone.rotation.z = rest.z || 0;
+        }
+        if (!allPosBones.has(name)) {
+            bone.position.x = rest.px ?? 0;
+            bone.position.y = rest.py ?? 0;
+            bone.position.z = rest.pz ?? 0;
+        }
+    }
+
+    // Apply rotation offsets for animated bones
+    for (const name of allBones) {
+        const bone = p.bones[name];
+        if (!bone) continue;
+        const rest = p.rest[name] || { x: 0, y: 0, z: 0 };
+        const prev = prevKF.bones?.[name] || {};
+        const next = nextKF.bones?.[name] || {};
+        const axes = new Set([...Object.keys(prev), ...Object.keys(next)]);
+        for (const axis of axes) {
+            const pv = prev[axis] ?? 0;
+            const nv = next[axis] ?? 0;
+            const offset = pv + (nv - pv) * t;
+            bone.rotation[axis] = rest[axis] + offset;
+        }
+    }
+
+    // Apply position offsets for animated bones
+    for (const name of allPosBones) {
+        const bone = p.bones[name];
+        if (!bone) continue;
+        const rest = p.rest[name] || { px: 0, py: 0, pz: 0 };
+        const prev = prevKF.position?.[name] || {};
+        const next = nextKF.position?.[name] || {};
+        const axes = new Set([...Object.keys(prev), ...Object.keys(next)]);
+        for (const axis of axes) {
+            const pv = prev[axis] ?? 0;
+            const nv = next[axis] ?? 0;
+            const offset = pv + (nv - pv) * t;
+            const posAxis = axis[1];
+            bone.position[posAxis] = (rest[axis] ?? 0) + offset;
+        }
+    }
+}
+// ─── End remote player emote ─────────────────────────────────────────────────
+
 function _findBone(obj, name) {
     let found = null;
     obj.traverse(child => {
@@ -2914,7 +3200,29 @@ function update(dt) {
         _die();
     }
 
+    updateEmote(dt);
     updateAnimations(dt, _charMoving);
+
+    // Apply emote rotation offsets directly so axes not covered by setRot still work,
+    // and to bypass lerp smoothing for frame-accurate keyframe playback
+    for (const bName in anim.offset) {
+        const bone = anim.bones[bName];
+        if (!bone) continue;
+        const rest = anim.rest[bName] || {};
+        for (const axis in anim.offset[bName]) {
+            bone.rotation[axis] = rest[axis] + anim.offset[bName][axis];
+        }
+    }
+    // Apply emote position offsets
+    for (const bName in anim.posOffset) {
+        const bone = anim.bones[bName];
+        if (!bone) continue;
+        const rest = anim.rest[bName] || {};
+        const off = anim.posOffset[bName];
+        if (off.px != null) bone.position.x = rest.px + off.px;
+        if (off.py != null) bone.position.y = rest.py + off.py;
+        if (off.pz != null) bone.position.z = rest.pz + off.pz;
+    }
 }
 
 // ─── Camera update ────────────────────────────────────────────────────────────
@@ -3148,6 +3456,26 @@ window._bloxverse = {
     getGrounded:   () => grounded,
     getVelY:       () => velY,
     getClimbState: () => climbState,
+    playEmote(id) {
+        const def = findEmote(id);
+        if (!def) return false;
+        if (anim.emote) {
+            clearEmoteOffsets(anim.emote.def);
+        }
+        anim.emote = { def, timer: 0 };
+        return true;
+    },
+    stopEmote() {
+        if (!anim.emote) return;
+        clearEmoteOffsets(anim.emote.def);
+        anim.emote = null;
+    },
+    playOtherPlayerEmote(userId, def) {
+        const p = otherPlayers.get(userId);
+        if (!p) return;
+        if (p._emote) _resetRemoteBonesToRest(p);
+        p._emote = { def, time: 0 };
+    },
     setFlingVelocity(vx, vy, vz) {
         extraVelX = vx;
         extraVelZ = vz;
@@ -4173,6 +4501,7 @@ function loop(now) {
         } else {
             p.mesh.rotation.y = lerpAngle(p.mesh.rotation.y, p.targetRy, Math.min(1, frameDt * 10));
         }
+        if (p._emote) { _applyRemoteEmote(p, p._emote, frameDt); return; }
         p.animTime = (p.animTime || 0) + frameDt;
         if (p.dead) return;
         const t = p.animTime, sp = 12;

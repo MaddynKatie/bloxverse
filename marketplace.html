@@ -176,19 +176,22 @@
     .mp-modal-content {
       background: #2b2d31;
       border-radius: 12px;
-      max-width: 480px;
+      max-width: 700px;
       width: 90%;
       max-height: 80vh;
-      overflow-y: auto;
+      display: flex;
+      flex-direction: row;
+      overflow: hidden;
     }
     .mp-modal-preview {
-      width: 100%;
-      aspect-ratio: 1;
+      width: 340px;
+      min-height: 340px;
       background: #1e1f22;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 80px;
+      flex-shrink: 0;
     }
     .mp-modal-preview img {
       width: 100%;
@@ -196,7 +199,15 @@
       object-fit: contain;
     }
     .mp-modal-body {
+      flex: 1;
       padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+    @media (max-width: 600px) {
+      .mp-modal-content { flex-direction: column; }
+      .mp-modal-preview { width: 100%; min-height: auto; aspect-ratio: 1; }
     }
     .mp-modal-body h2 {
       font-size: 20px;
@@ -320,6 +331,7 @@
         <button class="mp-filter" data-filter="Hair">Hair</button>
         <button class="mp-filter" data-filter="Shirts">Shirts</button>
         <button class="mp-filter" data-filter="Faces">Faces</button>
+        <button class="mp-filter" data-filter="Emotes">Emotes</button>
         <button class="mp-filter" data-filter="Templates">Templates</button>
       </div>
       <button class="mp-filter" id="priceFilter" data-mode="all">All Prices</button>
@@ -351,8 +363,14 @@
     import { onAuthStateChanged, signOut } from 'firebase/auth';
     import { doc, getDoc, setDoc, arrayUnion, arrayRemove, updateDoc, increment, collection, getDocs, query, where, limit } from 'firebase/firestore';
     import { getAllAccessories } from './src/accessories.js';
-    import { getAllClothing } from './src/clothing.js';
+    import { getAllClothing, findClothing } from './src/clothing.js';
     import { getAllFaces } from './src/faces.js';
+    import { getAllEmotes } from './src/emotes.js';
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+    import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
+    import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+    import { applyAvatarClothing, removeAvatarClothing } from './src/avatar-clothing.js';
 
     const STARTING_ITEMS = ['palhair', 'smile', 'blueandblackmotorcycleshirt'];
 
@@ -378,16 +396,21 @@
     let searchQuery = '';
     let ownedItems = [];
     let userBux = 0;
+    // 3D preview
+    const playerModelUrl = new URL('./assets/models/player.fbx', import.meta.url).href;
+    let _p = null;
 
     function buildCatalog() {
       const accs = getAllAccessories().map(a => ({ ...a, _type: 'accessory' }));
       const clothes = getAllClothing().map(c => ({ ...c, _type: 'clothing', icon: '👕' }));
       const faces = getAllFaces().map(f => ({ ...f, _type: 'face', icon: '😀' }));
-      allItems = [...accs, ...clothes, ...faces];
+      const emotes = getAllEmotes().map(e => ({ ...e, _type: 'emote', category: 'Emotes' }));
+      allItems = [...accs, ...clothes, ...faces, ...emotes];
     }
 
     function getCategory(item) {
       if (item._type === 'face') return 'Faces';
+      if (item._type === 'emote') return 'Emotes';
       return item.category || 'Other';
     }
 
@@ -395,6 +418,7 @@
       if (item.icon) return item.icon;
       if (item._type === 'clothing') return '👕';
       if (item._type === 'face') return '😀';
+      if (item._type === 'emote') return '💃';
       return '📦';
     }
 
@@ -466,8 +490,6 @@
     function openModal(item) {
       const cat = getCategory(item);
       const owned = ownedItems.includes(item.id);
-      const thumb = getThumbnail(item);
-      modalPreview.innerHTML = thumb ? `<img src="${thumb}" alt="${item.name}" />` : getIcon(item);
       modalType.textContent = cat;
       modalName.textContent = item.name;
       modalAuthor.textContent = item.author || 'BloxVerse';
@@ -490,6 +512,15 @@
       btnBuy.dataset.id = item.id;
       btnBuy.dataset.price = item.price;
       modal.classList.add('open');
+      requestAnimationFrame(() => {
+        initPreview();
+        resizePreview();
+        if (_p.avatar) {
+          applyPreviewItem(item);
+        } else {
+          _p.loadCallbacks.push(() => applyPreviewItem(item));
+        }
+      });
     }
 
     async function purchaseItem(itemId, price) {
@@ -526,6 +557,346 @@
     function escHtml(s) {
       if (!s) return '';
       return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // ── 3D Preview ───────────────────────────────────────────────────
+    function initPreview() {
+      if (_p) return;
+      const container = modalPreview;
+      container.innerHTML = '';
+      const w = container.clientWidth || 340;
+      const h = container.clientHeight || 340;
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x1a1a2e);
+
+      const camera = new THREE.PerspectiveCamera(25, w / h, 0.1, 100);
+      camera.position.set(5, 3.5, 14);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(w, h);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.toneMapping = THREE.LinearToneMapping;
+      renderer.toneMappingExposure = 1.0;
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      container.appendChild(renderer.domElement);
+
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.target.set(0, 1.2, 0);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.08;
+      controls.minDistance = 1.5;
+      controls.maxDistance = 15;
+      controls.maxPolarAngle = Math.PI / 2.1;
+      controls.update();
+
+      const hemi = new THREE.HemisphereLight(0xffffff, 0x666666, 0);
+      scene.add(hemi);
+      const key = new THREE.DirectionalLight(0xffffff, 1.8);
+      key.position.set(4, 6, 5);
+      scene.add(key);
+      const fill = new THREE.DirectionalLight(0xffffff, 0.6);
+      fill.position.set(-4, 2, -3);
+      scene.add(fill);
+      const back = new THREE.DirectionalLight(0xffffff, 0.4);
+      back.position.set(0, 3, -6);
+      scene.add(back);
+      const rim = new THREE.DirectionalLight(0xffffff, 0.3);
+      rim.position.set(0, -1, 6);
+      scene.add(rim);
+
+      const floorGeo = new THREE.CircleGeometry(3, 32);
+      const floorMat = new THREE.MeshStandardMaterial({
+        color: 0x1a1a3e, roughness: 0.8, metalness: 0.1,
+        transparent: true, opacity: 0.6, side: THREE.DoubleSide,
+      });
+      const floor = new THREE.Mesh(floorGeo, floorMat);
+      floor.rotation.x = -Math.PI / 2;
+      floor.position.y = -0.01;
+      floor.receiveShadow = true;
+      scene.add(floor);
+
+      const ringGeo = new THREE.RingGeometry(0.7, 0.9, 48);
+      const ringMat = new THREE.MeshBasicMaterial({
+        color: 0x4a7dff, transparent: true, opacity: 0.15, side: THREE.DoubleSide,
+      });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = 0.001;
+      scene.add(ring);
+
+      _p = {
+        scene, camera, renderer, controls,
+        avatar: null, faceMesh: null,
+        accessories: {}, updaters: new Map(),
+        animId: null, clothingId: null, charHeight: 0,
+        loadCallbacks: [],
+      };
+
+      loadPreviewModel();
+    }
+
+    function loadPreviewModel() {
+      const loader = new FBXLoader();
+      loader.load(playerModelUrl, (fbx) => {
+        fbx.traverse(child => {
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+            if (child.geometry) {
+              for (const key of Object.keys(child.geometry.attributes)) {
+                if (key.toLowerCase().includes('color')) child.geometry.deleteAttribute(key);
+              }
+              if (child.geometry.morphAttributes) {
+                for (const key of Object.keys(child.geometry.morphAttributes)) {
+                  if (key.toLowerCase().includes('color')) delete child.geometry.morphAttributes[key];
+                }
+              }
+            }
+            const mats = Array.isArray(child.material) ? child.material : [child.material];
+            for (let i = 0; i < mats.length; i++) {
+              const mat = mats[i];
+              if (!mat) continue;
+              const newMat = new THREE.MeshStandardMaterial({
+                color: mat.color ? mat.color.getHex() : 0xcccccc,
+                map: mat.map, transparent: false, opacity: 1,
+                toneMapped: false, vertexColors: false,
+                emissive: 0, emissiveIntensity: 0,
+                roughness: 0.8, metalness: 0.1,
+              });
+              mats[i] = newMat;
+            }
+          }
+        });
+        const box = new THREE.Box3().setFromObject(fbx);
+        const charHeight = box.max.y - box.min.y;
+        fbx.position.y = -box.min.y;
+        fbx.updateMatrixWorld(true);
+        _p.scene.add(fbx);
+        _p.avatar = fbx;
+        _p.charHeight = charHeight;
+        for (const cb of _p.loadCallbacks) cb();
+        _p.loadCallbacks = [];
+        startPreviewLoop();
+      }, undefined, () => {
+        for (const cb of _p.loadCallbacks) cb();
+        _p.loadCallbacks = [];
+      });
+    }
+
+    function startPreviewLoop() {
+      if (_p.animId) return;
+      function loop() {
+        _p.controls.update();
+        for (const updater of _p.updaters.values()) updater();
+        _p.renderer.render(_p.scene, _p.camera);
+        _p.animId = requestAnimationFrame(loop);
+      }
+      loop();
+    }
+
+    function resizePreview() {
+      if (!_p) return;
+      const container = modalPreview;
+      const w = container.clientWidth || 340;
+      const h = container.clientHeight || 340;
+      _p.camera.aspect = w / h;
+      _p.camera.updateProjectionMatrix();
+      _p.renderer.setSize(w, h);
+    }
+
+    function cleanupPreviewItem() {
+      if (!_p || !_p.avatar) return;
+      if (_p.clothingId) {
+        removeAvatarClothing(_p.avatar);
+        _p.clothingId = null;
+      }
+      if (_p.faceMesh) {
+        _p.faceMesh.removeFromParent();
+        if (_p.faceMesh.material) {
+          if (_p.faceMesh.material.map) _p.faceMesh.material.map.dispose();
+          _p.faceMesh.material.dispose();
+        }
+        _p.faceMesh = null;
+      }
+      for (const id of Object.keys(_p.accessories)) {
+        _p.accessories[id].removeFromParent();
+        delete _p.accessories[id];
+      }
+      _p.updaters.clear();
+    }
+
+    function applyPreviewItem(item) {
+      if (!_p || !_p.avatar) return;
+      cleanupPreviewItem();
+      if (item._type === 'clothing') {
+        applyAvatarClothing(_p.avatar, item.id);
+        _p.clothingId = item.id;
+      } else if (item._type === 'face') {
+        equipPreviewFace(item);
+      } else if (item._type === 'accessory') {
+        loadPreviewAccessory(item);
+      }
+    }
+
+    function equipPreviewFace(item) {
+      const headBone = _p.avatar.getObjectByName('Head');
+      if (!headBone) return;
+      const headSize = _p.charHeight ? Math.min(_p.charHeight * 0.3, 1.2) : 0.6;
+      new THREE.TextureLoader().load(item.texturePath, (tex) => {
+        tex.colorSpace = THREE.SRGBColorSpace;
+        const mat = new THREE.MeshStandardMaterial({
+          map: tex, transparent: true, alphaTest: 0.05,
+          depthWrite: false, color: 0xffffff,
+        });
+        const faceSize = headSize * 0.85;
+        const mesh = new THREE.Mesh(new THREE.PlaneGeometry(faceSize, faceSize), mat);
+        mesh.position.set(0, headSize * 0.42, headSize * 0.51);
+        mesh.renderOrder = 3;
+        mesh.userData.isFaceOverlay = true;
+        headBone.add(mesh);
+        _p.faceMesh = mesh;
+      }, undefined, () => {});
+    }
+
+    // ── Accessory preview ──
+    function findPreviewHeadAttachment() {
+      const avatarObj = _p.avatar;
+      let headBone = null, headMesh = null;
+      avatarObj.traverse(child => {
+        if ((child.isBone || child.type === 'Bone') && child.name.toLowerCase().includes('head') && !child.name.toLowerCase().includes('_end')) {
+          headBone = child;
+        }
+        if (child.isMesh && (child.name.toLowerCase().includes('head') || ((Array.isArray(child.material) ? child.material[0] : child.material)?.name || '').toLowerCase().includes('head'))) {
+          headMesh = child;
+        }
+      });
+      if (headBone && headMesh) return { object: headBone, headMesh };
+      if (headMesh) return { object: headMesh, headMesh };
+      if (headBone) return { object: headBone };
+      let highest = null, highestY = -Infinity;
+      avatarObj.traverse(child => {
+        if (child.isBone || child.type === 'Bone') {
+          const wp = new THREE.Vector3(); child.getWorldPosition(wp);
+          if (wp.y > highestY) { highestY = wp.y; highest = child; }
+        }
+      });
+      if (highest) return { object: highest };
+      return { object: avatarObj.getObjectByName('Torso') || avatarObj };
+    }
+
+    function meshTopWorld(mesh) {
+      if (!mesh?.geometry) return null;
+      if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+      const bbox = mesh.geometry.boundingBox;
+      const top = new THREE.Vector3((bbox.min.x + bbox.max.x) / 2, bbox.max.y, (bbox.min.z + bbox.max.z) / 2);
+      mesh.localToWorld(top);
+      return top;
+    }
+
+    function attachTopWorld(attachment) {
+      if (!attachment) return null;
+      if (attachment.isMesh) return meshTopWorld(attachment);
+      const own = [];
+      attachment.children.forEach(c => { if (c.isMesh && !c.userData?.isFaceOverlay) own.push(c); });
+      if (own.length > 0) {
+        const bbox = new THREE.Box3();
+        own.forEach(m => bbox.expandByObject(m));
+        if (!bbox.isEmpty()) return new THREE.Vector3((bbox.min.x + bbox.max.x) / 2, bbox.max.y, (bbox.min.z + bbox.max.z) / 2);
+      }
+      return attachment.getWorldPosition(new THREE.Vector3());
+    }
+
+    function loadPreviewAccessory(item) {
+      if (!item.meshPath) return;
+      const path = item.meshPath.toLowerCase();
+      if (!path.endsWith('.fbx') && !path.endsWith('.glb') && !path.endsWith('.gltf')) return;
+
+      const texLoader = new THREE.TextureLoader();
+      const finishSetup = (modelRoot) => {
+        const avatarObj = _p.avatar;
+        const headPt = findPreviewHeadAttachment();
+        const attachment = headPt.object;
+        if (!attachment) return;
+
+        avatarObj.updateMatrixWorld(true);
+        modelRoot.updateMatrixWorld(true);
+
+        modelRoot.traverse(child => {
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+            const mats = Array.isArray(child.material) ? child.material : [child.material];
+            for (const mat of mats) {
+              if (!mat) continue;
+              if (item.textures?.map) {
+                const diffuse = texLoader.load(item.textures.map);
+                diffuse.colorSpace = THREE.SRGBColorSpace;
+                mat.map = diffuse;
+              }
+              if (item.textures?.normalMap) {
+                mat.normalMap = texLoader.load(item.textures.normalMap);
+                mat.normalScale = new THREE.Vector2(1, 1);
+              }
+              if (item.textures?.displacementMap) {
+                mat.displacementMap = texLoader.load(item.textures.displacementMap);
+                mat.displacementScale = 0.01;
+              }
+              mat.needsUpdate = true;
+            }
+          }
+        });
+
+        modelRoot.position.set(0, 0, 0);
+        modelRoot.rotation.set(0, 0, 0);
+        const o = item.offset || {};
+        const scale = o.scale !== undefined ? o.scale : 1;
+        modelRoot.scale.setScalar(scale);
+        modelRoot.updateMatrixWorld(true);
+
+        const bbox = new THREE.Box3().setFromObject(modelRoot);
+        const center = bbox.getCenter(new THREE.Vector3());
+        modelRoot.position.x -= center.x;
+        modelRoot.position.y -= bbox.min.y;
+        modelRoot.position.z -= center.z;
+
+        const wrapper = new THREE.Group();
+        wrapper.add(modelRoot);
+        wrapper.userData.isAccessory = true;
+        wrapper.traverse(node => { node.userData = node.userData || {}; node.userData.isAccessory = true; });
+
+        _p.scene.add(wrapper);
+
+        const headTopWorld =
+          (headPt.headMesh ? meshTopWorld(headPt.headMesh) : attachTopWorld(attachment))
+          || attachment.getWorldPosition(new THREE.Vector3());
+        const attachmentQuat = attachment.getWorldQuaternion(new THREE.Quaternion());
+        const localRot = new THREE.Quaternion().setFromEuler(new THREE.Euler(o.rx || 0, o.ry || 0, o.rz || 0, 'XYZ'));
+        const offsetWorld = new THREE.Vector3(o.x || 0, o.y !== undefined ? o.y : 0, o.z || 0).applyQuaternion(attachmentQuat);
+        wrapper.position.copy(headTopWorld.clone().add(offsetWorld));
+        wrapper.quaternion.copy(attachmentQuat).multiply(localRot);
+
+        const updater = () => {
+          if (!wrapper.parent) return;
+          const htw =
+            (headPt.headMesh ? meshTopWorld(headPt.headMesh) : attachTopWorld(attachment))
+            || attachment.getWorldPosition(new THREE.Vector3());
+          const aq = attachment.getWorldQuaternion(new THREE.Quaternion());
+          wrapper.position.copy(htw.clone().add(new THREE.Vector3(o.x || 0, o.y !== undefined ? o.y : 0, o.z || 0).applyQuaternion(aq)));
+          wrapper.quaternion.copy(aq).multiply(localRot);
+        };
+
+        _p.updaters.set(item.id, updater);
+        _p.accessories[item.id] = wrapper;
+      };
+
+      if (path.endsWith('.fbx')) {
+        new FBXLoader().load(item.meshPath, (fbx) => finishSetup(fbx), undefined, () => {});
+      } else {
+        new GLTFLoader().load(item.meshPath, (gltf) => finishSetup(gltf.scene), undefined, () => {});
+      }
     }
 
     async function loadOwnedItems(uid) {
@@ -677,8 +1048,12 @@
       if (id && !btnBuy.disabled) purchaseItem(id, price);
     });
 
-    btnModalClose.addEventListener('click', () => modal.classList.remove('open'));
-    modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('open'); });
+    function closeModal() {
+      modal.classList.remove('open');
+      cleanupPreviewItem();
+    }
+    btnModalClose.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
 
     // ── Send Bux ─────────────────────────────────────────────────────────
     window.openSendBuxModal = () => {
