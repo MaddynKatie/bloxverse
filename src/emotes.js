@@ -59,7 +59,7 @@ export const emoteItems = [
         author: 'BloxVerse',
         looping: true,
         icon: '😇',
-        file: 'armthrow.json',
+        file: 'bibilicallyaccurateemote.json',
     },
 ];
 

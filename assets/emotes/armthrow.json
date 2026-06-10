@@ -1,7 +1,7 @@
 {
   "id": "armthrow",
   "name": "Arm Throw",
-  "duration": 1.5,
+  "duration": 2.5,
   "keyframes": [
     {
       "time": 0,
