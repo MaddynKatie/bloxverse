@@ -202,6 +202,7 @@
         let username = user.displayName || 'Player';
         let bux = 0;
         let userNum = null;
+        let ownPreview = null;
         try {
           const userDoc = await getDoc(doc(db, 'users', user.uid));
           if (userDoc.exists()) {
@@ -209,10 +210,12 @@
             username = data.username || username;
             bux = data.bux || 0;
             userNum = data.userIdNum;
+            ownPreview = data.avatarPreview || null;
           }
         } catch {}
 
         const initial = username.charAt(0).toUpperCase();
+        const _cb = Date.now();
         const ownProfileLink = userNum ? `/bloxverse/profile?user=${userNum}` : '/bloxverse/profile';
         navRight.innerHTML = `
           <div class="user-info">
@@ -240,7 +243,7 @@
               </div>
             </div>
             <div class="avatar-dropdown" id="userDropdown">
-              <div class="avatar-circle">${initial}</div>
+              ${ownPreview ? `<img src="${ownPreview}?_cb=${_cb}" alt="" class="avatar-circle-img" data-initial="${initial}" onerror="window.__handleBrokenAvatar(this, '${user.uid}')"/>` : `<div class="avatar-circle">${initial}</div>`}
               <div class="dropdown-menu">
                 <div class="dropdown-header">
                   <span class="dropdown-name">${username}</span>
@@ -270,7 +273,7 @@
         });
 
         // Avatar dropdown toggle
-        document.querySelector('#userDropdown .avatar-circle').addEventListener('click', (e) => {
+        (document.querySelector('#userDropdown .avatar-circle') || document.querySelector('#userDropdown .avatar-circle-img')).addEventListener('click', (e) => {
           e.stopPropagation();
           document.getElementById('userDropdown').classList.toggle('open');
         });
@@ -491,6 +494,22 @@
         if (overlay.contains(e.target)) return;
         if (resultsEl.style.display === 'block') resultsEl.style.display = 'none';
       }, { once: true });
+    };
+
+    window.__handleBrokenAvatar = async function(imgEl, uid) {
+      try {
+        const initial = imgEl.getAttribute('data-initial') || 'U';
+        const letter = document.createElement('div');
+        letter.className = 'friend-thumb-avatar';
+        letter.textContent = initial;
+        imgEl.replaceWith(letter);
+        try {
+          if (auth && auth.currentUser && auth.currentUser.uid === uid) {
+            const { setDoc, doc } = await import('https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js');
+            await setDoc(doc(db, 'users', uid), { avatarPreview: null }, { merge: true });
+          }
+        } catch (e) { console.warn('Could not clear avatarPreview:', e); }
+      } catch (e) { console.warn('Broken avatar handler error:', e); }
     };
   </script>
 </body>

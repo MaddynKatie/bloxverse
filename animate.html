@@ -60,6 +60,10 @@
     .slider-row .deg { width: 36px; text-align: right; font-family: monospace; color: #666; font-size: 11px; }
     #rotation-controls button { background: #2a2a2c; border: none; color: #ccc; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-top: 4px; }
     #rotation-controls button:hover { background: #3a3a3c; }
+    #tool-selector { position: absolute; top: 10px; right: 10px; display: flex; gap: 4px; z-index: 20; background: rgba(28,28,30,0.85); border: 1px solid #3a3a3c; border-radius: 6px; padding: 4px; }
+    #tool-selector .tool-btn { background: transparent; border: none; color: #888; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 16px; line-height: 1; transition: all 0.12s; }
+    #tool-selector .tool-btn:hover { color: #ccc; background: #2a2a2c; }
+    #tool-selector .tool-btn.active { background: #3a5a9f; color: #fff; }
     #controls-info { padding: 8px 12px 12px; border-top: 1px solid #2a2a2c; margin-top: 4px; }
     #controls-info h3 { font-size: 12px; text-transform: uppercase; color: #888; padding: 6px 0; letter-spacing: 0.5px; }
     .shortcut { font-size: 12px; color: #999; padding: 3px 0; }
@@ -101,6 +105,10 @@
     <div id="main-area">
       <div id="viewport-container">
         <div id="loading">Loading model…</div>
+        <div id="tool-selector">
+          <button class="tool-btn active" data-tool="rotate" title="Rotate (Q)">⟲</button>
+          <button class="tool-btn" data-tool="translate" title="Move (W)">⟷</button>
+        </div>
       </div>
       <div id="side-panel">
         <div>
@@ -109,14 +117,14 @@
         </div>
         <div id="rotation-controls">
           <h3>Rotation — <span id="selected-bone-label">none</span></h3>
-          <div class="slider-row"><label>X</label><input type="range" min="-3.14" max="3.14" step="0.01" id="rot-x"><span class="val" id="rot-x-val">0.00</span><span class="deg" id="rot-x-deg">0°</span></div>
-          <div class="slider-row"><label>Y</label><input type="range" min="-3.14" max="3.14" step="0.01" id="rot-y"><span class="val" id="rot-y-val">0.00</span><span class="deg" id="rot-y-deg">0°</span></div>
-          <div class="slider-row"><label>Z</label><input type="range" min="-3.14" max="3.14" step="0.01" id="rot-z"><span class="val" id="rot-z-val">0.00</span><span class="deg" id="rot-z-deg">0°</span></div>
+          <div class="slider-row"><label>X</label><input type="range" min="-6.28" max="6.28" step="0.01" id="rot-x"><span class="val" id="rot-x-val">0.00</span><span class="deg" id="rot-x-deg">0°</span></div>
+          <div class="slider-row"><label>Y</label><input type="range" min="-6.28" max="6.28" step="0.01" id="rot-y"><span class="val" id="rot-y-val">0.00</span><span class="deg" id="rot-y-deg">0°</span></div>
+          <div class="slider-row"><label>Z</label><input type="range" min="-6.28" max="6.28" step="0.01" id="rot-z"><span class="val" id="rot-z-val">0.00</span><span class="deg" id="rot-z-deg">0°</span></div>
           <button id="btn-reset-bone">Reset Bone</button>
           <h3 style="margin-top: 10px;">Position — <span id="selected-bone-label-pos">none</span></h3>
-          <div class="slider-row"><label>X</label><input type="range" min="-5" max="5" step="0.01" id="pos-x"><span class="val" id="pos-x-val">0.00</span></div>
-          <div class="slider-row"><label>Y</label><input type="range" min="-5" max="5" step="0.01" id="pos-y"><span class="val" id="pos-y-val">0.00</span></div>
-          <div class="slider-row"><label>Z</label><input type="range" min="-5" max="5" step="0.01" id="pos-z"><span class="val" id="pos-z-val">0.00</span></div>
+          <div class="slider-row"><label>X</label><input type="range" min="-20" max="20" step="0.01" id="pos-x"><span class="val" id="pos-x-val">0.00</span></div>
+          <div class="slider-row"><label>Y</label><input type="range" min="-20" max="20" step="0.01" id="pos-y"><span class="val" id="pos-y-val">0.00</span></div>
+          <div class="slider-row"><label>Z</label><input type="range" min="-20" max="20" step="0.01" id="pos-z"><span class="val" id="pos-z-val">0.00</span></div>
           <button id="btn-reset-pos">Reset Position</button>
         </div>
         <div id="controls-info">

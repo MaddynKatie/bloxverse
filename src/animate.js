@@ -49,6 +49,7 @@ const dom = {
     emoteId: $('emote-id'),
     emoteName: $('emote-name'),
     emoteDuration: $('emote-duration'),
+    toolSelector: $('tool-selector'),
 };
 
 // ─── Three.js setup ───────────────────────────────────────────────────────────
@@ -387,23 +388,19 @@ function applyPose(time) {
         if (kf.position) for (const n in kf.position) allPosNames.add(n);
     }
 
-    // Reset non-animated bones to rest (rotation + position)
+    // Reset ALL bones to rest (both animated and non-animated) for both rotation and position
     for (const name in state.bones) {
         const rest = state.restPose[name] || { x: 0, y: 0, z: 0, px: 0, py: 0, pz: 0 };
         const bone = state.bones[name];
-        if (!allNames.has(name)) {
-            bone.rotation.x = rest.x;
-            bone.rotation.y = rest.y;
-            bone.rotation.z = rest.z;
-        }
-        if (!allPosNames.has(name)) {
-            bone.position.x = rest.px ?? 0;
-            bone.position.y = rest.py ?? 0;
-            bone.position.z = rest.pz ?? 0;
-        }
+        bone.rotation.x = rest.x;
+        bone.rotation.y = rest.y;
+        bone.rotation.z = rest.z;
+        bone.position.x = rest.px ?? 0;
+        bone.position.y = rest.py ?? 0;
+        bone.position.z = rest.pz ?? 0;
     }
 
-    // Interpolate rotation for animated bones
+    // Interpolate rotation for animated bones (override rest for axes present in keyframes)
     for (const name of allNames) {
         const bone = state.bones[name];
         if (!bone) continue;
@@ -419,7 +416,7 @@ function applyPose(time) {
         }
     }
 
-    // Interpolate position for animated bones
+    // Interpolate position for animated bones (override rest for axes present in keyframes)
     for (const name of allPosNames) {
         const bone = state.bones[name];
         if (!bone) continue;
@@ -490,8 +487,43 @@ function addKeyframe() {
     // Save all bone offsets at current time
     const bones = {};
     const position = {};
+    const _euler = new THREE.Euler(0, 0, 0, 'XYZ');
+    const _quat = new THREE.Quaternion();
     for (const name in state.bones) {
-        const off = getOffset(name);
+        let off = getOffset(name);
+        const rest = state.restPose[name] || { x: 0, y: 0, z: 0 };
+        const boneQuat = state.bones[name]?.quaternion;
+        // Find the unwrapped offset that matches the bone's quaternion
+        // and is closest to the previous keyframe's offset (to preserve accumulated rotation)
+        if (boneQuat && (Math.abs(off.x) > 0.0001 || Math.abs(off.y) > 0.0001 || Math.abs(off.z) > 0.0001)) {
+            // Find previous keyframe offset for this bone
+            let prevOff = { x: 0, y: 0, z: 0 };
+            for (let i = state.keyframes.length - 1; i >= 0; i--) {
+                const kf = state.keyframes[i];
+                if (kf.time <= time && kf.bones?.[name]) {
+                    prevOff = kf.bones[name];
+                    break;
+                }
+            }
+            let bestDist = Infinity, best = { x: off.x, y: off.y, z: off.z };
+            for (let sx = -1; sx <= 1; sx++) {
+                for (let sy = -1; sy <= 1; sy++) {
+                    for (let sz = -1; sz <= 1; sz++) {
+                        const cx = off.x + sx * 2 * Math.PI;
+                        const cy = off.y + sy * 2 * Math.PI;
+                        const cz = off.z + sz * 2 * Math.PI;
+                        _euler.set(rest.x + cx, rest.y + cy, rest.z + cz);
+                        _quat.setFromEuler(_euler);
+                        const d = _quat.angleTo(boneQuat);
+                        if (d < 0.01) {
+                            const score = Math.abs(cx - prevOff.x) + Math.abs(cy - prevOff.y) + Math.abs(cz - prevOff.z);
+                            if (score < bestDist) { bestDist = score; best = { x: cx, y: cy, z: cz }; }
+                        }
+                    }
+                }
+            }
+            off = best;
+        }
         if (Math.abs(off.x) > 0.0001 || Math.abs(off.y) > 0.0001 || Math.abs(off.z) > 0.0001) {
             bones[name] = {};
             if (Math.abs(off.x) > 0.0001) bones[name].x = off.x;
@@ -718,4 +750,19 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'Delete' || e.key === 'Backspace') deleteSelectedKeyframe();
     if (e.key === 'ArrowLeft') setCurrentTime(state.currentTime - 0.1);
     if (e.key === 'ArrowRight') setCurrentTime(state.currentTime + 0.1);
+    if (e.key === 'q' || e.key === 'Q') setTransformMode('rotate');
+    if (e.key === 'w' || e.key === 'W') setTransformMode('translate');
+});
+
+// ─── Transform tool selector ──────────────────────────────────────────────────
+function setTransformMode(mode) {
+    xformControls.setMode(mode);
+    dom.toolSelector.querySelectorAll('.tool-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tool === mode);
+    });
+}
+
+dom.toolSelector.addEventListener('click', (e) => {
+    const btn = e.target.closest('.tool-btn');
+    if (btn) setTransformMode(btn.dataset.tool);
 });

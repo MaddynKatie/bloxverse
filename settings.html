@@ -178,7 +178,9 @@
       const ownNum = userData.userIdNum;
       const ownProfileLink = ownNum ? `/bloxverse/profile?user=${ownNum}` : '/bloxverse/profile';
       const ownInitial = (userData.username || 'P').charAt(0).toUpperCase();
-
+      const ownPreview = userData.avatarPreview || null;
+      const _cb = Date.now();
+ 
       settingsPage.innerHTML = `
         <a href="${ownProfileLink}" class="settings-back">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -249,7 +251,7 @@
             </div>
           </div>
           <div class="avatar-dropdown">
-            <div class="avatar-circle">${ownInitial}</div>
+            ${ownPreview ? `<img src="${ownPreview}?_cb=${_cb}" alt="" class="avatar-circle-img" data-initial="${ownInitial}" onerror="window.__handleBrokenAvatar(this, '${user.uid}')"/>` : `<div class="avatar-circle">${ownInitial}</div>`}
             <div class="dropdown-menu">
               <div class="dropdown-header">
                 <span class="dropdown-name">${username}</span>
@@ -290,7 +292,7 @@
       });
 
       // Avatar dropdown toggle
-      const avatarCircle = navRight.querySelector('.avatar-circle');
+      const avatarCircle = navRight.querySelector('.avatar-circle') || navRight.querySelector('.avatar-circle-img');
       const dropdown = navRight.querySelector('.avatar-dropdown');
       avatarCircle.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -502,6 +504,22 @@
         if (overlay.contains(e.target)) return;
         if (resultsEl.style.display === 'block') resultsEl.style.display = 'none';
       }, { once: true });
+    };
+
+    window.__handleBrokenAvatar = async function(imgEl, uid) {
+      try {
+        const initial = imgEl.getAttribute('data-initial') || 'U';
+        const letter = document.createElement('div');
+        letter.className = 'friend-thumb-avatar';
+        letter.textContent = initial;
+        imgEl.replaceWith(letter);
+        try {
+          if (auth && auth.currentUser && auth.currentUser.uid === uid) {
+            const { setDoc, doc } = await import('https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js');
+            await setDoc(doc(db, 'users', uid), { avatarPreview: null }, { merge: true });
+          }
+        } catch (e) { console.warn('Could not clear avatarPreview:', e); }
+      } catch (e) { console.warn('Broken avatar handler error:', e); }
     };
   </script>
 </body>
