@@ -126,8 +126,7 @@ document.getElementById('signupForm')?.addEventListener('submit', async (e) => {
 
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, password);
-      await updateProfile(cred.user, { displayName: username });
-      await setDoc(doc(db, 'users', cred.user.uid), {
+            await setDoc(doc(db, 'users', cred.user.uid), {
         username,
         email,
         birthday,

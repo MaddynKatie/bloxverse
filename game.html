@@ -543,7 +543,7 @@
         return;
       }
       const userId = auth.currentUser?.uid;
-      const username = _currentUsername || auth.currentUser?.displayName || 'Player';
+      const username = _currentUsername || 'Player';
       if (raw === '/emotes') {
         const all = getAllEmotes();
         const owned = all.filter(e => _ownedItems.includes(e.id));
@@ -1009,7 +1009,7 @@
     function renderPeopleTab() {
       const list = document.getElementById('peopleList');
       const localUserId = auth.currentUser?.uid;
-      const localUsername = _currentUsername || auth.currentUser?.displayName || 'Player';
+      const localUsername = _currentUsername || 'Player';
 
       const rows = [];
 
@@ -1386,6 +1386,7 @@
         SetVelocity(vx, vy, vz) { bv._setPartVelocity(mesh, vx, vy, vz); },
         GetVelocity() { return bv._getPartVelocity(mesh); },
         SetBounciness(v) { bv._setPartBounciness(mesh, v); },
+        SetTexture(url) { if (bv._setPartTexture) bv._setPartTexture(mesh, url); },
         SetPosition(x, y, z) { bv._setPartPos(mesh, x, y, z); },
         GetPosition() { return { x: mesh.position.x, y: mesh.position.y, z: mesh.position.z }; },
       };
@@ -1608,7 +1609,7 @@
       const bv = () => window._bloxverse;
       return {
         GetPlayers: () => getCurrentPlayers(),
-        GetLocalPlayer: () => auth.currentUser ? makePlayerObj(auth.currentUser.uid, _currentUsername || auth.currentUser.displayName || 'Player') : null,
+        GetLocalPlayer: () => auth.currentUser ? makePlayerObj(auth.currentUser.uid, _currentUsername || 'Player') : null,
         FindPlayer: (id) => getCurrentPlayers().find(p => p.id === id || p.userId === id) || null,
         GetGameTime: () => bv()?.getGameTime?.() ?? (Date.now() / 1000),
         GetProperty: (k) => gameProperties[k] ?? null,
@@ -1770,7 +1771,7 @@
           }
           const playersService = gameRoot.Children.find(c => c.ClassName === 'Players');
 
-          const playerName = auth.currentUser?.displayName || 'Player';
+          const playerName = 'Player';
           const localPlayer = new Instance('Player', playerName);
           localPlayer.UserId = auth.currentUser?.uid;
           localPlayer.setParent(playersService);
@@ -1980,7 +1981,7 @@
               try {
                 const profile = await getUserProfile(user.uid);
                 if (profile) {
-                  username = profile.username || user.displayName || 'Player';
+                  username = profile.username || 'Player';
                   _currentUsername = username;
                   currentUserIdNum = profile.userIdNum || null;
                   currentUserAge = calculateAge(profile.birthday);
@@ -1989,7 +1990,7 @@
                 }
               } catch (e) {
                 console.error('Error loading user settings', e);
-                username = user.displayName || 'Player';
+                username = 'Player';
               }
 
               // Load and apply avatar colors, accessories, owned items from Firestore

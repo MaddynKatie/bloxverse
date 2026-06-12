@@ -347,7 +347,7 @@
       <div class="mp-modal-body">
         <div class="mp-modal-type" id="modalType">Hats</div>
         <h2 id="modalName">Item Name</h2>
-        <div class="mp-modal-author">by <span id="modalAuthor">BloxVerse</span></div>
+        <div class="mp-modal-author">by <span id="modalAuthor" style="color:#5865f2;cursor:pointer;">BloxVerse</span></div>
         <div class="mp-modal-price" id="modalPrice"><span class="bux-icon">B</span> 10</div>
         <div class="mp-modal-desc" id="modalDesc">Description here.</div>
         <div class="mp-modal-actions">
@@ -470,7 +470,7 @@
             </div>
             <div class="mp-card-body">
               <div class="mp-name">${escHtml(item.name)}</div>
-              <div class="mp-author" style="font-size:11px;color:#949ba4;margin-top:1px;">by ${escHtml(item.author || 'BloxVerse')}</div>
+              <div class="mp-author" style="font-size:11px;color:#949ba4;margin-top:1px;">by <a href="#" class="mp-author-link" data-author="${escHtml(item.author || 'BloxVerse')}" onclick="event.stopPropagation(); window.openAuthorProfile(this.dataset.author); return false;" style="color:#5865f2;text-decoration:none;">${escHtml(item.author || 'BloxVerse')}</a></div>
               <div class="mp-price ${priceCls}">${priceStr}</div>
             </div>
           </div>
@@ -493,6 +493,7 @@
       modalType.textContent = cat;
       modalName.textContent = item.name;
       modalAuthor.textContent = item.author || 'BloxVerse';
+      modalAuthor.onclick = (e) => { e.stopPropagation(); window.openAuthorProfile(modalAuthor.textContent); };
       modalPrice.innerHTML = formatPrice(item.price);
       modalPrice.className = 'mp-modal-price' + (item.price > 0 ? '' : ' free');
       modalDesc.textContent = item.description || '';
@@ -588,7 +589,7 @@
       controls.enableDamping = true;
       controls.dampingFactor = 0.08;
       controls.minDistance = 1.5;
-      controls.maxDistance = 15;
+      controls.maxDistance = 40;
       controls.maxPolarAngle = Math.PI / 2.1;
       controls.update();
 
@@ -674,6 +675,19 @@
         const charHeight = box.max.y - box.min.y;
         fbx.position.y = -box.min.y;
         fbx.updateMatrixWorld(true);
+
+        _p.bones = {};
+        _p.rest = {};
+        fbx.traverse(child => {
+          if (child.isBone || child.type === 'Bone') {
+            _p.bones[child.name] = child;
+            _p.rest[child.name] = { 
+              x: child.rotation.x, y: child.rotation.y, z: child.rotation.z,
+              px: child.position.x, py: child.position.y, pz: child.position.z 
+            };
+          }
+        });
+
         _p.scene.add(fbx);
         _p.avatar = fbx;
         _p.charHeight = charHeight;
@@ -688,13 +702,19 @@
 
     function startPreviewLoop() {
       if (_p.animId) return;
-      function loop() {
+      let lastTime = performance.now();
+      function loop(now) {
+        const dt = (now - lastTime) / 1000;
+        lastTime = now;
         _p.controls.update();
+        if (_p.emote) {
+          _updatePreviewEmote(dt);
+        }
         for (const updater of _p.updaters.values()) updater();
         _p.renderer.render(_p.scene, _p.camera);
         _p.animId = requestAnimationFrame(loop);
       }
-      loop();
+      _p.animId = requestAnimationFrame(loop);
     }
 
     function resizePreview() {
@@ -725,6 +745,10 @@
         _p.accessories[id].removeFromParent();
         delete _p.accessories[id];
       }
+      if (_p.emote) {
+        _resetPreviewEmoteBones();
+        _p.emote = null;
+      }
       _p.updaters.clear();
     }
 
@@ -738,6 +762,117 @@
         equipPreviewFace(item);
       } else if (item._type === 'accessory') {
         loadPreviewAccessory(item);
+      } else if (item._type === 'emote') {
+        _p.emote = { def: item, time: 0 };
+      }
+    }
+
+    function _resetPreviewEmoteBones() {
+      if (!_p || !_p.bones || !_p.rest) return;
+      for (const name in _p.bones) {
+        const rest = _p.rest[name];
+        const bone = _p.bones[name];
+        if (rest && bone) {
+          bone.rotation.set(rest.x || 0, rest.y || 0, rest.z || 0);
+          bone.position.set(rest.px ?? 0, rest.py ?? 0, rest.pz ?? 0);
+        }
+      }
+    }
+
+    function _updatePreviewEmote(dt) {
+      if (!_p.emote || !_p.emote.def) return;
+      const def = _p.emote.def;
+      _p.emote.time += dt;
+
+      if (!def.keyframes || def.keyframes.length === 0) return;
+
+      const kfs = def.keyframes;
+      const duration = def.duration || 1;
+      const looping = true; // Emotes always loop in preview
+
+      let elapsed = _p.emote.time;
+      if (looping) {
+          if (elapsed >= duration) elapsed = elapsed % duration;
+      } else {
+          if (elapsed >= duration) {
+              _resetPreviewEmoteBones();
+              _p.emote = null;
+              return;
+          }
+      }
+
+      let prevKF = kfs[0];
+      let nextKF = kfs[kfs.length - 1];
+      if (kfs.length > 1) {
+          if (elapsed <= kfs[0].time) {
+              prevKF = nextKF = kfs[0];
+          } else if (elapsed >= kfs[kfs.length - 1].time) {
+              prevKF = nextKF = kfs[kfs.length - 1];
+          } else {
+              for (let i = 0; i < kfs.length - 1; i++) {
+                  if (elapsed >= kfs[i].time && elapsed <= kfs[i + 1].time) {
+                      prevKF = kfs[i];
+                      nextKF = kfs[i + 1];
+                      break;
+                  }
+              }
+          }
+      }
+      const range = nextKF.time - prevKF.time;
+      const t = range === 0 ? 0 : (elapsed - prevKF.time) / range;
+
+      const allBones = new Set();
+      const allPosBones = new Set();
+      for (const kf of [prevKF, nextKF]) {
+          if (kf.bones) for (const b in kf.bones) allBones.add(b);
+          if (kf.position) for (const b in kf.position) allPosBones.add(b);
+      }
+
+      for (const name in _p.bones) {
+          const rest = _p.rest[name];
+          const bone = _p.bones[name];
+          if (!rest || !bone) continue;
+          if (!allBones.has(name)) {
+              bone.rotation.x = rest.x || 0;
+              bone.rotation.y = rest.y || 0;
+              bone.rotation.z = rest.z || 0;
+          }
+          if (!allPosBones.has(name)) {
+              bone.position.x = rest.px ?? 0;
+              bone.position.y = rest.py ?? 0;
+              bone.position.z = rest.pz ?? 0;
+          }
+      }
+
+      for (const name of allBones) {
+          const bone = _p.bones[name];
+          if (!bone) continue;
+          const rest = _p.rest[name] || { x: 0, y: 0, z: 0 };
+          const prev = prevKF.bones?.[name] || {};
+          const next = nextKF.bones?.[name] || {};
+          const axes = new Set([...Object.keys(prev), ...Object.keys(next)]);
+          for (const axis of axes) {
+              const pv = prev[axis] ?? 0;
+              const nv = next[axis] ?? 0;
+              const offset = pv + (nv - pv) * t;
+              bone.rotation[axis] = rest[axis] + offset;
+          }
+      }
+
+      for (const name of allPosBones) {
+          const bone = _p.bones[name];
+          if (!bone) continue;
+          const rest = _p.rest[name] || { px: 0, py: 0, pz: 0 };
+          const prev = prevKF.position?.[name] || {};
+          const next = nextKF.position?.[name] || {};
+          const axes = new Set([...Object.keys(prev), ...Object.keys(next)]);
+          for (const axis of axes) {
+              const pv = prev[axis] ?? 0;
+              const nv = next[axis] ?? 0;
+              const offset = pv + (nv - pv) * t;
+              const posAxis = axis[1];
+              bone.position[posAxis] = (rest[axis] ?? 0) + offset;
+          }
       }
     }
 
@@ -930,7 +1065,7 @@
         assignUserIdNum(user.uid).catch(() => {});
         trackPresence(user.uid, null, 'marketplace');
 
-        let username = user.displayName || 'Player';
+        let username = 'Player';
         let bux = 0;
         let userNum = null;
         let ownPreview = null;
@@ -1075,6 +1210,21 @@
     btnModalClose.addEventListener('click', closeModal);
     modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
 
+    window.openAuthorProfile = async (authorName) => {
+      if (!authorName || authorName === 'BloxVerse') return;
+      try {
+        const q = query(collection(db, 'users'), where('username', '==', authorName));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const data = snap.docs[0].data();
+          if (data.userIdNum) {
+            window.open('/bloxverse/profile?user=' + data.userIdNum, '_blank');
+            return;
+          }
+        }
+      } catch (e) { console.warn('Could not find author:', e); }
+    };
+
     // ── Send Bux ─────────────────────────────────────────────────────────
     window.openSendBuxModal = () => {
       if (!auth.currentUser) return;
@@ -1188,21 +1338,26 @@
       const sendBtn = overlay.querySelector('#sendBuxSendBtn');
 
       let searchTimer;
+      let _allUsersCache = null;
       searchInput.addEventListener('input', () => {
         clearTimeout(searchTimer);
         const term = searchInput.value.trim().toLowerCase();
         if (!term) { resultsEl.style.display = 'none'; return; }
         searchTimer = setTimeout(async () => {
           try {
-            const snap = await getDocs(query(collection(db, 'users'), where('username', '>=', term), where('username', '<', term + '\uf8ff'), limit(20)));
-            const matches = snap.docs.filter(d => d.data().username?.toLowerCase().includes(term));
+            // Cache all users on first search
+            if (!_allUsersCache) {
+              const all = await getDocs(collection(db, 'users'));
+              _allUsersCache = all.docs.map(d => ({ id: d.id, ...d.data() }));
+            }
+            const matches = _allUsersCache.filter(u => (u.username || '').toLowerCase().includes(term));
             if (matches.length === 0) {
               resultsEl.innerHTML = '<div class="empty-state">No users found</div>';
             } else {
-              resultsEl.innerHTML = matches.map(f => `
-                <div class="search-item" data-uid="${f.id}" data-name="${f.data().username}" data-avatar="${f.data().avatarPreview || ''}">
-                  ${f.data().avatarPreview ? `<img src="${f.data().avatarPreview}" alt="" />` : `<div class="init-circle">${f.data().username.charAt(0).toUpperCase()}</div>`}
-                  <span>${f.data().username}</span>
+              resultsEl.innerHTML = matches.slice(0, 50).map(f => `
+                <div class="search-item" data-uid="${f.id}" data-name="${f.username || 'Unknown'}" data-avatar="${f.avatarPreview || ''}">
+                  ${f.avatarPreview ? `<img src="${f.avatarPreview}" alt="" />` : `<div class="init-circle">${(f.username || 'U').charAt(0).toUpperCase()}</div>`}
+                  <span>${f.username || 'Unknown'}</span>
                 </div>`).join('');
               resultsEl.querySelectorAll('.search-item').forEach(el => {
                 el.addEventListener('click', () => {

@@ -27,6 +27,8 @@ export function luaToJS(lua) {
         (_s) => _s.replace(/\belse\b(?!\s*\{)/g, '} else {'),
         // Convert `:` method calls to `.` BEFORE pairs/ipairs conversion
         (_s) => _s.replace(/(\w+(?:\.\w+)*):([\w]+)\s*\(/g, '$1.$2('),
+        // Convert empty table constructors to arrays so table.insert/sort/concat work
+        (_s) => _s.replace(/=\s*\{\}/g, '= []'),
         // Convert Lua ipairs/pairs for loops to JS for loops
         // MUST run before `do` → `{` conversion (below) so the `do` keyword is still present
         (_s) => {
@@ -319,6 +321,12 @@ export function createInstanceProxy(inst) {
                     return (restitution) => {
                         const bv = window._bloxverse;
                         if (target.mesh && bv?._setPartBounciness) bv._setPartBounciness(target.mesh, restitution);
+                    };
+                }
+                if (prop === 'SetTexture') {
+                    return (url) => {
+                        const bv = window._bloxverse;
+                        if (target.mesh && bv?._setPartTexture) bv._setPartTexture(target.mesh, url);
                     };
                 }
                 if (prop === 'GetVelocity') {
@@ -634,28 +642,29 @@ const LuaString = {
 };
 
 // ── Table extras ──────────────────────────────────────────────────────────────
+const _toArray = (t) => { if (Array.isArray(t)) return t; const a = Object.values(t); Object.keys(t).forEach((k, i) => { delete t[k]; t[i] = a[i]; }); return t; };
 const LuaTable = {
     insert: (t, pos, val) => {
+        t = _toArray(t);
         if (val === undefined) { t.push(pos); }
         else { t.splice(pos - 1, 0, val); }
     },
-    remove: (t, i) => t.splice(i != null ? i - 1 : t.length - 1, 1)[0],
-    sort: (t, cmp) => { if (cmp) t.sort(cmp); else t.sort((a, b) => a < b ? -1 : a > b ? 1 : 0); },
+    remove: (t, i) => { t = _toArray(t); return t.splice(i != null ? i - 1 : t.length - 1, 1)[0]; },
+    sort: (t, cmp) => { t = _toArray(t); if (cmp) t.sort(cmp); else t.sort((a, b) => a < b ? -1 : a > b ? 1 : 0); },
     concat: (t, sep, i, j) => {
+        t = _toArray(t);
         sep = sep ?? '';
         i = (i ?? 1) - 1;
         j = j ?? t.length;
         return t.slice(i, j).join(sep);
     },
     unpack: (t, i, j) => {
-        i = (i ?? 1) - 1; j = j ?? t.length;
-        return t.slice(i, j);
-    },
-    move: (a1, f, e, t, a2) => {
-        a2 = a2 || a1;
-        const slice = a1.slice(f - 1, e);
-        slice.forEach((v, idx) => { a2[t - 1 + idx] = v; });
-        return a2;
+        t = _toArray(t);
+        i = i ?? 1;
+        j = j ?? t.length;
+        const result = [];
+        for (let n = i; n <= j; n++) result.push(t[n]);
+        return result;
     },
 };
 

@@ -3488,6 +3488,23 @@ window._bloxverse = {
             entry.body._bounciness = restitution;
         }
     },
+    _setPartTexture(mesh, url) {
+        if (!mesh) return;
+        const loader = new THREE.TextureLoader();
+        loader.load(url, (tex) => {
+            tex.colorSpace = THREE.SRGBColorSpace;
+            mesh.traverse(child => {
+                if (child.isMesh && child.material) {
+                    const mats = Array.isArray(child.material) ? child.material : [child.material];
+                    mats.forEach(mat => {
+                        mat.map = tex;
+                        mat.color.set(0xffffff); // reset tint so texture shows true colors
+                        mat.needsUpdate = true;
+                    });
+                }
+            });
+        }, undefined, (err) => console.warn('[SetTexture] Failed to load texture:', url, err));
+    },
     keys,
     setSens(mult) {
         CAM_H_SENS = 0.002 * Math.PI * mult;
@@ -4100,8 +4117,9 @@ window._bloxverse = {
         physicsBodies.forEach(({ body, anchored, mesh }) => {
             if (!anchored && body && mesh.userData.physicsId) {
                 if (!isLocalPhysicsOwner(mesh)) return;
-                const speed = Math.sqrt(body.velocity.x ** 2 + body.velocity.y ** 2 + body.velocity.z ** 2);
-                if (speed < 0.1) return; // only sync moving bodies
+                const linearSpeed = Math.sqrt(body.velocity.x ** 2 + body.velocity.y ** 2 + body.velocity.z ** 2);
+                const angularSpeed = Math.sqrt(body.angularVelocity.x ** 2 + body.angularVelocity.y ** 2 + body.angularVelocity.z ** 2);
+                if (linearSpeed < 0.01 && angularSpeed < 0.01) return; // only sync moving bodies, lower threshold to allow settling
                 mesh.userData.physicsOwnerUntil = performance.now() + PHYSICS_OWNER_SEND_EXTEND_MS;
                 bodies.push({
                     id: mesh.userData.physicsId,
@@ -4111,7 +4129,14 @@ window._bloxverse = {
                     z: body.position.z,
                     vx: body.velocity.x,
                     vy: body.velocity.y,
-                    vz: body.velocity.z
+                    vz: body.velocity.z,
+                    qx: body.quaternion.x,
+                    qy: body.quaternion.y,
+                    qz: body.quaternion.z,
+                    qw: body.quaternion.w,
+                    wx: body.angularVelocity.x,
+                    wy: body.angularVelocity.y,
+                    wz: body.angularVelocity.z
                 });
             }
         });
@@ -4122,7 +4147,6 @@ window._bloxverse = {
         if (userId === currentUserId) return;
         if (performance.now() < _skipPhysicsSyncUntil) return;
         const now = performance.now();
-        const lerp = 0.55;
         physicsBodies.forEach(({ body, anchored, mesh }) => {
             if (anchored || !body || !mesh.userData.physicsId) return;
             for (const s of bodies) {
@@ -4145,12 +4169,21 @@ window._bloxverse = {
                     mesh.userData.physicsOwnerId = userId;
                     mesh.userData.physicsOwnerUntil = now + PHYSICS_OWNER_LEASE_MS;
                     mesh.userData.physicsOwnerClaimId = s.ownerClaimId || 0;
-                    body.position.x += (s.x - body.position.x) * lerp;
-                    body.position.y += (s.y - body.position.y) * lerp;
-                    body.position.z += (s.z - body.position.z) * lerp;
-                    body.velocity.x += (s.vx - body.velocity.x) * lerp;
-                    body.velocity.y += (s.vy - body.velocity.y) * lerp;
-                    body.velocity.z += (s.vz - body.velocity.z) * lerp;
+                    
+                    // Smooth corrective velocity instead of teleporting
+                    const correctionFactor = 10;
+                    body.velocity.x = s.vx + (s.x - body.position.x) * correctionFactor;
+                    body.velocity.y = s.vy + (s.y - body.position.y) * correctionFactor;
+                    body.velocity.z = s.vz + (s.z - body.position.z) * correctionFactor;
+                    
+                    // Sync rotations if provided
+                    if (s.qx !== undefined && s.wx !== undefined) {
+                        const targetQuat = new CANNON.Quaternion(s.qx, s.qy, s.qz, s.qw);
+                        body.quaternion.slerp(targetQuat, 0.3); // Smooth blend rotation
+                        body.angularVelocity.x = s.wx;
+                        body.angularVelocity.y = s.wy;
+                        body.angularVelocity.z = s.wz;
+                    }
                     break;
                 }
             }
@@ -4187,6 +4220,9 @@ window._bloxverse = {
                     vx: 0,
                     vy: 0,
                     vz: 0,
+                    wx: 0,
+                    wy: 0,
+                    wz: 0,
                     snap: true
                 });
             }

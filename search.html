@@ -26,7 +26,7 @@
 <body>
   <nav class="navbar">
     <div class="nav-left">
-      <div class="logo" onclick="window.location.reload()">
+      <div class="logo" onclick="window.location.href='/bloxverse/'">
         
         <span class="logo-text">BloxVerse</span>
       </div>
@@ -87,7 +87,7 @@
           const d = await getDoc(doc(db, 'users', user.uid));
           if (d.exists()) userDocData = d.data();
         } catch {}
-        const username = userDocData.username || user.displayName || 'Player';
+        const username = userDocData.username || 'Player';
         const ownPreview = userDocData.avatarPreview || null;
         const _cb = Date.now();
         const initial = username.charAt(0).toUpperCase();

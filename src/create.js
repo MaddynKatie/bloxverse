@@ -282,7 +282,7 @@ async function initializeEditor() {
                     lighting: gameData.lighting,
                 },
                 authorId: user.uid,
-                authorName: user.displayName || 'Player',
+                authorName: 'Player',
                 icon: _selectedThumb || './assets/icons/demo.png',
             });
             closePublishModal();

@@ -334,6 +334,7 @@
         });
       }
 
+
       // Privacy select
       const privacySelect = document.getElementById('privacySelect');
       if (privacySelect) {
@@ -461,6 +462,7 @@
       const avatarEl = overlay.querySelector('#sendBuxAvatar');
       const sendBtn = overlay.querySelector('#sendBuxSendBtn');
 
+      let _allUsersCache = null;
       let searchTimer;
       searchInput.addEventListener('input', () => {
         clearTimeout(searchTimer);
@@ -468,15 +470,18 @@
         if (!term) { resultsEl.style.display = 'none'; return; }
         searchTimer = setTimeout(async () => {
           try {
-            const snap = await getDocs(query(collection(db, 'users'), where('username', '>=', term), where('username', '<', term + '\uf8ff'), limit(20)));
-            const matches = snap.docs.filter(d => d.data().username?.toLowerCase().includes(term));
+            if (!_allUsersCache) {
+              const all = await getDocs(collection(db, 'users'));
+              _allUsersCache = all.docs.map(d => ({ id: d.id, ...d.data() }));
+            }
+            const matches = _allUsersCache.filter(u => (u.username || '').toLowerCase().includes(term));
             if (matches.length === 0) {
               resultsEl.innerHTML = '<div class="empty-state">No users found</div>';
             } else {
-              resultsEl.innerHTML = matches.map(f => `
-                <div class="search-item" data-uid="${f.id}" data-name="${f.data().username}" data-avatar="${f.data().avatarPreview || ''}">
-                  ${f.data().avatarPreview ? `<img src="${f.data().avatarPreview}" alt="" />` : `<div class="init-circle">${f.data().username.charAt(0).toUpperCase()}</div>`}
-                  <span>${f.data().username}</span>
+              resultsEl.innerHTML = matches.slice(0, 50).map(f => `
+                <div class="search-item" data-uid="${f.id}" data-name="${f.username || 'Unknown'}" data-avatar="${f.avatarPreview || ''}">
+                  ${f.avatarPreview ? `<img src="${f.avatarPreview}" alt="" />` : `<div class="init-circle">${(f.username || 'U').charAt(0).toUpperCase()}</div>`}
+                  <span>${f.username || 'Unknown'}</span>
                 </div>`).join('');
               resultsEl.querySelectorAll('.search-item').forEach(el => {
                 el.addEventListener('click', () => {

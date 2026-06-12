@@ -220,6 +220,7 @@
             </svg>
             <input type="text" id="friendSearchInput" placeholder="Search players" autocomplete="off" />
           </div>
+          <div id="friendSearchResults" class="friend-search-results"></div>
         </div>
       `;
     }
@@ -369,7 +370,7 @@
       friendsGrid.innerHTML = addBtn + friendsWithStatus.map(f => `
         <div class="friend-thumb" onclick="window.location.href='${getProfileLink(f)}'" style="cursor:pointer;">
           <div class="avatar-with-status">
-            ${f.avatarPreview ? `<div style="width:56px;height:56px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2px solid rgba(255,255,255,0.1);background:#1a1d2e;"><img src="${f.avatarPreview}?_cb=${_cb}" alt="" data-initial="${f.username.charAt(0).toUpperCase()}" onerror="window.__handleBrokenAvatar(this, '${f.id}')" style="width:100%;height:100%;object-fit:cover;display:block;"/></div>` : `<div class="friend-thumb-avatar">${f.username.charAt(0).toUpperCase()}</div>`}
+            ${f.avatarPreview ? `<div style="width:56px;height:56px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2px solid rgba(255,255,255,0.1);background:#1a1d2e;"><img src="${f.avatarPreview}?_cb=${_cb}" alt="" data-initial="${(f.username || 'U').charAt(0).toUpperCase()}" onerror="window.__handleBrokenAvatar(this, '${f.id}')" style="width:100%;height:100%;object-fit:cover;display:block;"/></div>` : `<div class="friend-thumb-avatar">${(f.username || 'U').charAt(0).toUpperCase()}</div>`}
             <div class="status-dot ${f.status}"></div>
           </div>
           <span class="friend-thumb-name">${f.username}</span>
@@ -467,7 +468,7 @@
         // ────────────────────────────────────────────────────────────────────
 
         currentUserId = user.uid;
-        let username = user.displayName || 'Player';
+        let username = 'Player';
         let bux = 0;
         let userNum = null;
 
@@ -738,6 +739,7 @@ onclick="window.location.href='/bloxverse/auth'">Login / Sign Up</button>`;
         const avatarEl = overlay.querySelector('#sendBuxAvatar');
         const sendBtn = overlay.querySelector('#sendBuxSendBtn');
 
+        let _allUsersCache = null;
         let searchTimer;
         searchInput.addEventListener('input', () => {
           clearTimeout(searchTimer);
@@ -745,15 +747,18 @@ onclick="window.location.href='/bloxverse/auth'">Login / Sign Up</button>`;
           if (!term) { resultsEl.style.display = 'none'; return; }
           searchTimer = setTimeout(async () => {
             try {
-              const snap = await getDocs(query(collection(db, 'users'), where('username', '>=', term), where('username', '<', term + '\uf8ff'), limit(20)));
-              const matches = snap.docs.filter(d => d.data().username?.toLowerCase().includes(term));
+              if (!_allUsersCache) {
+                const all = await getDocs(collection(db, 'users'));
+                _allUsersCache = all.docs.map(d => ({ id: d.id, ...d.data() }));
+              }
+              const matches = _allUsersCache.filter(u => (u.username || '').toLowerCase().includes(term));
               if (matches.length === 0) {
                 resultsEl.innerHTML = '<div class="empty-state">No users found</div>';
               } else {
-                resultsEl.innerHTML = matches.map(f => `
-                  <div class="search-item" data-uid="${f.id}" data-name="${f.data().username}" data-avatar="${f.data().avatarPreview || ''}">
-                    ${f.data().avatarPreview ? `<img src="${f.data().avatarPreview}" alt="" />` : `<div class="init-circle">${f.data().username.charAt(0).toUpperCase()}</div>`}
-                    <span>${f.data().username}</span>
+                resultsEl.innerHTML = matches.slice(0, 50).map(f => `
+                  <div class="search-item" data-uid="${f.id}" data-name="${f.username || 'Unknown'}" data-avatar="${f.avatarPreview || ''}">
+                    ${f.avatarPreview ? `<img src="${f.avatarPreview}" alt="" />` : `<div class="init-circle">${(f.username || 'U').charAt(0).toUpperCase()}</div>`}
+                    <span>${f.username || 'Unknown'}</span>
                   </div>`).join('');
                 resultsEl.querySelectorAll('.search-item').forEach(el => {
                   el.addEventListener('click', () => {

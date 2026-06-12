@@ -1,16 +1,104 @@
 local ball = game:GetPart("PhysicsBall")
 local ballInst = workspace:FindFirstChild("PhysicsBall")
 
+local TEXTURES = {
+    default = {
+        texture = "assets/textures/ball.png",
+        color   = nil,
+    },
+    adidastrionda = {
+        texture = "assets/textures/fifaadidastrionda.png",
+        color   = 0xFFFFFF,
+    },
+    shiny = {
+        texture = "assets/textures/shinyball.png",
+        color   = nil,
+    },
+    alrihla = {
+        texture = "assets/textures/alrihla.jpg",
+        color   = nil,
+    },
+}
+
+local COMMAND_PREFIX = "TT"
+local lastProtocol = ""
+
+local applyTexture = function(entry)
+    ball:SetTexture(entry.texture)
+    if entry.color ~= nil then
+        ballInst.Color = entry.color
+    end
+end
+
+applyTexture(TEXTURES.default)
+
+local function onChat(player, message, data)
+    local parts = message:split("|")
+    if parts[0] == COMMAND_PREFIX then
+        if parts[1] == "SYSTEM" then
+            game:Broadcast(parts[2])
+            return
+        end
+        if message ~= lastProtocol then
+            ; lastProtocol = message
+            if parts[1] == "TEXTURE" then
+                local entry = TEXTURES[parts[2]]
+                if entry then
+                    applyTexture(entry)
+                end
+            end
+        end
+        return
+    end
+
+    if not data.local then return end
+
+    local wordParts = message:split(" ")
+    if wordParts[0] ~= "/texture" and wordParts[0] ~= "/textures" then return end
+
+    local listTextures = function()
+        local names = {}
+        for k, _ in pairs(TEXTURES) do
+            table.insert(names, k)
+        end
+        table.sort(names)
+        game:SendChat(COMMAND_PREFIX .. "|SYSTEM|Available textures: " .. table.concat(names, ", "))
+    end
+
+    if wordParts[0] == "/textures" then listTextures(); return end
+
+    local texName = wordParts[1]
+    if not texName or texName == "" then listTextures(); return end
+
+    texName = string.lower(texName)
+    local entry = TEXTURES[texName]
+    if entry then
+        applyTexture(entry)
+        game:SendChat(COMMAND_PREFIX .. "|TEXTURE|" .. texName)
+        game:SendChat(COMMAND_PREFIX .. "|SYSTEM|Ball texture changed to: " .. texName)
+    else
+        game:SendChat(COMMAND_PREFIX .. "|SYSTEM|Unknown texture \"" .. texName .. "\".")
+        listTextures()
+    end
+end
+
 local BOUNCE = 0.6
 local BASE_KICK_POWER = 30
 
 ball:SetBounciness(BOUNCE)
+
 local BASE_KICK_UP = 15
 local CHARGED_KICK_POWER = 75
 local CHARGED_KICK_UP = 50
 local CHARGE_TIME = 1.5
 local WALK_SPEED = 16
 local MAX_SPEED_BONUS = 3
+local CURVE_EDGE_THRESHOLD = 2
+local CURVE_POWER_MULTIPLIER = 50
+local CURVE_DECAY = 2.0
+local CURVE_CHARGE_BONUS = 6.0
+local CURVE_SPRINT_BONUS = 3.0
+
 local charge = 0
 local METER_WIDTH = 220
 local METER_HEIGHT = 14
@@ -51,6 +139,10 @@ local meterText = meterGui:CreateGui("TextLabel", {
     Visible = false,
 })
 
+local curvePower = 0
+local curveDirX = 0
+local curveDirZ = 0
+
 local updateChargeGui = function()
     local chargeRatio = math.min(charge / CHARGE_TIME, 1)
     local isCharging = charge > 0
@@ -76,7 +168,28 @@ ballInst.Touched:Connect(function(hit)
     local baseUp = BASE_KICK_UP + ((CHARGED_KICK_UP - BASE_KICK_UP) * chargeRatio)
     local power = basePower * speedMult
     local up = baseUp * speedMult
+
     ball:SetVelocity(facingX * power, up, facingZ * power)
+
+    local bPos = ballInst.Position
+    local bx = bPos.x or bPos.X or 0
+    local bz = bPos.z or bPos.Z or 0
+    local dx = bx - char.x
+    local dz = bz - char.z
+    local crossY = (facingZ * dx) - (facingX * dz)
+
+    if math.abs(crossY) > CURVE_EDGE_THRESHOLD then
+        local sprintBoost = 1 + ((speedRatio - 1) * CURVE_SPRINT_BONUS)
+        local chargeBoost = 1 + (chargeRatio * CURVE_CHARGE_BONUS)
+        local totalCurveBoost = sprintBoost * chargeBoost
+        curvePower = (crossY > 0 and 1 or -1) * CURVE_POWER_MULTIPLIER * totalCurveBoost
+    else
+        curvePower = 0
+    end
+
+    curveDirX = facingZ
+    curveDirZ = -facingX
+
     charge = 0
     updateChargeGui()
 end)
@@ -88,8 +201,25 @@ local function onUpdate(dt)
         ; charge = 0
     end
     updateChargeGui()
+
+    if math.abs(curvePower) > 0.1 then
+        local vel = ball:GetVelocity()
+        if type(vel) == "table" then
+            local vx = vel.x or vel.X or 0
+            local vy = vel.y or vel.Y or 0
+            local vz = vel.z or vel.Z or 0
+
+            if vy > 0.2 or vy < -0.2 then
+                ball:SetVelocity(vx + curveDirX * curvePower * dt, vy, vz + curveDirZ * curvePower * dt)
+                curvePower = curvePower * (1 - dt * CURVE_DECAY)
+            else
+                curvePower = 0
+            end
+        end
+    end
 end
 
 return {
     onUpdate = onUpdate,
+    onChat   = onChat,
 }
