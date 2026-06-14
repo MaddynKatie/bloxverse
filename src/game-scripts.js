@@ -10,6 +10,8 @@ const GAME_SCRIPT_RELATIVE = [
   'assets/games/timetag/main.lua',
   'assets/games/touchfootball/Sprint.lua',
   'assets/games/touchfootball/ball.lua',
+  'assets/games/touchfootball/bot.lua',
+  'assets/games/touchfootball/dumbbot.lua',
   'assets/games/touchfootball/team.lua',
   'assets/games/touchfootball/tp1.lua',
   'assets/games/touchfootball/tp2.lua',

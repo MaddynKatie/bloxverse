@@ -21,7 +21,7 @@ local function onPlayerJoin(player)
     player:SetProperty("team", teamNumber)
     local teamName = teamNumber == 1 and "Red" or "Blue"
     game:Broadcast(player.name .. " joined Team " .. teamName)
-    game:Broadcast("Controls: Q to sprint, E to charge kick")
+    game:Broadcast("Controls: Q to sprint, E to charge kick | !bot to spawn a bot | /resetparts to reset all balls")
 end
 
 return {

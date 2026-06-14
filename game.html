@@ -1227,15 +1227,15 @@
     }
 
     const makePlayerObj = (id, name) => {
-      let pos = _playerPositions.get(id) || { x: 0, y: 0, z: 0 };
+      let pos = _playerPositions.get(id) || { x: 0, y: 0, z: 0, ry: 0 };
       const isLocal = auth.currentUser?.uid === id;
       if (isLocal && window._bloxverse?.getCharacter) {
         const char = window._bloxverse.getCharacter();
-        if (char) pos = { x: char.position.x, y: char.position.y, z: char.position.z };
+        if (char) pos = { x: char.position.x, y: char.position.y, z: char.position.z, ry: char.rotation.y };
       }
       return {
         id, name,
-        x: pos.x, y: pos.y, z: pos.z,
+        x: pos.x, y: pos.y, z: pos.z, ry: pos.ry,
         health: isLocal ? _localPlayerHealth : (_playerHealth.get(id) ?? 100),
         maxHealth: isLocal ? _localPlayerMaxHealth : 100,
         _props: {},
@@ -1700,6 +1700,18 @@
           const bv = window._bloxverse;
           if (bv && ref) bv.moveCharacterClone?.(ref._mesh, x, y, z);
         },
+        GetCharFootOffset: () => {
+          const bv = window._bloxverse;
+          return bv ? bv.getCharFootOffset?.() ?? 2 : 2;
+        },
+        GetCharHeight: () => {
+          const bv = window._bloxverse;
+          return bv ? bv.getCharHeight?.() ?? 5 : 5;
+        },
+        CheckCollision: (x, y, z, w, h, d) => {
+          const bv = window._bloxverse;
+          return bv ? bv.checkCollision?.(x, y, z, w, h, d) ?? false : false;
+        },
         // GUI API
         CreateScreenGui: (name) => _createScreenGuiContainer(name || 'ScreenGui'),
         CleanupGui: () => {
@@ -2043,7 +2055,7 @@
                     const playerUsername = _playerUsernames.get(id);
                     window._bloxverse.updateOtherPlayer(id, x, y, z, ry, moving, grounded, climbState, playerUsername, qx, qy, qz, qw, dead, health);
                   }
-                  _playerPositions.set(id, { x, y, z });
+                  _playerPositions.set(id, { x, y, z, ry });
                   if (health !== undefined && !isNaN(health)) _playerHealth.set(id, health);
                 },
                 (id) => {

@@ -3402,9 +3402,11 @@ window._bloxverse = {
                 child.rotation.set(r.x, r.y, r.z);
                 child.position.set(r.px, r.py, r.pz);
             }
-        });
-        clone.traverse(child => {
             if (child.isMesh) {
+                child.geometry = child.geometry.clone();
+                child.frustumCulled = false;
+                child.castShadow = true;
+                child.receiveShadow = true;
                 if (Array.isArray(child.material)) {
                     child.material = child.material.map(m => m.clone());
                 } else if (child.material) {
@@ -3412,20 +3414,18 @@ window._bloxverse = {
                 }
             }
         });
-        const toRemove = [];
-        clone.traverse(child => {
-            if (child.userData?.isClothingOverlay) toRemove.push(child);
-            if (child.userData?.isFaceOverlay) toRemove.push(child);
-        });
-        for (const overlay of toRemove) {
-            overlay.removeFromParent();
-            overlay.geometry?.dispose?.();
-            const mats = Array.isArray(overlay.material) ? overlay.material : [overlay.material];
-            for (const mat of mats) mat?.dispose?.();
-        }
-        _applyFaceToModel(clone);
         clone.position.set(x, y ?? 0, z ?? 0);
         clone.name = name || 'CharacterClone';
+        clone.visible = true;
+        const cloneId = 'clone_' + (name || 'bot');
+        clone.userData.cloneUserId = cloneId;
+        const storedData = _playerAvatarData.get(currentUserId);
+        if (storedData) {
+            _applyColorsToModel(clone, storedData.colors);
+            _applyClothingToModel(clone, storedData.clothing);
+            _applyAccessoriesToModel(cloneId, clone, storedData.accessories);
+            _applyFaceToModel(clone, storedData.face);
+        }
         scene.add(clone);
         if (!window._characterClones) window._characterClones = [];
         window._characterClones.push(clone);
@@ -3433,6 +3433,9 @@ window._bloxverse = {
     },
     removeCharacterClone(clone) {
         if (!clone) return;
+        if (clone.userData?.cloneUserId) {
+            _clearPlayerAccessories(clone.userData.cloneUserId);
+        }
         scene.remove(clone);
         if (window._characterClones) {
             const idx = window._characterClones.indexOf(clone);
@@ -3451,6 +3454,19 @@ window._bloxverse = {
     },
     moveCharacterClone(clone, x, y, z) {
         if (clone) clone.position.set(x, y, z);
+    },
+    checkCollision(x, y, z, w, h, d) {
+        const halfW = w / 2, halfH = h / 2, halfD = d / 2;
+        const nearby = getNearbyColliders(x, y, z);
+        for (const c of nearby) {
+            if (c._bodyRef) continue;
+            if (c.minX <= x + halfW && c.maxX >= x - halfW &&
+                c.minY <= y + halfH && c.maxY >= y - halfH &&
+                c.minZ <= z + halfD && c.maxZ >= z - halfD) {
+                return true;
+            }
+        }
+        return false;
     },
     getCameraYaw() { return cam.yaw; },
     getGrounded:   () => grounded,
