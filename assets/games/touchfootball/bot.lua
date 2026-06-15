@@ -299,6 +299,9 @@ local onChat = function(player, message)
         return
     end
 
+    local botPrefix = string.sub(message, 1, 4)
+    if botPrefix ~= "!bot" then return end
+
     local rest = string.sub(message, 6)
     local args = {}
     local current = ""

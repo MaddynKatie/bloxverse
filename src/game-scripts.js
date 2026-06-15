@@ -12,6 +12,7 @@ const GAME_SCRIPT_RELATIVE = [
   'assets/games/touchfootball/ball.lua',
   'assets/games/touchfootball/bot.lua',
   'assets/games/touchfootball/dumbbot.lua',
+  'assets/games/touchfootball/goalkeeper.lua',
   'assets/games/touchfootball/team.lua',
   'assets/games/touchfootball/tp1.lua',
   'assets/games/touchfootball/tp2.lua',
