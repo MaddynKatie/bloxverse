@@ -87,6 +87,11 @@ local spawnBot = function()
         kicked = false
         kickIdleTime = 0
         hasPrevBall = false
+        local bdx = bp.x - sx
+        local bdz = bp.z - sz
+        if math.sqrt(bdx * bdx + bdz * bdz) > 0.01 then
+            game.RotateCharacterClone(c, math.atan2(bdx, -bdz))
+        end
     end
 
     local ball = game.GetPart("PhysicsBall")
@@ -115,7 +120,7 @@ local onUpdate = function(dt)
     local dx = bp.x - pos.x
     local dz = bp.z - pos.z
     local dist = math.sqrt(dx * dx + dz * dz)
-    local inRange = dist <= 2
+    local inRange = dist < 3.5
 
     local ballVelX = 0
     local ballVelY = 0
@@ -164,6 +169,10 @@ local onUpdate = function(dt)
                 if sgd > 0.01 then
                     sdx = (oppGoalX - bp.x) / sgd
                     sdz = (oppGoalZ - bp.z) / sgd
+                else
+                    local gd = 1
+                    if myGoalIndex == 2 then gd = -1 end
+                    sdz = gd
                 end
                 ball:SetVelocity(sdx * 50, 10, sdz * 50)
                 kicked = true
@@ -199,11 +208,6 @@ local onUpdate = function(dt)
         if not kicked then
             local ball = game.GetPart("PhysicsBall")
             if ball then
-                local facingX = dx / dist
-                local facingZ = dz / dist
-                local power = KICK_POWER
-                local up = KICK_UP
-
                 local ballToOppGoal = math.sqrt((bp.x - oppGoalX)^2 + (bp.z - oppGoalZ)^2)
                 local sgd = math.sqrt((oppGoalX - bp.x)^2 + (oppGoalZ - bp.z)^2)
                 local sdx = 0
@@ -211,7 +215,15 @@ local onUpdate = function(dt)
                 if sgd > 0.01 then
                     sdx = (oppGoalX - bp.x) / sgd
                     sdz = (oppGoalZ - bp.z) / sgd
+                else
+                    local gd = 1
+                    if myGoalIndex == 2 then gd = -1 end
+                    sdz = gd
                 end
+                local facingX = sdx
+                local facingZ = sdz
+                local power = KICK_POWER
+                local up = KICK_UP
 
                 local nearPlayer = false
                 local players = game.GetPlayers()

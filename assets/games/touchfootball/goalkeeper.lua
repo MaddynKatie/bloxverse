@@ -20,19 +20,27 @@ local GK_CFG = {
         saveRange = 4.5
     },
     hard = {
-        speed = 48,
-        trackingMult = 6,
-        diveRange = 42,
-        jumpPower = 52,
-        lateralDive = 42,
+        speed = 54,
+        trackingMult = 7,
+        diveRange = 55,
+        jumpPower = 56,
+        lateralDive = 60,
         reactionTime = 0.0,
-        saveRange = 5.5
+        saveRange = 6
+    },
+    extreme = {
+        speed = 80,
+        trackingMult = 12,
+        diveRange = 100,
+        jumpPower = 72,
+        lateralDive = 90,
+        reactionTime = 0.0,
+        saveRange = 9
     }
 }
 
 local GOAL_HALF = 8
 local SAVE_HEIGHT = 3.2
-local PREDICT_TIME = 0.3
 
 local prevBallX = 0
 local prevBallY = 0
@@ -41,6 +49,8 @@ local hasPrevBall = false
 local ballVelX = 0
 local ballVelY = 0
 local ballVelZ = 0
+
+
 
 local spawnGoalie = function(side, difficulty)
     if goalies[side] then return end
@@ -73,7 +83,9 @@ local spawnGoalie = function(side, difficulty)
     local sy = gkGroundY + gkFootOffset + 1
     local sz = gkGoalZ + goalDir * 3
 
-    local c = game.CloneCharacter("Bot", sx, sy, sz)
+    local charName = "GK1"
+    if side == 2 then charName = "GK2" end
+    local c = game.CloneCharacter(charName, sx, sy, sz)
     if c then
         local g = {
             bot = c,
@@ -83,12 +95,20 @@ local spawnGoalie = function(side, difficulty)
             diveVelX = 0,
             isDiving = false,
             reactTimer = 0,
+            diveCooldown = 0,
+            smoothX = gkGoalX,
             goalX = gkGoalX,
             goalZ = gkGoalZ,
             footOffset = gkFootOffset,
             groundY = gkGroundY
         }
         goalies[side] = g
+        if side == 1 then
+            game.RotateCharacterClone(c, math.atan2(0, 1))
+        end
+        if side == 2 then
+            game.RotateCharacterClone(c, math.atan2(0, -1))
+        end
     end
 end
 
@@ -137,6 +157,10 @@ local onUpdate = function(dt)
                 g.velY = 0
                 g.diveVelX = 0
                 g.isDiving = false
+                g.diveCooldown = 0.5
+            end
+            if g.diveCooldown > 0 then
+                g.diveCooldown = g.diveCooldown - dt
             end
 
             local goalDir = 1
@@ -166,7 +190,7 @@ local onUpdate = function(dt)
             local ballHeightAtGoal = predBallY - g.groundY
             local predTargetX = math.max(g.goalX - GOAL_HALF, math.min(g.goalX + GOAL_HALF, predBallX))
 
-            local canDive = distToGoal < cfg.diveRange and ballTowardGoal and not g.isDiving and g.velY == 0
+            local canDive = distToGoal < cfg.diveRange and ballTowardGoal and not g.isDiving and g.velY == 0 and g.diveCooldown <= 0
 
             if canDive then
                 g.reactTimer = g.reactTimer + dt
@@ -186,17 +210,24 @@ local onUpdate = function(dt)
                 g.diveVelX = diveDir * cfg.lateralDive
             end
 
-            local trackX = bp.x
+            local rawTrackX = bp.x
             if ballTowardGoal then
-                trackX = bp.x + ballVelX * PREDICT_TIME
+                rawTrackX = bp.x + ballVelX * predLookAhead
             end
+            local desiredX = math.max(g.goalX - GOAL_HALF, math.min(g.goalX + GOAL_HALF, rawTrackX))
+            g.smoothX = g.smoothX + (desiredX - g.smoothX) * math.min(dt * 6, 1)
+
+            local trackingFrozen = canDive and g.reactTimer < cfg.reactionTime
 
             local gnx = pos.x
             if g.isDiving then
                 gnx = pos.x + g.diveVelX * dt
-            else
-                local targetX = math.max(g.goalX - GOAL_HALF, math.min(g.goalX + GOAL_HALF, trackX))
-                local diffX = targetX - pos.x
+            end
+            if not g.isDiving and trackingFrozen then
+                gnx = pos.x
+            end
+            if not g.isDiving and not trackingFrozen then
+                local diffX = g.smoothX - pos.x
                 local moveSpeed = math.min(math.abs(diffX) * cfg.trackingMult, cfg.speed)
                 if math.abs(diffX) > 0.2 then
                     local moveDir = 1
@@ -236,10 +267,10 @@ local onUpdate = function(dt)
             end
 
             if side == 1 then
-                game.RotateCharacterClone(g.bot, math.atan2(0, -1))
+                game.RotateCharacterClone(g.bot, math.atan2(0, 1))
             end
             if side == 2 then
-                game.RotateCharacterClone(g.bot, math.atan2(0, 1))
+                game.RotateCharacterClone(g.bot, math.atan2(0, -1))
             end
         end
     end
@@ -285,6 +316,7 @@ local onChat = function(player, message)
         if arg == "easy" then gkDiff = "easy" end
         if arg == "medium" or arg == "med" then gkDiff = "medium" end
         if arg == "hard" then gkDiff = "hard" end
+        if arg == "extreme" or arg == "ext" then gkDiff = "extreme" end
     end
 
     if gkRemove or gkRemoveAll then
