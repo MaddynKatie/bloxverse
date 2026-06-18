@@ -1615,6 +1615,12 @@
         GetProperty: (k) => gameProperties[k] ?? null,
         SetProperty: (k, v) => { gameProperties[k] = v; },
         Broadcast: (msg) => appendChatMessage({ system: true, message: msg }),
+        SendNetworkMessage: (msg) => {
+          const userId = auth.currentUser?.uid;
+          if (userId && typeof sendChat === 'function') {
+            sendChat('TT|NMSG|' + msg, '', userId, true);
+          }
+        },
         SetPlayerStat: (playerId, statName, value) => {
           if (!_playerStats.has(playerId)) _playerStats.set(playerId, {});
           _playerStats.get(playerId)[statName] = value;
@@ -1636,7 +1642,21 @@
           if (!gameEventListeners[event]) gameEventListeners[event] = [];
           gameEventListeners[event].push(cb);
         },
-        IsKeyDown: (key) => !!bv()?.keys?.[key],
+        IsKeyDown: (key) => {
+          const bv2 = window._bloxverse;
+          if (bv2?.keys?.[key]) return true;
+          // Joystick WASD compatibility — mobile joystick sets these keys
+          if (key === 'KeyW' || key === 'KeyA' || key === 'KeyS' || key === 'KeyD') {
+            const jv = bv2?.getJoystick?.();
+            if (jv) {
+              if (key === 'KeyW') return jv.y < -0.3;
+              if (key === 'KeyS') return jv.y > 0.3;
+              if (key === 'KeyA') return jv.x < -0.3;
+              if (key === 'KeyD') return jv.x > 0.3;
+            }
+          }
+          return false;
+        },
         SetWalkSpeed: (s) => bv()?.setWalkSpeed?.(s),
         GetWalkSpeed: () => bv()?.getWalkSpeed?.() ?? 16,
         GetCharacterData: () => {
@@ -1647,7 +1667,7 @@
             y: char.position.y,
             z: char.position.z,
             ry: char.rotation.y,
-            moving: !!(bv()?.keys?.['KeyW'] || bv()?.keys?.['KeyA'] || bv()?.keys?.['KeyS'] || bv()?.keys?.['KeyD']),
+            moving: !!(bv()?.keys?.['KeyW'] || bv()?.keys?.['KeyA'] || bv()?.keys?.['KeyS'] || bv()?.keys?.['KeyD']) || (() => { const jv = bv()?.getJoystick?.(); return jv && (Math.abs(jv.x) > 0.3 || Math.abs(jv.y) > 0.3); })(),
             grounded: !!bv()?.getGrounded(),
           };
         },
@@ -1894,8 +1914,12 @@
             }
           };
 
+          // Collect all script source codes for mobile key scanning
+          const _allScriptCodes = [];
+
           const userScripts = loadScriptsFromStorage();
           for (const [name, script] of Object.entries(userScripts)) {
+            _allScriptCodes.push(script.code);
             try {
               const exports = executeScript(script.code, api);
               if (exports && Object.keys(exports).length > 0) {
@@ -1910,6 +1934,7 @@
           if (window._mapScripts && window._mapScripts.length > 0) {
             for (const mapScript of window._mapScripts) {
               const code = mapScript.code || mapScript;
+              _allScriptCodes.push(code);
               try {
                 const exports = executeScript(code, api);
                 if (exports && Object.keys(exports).length > 0) {
@@ -1930,6 +1955,7 @@
             for (const [filePath, code] of Object.entries(gameScriptModules)) {
               const normalizedPath = filePath.replace(/^.*?(\/assets\/)/, '$1');
               if (normalizedPath.startsWith(basePath)) {
+                _allScriptCodes.push(code);
                 const scriptName = filePath.split('/').pop();
                 try {
                   const exports = executeScript(code, api);
@@ -1947,6 +1973,7 @@
 
           if (window._publishedScripts) {
             for (const [scriptName, code] of Object.entries(window._publishedScripts)) {
+              _allScriptCodes.push(code);
               try {
                 const exports = executeScript(code, api);
                 scriptExports.push(exports || {});
@@ -1957,6 +1984,18 @@
             }
           }
 
+          // Scan all script sources for IsKeyDown("KeyX") to auto-register mobile buttons
+          const bv2 = window._bloxverse;
+          if (bv2?._registerMobileKey) {
+            const keyRx = /IsKeyDown\s*\(\s*"(Key[A-Z0-9]+)"\s*\)/g;
+            const seen = new Set();
+            for (const code of _allScriptCodes) {
+              let m;
+              while ((m = keyRx.exec(code)) !== null) {
+                if (!seen.has(m[1])) { seen.add(m[1]); bv2._registerMobileKey(m[1]); }
+              }
+            }
+          }
           setLoad(100, 'Ready!');
           setTimeout(() => {
             loadingScreen.style.display = 'none';

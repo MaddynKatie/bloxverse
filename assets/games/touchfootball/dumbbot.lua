@@ -90,6 +90,10 @@ local applyKick = function(pos, bp, chargeRatio, currentSpeed)
     local power = basePower * speedMult
     local up    = baseUp    * speedMult
 
+    if window and window._bloxverse and window._bloxverse._physicsMode == "arcade" then
+        power = power * 0.7
+        up = up * 0.7
+    end
     local ball = game:GetPart("PhysicsBall")
     if not ball then return end
     ball:SetVelocity(facingX * power, up, facingZ * power)

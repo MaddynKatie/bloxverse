@@ -235,7 +235,7 @@ const _playerNames = new Map(); // userId -> { username, sprite }
 const _playerHealthBars = new Map(); // userId -> { sprite, canvas, ctx }
 const _playerStreaks = new Map(); // userId -> { streak, sprite }
 
-function _createNameSprite(username) {
+function _createNameSprite(username, color) {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     ctx.font = USERNAME_FONT;
@@ -259,8 +259,8 @@ function _createNameSprite(username) {
     ctx.lineWidth = 4;
     ctx.strokeText(username, canvas.width / 2, canvas.height / 2);
     
-    // Draw white text on top
-    ctx.fillStyle = '#ffffff';
+    // Draw text on top (default white, or team color)
+    ctx.fillStyle = color || '#ffffff';
     ctx.fillText(username, canvas.width / 2, canvas.height / 2);
     
     const labelTexture = new THREE.CanvasTexture(canvas);
@@ -993,6 +993,7 @@ let rmb = false;
 
 let joystickVector = { x: 0, y: 0 };
 let joystickActive = false;
+const _pendingMobileKeys = new Set();
 
 let mobileUIInjected = false;
 let _touchUI = null;
@@ -1112,6 +1113,41 @@ window.addEventListener('touchstart', (e) => {
     jumpBtn.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); triggerJump(false); });
     jumpBtn.addEventListener('touchcancel', (e) => { e.preventDefault(); e.stopPropagation(); triggerJump(false); });
 
+    // Auto-create action buttons for registered mobile keys
+    const _mobileCreatedKeys = new Set();
+    const _createMobileBtn = (key, label) => {
+        if (_mobileCreatedKeys.has(key)) return;
+        _mobileCreatedKeys.add(key);
+        const yOff = 120 + _mobileCreatedKeys.size * 80;
+        const btn = document.createElement('div');
+        btn.style.position = 'absolute';
+        btn.style.bottom = yOff + 'px';
+        btn.style.right = '40px';
+        btn.style.width = '64px';
+        btn.style.height = '64px';
+        btn.style.borderRadius = '50%';
+        btn.style.background = 'rgba(255,255,255,0.2)';
+        btn.style.border = '2px solid rgba(255,255,255,0.4)';
+        btn.style.pointerEvents = 'auto';
+        btn.style.display = 'flex';
+        btn.style.justifyContent = 'center';
+        btn.style.alignItems = 'center';
+        btn.style.color = 'rgba(255,255,255,0.8)';
+        btn.style.fontSize = '14px';
+        btn.style.fontWeight = 'bold';
+        btn.innerHTML = label;
+        uiContainer.appendChild(btn);
+        const trigger = (state) => { keys[key] = state; btn.style.background = state ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.2)'; };
+        btn.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); trigger(true); });
+        btn.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); trigger(false); });
+        btn.addEventListener('touchcancel', (e) => { e.preventDefault(); e.stopPropagation(); trigger(false); });
+    };
+    const skipKeys = new Set(['Space', 'ShiftLeft', 'ShiftRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD']);
+    const regKeys = window._bloxverse?._getMobileKeys?.() || [];
+    for (const k of regKeys) {
+        if (!skipKeys.has(k)) _createMobileBtn(k, k.replace('Key', ''));
+    }
+
     const lockBtn = document.createElement('div');
     lockBtn.style.position = 'absolute';
     lockBtn.style.bottom = '40px';
@@ -1193,6 +1229,24 @@ window.addEventListener('touchstart', (e) => {
 document.addEventListener('keydown', () => {
     if (_touchUI) {
         _touchUI.style.display = 'none';
+    }
+});
+
+// Background script tick — keeps os.clock()-based timers advancing when tab is hidden
+let _bgScriptInterval = null;
+let _lastBgUpdateMs = 0;
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        _lastBgUpdateMs = Date.now();
+        _bgScriptInterval = setInterval(() => {
+            const now = Date.now();
+            const dt = Math.min((now - _lastBgUpdateMs) / 1000, 0.1);
+            _lastBgUpdateMs = now;
+            window._scriptUpdate?.(dt);
+        }, 100);
+    } else {
+        clearInterval(_bgScriptInterval);
+        _bgScriptInterval = null;
     }
 });
 
@@ -4492,6 +4546,13 @@ window._bloxverse = {
     },
     getGraphicsLevel() { return _graphicsLevel; },
     onQualityChange(fn) { _qualityChangeCallback = fn; },
+    // Mobile key registry — scanned from script IsKeyDown calls
+    getJoystick: () => joystickVector,
+    _registerMobileKey(key) { _pendingMobileKeys.add(key); },
+    _getMobileKeys() { return [..._pendingMobileKeys]; },
+    // Physics control
+    setPhysicsGravity(y) { physicsWorld.gravity.set(0, y, 0); },
+    getPhysicsGravity: () => physicsWorld.gravity.y,
 };
 
 function _applyGraphicsLevel() {

@@ -168,6 +168,10 @@ ballInst.Touched:Connect(function(hit)
     local baseUp = BASE_KICK_UP + ((CHARGED_KICK_UP - BASE_KICK_UP) * chargeRatio)
     local power = basePower * speedMult
     local up = baseUp * speedMult
+    if window and window._bloxverse and window._bloxverse._physicsMode == "arcade" then
+        power = power * 0.7
+        up = up * 0.7
+    end
 
     ball:SetVelocity(facingX * power, up, facingZ * power)
 

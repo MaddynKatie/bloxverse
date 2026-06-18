@@ -288,6 +288,10 @@ local onUpdate = function(dt)
                     end
                 end
 
+                if window and window._bloxverse and window._bloxverse._physicsMode == "arcade" then
+                    power = power * 0.7
+                    up = up * 0.7
+                end
                 ball:SetVelocity(facingX * power, up, facingZ * power)
                 kicked = true
                 kickIdleTime = 0
@@ -330,14 +334,26 @@ local onChat = function(player, message)
     end
     if current ~= "" then table.insert(args, current) end
 
+    local isRemove = false
     local newSide = 0
     local newDiff = ""
     for _, arg in ipairs(args) do
+        if arg == "remove" or arg == "rm" then isRemove = true end
         if arg == "home" or arg == "1" then newSide = 1 end
         if arg == "away" or arg == "2" then newSide = 2 end
         if arg == "easy" then newDiff = "easy" end
         if arg == "medium" or arg == "med" then newDiff = "medium" end
         if arg == "hard" then newDiff = "hard" end
+    end
+
+    if isRemove then
+        if bot then
+            game.RemoveCharacterClone(bot)
+            bot = nil
+            spawned = false
+            game.Broadcast("Bot removed.")
+        end
+        return
     end
 
     if newSide ~= 0 or newDiff ~= "" then

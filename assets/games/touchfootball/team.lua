@@ -1,27 +1,15 @@
-local playerCount = 0
-
-local getBalancedTeam
-getBalancedTeam = function()
-    playerCount = playerCount + 1
-    return (playerCount % 2 == 1) and 1 or 2
-end
-
 local function onGameStart()
     local p = game:GetLocalPlayer()
     if p then
-        local teamNumber = getBalancedTeam()
-        p:SetProperty("team", teamNumber)
-        local teamName = teamNumber == 1 and "Red" or "Blue"
-        game:Broadcast("You joined Team " .. teamName)
+        game:Broadcast("Welcome! Teams are assigned when game starts.")
+        game:Broadcast("Controls: Q sprint, E charge kick | /start to begin match")
     end
 end
 
 local function onPlayerJoin(player)
-    local teamNumber = getBalancedTeam()
-    player:SetProperty("team", teamNumber)
-    local teamName = teamNumber == 1 and "Red" or "Blue"
-    game:Broadcast(player.name .. " joined Team " .. teamName)
-    game:Broadcast("Controls: Q to sprint, E to charge kick | !bot to spawn a bot | /resetparts to reset all balls")
+    game:Broadcast(player.name .. " joined")
+    game:Broadcast("Controls: Q sprint, E charge kick | !bot, !dumbbot, !goalkeeper [home/away/both/easy/med/hard/ext]")
+    game:Broadcast("Commands: /start, /end, /team1/2 NAME, /score reset, /texture NAME, /resetparts")
 end
 
 return {

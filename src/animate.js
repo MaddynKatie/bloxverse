@@ -3,6 +3,7 @@ import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 
+
 const playerModelUrl = new URL('../assets/models/player.fbx', import.meta.url).href;
 
 // ─── State ────────────────────────────────────────────────────────────────────
