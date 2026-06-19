@@ -27,8 +27,7 @@ local spawnPart = function()
     local z = math.random() * (SPAWN_AREA * 2) - SPAWN_AREA
     local name = "server_Part" .. totalSpawned
     totalSpawned = totalSpawned + 1
-    local h = math.random()
-    table.insert(parts, {name = name, x = x, y = 2.5, z = z, level = 1, cr = h, cg = 0.8, cb = 0.9, ry = 0, destroyed = false})
+    table.insert(parts, {name = name, x = x, y = 2.5, z = z, level = 1, cr = math.random(), cg = math.random(), cb = math.random(), ry = 0, destroyed = false})
 end
 
 local findPart = function(name)
