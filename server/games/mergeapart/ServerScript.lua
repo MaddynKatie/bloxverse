@@ -32,7 +32,7 @@ end
 
 local findPart = function(name)
     for _, p in ipairs(parts) do
-        if p.name == name and not p.destroyed then return p end
+        if p.name == name then return p end
     end
     return nil
 end
