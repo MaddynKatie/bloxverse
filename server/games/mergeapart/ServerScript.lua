@@ -41,7 +41,6 @@ local onGameStart = function()
     for i = 1, SPAWN_COUNT do
         spawnPart()
     end
-    broadcastState()
 end
 
 local onPlayerJoin = function(player)

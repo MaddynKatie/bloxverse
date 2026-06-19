@@ -17,7 +17,7 @@ function luaToJS(lua) {
     (s) => s.replace(/\blocal\s+/g, 'let '),
     (s) => s.replace(/\bthen\b/g, '{'),
     (s) => s.replace(/\belseif\b/g, '} else if'),
-    (s) => s.replace(/\belse\b(?!\s*\{)/g, '} else {'),
+    (s) => s.replace(/\belse\b(?![^\S\n]*(?:\{|if\b))/g, '} else {'),
     (s) => s.replace(/(\w+(?:\.\w+)*):([\w]+)\s*\(/g, '$1.$2('),
     (s) => s.replace(/=\s*\{\}/g, '= []'),
     (s) => {
