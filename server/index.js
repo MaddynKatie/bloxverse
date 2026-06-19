@@ -3,16 +3,20 @@ const http = require('http');
 const url = require('url');
 const fs = require('fs');
 const path = require('path');
+const { GameServer } = require('./game-server.js');
 
 // Store scripts in memory (in production, use a database)
 const gameScripts = new Map();
+
+// gameId -> GameServer instance
+const gameServers = new Map();
 
 const server = http.createServer(async (req, res) => {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  
+
   if (req.method === 'OPTIONS') {
     res.writeHead(200);
     res.end();
@@ -38,7 +42,7 @@ const server = http.createServer(async (req, res) => {
       try {
         const data = JSON.parse(body);
         const { gameId, scriptName, code, userId } = data;
-        
+
         if (!gameId || !scriptName || !code) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Missing required fields' }));
@@ -74,7 +78,7 @@ const server = http.createServer(async (req, res) => {
       try {
         const data = JSON.parse(body);
         const { gameId, scripts, userId } = data;
-        
+
         if (!gameId || !scripts) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Missing required fields' }));
@@ -92,10 +96,10 @@ const server = http.createServer(async (req, res) => {
           if (!gameScripts.has(gameId)) {
             gameScripts.set(gameId, {});
           }
-          gameScripts.get(gameId)[scriptName] = { 
-            code: scriptData.code, 
+          gameScripts.get(gameId)[scriptName] = {
+            code: scriptData.code,
             publishedAt: new Date().toISOString(),
-            userId 
+            userId
           };
         }
 
@@ -138,6 +142,13 @@ wss.on('connection', (ws, req) => {
   const room = games.get(gameId);
   room.add(ws);
 
+  // Initialize GameServer for this game if not already running
+  if (!gameServers.has(gameId)) {
+    const gs = new GameServer(gameId, room);
+    gameServers.set(gameId, gs);
+  }
+  const gs = gameServers.get(gameId);
+
   function broadcastPlayerList(targetRoom) {
     const players = Array.from(targetRoom).map(c => ({ userId: c.userId, username: c.username }));
     const msg = JSON.stringify({ type: 'playerList', players });
@@ -147,33 +158,40 @@ wss.on('connection', (ws, req) => {
   }
 
   console.log(`User ${userId} joined game ${gameId}. Total in game: ${room.size}`);
-  
+
   broadcastPlayerList(room);
   const joinMsg = JSON.stringify({ type: 'chat', system: true, message: `${ws.username} joined.` });
   for (const client of room) {
     if (client.readyState === 1) client.send(joinMsg);
   }
 
+  // Notify game server script
+  gs.handlePlayerJoin(userId, ws.username);
+
   ws.on('message', (message) => {
     const currentRoom = games.get(gameId);
-    if (currentRoom) {
-      let data;
-      let isChat = false;
-      try {
-        data = JSON.parse(message);
-        if (data.type === 'chat') {
-          isChat = true;
-          // Ensure userId is included in chat messages
-          if (!data.userId) data.userId = userId;
+    if (!currentRoom) return;
+
+    let data;
+    let isChat = false;
+    try {
+      data = JSON.parse(message);
+      if (data.type === 'chat') {
+        isChat = true;
+        if (!data.userId) data.userId = userId;
+
+        // Route to server-side game script for processing
+        if (data.message && typeof data.message === 'string') {
+          gs.handleChat(data.userId, data.message);
         }
-      } catch (e) {}
-      
-      const msgToSend = isChat ? JSON.stringify(data) : message;
-      
-      for (const client of currentRoom) {
-        if ((client !== ws || isChat) && client.readyState === 1) {
-          client.send(msgToSend);
-        }
+      }
+    } catch (e) {}
+
+    const msgToSend = isChat ? JSON.stringify(data) : message;
+
+    for (const client of currentRoom) {
+      if ((client !== ws || isChat) && client.readyState === 1) {
+        client.send(msgToSend);
       }
     }
   });
@@ -182,8 +200,15 @@ wss.on('connection', (ws, req) => {
     const currentRoom = games.get(gameId);
     if (currentRoom) {
       currentRoom.delete(ws);
+      gs.handlePlayerLeave(userId, ws.username);
       if (currentRoom.size === 0) {
         games.delete(gameId);
+        const oldGs = gameServers.get(gameId);
+        if (oldGs) {
+          oldGs.destroy();
+          gameServers.delete(gameId);
+          console.log(`[GameServer ${gameId}] Destroyed (no players left)`);
+        }
       } else {
         const leaveMsg = JSON.stringify({ type: 'leave', userId });
         const chatMsg = JSON.stringify({ type: 'chat', system: true, message: `${ws.username} left.` });
