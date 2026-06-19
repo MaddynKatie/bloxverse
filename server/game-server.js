@@ -19,7 +19,7 @@ function luaToJS(lua) {
     (s) => s.replace(/\belseif\b/g, '} else if'),
     (s) => s.replace(/\belse\b(?![^\S\n]*(?:\{|if\b))/g, '} else {'),
     (s) => s.replace(/(\w+(?:\.\w+)*):([\w]+)\s*\(/g, '$1.$2('),
-    (s) => s.replace(/=\s*\{\}/g, '= []'),
+    (s) => s.replace(/([=:])\s*\{\}/g, '$1 []'),
     (s) => {
       let _forIdx = 0;
       const _np = /((?:[^()]|(?:\([^()]*\)))*)/
