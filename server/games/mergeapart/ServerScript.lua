@@ -1,7 +1,9 @@
 local parts = {}
 local totalSpawned = 0
-local SPAWN_COUNT = 20
+local MAX_ACTIVE_PARTS = 15
+local SPAWN_INTERVAL = 5
 local SPAWN_AREA  = 100
+local bestScores = {}
 
 local serializeParts = function()
     local chunks = {}
@@ -41,16 +43,32 @@ local spawnPart = function()
     table.insert(parts, {name = name, x = x, y = 0.5, z = z, level = 1, cr = r, cg = g, cb = b, ry = 0, destroyed = false})
 end
 
-local onGameStart = function()
-    for i = 1, SPAWN_COUNT do
-        spawnPart()
+local countActive = function()
+    local count = 0
+    for _, p in ipairs(parts) do
+        if not p.destroyed then count = count + 1 end
     end
-    broadcastState()
+    return count
+end
+
+local spawnTimer = function()
+    if countActive() < MAX_ACTIVE_PARTS then
+        spawnPart()
+        broadcastState()
+    end
+    delay(SPAWN_INTERVAL, spawnTimer)
+end
+
+local onGameStart = function()
+    delay(SPAWN_INTERVAL, spawnTimer)
 end
 
 local onPlayerJoin = function(player)
-    -- Send current state to all (new player will receive it too)
     broadcastState()
+    -- Send current best scores via TT|STAT| (rendered by game.html leaderboard)
+    for uid, level in pairs(bestScores) do
+        game:SendChat("TT|STAT|" .. uid .. "|Best|" .. level)
+    end
 end
 
 local onChat = function(player, message, data)
@@ -115,6 +133,14 @@ local onChat = function(player, message, data)
             tp.destroyed = false; tp.heldBy = nil
         else
             table.insert(parts, {name = targetName, x = x, y = y, z = z, level = level, cr = cr, cg = cg, cb = cb, ry = ry, destroyed = false})
+        end
+        -- Track best merge score (rendered by game.html leaderboard via TT|STAT|)
+        if level then
+            local sb = bestScores[data.userId] or 0
+            if level > sb then
+                bestScores[data.userId] = level
+                game:SendChat("TT|STAT|" .. data.userId .. "|Best|" .. level)
+            end
         end
         -- No broadcastState — all clients handle MERGE directly via onChat
         return
