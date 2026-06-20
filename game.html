@@ -642,7 +642,7 @@
       // Default stats per game.
       // Timetag previously injected a default { Wins: 0 } which caused the Wins column
       // to show even when timetag should not display it.
-      const defaultStatsPerGame = (game && game.id === 'blockyfights') ? { Kills: 0 } : {};
+      const defaultStatsPerGame = (game && game.id === 'blockyfights') ? { Kills: 0 } : (game && game.id === 'mergeapart') ? { Best: 0 } : {};
       lbList.innerHTML = players
         .map(p => ({ p, stats: { ...defaultStatsPerGame, ...(_playerStats.get(p.userId) || {}) } }))
         .sort((a, b) => {
@@ -2120,7 +2120,7 @@
                   for (const p of players) {
                     _playerUsernames.set(p.userId, p.username);
                     _playerUserIds.set(p.userId, p.userIdNum);
-                    if (!_playerStats.has(p.userId)) _playerStats.set(p.userId, { Best: 0 });
+                    if (!_playerStats.has(p.userId)) _playerStats.set(p.userId, {});
                     // Call onPlayerJoin for new players
                     if (!_knownPlayerIds.has(p.userId)) {
                       _knownPlayerIds.add(p.userId);
