@@ -16,11 +16,12 @@ local GRAB_MARGIN_XZ = 1.5
 local GRAB_MARGIN_Y  = 1.0
 local MERGE_MARGIN   = 2.0
 local DROP_DIST      = 6
+local SIZE_PER_LEVEL = 0.5
 local FOLLOW_Y_OFFSET = 4
 
 -- Create or update a part entry at given position/level/color/rotation
 local ensurePart = function(id, x, y, z, level, cr, cg, cb, ry)
-    local newSize = 1 + level * 1
+    local newSize = 1 + level * SIZE_PER_LEVEL
     local floorY  = newSize / 2
 
     local existing = nil
@@ -123,7 +124,7 @@ local onGameStart = function()
         if not heldPart or heldTime < 0.5 then return end
         local dropData = game:GetCharacterData()
         if not dropData then return end
-        local size    = 1 + heldPart.level * 1
+        local size    = 1 + heldPart.level * SIZE_PER_LEVEL
         local dropY   = size / 2
         local dx      = math.sin(dropData.ry) * DROP_DIST
         local dz      = math.cos(dropData.ry) * DROP_DIST
@@ -158,7 +159,7 @@ local onUpdate = function(dt)
         window._bloxverse._setPartPos(heldPart.part.mesh, fx, fy, fz, true)
         window._bloxverse._setPartRotationOnly(heldPart.part.mesh, charData.ry)
 
-        local pHalf = (1 + heldPart.level * 1) / 2
+        local pHalf = (1 + heldPart.level * SIZE_PER_LEVEL) / 2
         heldPart.sprite.position:set(fx, fy + pHalf + 0.5, fz)
 
         -- Check for merge after holding for 1s
@@ -167,13 +168,13 @@ local onUpdate = function(dt)
                 if not data.destroyed and data.part and data ~= heldPart and data.level == heldPart.level then
                     local dx = data.part.Position.x - charData.x
                     local dz = data.part.Position.z - charData.z
-                    local mHalf    = (1 + data.level * 1) / 2
-                    local heldHalf = (1 + heldPart.level * 1) / 2
+                    local mHalf    = (1 + data.level * SIZE_PER_LEVEL) / 2
+                    local heldHalf = (1 + heldPart.level * SIZE_PER_LEVEL) / 2
                     local thresh   = mHalf + heldHalf + MERGE_MARGIN
                     if dx * dx + dz * dz < thresh * thresh then
                         local destroyedName = data.part.Name
                         heldPart.level = heldPart.level + data.level
-                        local newSize  = 1 + heldPart.level * 1
+                        local newSize  = 1 + heldPart.level * SIZE_PER_LEVEL
                         local newHalf  = newSize / 2
 
                         heldPart.part.Size = {x = newSize, y = newSize, z = newSize}
@@ -234,7 +235,7 @@ local onUpdate = function(dt)
                     local dx   = data.part.Position.x - charData.x
                     local dy   = data.part.Position.y - charData.y
                     local dz   = data.part.Position.z - charData.z
-                    local pHalf = (1 + data.level * 1) / 2
+                    local pHalf = (1 + data.level * SIZE_PER_LEVEL) / 2
                     if math.abs(dy) < pHalf + GRAB_MARGIN_Y and dx * dx + dz * dz < (pHalf + GRAB_MARGIN_XZ) * (pHalf + GRAB_MARGIN_XZ) then
                         heldPart = data
                         heldTime = 0
@@ -255,7 +256,7 @@ local onUpdate = function(dt)
             if pl then
                 local fy = pl.y + FOLLOW_Y_OFFSET
                 window._bloxverse._setPartPos(entry.part.mesh, pl.x, fy, pl.z, true)
-                local pHalf = (1 + entry.level * 1) / 2
+                local pHalf = (1 + entry.level * SIZE_PER_LEVEL) / 2
                 if entry.sprite then
                     entry.sprite.position:set(pl.x, fy + pHalf + 0.5, pl.z)
                 end
@@ -291,12 +292,14 @@ local onChat = function(player, message, data)
             end
             i = i + 1
         end
+        -- Keep the held part alive even if server excluded it from STATE
+        if heldPart and heldPart.part then
+            seen[heldPart.part.Name] = true
+        end
         -- Remove parts that no longer exist in state
         local alive = {}
         for _, entry in ipairs(state.parts) do
             if entry.part and seen[entry.part.Name] then
-                table.insert(alive, entry)
-            elseif entry.part and heldPart and entry.part.Name == heldPart.part.Name then
                 table.insert(alive, entry)
             else
                 if entry.part then entry.part:Destroy() end

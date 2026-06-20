@@ -232,6 +232,12 @@
     import { findEmote, getAllEmotes } from './src/emotes.js';
     import { ProfanityFilter } from 'glin-profanity';
     import { loadGameScriptModules } from './src/game-scripts.js';
+    import { sitePath } from './src/paths.js';
+    auth.onAuthStateChanged((user) => {
+      if (!user) {
+        window.location.href = sitePath('auth.html');
+      }
+    });
     const _profanityCheck = new ProfanityFilter({
       detectLeetspeak: true,
       leetspeakLevel: 'moderate',

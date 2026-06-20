@@ -596,7 +596,7 @@ function getCachedSphereGeo(radius) {
 function getCachedMats(sw, sh, sd, color) {
     const key = `${sw},${sh},${sd},${color}`;
     if (matCache.has(key)) return matCache.get(key);
-    const t = (v) => Math.max(1, v / STUDS_PER_TILE);
+    const t = (v) => v / STUDS_PER_TILE;
     const m = (rx, ry) => new THREE.MeshStandardMaterial({
         color,
         map: studTex(rx, ry),
@@ -4242,6 +4242,11 @@ window._bloxverse = {
                 mesh.geometry = getCachedSphereGeo(r);
             } else {
                 mesh.geometry = getCachedGeo(sw, sh, sd);
+                const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+                const color = mats[0]?.color?.getHex();
+                if (color != null) {
+                    mesh.material = getCachedMats(sw, sh, sd, color);
+                }
             }
             mesh.userData.halfSize = { sw, sh, sd };
             const body = entry.body;
