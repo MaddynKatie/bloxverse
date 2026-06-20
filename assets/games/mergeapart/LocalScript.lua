@@ -296,6 +296,8 @@ local onChat = function(player, message, data)
         for _, entry in ipairs(state.parts) do
             if entry.part and seen[entry.part.Name] then
                 table.insert(alive, entry)
+            elseif entry.part and heldPart and entry.part.Name == heldPart.part.Name then
+                table.insert(alive, entry)
             else
                 if entry.part then entry.part:Destroy() end
                 window._bloxverse.destroyBillboard(entry.sprite)

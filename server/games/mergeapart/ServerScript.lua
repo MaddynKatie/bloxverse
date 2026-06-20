@@ -8,7 +8,7 @@ local bestScores = {}
 local serializeParts = function()
     local chunks = {}
     for _, p in ipairs(parts) do
-        if not p.destroyed then
+        if not p.destroyed and not p.heldBy then
             table.insert(chunks, p.name .. "," .. p.x .. "," .. p.y .. "," .. p.z .. "," .. p.level .. "," .. p.cr .. "," .. p.cg .. "," .. p.cb .. "," .. (p.ry or 0))
         end
     end
@@ -81,9 +81,8 @@ local onChat = function(player, message, data)
         if not name then return end
         local p = findPart(name)
         if p then
-            -- Mark as held so STATE broadcasts don't include it
+            -- Mark as held so serializeParts excludes it from STATE broadcasts
             p.heldBy = data.userId
-            p.destroyed = true
         end
         -- No broadcastState needed — LocalScript.onChat handles PICKUP directly
         return
