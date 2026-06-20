@@ -16,7 +16,7 @@ local GRAB_MARGIN_XZ = 1.5
 local GRAB_MARGIN_Y  = 1.0
 local MERGE_MARGIN   = 2.0
 local DROP_DIST      = 6
-local SIZE_PER_LEVEL = 0.5
+local SIZE_PER_LEVEL = 0.15
 local FOLLOW_Y_OFFSET = 4
 
 -- Create or update a part entry at given position/level/color/rotation
@@ -295,6 +295,12 @@ local onChat = function(player, message, data)
         -- Keep the held part alive even if server excluded it from STATE
         if heldPart and heldPart.part then
             seen[heldPart.part.Name] = true
+        end
+        -- Keep parts held by other players alive too
+        for _, entry in pairs(heldByOthers) do
+            if entry and entry.part then
+                seen[entry.part.Name] = true
+            end
         end
         -- Remove parts that no longer exist in state
         local alive = {}
