@@ -1770,14 +1770,14 @@
                   spawn.ry ?? Math.PI
                 );
               }
-              window._bloxverse.setWorldFloorEnabled(game.worldFloor !== false);
-              if (game.respawnY != null) {
-                window._bloxverse.setRespawnY(game.respawnY);
-              }
             }
-            window._bloxverse.setSens(parseFloat(sensSlider.value));
-            window._bloxverse.shiftLockEnabled = shiftlockToggle.checked;
           }
+          window._bloxverse.setWorldFloorEnabled(game.worldFloor !== false);
+          if (game.respawnY != null) {
+            window._bloxverse.setRespawnY(game.respawnY);
+          }
+          window._bloxverse.setSens(parseFloat(sensSlider.value));
+          window._bloxverse.shiftLockEnabled = shiftlockToggle.checked;
           setupClientEffect(window._mapConfig || game);
           incrementGameVisits(gameId).catch(err => console.error('Visit increment failed:', err));
           // Reward the game author 1 bux for a unique visit
