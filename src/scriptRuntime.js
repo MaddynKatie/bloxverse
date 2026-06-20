@@ -24,16 +24,16 @@ export function luaToJS(lua) {
         (_s) => _s.replace(/\blocal\s+/g, 'let '),
         (_s) => _s.replace(/\bthen\b/g, '{'),
         (_s) => _s.replace(/\belseif\b/g, '} else if'),
-        (_s) => _s.replace(/\belse\b(?!\s*\{)/g, '} else {'),
+        (_s) => _s.replace(/\belse\b(?![^\S\n]*(?:\{|if\b))/g, '} else {'),
         // Convert `:` method calls to `.` BEFORE pairs/ipairs conversion
-        (_s) => _s.replace(/(\w+(?:\.\w+)*):([\w]+)\s*\(/g, '$1.$2('),
+        (_s) => _s.replace(/(\w+(?:\.\w+)*(?:\[[^\]]*\])*):([\w]+)\s*\(/g, '$1.$2('),
         // Convert empty table constructors to arrays so table.insert/sort/concat work
-        (_s) => _s.replace(/=\s*\{\}/g, '= []'),
+        (_s) => _s.replace(/([=:])\s*\{\}/g, '$1 []'),
         // Convert Lua ipairs/pairs for loops to JS for loops
         // MUST run before `do` → `{` conversion (below) so the `do` keyword is still present
         (_s) => {
             let _forIdx = 0;
-            const _np = /((?:[^()]|(?:\([^()]*\)))*)/;
+            const _np = /((?:[^()]|(?:\([^()]*\)))+)/;
             const _iv  = new RegExp('for\\s+_,\\s*(\\w+)\\s+in\\s+ipairs\\s*\\(' + _np.source + '\\)\\s+do', 'g');
             const _ikv = new RegExp('for\\s+(\\w+)\\s*,\\s*(\\w+)\\s+in\\s+ipairs\\s*\\(' + _np.source + '\\)\\s+do', 'g');
             const _ik  = new RegExp('for\\s+(\\w+)\\s+in\\s+ipairs\\s*\\(' + _np.source + '\\)\\s+do', 'g');
@@ -469,6 +469,19 @@ export function createInstanceProxy(inst) {
                     target.setProperty?.('Size', arr);
                     return true;
                 }
+                if (prop === 'CanCollide') {
+                    target.CanCollide = !!value;
+                    if (target.mesh) {
+                        if (!target.mesh.userData) target.mesh.userData = {};
+                        target.mesh.userData.canCollide = target.CanCollide;
+                        const bv = window._bloxverse;
+                        if (bv) {
+                            if (target.CanCollide) bv._activatePartCollider?.(target.mesh);
+                            else bv._deactivatePartCollider?.(target.mesh);
+                        }
+                    }
+                    return true;
+                }
                 if (prop === 'Color') {
                     if (typeof value === 'object' && value !== null && 'r' in value) {
                         target.Color.setRGB(value.r, value.g, value.b);
@@ -642,7 +655,7 @@ const LuaString = {
 };
 
 // ── Table extras ──────────────────────────────────────────────────────────────
-const _toArray = (t) => { if (Array.isArray(t)) return t; const a = Object.values(t); Object.keys(t).forEach((k, i) => { delete t[k]; t[i] = a[i]; }); return t; };
+const _toArray = (t) => { if (!t) return []; if (Array.isArray(t)) return t; const a = Object.values(t); Object.keys(t).forEach((k, i) => { delete t[k]; t[i] = a[i]; }); t.length = a.length; Object.setPrototypeOf(t, Array.prototype); return t; };
 const LuaTable = {
     insert: (t, pos, val) => {
         t = _toArray(t);

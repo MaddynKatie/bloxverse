@@ -488,7 +488,7 @@
     }
 
     function appendChatMessage(data) {
-      if (!data.system && data.message.startsWith('TT|')) return;
+      if (data.message.startsWith('TT|')) return;
       if (!data.system && data.message.startsWith('/resetparts')) {
         if (window._bloxverse) {
           const resetState = window._bloxverse.resetParts();
@@ -1633,7 +1633,7 @@
           }
           const userId = auth.currentUser?.uid || 'game';
           const username = 'Time Tag';
-          sendChat(msg, username, userId, false);
+          sendChat(msg, username, userId, msg.startsWith('TT|'));
         },
         Fire: (event, ...args) => {
           (gameEventListeners[event] || []).forEach(cb => cb(...args));
@@ -1849,11 +1849,13 @@
             const [sw, sh, sd] = partInst.Size;
             const color = partInst.Color.getHex();
             const [px, py, pz] = partInst.Position || [0, 0, 0];
-            const mesh = bv.addStud(sw, sh, sd, color, px, py, pz, 0, 0, 0, partInst.Anchored, partInst.Shape);
+            const mesh = bv.addStud(sw, sh, sd, color, px, py - sh / 2, pz, 0, 0, 0, partInst.Anchored, partInst.Shape);
             if (mesh) {
               mesh.name = partInst.Name;
               mesh.userData.partName = partInst.Name;
+              mesh.userData.canCollide = partInst.CanCollide !== false;
               partInst.mesh = mesh;
+              bv._activatePartCollider(mesh);
               if (partInst.Transparency > 0) {
                 bv._setPartTransparency(mesh, partInst.Transparency);
               }
@@ -1892,9 +1894,9 @@
             }
 
             activeClientEffect?.update?.(dt);
-            if (!gameStarted) {
-              gameStarted = true;
-              for (const ex of scriptExports) {
+            for (const ex of scriptExports) {
+              if (!ex._started) {
+                ex._started = true;
                 try { ex.onGameStart?.(); } catch (e) { console.error('[Script] onGameStart error:', e); }
               }
             }
@@ -2112,6 +2114,7 @@
                   for (const p of players) {
                     _playerUsernames.set(p.userId, p.username);
                     _playerUserIds.set(p.userId, p.userIdNum);
+                    if (!_playerStats.has(p.userId)) _playerStats.set(p.userId, { Best: 0 });
                     // Call onPlayerJoin for new players
                     if (!_knownPlayerIds.has(p.userId)) {
                       _knownPlayerIds.add(p.userId);
@@ -2185,6 +2188,17 @@
                     dispatchScriptChat(data);
                     return;
                   }
+                  if (data.message?.startsWith('TT|MG|BEST|')) {
+                    const parts = data.message.split('|');
+                    const pid = parts[3];
+                    const raw = parts[4];
+                    if (pid && raw !== undefined) {
+                      if (!_playerStats.has(pid)) _playerStats.set(pid, {});
+                      _playerStats.get(pid)['Best'] = Number(raw);
+                      if (_lastLeaderboardPlayers.length > 0) renderLeaderboard(_lastLeaderboardPlayers);
+                    }
+                    return;
+                  }
                   if (data.message?.startsWith('TT|STAT|')) {
                     const parts = data.message.split('|');
                     const pid = parts[2];
@@ -2204,6 +2218,9 @@
                       if (_lastLeaderboardPlayers.length > 0) renderLeaderboard(_lastLeaderboardPlayers);
                     }
                     dispatchScriptChat(data);
+                    return;
+                  }
+                  if (data.message?.startsWith('TT|MG|LEADER|')) {
                     return;
                   }
                   if (data.message?.startsWith('TT|EMOTE|')) {

@@ -596,6 +596,7 @@ function getCachedSphereGeo(radius) {
 function getCachedMats(sw, sh, sd, color) {
     const key = `${sw},${sh},${sd},${color}`;
     if (matCache.has(key)) return matCache.get(key);
+    const t = (v) => Math.max(1, v / STUDS_PER_TILE);
     const m = (rx, ry) => new THREE.MeshStandardMaterial({
         color,
         map: studTex(rx, ry),
@@ -603,12 +604,12 @@ function getCachedMats(sw, sh, sd, color) {
         metalness: 0.0,
     });
     const mats = [
-        m(sd / STUDS_PER_TILE, sh / STUDS_PER_TILE), // right
-        m(sd / STUDS_PER_TILE, sh / STUDS_PER_TILE), // left
-        m(sw / STUDS_PER_TILE, sd / STUDS_PER_TILE), // top
-        m(sw / STUDS_PER_TILE, sd / STUDS_PER_TILE), // bottom
-        m(sw / STUDS_PER_TILE, sh / STUDS_PER_TILE), // front
-        m(sw / STUDS_PER_TILE, sh / STUDS_PER_TILE), // back
+        m(t(sd), t(sh)), // right
+        m(t(sd), t(sh)), // left
+        m(t(sw), t(sd)), // top
+        m(t(sw), t(sd)), // bottom
+        m(t(sw), t(sh)), // front
+        m(t(sw), t(sh)), // back
     ];
     matCache.set(key, mats);
     return mats;
@@ -3514,10 +3515,18 @@ window._bloxverse = {
         const nearby = getNearbyColliders(x, y, z);
         for (const c of nearby) {
             if (c._bodyRef) continue;
-            if (c.minX <= x + halfW && c.maxX >= x - halfW &&
-                c.minY <= y + halfH && c.maxY >= y - halfH &&
-                c.minZ <= z + halfD && c.maxZ >= z - halfD) {
-                return true;
+            if (c.isOBB) {
+                const dx = x - c.cx, dy = y - c.cy, dz = z - c.cz;
+                const lx = Math.abs(dx * c.ux + dy * c.uy + dz * c.uz);
+                const ly = Math.abs(dx * c.vx + dy * c.vy + dz * c.vz);
+                const lz = Math.abs(dx * c.wx + dy * c.wy + dz * c.wz);
+                if (lx <= c.hx + halfW && ly <= c.hy + halfH && lz <= c.hz + halfD) return true;
+            } else {
+                if (c.minX <= x + halfW && c.maxX >= x - halfW &&
+                    c.minY <= y + halfH && c.maxY >= y - halfH &&
+                    c.minZ <= z + halfD && c.maxZ >= z - halfD) {
+                    return true;
+                }
             }
         }
         return false;
@@ -3910,6 +3919,7 @@ window._bloxverse = {
     getCharBubbleBase: () => CHAR_HEIGHT - CHAR_FOOT_OFFSET + 0.4,
     showBubble: (id, text) => _showBubble(id, text),
     setCurrentUserId: (id) => { currentUserId = id; },
+    getCurrentUserId: () => currentUserId,
     setSpawn(x, y, z, ry = Math.PI) {
         _spawnPoint = { x, y, z, ry };
         if (character) {
@@ -4083,10 +4093,89 @@ window._bloxverse = {
     },
     // Part manipulation helpers for the scripting proxy
     _getPartEntry(mesh) { return physicsBodies.get(mesh) || null; },
-    _setPartPos(mesh, x, y, z) {
+    _setPartPos(mesh, x, y, z, skipCollision) {
         mesh.position.set(x, y, z);
         const entry = physicsBodies.get(mesh);
         if (entry) entry.body.position.set(x, y, z);
+        if (!skipCollision) this._activatePartCollider(mesh);
+    },
+    _setPartRotation(mesh, ry) {
+        mesh.rotation.y = ry;
+        const entry = physicsBodies.get(mesh);
+        if (entry) {
+            const quat = new CANNON.Quaternion();
+            quat.setFromEuler(0, ry, 0);
+            entry.body.quaternion = quat;
+        }
+        this._activatePartCollider(mesh);
+    },
+    _setPartRotationOnly(mesh, ry) {
+        mesh.rotation.y = ry;
+        const entry = physicsBodies.get(mesh);
+        if (entry) {
+            const quat = new CANNON.Quaternion();
+            quat.setFromEuler(0, ry, 0);
+            entry.body.quaternion = quat;
+        }
+    },
+    _deactivatePartCollider(mesh) {
+        for (let i = colliders.length - 1; i >= 0; i--) {
+            if (colliders[i]._meshRef === mesh) {
+                const old = colliders[i];
+                const x0 = worldToChunk(old.minX), x1 = worldToChunk(old.maxX);
+                const y0 = worldToChunk(old.minY), y1 = worldToChunk(old.maxY);
+                const z0 = worldToChunk(old.minZ), z1 = worldToChunk(old.maxZ);
+                for (let cx = x0; cx <= x1; cx++)
+                    for (let cy = y0; cy <= y1; cy++)
+                        for (let cz = z0; cz <= z1; cz++) {
+                            const key = chunkKey(cx, cy, cz);
+                            const bucket = chunkMap.get(key);
+                            if (bucket) { bucket.delete(old); if (bucket.size === 0) chunkMap.delete(key); }
+                        }
+                colliders.splice(i, 1);
+            }
+        }
+    },
+    _activatePartCollider(mesh) {
+        this._deactivatePartCollider(mesh);
+        const hs = mesh.userData?.halfSize;
+        if (!hs) return;
+        if (mesh.userData?.canCollide === false) return;
+        const sw = hs.sw, sh = hs.sh, sd = hs.sd;
+        const pos = mesh.position;
+        const rx = mesh.rotation.x || 0, ry = mesh.rotation.y || 0, rz = mesh.rotation.z || 0;
+        let b;
+        if (rx === 0 && ry === 0 && rz === 0) {
+            b = {
+                minX: pos.x - sw / 2, maxX: pos.x + sw / 2,
+                minY: pos.y - sh / 2, maxY: pos.y + sh / 2,
+                minZ: pos.z - sd / 2, maxZ: pos.z + sd / 2,
+                _meshRef: mesh
+            };
+        } else {
+            b = buildOBB(sw, sh, sd, pos.x, pos.y, pos.z, rx, ry, rz);
+            b._meshRef = mesh;
+        }
+        for (let i = colliders.length - 1; i >= 0; i--) {
+            if (colliders[i]._meshRef === mesh) {
+                const old = colliders[i];
+                const x0 = worldToChunk(old.minX), x1 = worldToChunk(old.maxX);
+                const y0 = worldToChunk(old.minY), y1 = worldToChunk(old.maxY);
+                const z0 = worldToChunk(old.minZ), z1 = worldToChunk(old.maxZ);
+                for (let cx = x0; cx <= x1; cx++)
+                    for (let cy = y0; cy <= y1; cy++)
+                        for (let cz = z0; cz <= z1; cz++) {
+                            const key = chunkKey(cx, cy, cz);
+                            const bucket = chunkMap.get(key);
+                            if (bucket) { bucket.delete(old); if (bucket.size === 0) chunkMap.delete(key); }
+                        }
+                Object.assign(old, b);
+                insertToChunks(old);
+                return;
+            }
+        }
+        colliders.push(b);
+        insertToChunks(b);
     },
     _setPartVelocity(mesh, vx, vy, vz) {
         const entry = physicsBodies.get(mesh);
@@ -4125,9 +4214,7 @@ window._bloxverse = {
             );
             entry.body.updateMassProperties();
     if (anchored && mesh.userData.canCollide !== false) {
-                const h = mesh.userData.halfSize;
-                const pos = mesh.position;
-                colliders.push({ minX: pos.x - h.sw / 2, maxX: pos.x + h.sw / 2, minY: pos.y - h.sh, maxY: pos.y, minZ: pos.z - h.sd / 2, maxZ: pos.z + h.sd / 2 });
+                this._activatePartCollider(mesh);
             }
         }
     },
@@ -4152,10 +4239,8 @@ window._bloxverse = {
             const shape = entry.body.shapes[0]?.type === CANNON.Shape.types.SPHERE ? 'Ball' : 'Block';
             if (shape === 'Ball') {
                 const r = Math.max(sw, sh, sd) / 2;
-                mesh.geometry.dispose();
                 mesh.geometry = getCachedSphereGeo(r);
             } else {
-                mesh.geometry.dispose();
                 mesh.geometry = getCachedGeo(sw, sh, sd);
             }
             mesh.userData.halfSize = { sw, sh, sd };
@@ -4172,6 +4257,7 @@ window._bloxverse = {
                 body.updateMassProperties();
             }
         }
+        this._activatePartCollider(mesh);
     },
     _getPartAnchored(mesh) {
         const entry = physicsBodies.get(mesh);
@@ -4553,6 +4639,41 @@ window._bloxverse = {
     // Physics control
     setPhysicsGravity(y) { physicsWorld.gravity.set(0, y, 0); },
     getPhysicsGravity: () => physicsWorld.gravity.y,
+    // Simple billboard text sprite (for game scripts)
+    createBillboard(text, hexColor, x, y, z) {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const fontSize = 48;
+        ctx.font = `bold ${fontSize}px Arial`;
+        const metrics = ctx.measureText(text);
+        const w = metrics.width + 16;
+        const h = fontSize + 16;
+        canvas.width = w;
+        canvas.height = h;
+        ctx.font = `bold ${fontSize}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+        ctx.lineWidth = 4;
+        ctx.strokeText(text, w / 2, h / 2);
+        ctx.fillStyle = hexColor || '#ffffff';
+        ctx.fillText(text, w / 2, h / 2);
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.needsUpdate = true;
+        const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: true, depthWrite: false, alphaTest: 0.25, sizeAttenuation: true });
+        const sprite = new THREE.Sprite(mat);
+        const scale = 0.008;
+        sprite.scale.set(w * scale, h * scale, 1);
+        sprite.position.set(x || 0, y || 0, z || 0);
+        scene.add(sprite);
+        return sprite;
+    },
+    destroyBillboard(sprite) {
+        if (!sprite) return;
+        scene.remove(sprite);
+        sprite.material.map?.dispose();
+        sprite.material.dispose();
+    },
 };
 
 function _applyGraphicsLevel() {

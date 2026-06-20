@@ -157,6 +157,23 @@ export const games = [
     visits: 0,
     createdAt: '2026/06/7',
   },
+  {
+    id: 'mergeapart',
+    name: 'Merge a Part',
+    official: true,
+    icon: './assets/icons/mergeapart.png',
+    //mapPath: './assets/models/.json',
+    scriptsPath: './assets/games/mergeapart',
+    description: `Merge parts. Stack your parts. Get the highest score. 🏆
+    
+🔧 Merge parts into BIGGER parts`,
+    category: 'Strategy',
+    worldFloor: false,
+    respawnY: -200,
+    activePlayers: 0,
+    visits: 0,
+    createdAt: '2026/06/18',
+  },
 ];
 
 export async function loadGameStats() {
