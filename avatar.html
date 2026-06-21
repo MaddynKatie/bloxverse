@@ -23,7 +23,8 @@
   <link rel="stylesheet" href="src/main.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
-    html, body { height: 100%; margin: 0; background: #1a1a2e; overflow: hidden; }
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; background: #f2f2f2; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 
     .editor-page {
       display: flex;
@@ -31,162 +32,277 @@
       width: 100%;
     }
 
+    /* ── LEFT PANEL (avatar preview + color swatches) ── */
     .editor-panel {
-      width: 445px;
-      background: #16213e;
-      border-right: 1px solid #0f3460;
+      width: 320px;
+      min-width: 220px;
+      background: #fff;
+      border-right: 1px solid #e0e0e0;
       display: flex;
       flex-direction: column;
-      padding: 20px;
+      padding: 16px;
       overflow-y: auto;
       z-index: 10;
-    }
-
-    .editor-panel h2 {
-      color: #e2e2e2;
-      font-size: 20px;
-      margin: 0 0 4px 0;
-      font-weight: 600;
-    }
-
-    .editor-panel .subtitle {
-      color: #8a8ba0;
-      font-size: 13px;
-      margin-bottom: 20px;
     }
 
     .back-btn {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      color: #8a8ba0;
+      color: #555;
       text-decoration: none;
-      font-size: 14px;
-      margin-bottom: 16px;
+      font-size: 13px;
+      margin-bottom: 12px;
       cursor: pointer;
       background: none;
       border: none;
       padding: 0;
     }
-    .back-btn:hover { color: #e2e2e2; }
+    .back-btn:hover { color: #111; }
 
-    .color-group {
-      margin-bottom: 20px;
-      background: #1a1a3e;
-      border-radius: 8px;
-      padding: 14px 16px;
+    .editor-panel h2 {
+      color: #111;
+      font-size: 22px;
+      margin: 0 0 2px 0;
+      font-weight: 700;
     }
+    .editor-panel .subtitle { display: none; }
 
-    .color-group-label {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-    }
-
-    .color-group-label span {
-      color: #c8c8d4;
-      font-size: 14px;
-      font-weight: 500;
-    }
-
-    .color-input-wrap {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .color-input-wrap input[type="color"] {
-      width: 36px;
-      height: 36px;
-      border: 2px solid #2a2a5a;
-      border-radius: 6px;
-      background: none;
-      cursor: pointer;
-      padding: 2px;
-    }
-
-    .color-input-wrap input[type="color"]::-webkit-color-swatch-wrapper {
-      padding: 0;
-    }
-
-    .color-input-wrap input[type="color"]::-webkit-color-swatch {
-      border: none;
-      border-radius: 4px;
-    }
-
-    .color-hex {
-      color: #8a8ba0;
-      font-size: 12px;
-      font-family: monospace;
-      min-width: 60px;
-    }
-
-    .editor-actions {
-      margin-top: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      padding-top: 20px;
-    }
-
-    .btn-save {
-      padding: 12px;
-      border: none;
-      border-radius: 8px;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      background: #4a7dff;
-      color: #fff;
-      transition: background 0.2s;
-    }
-    .btn-save:hover { background: #3d6ae0; }
-
-    .btn-reset {
-      padding: 12px;
-      border: 1px solid #3a3a5a;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-      background: transparent;
-      color: #c8c8d4;
-      transition: all 0.2s;
-    }
-    .btn-reset:hover { background: #2a2a4a; border-color: #5a5a7a; }
-
+    /* Avatar 3D viewer lives inside the left panel */
     .viewer-container {
-      flex: 1;
-      position: relative;
-      background: radial-gradient(ellipse at center bottom, #1a1a4e 0%, #0a0a1e 60%);
+      width: 100%;
+      aspect-ratio: 1 / 1.1;
+      background: #f7f7f7;
+      border-radius: 12px;
       overflow: hidden;
+      position: relative;
+      margin: 12px 0;
+      flex-shrink: 0;
     }
-
     .viewer-container canvas {
       display: block;
       width: 100% !important;
       height: 100% !important;
     }
-
     .viewer-hint {
       position: absolute;
-      bottom: 24px;
+      bottom: 8px;
       left: 50%;
       transform: translateX(-50%);
-      color: #5a5a7a;
-      font-size: 13px;
+      color: #aaa;
+      font-size: 11px;
       user-select: none;
       pointer-events: none;
     }
 
+    /* Gender toggle */
+    .gender-toggle {
+      display: flex;
+      border: 1.5px solid #ddd;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 14px;
+    }
+    .gender-btn {
+      flex: 1;
+      padding: 8px 0;
+      border: none;
+      background: transparent;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      color: #888;
+      transition: all 0.15s;
+    }
+    .gender-btn.active {
+      background: #111;
+      color: #fff;
+      border-radius: 6px;
+    }
+
+    /* Color swatches grid — 3 per row with labels */
+    .color-swatches {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .color-swatch-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .color-swatch-item input[type="color"] {
+      width: 100%;
+      aspect-ratio: 1;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      cursor: pointer;
+      padding: 3px;
+      background: none;
+    }
+    .color-swatch-item input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+    .color-swatch-item input[type="color"]::-webkit-color-swatch { border: none; border-radius: 5px; }
+    .color-swatch-item input[type="color"]:hover { border-color: #aaa; }
+    .color-swatch-label {
+      font-size: 11px;
+      color: #888;
+      text-align: center;
+    }
+
+    /* Hide old color-group layout */
+    .color-groups .color-group { display: none; }
+
+    .editor-actions {
+      margin-top: auto;
+      padding-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .btn-save {
+      padding: 11px;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      background: #555;
+      color: #fff;
+      transition: background 0.15s;
+    }
+    .btn-save:hover { background: #333; }
+
+    .btn-reset {
+      padding: 10px;
+      border: 1.5px solid #ddd;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      background: transparent;
+      color: #555;
+      transition: all 0.15s;
+    }
+    .btn-reset:hover { background: #f5f5f5; }
+
+    /* ── RIGHT PANEL (catalog) ── */
+    .catalog-panel {
+      flex: 1;
+      background: #f2f2f2;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Tabs along top of catalog */
+    .editor-tabs {
+      display: flex;
+      gap: 0;
+      padding: 14px 20px 0;
+      border-bottom: 2px solid #e0e0e0;
+      background: #fff;
+    }
+    .editor-tab {
+      padding: 10px 20px;
+      border: none;
+      background: transparent;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      color: #888;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+      transition: all 0.15s;
+    }
+    .editor-tab.active { color: #111; border-bottom-color: #111; }
+    .editor-tab:hover:not(.active) { color: #555; }
+
+    /* Tab content = scrollable catalog */
+    .tab-content {
+      flex: 1;
+      overflow-y: auto;
+      display: none;
+      padding: 20px;
+    }
+    .tab-content.active { display: block; }
+
+    /* Category label like "SHIRTS" */
+    .catalog-category-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: #999;
+      text-transform: uppercase;
+      margin: 0 0 12px 0;
+    }
+
+    /* 4-column grid */
+    .clothing-grid, .accessories-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 8px;
+    }
+
+    /* Cards */
+    .clothing-item, .acc-item {
+      background: #f7f7f7;
+      border: 1.5px solid #e8e8e8;
+      border-radius: 12px;
+      padding: 10px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .clothing-item:hover, .acc-item:hover { border-color: #ccc; background: #fff; }
+    .clothing-item.equipped, .acc-item.equipped { border-color: #111; background: #fff; }
+
+    .clothing-item-preview, .acc-item-icon {
+      width: 100%;
+      aspect-ratio: 1;
+      background: #efefef;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 8px;
+      overflow: hidden;
+      font-size: 28px;
+    }
+    .clothing-item-preview img, .acc-item-icon img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .clothing-item-name, .acc-item-name {
+      color: #222;
+      font-size: 12px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .clothing-item-meta, .acc-item-category { display: none; }
+
+    .acc-empty {
+      color: #aaa;
+      font-size: 13px;
+      text-align: center;
+      padding: 40px 10px;
+      grid-column: 1 / -1;
+    }
+
+    /* Toast */
     .save-toast {
       position: fixed;
       bottom: 30px;
       left: 50%;
       transform: translateX(-50%);
-      background: #2a6a3a;
-      color: #c8f0d0;
+      background: #222;
+      color: #fff;
       padding: 10px 24px;
       border-radius: 8px;
       font-size: 14px;
@@ -197,186 +313,28 @@
     }
     .save-toast.show { opacity: 1; }
 
-    .editor-tabs {
-      display: flex;
-      gap: 4px;
-      margin-bottom: 16px;
-      background: #1a1a3e;
-      border-radius: 8px;
-      padding: 3px;
-    }
-
-    .editor-tab {
-      flex: 1;
-      padding: 8px;
-      border: none;
-      border-radius: 6px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      background: transparent;
-      color: #6a6a8a;
-      transition: all 0.2s;
-    }
-
-    .editor-tab.active {
-      background: #2a2a5a;
-      color: #e2e2e2;
-    }
-
-    .editor-tab:hover:not(.active) {
-      color: #8a8aaa;
-    }
-
-    .tab-content {
-      flex: 1;
-      overflow-y: auto;
-      display: none;
-    }
-    .tab-content.active { display: block; }
-
-    .accessories-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-    }
-    .clothing-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-    }
-
-    .acc-item {
-      background: #1a1a3e;
-      border: 2px solid transparent;
-      border-radius: 8px;
-      padding: 10px;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .acc-item:hover { border-color: #3a3a6a; }
-    .acc-item.equipped { border-color: #4a7dff; background: #1a2a4e; }
-    .acc-item-icon {
-      width: 100%;
-      aspect-ratio: 1;
-      background: #2a2a4a;
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 28px;
-      margin-bottom: 6px;
-      overflow: hidden;
-    }
-    .acc-item-icon img { width: 100%; height: 100%; object-fit: contain; }
-    .acc-item-name {
-      color: #c8c8d4;
-      font-size: 12px;
-      font-weight: 500;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .acc-item-category {
-      color: #6a6a8a;
-      font-size: 10px;
-    }
-    .clothing-item {
-      background: #1a1a3e;
-      border: 2px solid transparent;
-      border-radius: 8px;
-      padding: 10px;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .clothing-item:hover { border-color: #3a3a6a; }
-    .clothing-item.equipped { border-color: #4a7dff; background: #1a2a4e; }
-    .clothing-item-preview {
-      width: 100%;
-      aspect-ratio: 1;
-      background: #2a2a4a;
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 6px;
-      overflow: hidden;
-    }
-    .clothing-item-preview img { width: 100%; height: 100%; object-fit: cover; }
-    .clothing-item-name {
-      color: #c8c8d4;
-      font-size: 12px;
-      font-weight: 500;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .clothing-item-meta {
-      color: #6a6a8a;
-      font-size: 10px;
-    }
-    .acc-empty {
-      color: #5a5a7a;
-      font-size: 13px;
-      text-align: center;
-      padding: 30px 10px;
-      grid-column: 1 / -1;
-    }
-
-    /* Scrollbar styling */
-    .editor-panel::-webkit-scrollbar,
-    .tab-content::-webkit-scrollbar {
-      width: 6px;
-    }
-    .editor-panel::-webkit-scrollbar-track,
-    .tab-content::-webkit-scrollbar-track {
-      background: #1a1a3e;
-      border-radius: 3px;
-    }
-    .editor-panel::-webkit-scrollbar-thumb,
-    .tab-content::-webkit-scrollbar-thumb {
-      background: #3a3a6a;
-      border-radius: 3px;
-    }
-    .editor-panel::-webkit-scrollbar-thumb:hover,
-    .tab-content::-webkit-scrollbar-thumb:hover {
-      background: #5a5a8a;
-    }
-    .editor-panel, .tab-content {
-      scrollbar-width: thin;
-      scrollbar-color: #3a3a6a #1a1a3e;
-    }
+    /* Scrollbars */
+    .editor-panel::-webkit-scrollbar, .tab-content::-webkit-scrollbar { width: 5px; }
+    .editor-panel::-webkit-scrollbar-track, .tab-content::-webkit-scrollbar-track { background: transparent; }
+    .editor-panel::-webkit-scrollbar-thumb, .tab-content::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+    .editor-panel, .tab-content { scrollbar-width: thin; scrollbar-color: #ddd transparent; }
 
     /* Resize handle */
     .resize-handle {
-      width: 8px;
+      width: 6px;
       cursor: col-resize;
       flex-shrink: 0;
-      background: transparent;
+      background: #e8e8e8;
       position: relative;
       z-index: 20;
       user-select: none;
     }
-    .resize-handle::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      left: 3px;
-      width: 2px;
-      background: #0f3460;
-      transition: background 0.15s;
-    }
-    .resize-handle:hover::after,
-    .resize-handle:active::after {
-      background: #4a7dff;
-    }
+    .resize-handle:hover { background: #ccc; }
   </style>
 </head>
 <body>
   <div class="editor-page">
+    <!-- LEFT: avatar preview + color pickers -->
     <div class="editor-panel" id="editorPanel">
       <button class="back-btn" id="backBtn">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -385,31 +343,14 @@
         Back
       </button>
 
-      <h2>Avatar Editor</h2>
-      <p class="subtitle">Customize your character</p>
-
-      <div class="editor-tabs">
-        <button class="editor-tab active" data-tab="color">Color</button>
-        <button class="editor-tab" data-tab="clothing">Clothing</button>
-        <button class="editor-tab" data-tab="faces">Faces</button>
-        <button class="editor-tab" data-tab="accessories">Accessories</button>
+      <!-- 3D viewer embedded in left panel -->
+      <div class="viewer-container" id="viewerContainer">
       </div>
 
-      <div class="tab-content active" id="tabColor">
-        <div class="color-groups" id="colorGroups"></div>
-      </div>
-
-      <div class="tab-content" id="tabClothing">
-        <div class="clothing-grid" id="clothingGrid"></div>
-      </div>
-
-      <div class="tab-content" id="tabFaces">
-        <div class="clothing-grid" id="facesGrid"></div>
-      </div>
-
-      <div class="tab-content" id="tabAccessories">
-        <div class="accessories-grid" id="accGrid"></div>
-      </div>
+      <!-- Color swatches — populated by JS -->
+      <div class="color-swatches" id="colorSwatches"></div>
+      <!-- Hidden original color groups (still used by JS internally) -->
+      <div style="display:none"><div class="color-groups" id="colorGroups"></div></div>
 
       <div class="editor-actions">
         <button class="btn-save" id="btnSave">Save</button>
@@ -419,8 +360,28 @@
 
     <div class="resize-handle" id="resizeHandle"></div>
 
-    <div class="viewer-container" id="viewerContainer">
-      <div class="viewer-hint">Drag to rotate &bull; Scroll to zoom</div>
+    <!-- RIGHT: catalog tabs + grid -->
+    <div class="catalog-panel">
+      <div class="editor-tabs">
+        <button class="editor-tab active" data-tab="clothing">Clothing</button>
+        <button class="editor-tab" data-tab="faces">Faces</button>
+        <button class="editor-tab" data-tab="accessories">Accessories</button>
+      </div>
+
+      <div class="tab-content active" id="tabClothing">
+        <p class="catalog-category-label">Shirts</p>
+        <div class="clothing-grid" id="clothingGrid"></div>
+      </div>
+
+      <div class="tab-content" id="tabFaces">
+        <p class="catalog-category-label">Faces</p>
+        <div class="clothing-grid" id="facesGrid"></div>
+      </div>
+
+      <div class="tab-content" id="tabAccessories">
+        <p class="catalog-category-label">Accessories</p>
+        <div class="accessories-grid" id="accGrid"></div>
+      </div>
     </div>
   </div>
 
@@ -433,17 +394,17 @@
     import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
     import { auth, db, getDoc, doc, setDoc, trackPresence } from './src/firebase.js';
     import { accessories, getAllAccessories, findAccessory } from './src/accessories.js';
-    import { applyAvatarClothing, findClothing, getAllClothing, removeAvatarClothing } from './src/clothing.js';
+    import { applyAvatarClothing, findClothing, getAllClothing, preloadTexture, removeAvatarClothing } from './src/clothing.js';
     import { getAllFaces, findFace } from './src/faces.js';
     const STARTING_ITEMS = ['palhair', 'smile', 'blueandblackmotorcycleshirt'];
     const playerModelUrl = new URL('./assets/models/player.fbx', import.meta.url).href;
 
     const container = document.getElementById('viewerContainer');
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x1a1a2e);
+    scene.background = new THREE.Color(0xf7f7f7);
 
-    const camera = new THREE.PerspectiveCamera(20, container.clientWidth / container.clientHeight, 0.1, 100);
-    camera.position.set(5, 3, 12);
+    const camera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 0.1, 100);
+    camera.position.set(3, 2.5, 9);
     camera.lookAt(0, 1.2, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
@@ -463,9 +424,11 @@
     controls.target.set(0, 1.2, 0);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
-    controls.minDistance = 1.5;
-    controls.maxDistance = 40;
-    controls.maxPolarAngle = Math.PI / 2.1;
+    controls.enableRotate = true;
+    controls.enableZoom = true;
+    controls.enablePan = true;
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 2;
     controls.update();
 
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0x666666, 0);
@@ -487,40 +450,13 @@
     rimLight.position.set(0, -1, 6);
     scene.add(rimLight);
 
-    const floorGeo = new THREE.CircleGeometry(3, 32);
-    const floorMat = new THREE.MeshStandardMaterial({
-      color: 0x1a1a3e,
-      roughness: 0.8,
-      metalness: 0.1,
-      transparent: true,
-      opacity: 0.6,
-      side: THREE.DoubleSide,
-    });
-    const floor = new THREE.Mesh(floorGeo, floorMat);
-    floor.rotation.x = -Math.PI / 2;
-    floor.position.y = -0.01;
-    floor.receiveShadow = true;
-    floor.userData.isGround = true;
-    scene.add(floor);
-
-    const ringGeo = new THREE.RingGeometry(0.7, 0.9, 48);
-    const ringMat = new THREE.MeshBasicMaterial({
-      color: 0x4a7dff,
-      transparent: true,
-      opacity: 0.15,
-      side: THREE.DoubleSide,
-    });
-    const ring = new THREE.Mesh(ringGeo, ringMat);
-    ring.rotation.x = -Math.PI / 2;
-    ring.position.y = 0.001;
-    ring.userData.isGround = true;
-    scene.add(ring);
-
     let avatar = null;
     const materialMap = new Map();
     let currentColors = {};
     let _materialList = [];
     let _originalColors = {};
+    const _clothingPreviewCache = new Map();
+    let _previewRenderer = null;
 
     function applyColors() {
       for (const [mat, name] of materialMap) {
@@ -859,13 +795,17 @@
         grid.innerHTML = '<div class="acc-empty">No accessories available</div>';
         return;
       }
-      grid.innerHTML = all.map(a => `
+      grid.innerHTML = all.map(a => {
+        const cached = _clothingPreviewCache.get(a.id);
+        return `
         <div class="acc-item ${_equippedAccessories[a.id] ? 'equipped' : ''}" data-id="${a.id}">
-          <div class="acc-item-icon">${a.icon || '📦'}</div>
+          <div class="acc-item-icon">
+            ${cached ? `<img src="${cached}" alt="${a.name}" />` : (a.icon || '📦')}
+          </div>
           <div class="acc-item-name">${a.name}</div>
           <div class="acc-item-category">${a.category || ''}</div>
         </div>
-      `).join('');
+      `}).join('');
       grid.querySelectorAll('.acc-item').forEach(el => {
         el.addEventListener('click', () => {
           const id = el.dataset.id;
@@ -898,13 +838,13 @@
       const grid = document.getElementById('clothingGrid');
       const all = (auth.currentUser ? getAllClothing().filter(c => _ownedItems.includes(c.id)) : getAllClothing());
       if (all.length === 0) {
-        grid.innerHTML = '<div class="acc-empty">No clothing added yet. Drop Roblox shirt template PNGs into <code>assets/clothing</code>.</div>';
+        grid.innerHTML = '<div class="acc-empty">No clothing added yet. Get some in the marketplace! <code>assets/clothing</code>.</div>';
         return;
       }
       grid.innerHTML = all.map(item => `
         <div class="clothing-item ${_selectedClothingId === item.id ? 'equipped' : ''}" data-id="${item.id}">
           <div class="clothing-item-preview">
-            <img src="${item.texturePath}" alt="${item.name}" />
+            <img src="${_clothingPreviewCache.get(item.id) || item.texturePath}" alt="${item.name}" />
           </div>
           <div class="clothing-item-name">${item.name}</div>
           <div class="clothing-item-meta">${item.category || ''}</div>
@@ -986,13 +926,15 @@
       });
     }
 
-    // Tab switching
+    // Tab switching (catalog tabs only)
     document.querySelectorAll('.editor-tab').forEach(tab => {
       tab.addEventListener('click', () => {
         document.querySelectorAll('.editor-tab').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
-        const content = document.getElementById('tab' + tab.dataset.tab.charAt(0).toUpperCase() + tab.dataset.tab.slice(1));
+        const key = tab.dataset.tab;
+        const id = 'tab' + key.charAt(0).toUpperCase() + key.slice(1);
+        const content = document.getElementById(id);
         if (content) content.classList.add('active');
       });
     });
@@ -1000,27 +942,45 @@
     let loadAttempts = 0;
     const maxLoadAttempts = 10;
 
+    function getMatLabel(name) { return name; }
+
     function buildColorPickers(materials) {
+      // Hidden original groups (used for internal id references)
       const container = document.getElementById('colorGroups');
       container.innerHTML = '';
-
       for (const matName of materials) {
         const div = document.createElement('div');
         div.className = 'color-group';
-        div.innerHTML = `
-          <div class="color-group-label"><span>${matName}</span></div>
-          <div class="color-input-wrap">
-            <input type="color" id="c_${matName}" value="#888888" />
-            <span class="color-hex" id="h_${matName}">#888888</span>
-          </div>
-        `;
+        div.innerHTML = `<div class="color-input-wrap"><input type="color" id="c_${matName}" value="#888888" /><span class="color-hex" id="h_${matName}">#888888</span></div>`;
         container.appendChild(div);
-
         const input = div.querySelector('input');
         input.addEventListener('input', () => {
           currentColors[matName] = input.value;
           const hexEl = document.getElementById('h_' + matName);
           if (hexEl) hexEl.textContent = input.value;
+          // Sync swatch
+          const sw = document.getElementById('sw_' + matName);
+          if (sw) sw.value = input.value;
+          applyColors();
+        });
+      }
+
+      // Visible swatch grid
+      const swatches = document.getElementById('colorSwatches');
+      swatches.innerHTML = '';
+      for (const matName of materials) {
+        const label = getMatLabel(matName);
+        const item = document.createElement('div');
+        item.className = 'color-swatch-item';
+        item.innerHTML = `<input type="color" id="sw_${matName}" value="#888888" /><span class="color-swatch-label">${label}</span>`;
+        swatches.appendChild(item);
+        const sw = item.querySelector('input');
+        sw.addEventListener('input', () => {
+          currentColors[matName] = sw.value;
+          const hidden = document.getElementById('c_' + matName);
+          if (hidden) hidden.value = sw.value;
+          const hexEl = document.getElementById('h_' + matName);
+          if (hexEl) hexEl.textContent = sw.value;
           applyColors();
         });
       }
@@ -1031,8 +991,10 @@
         currentColors[name] = hex;
         const el = document.getElementById('c_' + name);
         const hexEl = document.getElementById('h_' + name);
+        const sw = document.getElementById('sw_' + name);
         if (el) el.value = hex;
         if (hexEl) hexEl.textContent = hex;
+        if (sw) sw.value = hex;
       }
       applyColors();
     }
@@ -1097,13 +1059,13 @@
         _materialList = matNameList;
         currentColors = {};
         _originalColors = {};
-        for (const name of matNameList) {
+        const FALLBACK_COLORS = ['#ffd700', '#00cc44', '#4488ff', '#ff66aa', '#aaaaaa', '#6644aa'];
+        for (const [idx, name] of matNameList.entries()) {
           const mat = uniqueMats.get(name);
-          const hex = '#' + mat.color.getHexString();
+          const hex = FALLBACK_COLORS[idx] || '#cccccc';
           currentColors[name] = hex;
           _originalColors[name] = hex;
-          // Set default color if black
-          if (mat.color.getHex() === 0) mat.color.set(0xcccccc);
+          mat.color.setStyle(hex, THREE.SRGBColorSpace);
           mat.needsUpdate = true;
         }
 
@@ -1128,6 +1090,7 @@
           loadSavedColors();
           renderClothingGrid();
           renderFacesGrid();
+          _generateClothingPreviews();
         }, 100);
       }, undefined, () => {
         if (loadAttempts < maxLoadAttempts) {
@@ -1135,6 +1098,236 @@
           setTimeout(loadAvatar, 1000);
         }
       });
+    }
+
+    function _getPreviewRenderer() {
+      if (!_previewRenderer) {
+        const c = document.createElement('canvas');
+        c.width = 256; c.height = 256;
+        _previewRenderer = new THREE.WebGLRenderer({ canvas: c, antialias: true, preserveDrawingBuffer: true, alpha: false });
+        _previewRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        _previewRenderer.outputColorSpace = THREE.SRGBColorSpace;
+        _previewRenderer.setClearColor(0xb0b0b0);
+      }
+      return _previewRenderer;
+    }
+
+    function _loadAccessoryMesh(accDef) {
+      return new Promise((resolve, reject) => {
+        const p = accDef.meshPath.toLowerCase();
+        const finish = (modelRoot) => {
+          modelRoot.traverse(child => {
+            if (child.isMesh) {
+              child.castShadow = true;
+              child.receiveShadow = true;
+            }
+          });
+          resolve(modelRoot);
+        };
+        if (p.endsWith('.fbx')) {
+          new FBXLoader().load(accDef.meshPath, finish, undefined, () => reject(new Error('FBX load failed')));
+        } else if (p.endsWith('.glb') || p.endsWith('.gltf')) {
+          new GLTFLoader().load(accDef.meshPath, gltf => finish(gltf.scene), undefined, () => reject(new Error('GLTF load failed')));
+        } else {
+          reject(new Error('Unsupported format'));
+        }
+      });
+    }
+
+    function _generateAccessoryPreview(accDef) {
+      return new Promise(resolve => {
+        if (!avatar) return resolve(null);
+        const texPromises = [];
+        if (accDef.textures?.map) texPromises.push(preloadTexture(accDef.textures.map));
+        if (accDef.textures?.normalMap) texPromises.push(preloadTexture(accDef.textures.normalMap));
+        if (accDef.textures?.displacementMap) texPromises.push(preloadTexture(accDef.textures.displacementMap));
+        Promise.all(texPromises).then(() => {
+          const savedOverlay = _selectedClothingId;
+          const savedColors = {};
+          for (const k of Object.keys(currentColors)) savedColors[k] = currentColors[k];
+          const faceMesh = _faceOverlayMesh;
+          if (faceMesh) faceMesh.removeFromParent();
+          const savedAccVis = {};
+          for (const [id, w] of Object.entries(_loadedAccessories)) { savedAccVis[id] = w.visible; w.visible = false; }
+          const hiddenGround = [];
+          scene.traverse(child => { if (child.userData?.isGround) { hiddenGround.push(child); child.visible = false; } });
+          removeAvatarClothing(avatar);
+          for (const k of Object.keys(currentColors)) currentColors[k] = '#ffffff';
+          applyColors();
+          _loadAccessoryMesh(accDef).then(modelRoot => {
+            const texApplyPromises = [];
+            if (accDef.textures?.map) texApplyPromises.push(preloadTexture(accDef.textures.map).then(tex => {
+              modelRoot.traverse(child => {
+                if (child.isMesh) {
+                  const mats = Array.isArray(child.material) ? child.material : [child.material];
+                  for (const mat of mats) { if (mat) { mat.map = tex; tex.colorSpace = THREE.SRGBColorSpace; mat.needsUpdate = true; } }
+                }
+              });
+            }));
+            if (accDef.textures?.normalMap) texApplyPromises.push(preloadTexture(accDef.textures.normalMap).then(tex => {
+              modelRoot.traverse(child => {
+                if (child.isMesh) {
+                  const mats = Array.isArray(child.material) ? child.material : [child.material];
+                  for (const mat of mats) { if (mat) { mat.normalMap = tex; mat.normalScale = new THREE.Vector2(1, 1); mat.needsUpdate = true; } }
+                }
+              });
+            }));
+            if (accDef.textures?.displacementMap) texApplyPromises.push(preloadTexture(accDef.textures.displacementMap).then(tex => {
+              modelRoot.traverse(child => {
+                if (child.isMesh) {
+                  const mats = Array.isArray(child.material) ? child.material : [child.material];
+                  for (const mat of mats) { if (mat) { mat.displacementMap = tex; mat.displacementScale = 0.01; mat.needsUpdate = true; } }
+                }
+              });
+            }));
+            return Promise.all(texApplyPromises).then(() => {
+              const headPt = findHeadAttachment(avatar);
+              if (!headPt) { resolve(null); return; }
+              avatar.updateMatrixWorld(true);
+              modelRoot.updateMatrixWorld(true);
+              modelRoot.position.set(0, 0, 0);
+              modelRoot.rotation.set(0, 0, 0);
+              const o = accDef.offset || {};
+              const s = o.scale !== undefined ? o.scale : 1;
+              modelRoot.scale.setScalar(s);
+              modelRoot.updateMatrixWorld(true);
+              const bbox = new THREE.Box3().setFromObject(modelRoot);
+              const c = bbox.getCenter(new THREE.Vector3());
+              modelRoot.position.x -= c.x;
+              modelRoot.position.y -= bbox.min.y;
+              modelRoot.position.z -= c.z;
+              const wrapper = new THREE.Group();
+              wrapper.add(modelRoot);
+              wrapper.userData.isAccessory = true;
+              const attachment = headPt.object;
+              const localRot = new THREE.Quaternion().setFromEuler(new THREE.Euler(o.rx || 0, o.ry || 0, o.rz || 0, 'XYZ'));
+              scene.add(wrapper);
+              const headTopWorld = (headPt.headMesh ? getMeshTopWorldPosition(headPt.headMesh) : getAttachmentTopWorldPosition(attachment)) || attachment.getWorldPosition(new THREE.Vector3());
+              const attachmentQuat = attachment.getWorldQuaternion(new THREE.Quaternion());
+              const offsetWorld = new THREE.Vector3(o.x || 0, o.y !== undefined ? o.y : 0, o.z || 0).applyQuaternion(attachmentQuat);
+              wrapper.position.copy(headTopWorld.clone().add(offsetWorld));
+              wrapper.quaternion.copy(attachmentQuat).multiply(localRot);
+              const cam = new THREE.PerspectiveCamera(20, 1, 0.1, 100);
+              cam.position.set(0, 2.8, 18); cam.lookAt(0, 2.8, 0);
+              const renderer = _getPreviewRenderer();
+              const W = 256, H = 256;
+              const rt = new THREE.WebGLRenderTarget(W, H);
+              rt.texture.colorSpace = THREE.SRGBColorSpace;
+              renderer.setRenderTarget(rt);
+              renderer.render(scene, cam);
+              renderer.setRenderTarget(null);
+              const pixels = new Uint8Array(W * H * 4);
+              renderer.readRenderTargetPixels(rt, 0, 0, W, H, pixels);
+              rt.dispose();
+              wrapper.removeFromParent();
+              removeAvatarClothing(avatar);
+              for (const k of Object.keys(savedColors)) currentColors[k] = savedColors[k];
+              applyColors();
+              if (savedOverlay) applyAvatarClothing(avatar, savedOverlay);
+              for (const [id, vis] of Object.entries(savedAccVis)) {
+                const w = _loadedAccessories[id];
+                if (w) w.visible = vis;
+              }
+              if (faceMesh) { const hb = avatar.getObjectByName('Head'); if (hb) hb.add(faceMesh); }
+              for (const m of hiddenGround) m.visible = true;
+              const canvas = document.createElement('canvas');
+              canvas.width = W; canvas.height = H;
+              const ctx = canvas.getContext('2d');
+              const id = ctx.createImageData(W, H);
+              for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+                const si = (y * W + x) * 4, di = ((H - 1 - y) * W + x) * 4;
+                id.data[di] = pixels[si]; id.data[di + 1] = pixels[si + 1];
+                id.data[di + 2] = pixels[si + 2]; id.data[di + 3] = 255;
+              }
+              ctx.putImageData(id, 0, 0);
+              resolve(canvas.toDataURL('image/png'));
+            });
+          }).catch(() => resolve(null));
+        });
+      });
+    }
+
+    function _generatePreview(item) {
+      if (item._type === 'accessory') {
+        const accDef = findAccessory(item.id);
+        return accDef ? _generateAccessoryPreview(accDef) : Promise.resolve(null);
+      }
+      return new Promise(resolve => {
+        if (!avatar) return resolve(null);
+        const clothing = findClothing(item.id);
+        if (!clothing || !clothing.texturePath) return resolve(null);
+        preloadTexture(clothing.texturePath).then(() => {
+          const savedOverlay = _selectedClothingId;
+          const savedColors = {};
+          for (const k of Object.keys(currentColors)) savedColors[k] = currentColors[k];
+          const faceMesh = _faceOverlayMesh;
+          if (faceMesh) faceMesh.removeFromParent();
+          const savedAccVis = {};
+          for (const [id, w] of Object.entries(_loadedAccessories)) { savedAccVis[id] = w.visible; w.visible = false; }
+          const hiddenGround = [];
+          scene.traverse(child => { if (child.userData?.isGround) { hiddenGround.push(child); child.visible = false; } });
+          removeAvatarClothing(avatar);
+          for (const k of Object.keys(currentColors)) currentColors[k] = '#ffffff';
+          applyColors();
+          applyAvatarClothing(avatar, item.id);
+          const cam = new THREE.PerspectiveCamera(20, 1, 0.1, 100);
+          cam.position.set(0, 2.8, 18); cam.lookAt(0, 2.8, 0);
+          const renderer = _getPreviewRenderer();
+          const W = 256, H = 256;
+          const rt = new THREE.WebGLRenderTarget(W, H);
+          rt.texture.colorSpace = THREE.SRGBColorSpace;
+          renderer.setRenderTarget(rt);
+          renderer.render(scene, cam);
+          renderer.setRenderTarget(null);
+          const pixels = new Uint8Array(W * H * 4);
+          renderer.readRenderTargetPixels(rt, 0, 0, W, H, pixels);
+          rt.dispose();
+          removeAvatarClothing(avatar);
+          for (const k of Object.keys(savedColors)) currentColors[k] = savedColors[k];
+          applyColors();
+          if (savedOverlay) applyAvatarClothing(avatar, savedOverlay);
+          for (const [id, vis] of Object.entries(savedAccVis)) {
+            const w = _loadedAccessories[id];
+            if (w) w.visible = vis;
+          }
+          if (faceMesh) { const hb = avatar.getObjectByName('Head'); if (hb) hb.add(faceMesh); }
+          for (const m of hiddenGround) m.visible = true;
+          const canvas = document.createElement('canvas');
+          canvas.width = W; canvas.height = H;
+          const ctx = canvas.getContext('2d');
+          const id = ctx.createImageData(W, H);
+          for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+            const si = (y * W + x) * 4, di = ((H - 1 - y) * W + x) * 4;
+            id.data[di] = pixels[si]; id.data[di + 1] = pixels[si + 1];
+            id.data[di + 2] = pixels[si + 2]; id.data[di + 3] = 255;
+          }
+          ctx.putImageData(id, 0, 0);
+          resolve(canvas.toDataURL('image/png'));
+        });
+      });
+    }
+
+    async function _generateClothingPreviews() {
+      const clothes = getAllClothing().map(c => ({ ...c, _type: 'clothing' }));
+      const accs = getAllAccessories().map(a => ({ ...a, _type: 'accessory' }));
+      const items = [...clothes, ...accs];
+      for (const item of items) {
+        if (_clothingPreviewCache.has(item.id)) continue;
+        const dataUrl = await _generatePreview(item);
+        if (dataUrl) {
+          _clothingPreviewCache.set(item.id, dataUrl);
+          if (item._type === 'accessory') {
+            const img = document.querySelector(`.acc-item[data-id="${CSS.escape(item.id)}"] .acc-item-icon img`);
+            if (img) img.src = dataUrl;
+            const iconEl = document.querySelector(`.acc-item[data-id="${CSS.escape(item.id)}"] .acc-item-icon`);
+            if (iconEl && !iconEl.querySelector('img')) iconEl.innerHTML = `<img src="${dataUrl}" alt="${item.name}" />`;
+          } else {
+            const img = document.querySelector(`.clothing-item[data-id="${CSS.escape(item.id)}"] .clothing-item-preview img`);
+            if (img) img.src = dataUrl;
+          }
+        }
+        await new Promise(r => setTimeout(r, 30));
+      }
     }
 
     async function loadSavedColors() {
@@ -1359,8 +1552,9 @@
     });
 
     function onResize() {
-      const w = Math.max(container.clientWidth, 400);
-      const h = Math.max(container.clientHeight, 300);
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      if (w === 0 || h === 0) return;
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
@@ -1375,7 +1569,6 @@
       renderer.render(scene, camera);
     }
 
-    document.querySelectorAll('.color-group').forEach(el => el.style.display = 'none');
     renderClothingGrid();
     renderFacesGrid();
     loadAvatar();

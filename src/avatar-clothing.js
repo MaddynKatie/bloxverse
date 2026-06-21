@@ -316,7 +316,23 @@ function applyAvatarClothing(model, clothingId) {
   return overlay;
 }
 
+function preloadTexture(path) {
+  if (!textureCache.has(path)) {
+    getTexture(path);
+  }
+  const tex = textureCache.get(path);
+  if (tex.image && tex.image.complete) return Promise.resolve(tex);
+  return new Promise(resolve => {
+    const check = () => {
+      if (tex.image && tex.image.complete) return resolve(tex);
+      requestAnimationFrame(check);
+    };
+    check();
+  });
+}
+
 export {
   applyAvatarClothing,
   removeAvatarClothing,
+  preloadTexture,
 };

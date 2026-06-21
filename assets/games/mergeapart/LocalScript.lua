@@ -112,11 +112,11 @@ local onGameStart = function()
     dropButton = gui:CreateGui("TextButton", {
         Text = "  DROP  ",
         PositionX = 0.5,
-        PositionY = 0.2,
-        SizeX = 140,
-        SizeY = 50,
+        PositionY = 0.88,
+        SizeX = 160,
+        SizeY = 54,
         TextColor = Color3.fromRGB(255, 255, 255),
-        BackgroundColor = Color3.fromRGB(200, 50, 50),
+        BackgroundColor = Color3.fromRGB(239, 68, 68),
     })
     dropButton.Visible = false
 
@@ -142,6 +142,7 @@ local onGameStart = function()
         heldPart = nil
         dropButton.Visible = false
     end)
+
 end
 
 local onUpdate = function(dt)

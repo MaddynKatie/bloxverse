@@ -165,4 +165,5 @@ export function findClothing(id) {
 export {
   applyAvatarClothing,
   removeAvatarClothing,
+  preloadTexture,
 } from './avatar-clothing.js';

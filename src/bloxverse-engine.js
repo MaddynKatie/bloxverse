@@ -5,6 +5,7 @@ import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import * as CANNON from 'cannon-es';
 const playerModelUrl = new URL('../assets/models/player.fbx', import.meta.url).href;
 const studTextureUrl = new URL('../assets/textures/stud.jpeg', import.meta.url).href;
+const inletTextureUrl = new URL('../assets/textures/inlet.jpg', import.meta.url).href;
 import { findAccessory } from './accessories.js';
 import { findFace } from './faces.js';
 import { applyAvatarClothing, removeAvatarClothing } from './avatar-clothing.js';
@@ -477,14 +478,16 @@ scene.add(ambient);
 const sun = new THREE.DirectionalLight(0xffffff, 1.2);
 sun.position.set(160, 320, 160);
 sun.castShadow = true;
-sun.shadow.mapSize.width = 2048;
-sun.shadow.mapSize.height = 2048;
+sun.shadow.mapSize.width = 4096;
+sun.shadow.mapSize.height = 4096;
+sun.shadow.bias = -0.0002;
+sun.shadow.normalBias = 0;
 sun.shadow.camera.near = 1;
 sun.shadow.camera.far = 960;
-sun.shadow.camera.left = -192;
-sun.shadow.camera.right = 192;
-sun.shadow.camera.top = 192;
-sun.shadow.camera.bottom = -192;
+sun.shadow.camera.left = -200;
+sun.shadow.camera.right = 200;
+sun.shadow.camera.top = 200;
+sun.shadow.camera.bottom = -200;
 sun.shadow.autoUpdate = true;
 sun.shadow.camera.updateProjectionMatrix();
 scene.add(sun);
@@ -542,6 +545,26 @@ const matCache = new Map();
 // shared-source bug with the texStorage2D path).
 let _studTexImage = null;
 let _studTexReady = false;
+let _inletTexImage = null;
+let _inletTexReady = false;
+
+function _refreshBlockTextures() {
+    matCache.clear();
+    const oldMats = new Set();
+    scene.traverse(child => {
+        if (!child.isMesh) return;
+        const halfSize = child.userData.halfSize;
+        if (!halfSize) return;
+        const { sw, sh, sd } = halfSize;
+        const mats = Array.isArray(child.material) ? child.material : [child.material];
+        const color = mats[0]?.color?.getHex();
+        if (color == null) return;
+        child.material = getCachedMats(sw, sh, sd, color);
+        applyMeshTransparency(child, child.userData.transparency || 0);
+        for (const m of mats) { if (m) oldMats.add(m); }
+    });
+    for (const m of oldMats) m.dispose();
+}
 
 fetch(studTextureUrl)
     .then(r => r.blob())
@@ -549,31 +572,33 @@ fetch(studTextureUrl)
     .then(bitmap => {
         _studTexImage = bitmap;
         _studTexReady = true;
-        // Wipe matCache so getCachedMats calls create fresh materials
-        matCache.clear();
-
-        // Refresh every existing block mesh that was created with map: null
-        // because studTex() wasn't ready yet at construction time.
-        const oldMats = new Set();
-        scene.traverse(child => {
-            if (!child.isMesh) return;
-            const halfSize = child.userData.halfSize;
-            if (!halfSize) return;
-            const { sw, sh, sd } = halfSize;
-            const mats = Array.isArray(child.material) ? child.material : [child.material];
-            const color = mats[0]?.color?.getHex();
-            if (color == null) return;
-            child.material = getCachedMats(sw, sh, sd, color);
-            applyMeshTransparency(child, child.userData.transparency || 0);
-            for (const m of mats) { if (m) oldMats.add(m); }
-        });
-        for (const m of oldMats) m.dispose();
+        _refreshBlockTextures();
     })
     .catch(err => console.error('stud texture load failed:', err));
+
+fetch(inletTextureUrl)
+    .then(r => r.blob())
+    .then(blob => createImageBitmap(blob))
+    .then(bitmap => {
+        _inletTexImage = bitmap;
+        _inletTexReady = true;
+        _refreshBlockTextures();
+    })
+    .catch(err => console.error('inlet texture load failed:', err));
 
 function studTex(rx, ry) {
     if (!_studTexReady) return null;
     const t = new THREE.Texture(_studTexImage);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.repeat.set(rx, ry);
+    t.needsUpdate = true;
+    return t;
+}
+
+function inletTex(rx, ry) {
+    if (!_inletTexReady) return null;
+    const t = new THREE.Texture(_inletTexImage);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     t.colorSpace = THREE.SRGBColorSpace;
     t.repeat.set(rx, ry);
@@ -597,19 +622,13 @@ function getCachedMats(sw, sh, sd, color) {
     const key = `${sw},${sh},${sd},${color}`;
     if (matCache.has(key)) return matCache.get(key);
     const t = (v) => v / STUDS_PER_TILE;
-    const m = (rx, ry) => new THREE.MeshStandardMaterial({
-        color,
-        map: studTex(rx, ry),
-        roughness: 0.85,
-        metalness: 0.0,
-    });
     const mats = [
-        m(t(sd), t(sh)), // right
-        m(t(sd), t(sh)), // left
-        m(t(sw), t(sd)), // top
-        m(t(sw), t(sd)), // bottom
-        m(t(sw), t(sh)), // front
-        m(t(sw), t(sh)), // back
+        new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0 }), // right
+        new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0 }), // left
+        new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0, map: studTex(t(sw), t(sd)) }), // top
+        new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0, map: inletTex(t(sw), t(sd)) }), // bottom
+        new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0 }), // front
+        new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0 }), // back
     ];
     matCache.set(key, mats);
     return mats;
@@ -4690,7 +4709,7 @@ function _applyGraphicsLevel() {
         renderer.shadowMap.enabled = false;
     } else {
         renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFShadowMap;
+renderer.shadowMap.type = THREE.PCFShadowMap;
     }
     scene.fog.near = 96 + t * 96;
     scene.fog.far = 240 + t * 240;

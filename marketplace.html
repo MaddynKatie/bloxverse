@@ -362,7 +362,7 @@
     import { auth, db, listenBux, banGuard, logTransaction, assignUserIdNum, trackPresence } from './src/firebase.js';
     import { onAuthStateChanged, signOut } from 'firebase/auth';
     import { doc, getDoc, setDoc, arrayUnion, arrayRemove, updateDoc, increment, collection, getDocs, query, where, limit } from 'firebase/firestore';
-    import { getAllAccessories } from './src/accessories.js';
+    import { getAllAccessories, findAccessory } from './src/accessories.js';
     import { getAllClothing, findClothing } from './src/clothing.js';
     import { getAllFaces } from './src/faces.js';
     import { getAllEmotes } from './src/emotes.js';
@@ -370,7 +370,7 @@
     import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
     import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
     import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-    import { applyAvatarClothing, removeAvatarClothing } from './src/avatar-clothing.js';
+    import { applyAvatarClothing, preloadTexture, removeAvatarClothing } from './src/avatar-clothing.js';
 
     const STARTING_ITEMS = ['palhair', 'smile', 'blueandblackmotorcycleshirt'];
 
@@ -399,6 +399,8 @@
     // 3D preview
     const playerModelUrl = new URL('./assets/models/player.fbx', import.meta.url).href;
     let _p = null;
+    let _previewRenderer = null;
+    const _clothingPreviewCache = new Map();
 
     function buildCatalog() {
       const accs = getAllAccessories().map(a => ({ ...a, _type: 'accessory' }));
@@ -423,6 +425,7 @@
     }
 
     function getThumbnail(item) {
+      if (_clothingPreviewCache.has(item.id)) return _clothingPreviewCache.get(item.id);
       if (item.texturePath) return item.texturePath;
       if (item._type === 'accessory' && item.textures?.map) return item.textures.map;
       return null;
@@ -569,7 +572,7 @@
       const h = container.clientHeight || 340;
 
       const scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x1a1a2e);
+      scene.background = new THREE.Color(0xffffff);
 
       const camera = new THREE.PerspectiveCamera(25, w / h, 0.1, 100);
       camera.position.set(5, 3.5, 14);
@@ -607,26 +610,6 @@
       const rim = new THREE.DirectionalLight(0xffffff, 0.3);
       rim.position.set(0, -1, 6);
       scene.add(rim);
-
-      const floorGeo = new THREE.CircleGeometry(3, 32);
-      const floorMat = new THREE.MeshStandardMaterial({
-        color: 0x1a1a3e, roughness: 0.8, metalness: 0.1,
-        transparent: true, opacity: 0.6, side: THREE.DoubleSide,
-      });
-      const floor = new THREE.Mesh(floorGeo, floorMat);
-      floor.rotation.x = -Math.PI / 2;
-      floor.position.y = -0.01;
-      floor.receiveShadow = true;
-      scene.add(floor);
-
-      const ringGeo = new THREE.RingGeometry(0.7, 0.9, 48);
-      const ringMat = new THREE.MeshBasicMaterial({
-        color: 0x4a7dff, transparent: true, opacity: 0.15, side: THREE.DoubleSide,
-      });
-      const ring = new THREE.Mesh(ringGeo, ringMat);
-      ring.rotation.x = -Math.PI / 2;
-      ring.position.y = 0.001;
-      scene.add(ring);
 
       _p = {
         scene, camera, renderer, controls,
@@ -694,10 +677,214 @@
         for (const cb of _p.loadCallbacks) cb();
         _p.loadCallbacks = [];
         startPreviewLoop();
+        _generateClothingPreviews();
       }, undefined, () => {
         for (const cb of _p.loadCallbacks) cb();
         _p.loadCallbacks = [];
       });
+    }
+
+    function _getPreviewRenderer() {
+      if (!_previewRenderer) {
+        const c = document.createElement('canvas');
+        c.width = 256; c.height = 256;
+        _previewRenderer = new THREE.WebGLRenderer({ canvas: c, antialias: true, preserveDrawingBuffer: true, alpha: false });
+        _previewRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        _previewRenderer.outputColorSpace = THREE.SRGBColorSpace;
+        _previewRenderer.setClearColor(0xb0b0b0);
+      }
+      return _previewRenderer;
+    }
+
+    function _loadAccessoryMesh(accDef) {
+      return new Promise((resolve, reject) => {
+        const p = accDef.meshPath.toLowerCase();
+        const finish = (modelRoot) => {
+          modelRoot.traverse(child => { if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; } });
+          resolve(modelRoot);
+        };
+        if (p.endsWith('.fbx')) {
+          new FBXLoader().load(accDef.meshPath, finish, undefined, () => reject(new Error('FBX load failed')));
+        } else if (p.endsWith('.glb') || p.endsWith('.gltf')) {
+          new GLTFLoader().load(accDef.meshPath, gltf => finish(gltf.scene), undefined, () => reject(new Error('GLTF load failed')));
+        } else {
+          reject(new Error('Unsupported format'));
+        }
+      });
+    }
+
+    function _generatePreview(item) {
+      if (item._type === 'accessory') {
+        const accDef = findAccessory(item.id);
+        if (!accDef) return Promise.resolve(null);
+        return new Promise(resolve => {
+          if (!_p || !_p.avatar) return resolve(null);
+          const texPromises = [];
+          if (accDef.textures?.map) texPromises.push(preloadTexture(accDef.textures.map));
+          if (accDef.textures?.normalMap) texPromises.push(preloadTexture(accDef.textures.normalMap));
+          if (accDef.textures?.displacementMap) texPromises.push(preloadTexture(accDef.textures.displacementMap));
+          Promise.all(texPromises).then(() => {
+            const savedBg = _p.scene.background;
+            _p.scene.background = new THREE.Color(0xffffff);
+            const savedAccKeys = Object.keys(_p.accessories);
+            for (const id of savedAccKeys) { _p.accessories[id].removeFromParent(); delete _p.accessories[id]; }
+            const savedColors = [];
+            _p.avatar.traverse(child => {
+              if (child.isMesh && child.material) {
+                const mats = Array.isArray(child.material) ? child.material : [child.material];
+                for (const mat of mats) {
+                  if (mat.color) { savedColors.push({ mat, color: mat.color.getHex() }); mat.color.set(0xffffff); mat.needsUpdate = true; }
+                }
+              }
+            });
+            const hiddenGround = [];
+            _p.scene.traverse(child => { if (child.userData?.isGround) { hiddenGround.push(child); child.visible = false; } });
+            removeAvatarClothing(_p.avatar);
+            _loadAccessoryMesh(accDef).then(modelRoot => {
+              const texApplyPromises = [];
+              if (accDef.textures?.map) texApplyPromises.push(preloadTexture(accDef.textures.map).then(tex => {
+                modelRoot.traverse(child => {
+                  if (child.isMesh) {
+                    const mats = Array.isArray(child.material) ? child.material : [child.material];
+                    for (const mat of mats) { if (mat) { mat.map = tex; tex.colorSpace = THREE.SRGBColorSpace; mat.needsUpdate = true; } }
+                  }
+                });
+              }));
+              return Promise.all(texApplyPromises).then(() => {
+                const headPt = findPreviewHeadAttachment();
+                if (!headPt) { resolve(null); return; }
+                const avatarObj = _p.avatar;
+                const attachment = headPt.object;
+                avatarObj.updateMatrixWorld(true);
+                modelRoot.updateMatrixWorld(true);
+                modelRoot.position.set(0, 0, 0);
+                modelRoot.rotation.set(0, 0, 0);
+                const o = accDef.offset || {};
+                const s = o.scale !== undefined ? o.scale : 1;
+                modelRoot.scale.setScalar(s);
+                modelRoot.updateMatrixWorld(true);
+                const bbox = new THREE.Box3().setFromObject(modelRoot);
+                const c = bbox.getCenter(new THREE.Vector3());
+                modelRoot.position.x -= c.x;
+                modelRoot.position.y -= bbox.min.y;
+                modelRoot.position.z -= c.z;
+                const wrapper = new THREE.Group();
+                wrapper.add(modelRoot);
+                wrapper.userData.isAccessory = true;
+                wrapper.traverse(node => { node.userData = node.userData || {}; node.userData.isAccessory = true; });
+                const localRot = new THREE.Quaternion().setFromEuler(new THREE.Euler(o.rx || 0, o.ry || 0, o.rz || 0, 'XYZ'));
+                _p.scene.add(wrapper);
+                const headTopWorld = (headPt.headMesh ? meshTopWorld(headPt.headMesh) : attachTopWorld(attachment)) || attachment.getWorldPosition(new THREE.Vector3());
+                const attachmentQuat = attachment.getWorldQuaternion(new THREE.Quaternion());
+                const offsetWorld = new THREE.Vector3(o.x || 0, o.y !== undefined ? o.y : 0, o.z || 0).applyQuaternion(attachmentQuat);
+                wrapper.position.copy(headTopWorld.clone().add(offsetWorld));
+                wrapper.quaternion.copy(attachmentQuat).multiply(localRot);
+                const cam = new THREE.PerspectiveCamera(20, 1, 0.1, 100);
+                cam.position.set(0, 2.8, 18); cam.lookAt(0, 2.8, 0);
+                const renderer = _getPreviewRenderer();
+                const W = 256, H = 256;
+                const rt = new THREE.WebGLRenderTarget(W, H);
+                rt.texture.colorSpace = THREE.SRGBColorSpace;
+                renderer.setRenderTarget(rt);
+                renderer.render(_p.scene, cam);
+                renderer.setRenderTarget(null);
+                const pixels = new Uint8Array(W * H * 4);
+                renderer.readRenderTargetPixels(rt, 0, 0, W, H, pixels);
+                rt.dispose();
+                wrapper.removeFromParent();
+                for (const { mat, color } of savedColors) { mat.color.setHex(color); mat.needsUpdate = true; }
+                _p.scene.background = savedBg;
+                for (const m of hiddenGround) m.visible = true;
+                const canvas = document.createElement('canvas');
+                canvas.width = W; canvas.height = H;
+                const ctx = canvas.getContext('2d');
+                const id = ctx.createImageData(W, H);
+                for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+                  const si = (y * W + x) * 4, di = ((H - 1 - y) * W + x) * 4;
+                  id.data[di] = pixels[si]; id.data[di + 1] = pixels[si + 1];
+                  id.data[di + 2] = pixels[si + 2]; id.data[di + 3] = 255;
+                }
+                ctx.putImageData(id, 0, 0);
+                resolve(canvas.toDataURL('image/png'));
+              });
+            }).catch(() => resolve(null));
+          });
+        });
+      }
+      return new Promise(resolve => {
+        if (!_p || !_p.avatar) return resolve(null);
+        const clothing = findClothing(item.id);
+        if (!clothing || !clothing.texturePath) return resolve(null);
+        preloadTexture(clothing.texturePath).then(() => {
+          const savedBg = _p.scene.background;
+          _p.scene.background = new THREE.Color(0xffffff);
+          const savedAccKeys = Object.keys(_p.accessories);
+          for (const id of savedAccKeys) { _p.accessories[id].removeFromParent(); delete _p.accessories[id]; }
+          const savedColors = [];
+          _p.avatar.traverse(child => {
+            if (child.isMesh && child.material) {
+              const mats = Array.isArray(child.material) ? child.material : [child.material];
+              for (const mat of mats) {
+                if (mat.color) {
+                  savedColors.push({ mat, color: mat.color.getHex() });
+                  mat.color.set(0xffffff);
+                  mat.needsUpdate = true;
+                }
+              }
+            }
+          });
+          const hiddenGround = [];
+          _p.scene.traverse(child => { if (child.userData?.isGround) { hiddenGround.push(child); child.visible = false; } });
+          removeAvatarClothing(_p.avatar);
+          applyAvatarClothing(_p.avatar, item.id);
+          const cam = new THREE.PerspectiveCamera(20, 1, 0.1, 100);
+          cam.position.set(0, 2.8, 18); cam.lookAt(0, 2.8, 0);
+          const renderer = _getPreviewRenderer();
+          const W = 256, H = 256;
+          const rt = new THREE.WebGLRenderTarget(W, H);
+          rt.texture.colorSpace = THREE.SRGBColorSpace;
+          renderer.setRenderTarget(rt);
+          renderer.render(_p.scene, cam);
+          renderer.setRenderTarget(null);
+          const pixels = new Uint8Array(W * H * 4);
+          renderer.readRenderTargetPixels(rt, 0, 0, W, H, pixels);
+          rt.dispose();
+          removeAvatarClothing(_p.avatar);
+          for (const { mat, color } of savedColors) {
+            mat.color.setHex(color);
+            mat.needsUpdate = true;
+          }
+          _p.scene.background = savedBg;
+          for (const m of hiddenGround) m.visible = true;
+          const canvas = document.createElement('canvas');
+          canvas.width = W; canvas.height = H;
+          const ctx = canvas.getContext('2d');
+          const id = ctx.createImageData(W, H);
+          for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+            const si = (y * W + x) * 4, di = ((H - 1 - y) * W + x) * 4;
+            id.data[di] = pixels[si]; id.data[di + 1] = pixels[si + 1];
+            id.data[di + 2] = pixels[si + 2]; id.data[di + 3] = 255;
+          }
+          ctx.putImageData(id, 0, 0);
+          resolve(canvas.toDataURL('image/png'));
+        });
+      });
+    }
+
+    async function _generateClothingPreviews() {
+      const clothes = getAllClothing().map(c => ({ ...c, _type: 'clothing' }));
+      const accs = getAllAccessories().map(a => ({ ...a, _type: 'accessory' }));
+      const items = [...clothes, ...accs];
+      for (const item of items) {
+        if (_clothingPreviewCache.has(item.id)) continue;
+        const dataUrl = await _generatePreview(item);
+        if (dataUrl) {
+          _clothingPreviewCache.set(item.id, dataUrl);
+          const img = document.querySelector(`.mp-card[data-id="${CSS.escape(item.id)}"] .mp-card-thumb img`);
+          if (img) img.src = dataUrl;
+        }
+        await new Promise(r => setTimeout(r, 30));
+      }
     }
 
     function startPreviewLoop() {
@@ -725,6 +912,21 @@
       _p.camera.aspect = w / h;
       _p.camera.updateProjectionMatrix();
       _p.renderer.setSize(w, h);
+    }
+
+    function _resetPreviewColors() {
+      if (!_p || !_p.avatar) return;
+      const cc = _p.savedColors;
+      if (cc) {
+        _p.avatar.traverse(child => {
+          if (child.isMesh && child.material) {
+            const mats = Array.isArray(child.material) ? child.material : [child.material];
+            for (const mat of mats) {
+              if (mat.color) { mat.color.setHex(0xffffff); mat.needsUpdate = true; }
+            }
+          }
+        });
+      }
     }
 
     function cleanupPreviewItem() {
@@ -755,6 +957,21 @@
     function applyPreviewItem(item) {
       if (!_p || !_p.avatar) return;
       cleanupPreviewItem();
+      if (!_p.savedColors) {
+        _p.savedColors = [];
+        _p.avatar.traverse(child => {
+          if (child.isMesh && child.material) {
+            const mats = Array.isArray(child.material) ? child.material : [child.material];
+            for (const mat of mats) { if (mat.color) _p.savedColors.push({ mat, color: mat.color.getHex() }); }
+          }
+        });
+      }
+      _p.avatar.traverse(child => {
+        if (child.isMesh && child.material) {
+          const mats = Array.isArray(child.material) ? child.material : [child.material];
+          for (const mat of mats) { if (mat.color) { mat.color.set(0xffffff); mat.needsUpdate = true; } }
+        }
+      });
       if (item._type === 'clothing') {
         applyAvatarClothing(_p.avatar, item.id);
         _p.clothingId = item.id;
@@ -1173,6 +1390,7 @@
 
     buildCatalog();
     render();
+    initPreview();
 
     filterRow.addEventListener('click', (e) => {
       const btn = e.target.closest('.mp-filter');

@@ -141,6 +141,11 @@ function createGuiElement(type, props, screenEl) {
         TextTransparency: props.TextTransparency ?? 0,
     };
 
+    // Attach click handler from Lua props (bypasses Proxy get trap)
+    if (props._click && typeof props._click === 'function') {
+        el.addEventListener('click', props._click);
+    }
+
     function applyStyles() {
         el.style.position = 'absolute';
         el.style.zIndex = String(state.ZIndex);

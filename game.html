@@ -2095,6 +2095,102 @@
               friendRequestUnsubscribe?.();
               friendRequestUnsubscribe = startFriendRequestListener(user.uid);
 
+              // Mergeapart shop UI
+              if (game && game.id === 'mergeapart') {
+                const shopEl = document.createElement('div');
+                shopEl.id = 'mapShopRoot';
+                shopEl.innerHTML = `
+<button id="mapUpgradeBtn" style="display:none;position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:800;padding:8px 20px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer;font-weight:700;pointer-events:auto;box-shadow:0 4px 15px rgba(34,197,94,0.4);text-transform:uppercase;letter-spacing:1px;">UPGRADE</button>
+<div id="mapCashLabel" style="display:none;position:fixed;top:50px;left:50%;transform:translateX(-50%);z-index:800;color:#fff;font-size:22px;font-weight:700;pointer-events:none;text-shadow:0 2px 4px rgba(0,0,0,0.5);">$0</div>
+<div id="mapShopOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:820;cursor:pointer;pointer-events:auto;"></div>
+<div id="mapShopPanel" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:821;background:rgba(0,0,0,0.35);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-radius:12px;width:740px;pointer-events:auto;border:1px solid rgba(255,255,255,0.1);box-shadow:0 16px 48px rgba(0,0,0,0.5);overflow:hidden;">
+  <div style="background:#22c55e;padding:14px 20px;text-align:center;">
+    <div style="color:#fff;font-size:22px;font-weight:800;text-transform:uppercase;letter-spacing:2px;text-shadow:0 2px 4px rgba(0,0,0,0.3);">Upgrades</div>
+  </div>
+  <div style="padding:20px;">
+    <div style="display:flex;gap:14px;justify-content:center;">
+      <div style="background:rgba(255,255,255,0.06);border-radius:10px;width:220px;overflow:hidden;">
+        <div style="background:#3b82f6;height:4px;"></div>
+        <div style="padding:14px;text-align:center;">
+          <div style="color:#93c5fd;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Spawn Rate</div>
+          <div id="mapRateLevel" style="color:#fff;font-size:24px;font-weight:800;margin-top:6px;">Lv. 0</div>
+          <div id="mapRateDesc" style="color:#9ca3af;font-size:11px;margin-top:4px;">8.0s</div>
+          <div id="mapRatePrice" style="color:#fbbf24;font-size:20px;font-weight:800;margin-top:10px;">$100</div>
+          <button id="mapBtnRate" style="margin-top:10px;width:100%;padding:10px;background:#22c55e;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:1px;" onmouseenter="this.style.background='#16a34a'" onmouseleave="this.style.background='#22c55e'">Buy</button>
+        </div>
+      </div>
+      <div style="background:rgba(255,255,255,0.06);border-radius:10px;width:220px;overflow:hidden;">
+        <div style="background:#a855f7;height:4px;"></div>
+        <div style="padding:14px;text-align:center;">
+          <div style="color:#c084fc;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Spawn Level</div>
+          <div id="mapLevelLevel" style="color:#fff;font-size:24px;font-weight:800;margin-top:6px;">Lv. 0</div>
+          <div id="mapLevelDesc" style="color:#9ca3af;font-size:11px;margin-top:4px;">Lv. 1</div>
+          <div id="mapLevelPrice" style="color:#fbbf24;font-size:20px;font-weight:800;margin-top:10px;">$100</div>
+          <button id="mapBtnLevel" style="margin-top:10px;width:100%;padding:10px;background:#22c55e;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:1px;" onmouseenter="this.style.background='#16a34a'" onmouseleave="this.style.background='#22c55e'">Buy</button>
+        </div>
+      </div>
+      <div style="background:rgba(255,255,255,0.06);border-radius:10px;width:220px;overflow:hidden;">
+        <div style="background:#f97316;height:4px;"></div>
+        <div style="padding:14px;text-align:center;">
+          <div style="color:#fdba74;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Max Parts</div>
+          <div id="mapMaxPartsLevel" style="color:#fff;font-size:24px;font-weight:800;margin-top:6px;">Lv. 0</div>
+          <div id="mapMaxPartsDesc" style="color:#9ca3af;font-size:11px;margin-top:4px;">5 → 10</div>
+          <div id="mapMaxPartsPrice" style="color:#fbbf24;font-size:20px;font-weight:800;margin-top:10px;">$300</div>
+          <button id="mapBtnMaxParts" style="margin-top:10px;width:100%;padding:10px;background:#22c55e;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:1px;" onmouseenter="this.style.background='#16a34a'" onmouseleave="this.style.background='#22c55e'">Buy</button>
+        </div>
+      </div>
+    </div>
+    <button id="mapShopClose" style="margin-top:14px;width:100%;padding:10px;background:rgba(255,255,255,0.08);color:#d1d5db;border:1px solid rgba(255,255,255,0.1);border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;text-transform:uppercase;letter-spacing:1px;" onmouseenter="this.style.background='rgba(255,255,255,0.16)'" onmouseleave="this.style.background='rgba(255,255,255,0.08)'">Close</button>
+  </div>
+</div>`;
+                document.body.appendChild(shopEl);
+
+                const userId = user.uid;
+                function animateCash(target) {
+                  if (window._mapCashAnim) { cancelAnimationFrame(window._mapCashAnim); window._mapCashAnim = null; }
+                  const start = window._mapCashDisplay || 0;
+                  const diff = target - start;
+                  if (diff === 0) return;
+                  const dur = Math.min(250, Math.max(80, Math.abs(diff) * 8));
+                  const t0 = performance.now();
+                  function tick() {
+                    const t = Math.min(1, (performance.now() - t0) / dur);
+                    const cur = Math.round(start + diff * t * t * (3 - 2 * t));
+                    const el = document.getElementById('mapCashLabel');
+                    if (el) el.textContent = '$' + cur;
+                    if (t < 1) { window._mapCashAnim = requestAnimationFrame(tick); }
+                    else { window._mapCashDisplay = target; window._mapCashAnim = null; }
+                  }
+                  window._mapCashDisplay = start;
+                  tick();
+                }
+                window._mapCashDisplay = 0;
+                window._mapAnimateCash = animateCash;
+                document.getElementById('mapUpgradeBtn').addEventListener('click', () => {
+                  document.getElementById('mapShopOverlay').style.display = '';
+                  document.getElementById('mapShopPanel').style.display = '';
+                });
+                document.getElementById('mapShopOverlay').addEventListener('click', () => {
+                  document.getElementById('mapShopOverlay').style.display = 'none';
+                  document.getElementById('mapShopPanel').style.display = 'none';
+                });
+                document.getElementById('mapShopClose').addEventListener('click', () => {
+                  document.getElementById('mapShopOverlay').style.display = 'none';
+                  document.getElementById('mapShopPanel').style.display = 'none';
+                });
+                document.getElementById('mapBtnRate').addEventListener('click', () => {
+                  sendChat('TT|MG|UPGRADE|' + userId + '|spawnRate', username, userId, true);
+                });
+                document.getElementById('mapBtnLevel').addEventListener('click', () => {
+                  sendChat('TT|MG|UPGRADE|' + userId + '|spawnLevel', username, userId, true);
+                });
+                document.getElementById('mapBtnMaxParts').addEventListener('click', () => {
+                  sendChat('TT|MG|UPGRADE|' + userId + '|maxParts', username, userId, true);
+                });
+                document.getElementById('mapUpgradeBtn').style.display = '';
+                document.getElementById('mapCashLabel').style.display = '';
+              }
+
               connectMultiplayer(gameId, user.uid, username,
                 (id, x, y, z, ry, moving, grounded, climbState, qx, qy, qz, qw, dead, health) => {
                   if (!_knownPlayerIds.has(id)) return;
@@ -2192,6 +2288,44 @@
                       }
                     }
                     dispatchScriptChat(data);
+                    return;
+                  }
+                  if (data.message?.startsWith('TT|MG|CASH|')) {
+                    const parts = data.message.split('|');
+                    const target = parts[3];
+                    const amount = parseInt(parts[4]);
+                    if (target === user.uid && !isNaN(amount)) {
+                      if (window._mapAnimateCash) window._mapAnimateCash(amount);
+                      else {
+                        const el = document.getElementById('mapCashLabel');
+                        if (el) el.textContent = '$' + amount;
+                      }
+                    }
+                    return;
+                  }
+                  if (data.message?.startsWith('TT|MG|UPGRADE_STATE|')) {
+                    const parts = data.message.split('|');
+                    const sr = parseInt(parts[3]) || 0;
+                    const sl = parseInt(parts[4]) || 0;
+                    const mp = parseInt(parts[5]) || 0;
+                    const rl = document.getElementById('mapRateLevel');
+                    const rp = document.getElementById('mapRatePrice');
+                    const ll = document.getElementById('mapLevelLevel');
+                    const lp = document.getElementById('mapLevelPrice');
+                    const ml = document.getElementById('mapMaxPartsLevel');
+                    const mpr = document.getElementById('mapMaxPartsPrice');
+                    if (rl) rl.textContent = 'Lv. ' + sr;
+                    if (rp) rp.textContent = '$' + (100 * (sr + 1));
+                    const rd = document.getElementById('mapRateDesc');
+                    if (rd) rd.textContent = Math.max(1, 8 - sr * 0.5).toFixed(1) + 's → ' + Math.max(1, 8 - (sr + 1) * 0.5).toFixed(1) + 's';
+                    if (ll) ll.textContent = 'Lv. ' + sl;
+                    if (lp) lp.textContent = '$' + (100 * (sl + 1));
+                    const ld = document.getElementById('mapLevelDesc');
+                    if (ld) ld.textContent = 'Lv. ' + (1 + sl) + ' → Lv. ' + (2 + sl);
+                    if (ml) ml.textContent = 'Lv. ' + mp;
+                    if (mpr) mpr.textContent = '$' + (300 * (mp + 1));
+                    const md = document.getElementById('mapMaxPartsDesc');
+                    if (md) md.textContent = (5 + mp * 5) + ' → ' + (5 + (mp + 1) * 5);
                     return;
                   }
                   if (data.message?.startsWith('TT|MG|BEST|')) {
