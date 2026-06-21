@@ -9,6 +9,7 @@ function luaToJS(lua) {
     (s) => s.replace(/(,\s*)(\w+)\s*=\s*/g, '$1$2: '),
     (s) => s.replace(/\blocal\s+function\s+(\w+)\s*\(/g, 'function $1('),
     (s) => s.replace(/\bfunction\s+(\w+)\s*\(/g, 'function $1('),
+    (s) => s.replace(/^(\s*)function\s+\w+\s*\([^)]*\)\s*$/gm, '$& {'),
     (s) => s.replace(/(\bfunction\s*\([^)]*\))(?!\s*\{)/g, '$1 {'),
     (s) => s.replace(/^(\s*)end\b/gm, '$1}'),
     (s) => s.replace(/if\s+(?!\()(.*?)\s+then/g, 'if ($1) then'),
