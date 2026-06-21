@@ -1,26 +1,36 @@
 local parts = {}
 local totalSpawned = 0
 local MAX_ACTIVE_PARTS = 15
-local SPAWN_INTERVAL = 5
+local SPAWN_INTERVAL = 8
 local SPAWN_AREA = 100
 local bestScores = {}
 
 -- Upgrade system (server-wide — same for all players)
-local upgrades = { spawnRate = 0, spawnLevel = 0 }
+local upgrades = { spawnRate = 0, spawnLevel = 0, maxParts = 0 }
 local playerCash = {} -- userId -> total cash
-local CASH_PER_LEVEL = 5
+local CASH_PER_LEVEL = 2
 
 local function getSpawnInterval()
-    return math.max(0.5, SPAWN_INTERVAL - upgrades.spawnRate * 0.75)
+    return math.max(1, SPAWN_INTERVAL - upgrades.spawnRate * 0.5)
 end
 
 local function getSpawnLevel()
     return 1 + upgrades.spawnLevel
 end
 
+local function getMaxParts()
+    return MAX_ACTIVE_PARTS + upgrades.maxParts * 5
+end
+
 local function getUpgradePrice(upgradeType)
     local level = upgrades[upgradeType] or 0
-    return 100 * (level + 1)
+    if upgradeType == "spawnRate" then
+        return 200 * (level + 1)
+    elseif upgradeType == "maxParts" then
+        return 300 * (level + 1)
+    else
+        return 100 * (level + 1)
+    end
 end
 
 local serializeParts = function()
@@ -69,7 +79,7 @@ local countActive = function()
 end
 
 local spawnTimer = function()
-    if countActive() < MAX_ACTIVE_PARTS then
+    if countActive() < getMaxParts() then
         spawnPart()
         broadcastState()
     end
@@ -82,7 +92,7 @@ end
 
 local onPlayerJoin = function(player)
     broadcastState()
-    game:SendChat("TT|MG|UPGRADE_STATE|" .. upgrades.spawnRate .. "|" .. upgrades.spawnLevel)
+    game:SendChat("TT|MG|UPGRADE_STATE|" .. upgrades.spawnRate .. "|" .. upgrades.spawnLevel .. "|" .. upgrades.maxParts)
     local cash = playerCash[player.userId] or 0
     game:SendChat("TT|MG|CASH|" .. player.userId .. "|" .. cash)
     for uid, level in pairs(bestScores) do
@@ -168,13 +178,13 @@ local onChat = function(player, message, data)
         local userId = partsArr[3]
         local upgradeType = partsArr[4]
         if not userId or not upgradeType then return end
-        if upgradeType ~= "spawnRate" and upgradeType ~= "spawnLevel" then return end
+        if upgradeType ~= "spawnRate" and upgradeType ~= "spawnLevel" and upgradeType ~= "maxParts" then return end
         local price = getUpgradePrice(upgradeType)
         local cash = playerCash[userId] or 0
         if cash < price then return end
         playerCash[userId] = cash - price
         upgrades[upgradeType] = upgrades[upgradeType] + 1
-        game:SendChat("TT|MG|UPGRADE_STATE|" .. upgrades.spawnRate .. "|" .. upgrades.spawnLevel)
+        game:SendChat("TT|MG|UPGRADE_STATE|" .. upgrades.spawnRate .. "|" .. upgrades.spawnLevel .. "|" .. upgrades.maxParts)
         game:SendChat("TT|MG|CASH|" .. userId .. "|" .. playerCash[userId])
         return
     end
