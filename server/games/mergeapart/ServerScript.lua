@@ -1,6 +1,6 @@
 local parts = {}
 local totalSpawned = 0
-local MAX_ACTIVE_PARTS = 15
+local MAX_ACTIVE_PARTS = 5
 local SPAWN_INTERVAL = 8
 local SPAWN_AREA = 100
 local bestScores = {}
