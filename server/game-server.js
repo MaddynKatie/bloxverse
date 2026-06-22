@@ -28,10 +28,10 @@ function luaToJS(lua) {
       const _ikv = new RegExp('for\\s+(\\w+)\\s*,\\s*(\\w+)\\s+in\\s+ipairs\\s*\\(' + _np.source + '\\)\\s+do', 'g');
       const _ik  = new RegExp('for\\s+(\\w+)\\s+in\\s+ipairs\\s*\\(' + _np.source + '\\)\\s+do', 'g');
       const _pkv = new RegExp('for\\s+(\\w+)\\s*,\\s*(\\w+)\\s+in\\s+pairs\\s*\\(' + _np.source + '\\)\\s+do', 'g');
-      s = s.replace(_iv,  (_m, _v, _e) => { const _i = _forIdx++; return `for (let _ip${_i}=0; _ip${_i}<${_e}.length; _ip${_i}++) { let ${_v}=${_e}[_ip${_i}];`; });
-      s = s.replace(_ikv, (_m, _k, _v, _e) => { const _i = _forIdx++; return `for (let _ip${_i}=0; _ip${_i}<${_e}.length; _ip${_i}++) { let ${_v}=${_e}[_ip${_i}]; let ${_k}=_ip${_i};`; });
-      s = s.replace(_ik,  (_m, _v, _e) => { const _i = _forIdx++; return `for (let _ip${_i}=0; _ip${_i}<${_e}.length; _ip${_i}++) { let ${_v}=${_e}[_ip${_i}];`; });
-      s = s.replace(_pkv, (_m, _k, _v, _e) => { const _i = _forIdx++; return `for (let _pk${_i} in ${_e}) { let ${_v}=${_e}[_pk${_i}]; let ${_k}=_pk${_i};`; });
+      s = s.replace(_iv,  (_m, _v, _e) => { const _i = _forIdx++; return `for (let _ip${_i}=0; _ip${_i}<(${_e}).length; _ip${_i}++) { let ${_v}=(${_e})[_ip${_i}];`; });
+      s = s.replace(_ikv, (_m, _k, _v, _e) => { const _i = _forIdx++; return `for (let _ip${_i}=0; _ip${_i}<(${_e}).length; _ip${_i}++) { let ${_v}=(${_e})[_ip${_i}]; let ${_k}=_ip${_i};`; });
+      s = s.replace(_ik,  (_m, _v, _e) => { const _i = _forIdx++; return `for (let _ip${_i}=0; _ip${_i}<(${_e}).length; _ip${_i}++) { let ${_v}=(${_e})[_ip${_i}];`; });
+      s = s.replace(_pkv, (_m, _k, _v, _e) => { const _i = _forIdx++; return `for (let _pk${_i} in ${_e}) { let ${_v}=(${_e})[_pk${_i}]; let ${_k}=_pk${_i};`; });
       return s;
     },
     (s) => {
@@ -58,7 +58,7 @@ function luaToJS(lua) {
     (s) => s.replace(/~=/g, '!=='),
     (s) => s.replace(/(?<![=!<>])===(?!=)/g, '==='),
     (s) => s.replace(/(?<![=!<>])==(?!=)/g, '==='),
-    (s) => s.replace(/#(\w+(?:\.\w+)*)/g, '$1.length'),
+    (s) => s.replace(/(?<!['"\w])#(\w+(?:\.\w+)*)/g, '$1.length'),
     (s) => s.replace(/^return\s*\{([^}]*)\}\s*;?\s*$/m, (_match, _inner) =>
       'Object.assign(exports, {' + _inner.replace(/(\w+)\s*:\s*([a-zA-Z_]\w*)/g, (_m, _k, _v) =>
         `${_k}: (typeof ${_v} !== 'undefined' ? ${_v} : exports.${_v})`
