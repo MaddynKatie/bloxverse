@@ -642,7 +642,7 @@
       // Default stats per game.
       // Timetag previously injected a default { Wins: 0 } which caused the Wins column
       // to show even when timetag should not display it.
-      const defaultStatsPerGame = (game && game.id === 'blockyfights') ? { Kills: 0 } : (game && game.id === 'mergeapart') ? { Best: 0 } : {};
+      const defaultStatsPerGame = (game && game.id === 'blockyfights') ? { Kills: 0 } : (game && game.id === 'mergeapart') ? { Best: 0 } : (game && game.id === 'plus1speedrun') ? { Wins: 0 } : {};
       lbList.innerHTML = players
         .map(p => ({ p, stats: { ...defaultStatsPerGame, ...(_playerStats.get(p.userId) || {}) } }))
         .sort((a, b) => {
@@ -1632,6 +1632,10 @@
           _playerStats.get(playerId)[statName] = value;
           if (_lastLeaderboardPlayers.length > 0) renderLeaderboard(_lastLeaderboardPlayers);
         },
+        GetPlayerStat: (playerId, statName) => {
+          const stats = _playerStats.get(playerId);
+          return stats ? (stats[statName] ?? 0) : 0;
+        },
         SendChat: (msg) => {
           if (!msg || msg.length > 200) {
             appendChatMessage({ system: true, message: 'Your message is too long (max 200 characters).' });
@@ -2103,44 +2107,44 @@
 <button id="mapUpgradeBtn" style="display:none;position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:800;padding:8px 20px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer;font-weight:700;pointer-events:auto;box-shadow:0 4px 15px rgba(34,197,94,0.4);text-transform:uppercase;letter-spacing:1px;">UPGRADE</button>
 <div id="mapCashLabel" style="display:none;position:fixed;top:50px;left:50%;transform:translateX(-50%);z-index:800;color:#fff;font-size:22px;font-weight:700;pointer-events:none;text-shadow:0 2px 4px rgba(0,0,0,0.5);">$0</div>
 <div id="mapShopOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:820;cursor:pointer;pointer-events:auto;"></div>
-<div id="mapShopPanel" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:821;background:rgba(0,0,0,0.35);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-radius:12px;width:740px;pointer-events:auto;border:1px solid rgba(255,255,255,0.1);box-shadow:0 16px 48px rgba(0,0,0,0.5);overflow:hidden;">
+<div id="mapShopPanel" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:821;background:rgba(0,0,0,0.35);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-radius:12px;width:min(90vw,740px);pointer-events:auto;border:1px solid rgba(255,255,255,0.1);box-shadow:0 16px 48px rgba(0,0,0,0.5);overflow:hidden;">
   <div style="background:#22c55e;padding:14px 20px;text-align:center;">
-    <div style="color:#fff;font-size:22px;font-weight:800;text-transform:uppercase;letter-spacing:2px;text-shadow:0 2px 4px rgba(0,0,0,0.3);">Upgrades</div>
+    <div style="color:#fff;font-size:clamp(16px,2.5vw,22px);font-weight:800;text-transform:uppercase;letter-spacing:2px;text-shadow:0 2px 4px rgba(0,0,0,0.3);">Upgrades</div>
   </div>
-  <div style="padding:20px;">
-    <div style="display:flex;gap:14px;justify-content:center;">
-      <div style="background:rgba(255,255,255,0.06);border-radius:10px;width:220px;overflow:hidden;">
+  <div style="padding:clamp(12px,2vw,20px);">
+    <div style="display:flex;flex-wrap:wrap;gap:clamp(8px,1.5vw,14px);justify-content:center;">
+      <div style="background:rgba(255,255,255,0.06);border-radius:10px;flex:1 1 200px;min-width:160px;max-width:220px;overflow:hidden;">
         <div style="background:#3b82f6;height:4px;"></div>
-        <div style="padding:14px;text-align:center;">
-          <div style="color:#93c5fd;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Spawn Rate</div>
-          <div id="mapRateLevel" style="color:#fff;font-size:24px;font-weight:800;margin-top:6px;">Lv. 0</div>
-          <div id="mapRateDesc" style="color:#9ca3af;font-size:11px;margin-top:4px;">8.0s</div>
-          <div id="mapRatePrice" style="color:#fbbf24;font-size:20px;font-weight:800;margin-top:10px;">$100</div>
-          <button id="mapBtnRate" style="margin-top:10px;width:100%;padding:10px;background:#22c55e;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:1px;" onmouseenter="this.style.background='#16a34a'" onmouseleave="this.style.background='#22c55e'">Buy</button>
+        <div style="padding:clamp(10px,1.5vw,14px);text-align:center;">
+          <div style="color:#93c5fd;font-size:clamp(10px,1.3vw,12px);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Spawn Rate</div>
+          <div id="mapRateLevel" style="color:#fff;font-size:clamp(18px,2.5vw,24px);font-weight:800;margin-top:6px;">Lv. 0</div>
+          <div id="mapRateDesc" style="color:#9ca3af;font-size:clamp(10px,1.2vw,11px);margin-top:4px;">8.0s</div>
+          <div id="mapRatePrice" style="color:#fbbf24;font-size:clamp(16px,2vw,20px);font-weight:800;margin-top:clamp(6px,1vw,10px);">$100</div>
+          <button id="mapBtnRate" style="margin-top:clamp(6px,1vw,10px);width:100%;padding:clamp(8px,1vw,10px);background:#22c55e;color:#fff;border:none;border-radius:6px;font-size:clamp(11px,1.3vw,13px);font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:1px;" onmouseenter="this.style.background='#16a34a'" onmouseleave="this.style.background='#22c55e'">Buy</button>
         </div>
       </div>
-      <div style="background:rgba(255,255,255,0.06);border-radius:10px;width:220px;overflow:hidden;">
+      <div style="background:rgba(255,255,255,0.06);border-radius:10px;flex:1 1 200px;min-width:160px;max-width:220px;overflow:hidden;">
         <div style="background:#a855f7;height:4px;"></div>
-        <div style="padding:14px;text-align:center;">
-          <div style="color:#c084fc;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Spawn Level</div>
-          <div id="mapLevelLevel" style="color:#fff;font-size:24px;font-weight:800;margin-top:6px;">Lv. 0</div>
-          <div id="mapLevelDesc" style="color:#9ca3af;font-size:11px;margin-top:4px;">Lv. 1</div>
-          <div id="mapLevelPrice" style="color:#fbbf24;font-size:20px;font-weight:800;margin-top:10px;">$100</div>
-          <button id="mapBtnLevel" style="margin-top:10px;width:100%;padding:10px;background:#22c55e;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:1px;" onmouseenter="this.style.background='#16a34a'" onmouseleave="this.style.background='#22c55e'">Buy</button>
+        <div style="padding:clamp(10px,1.5vw,14px);text-align:center;">
+          <div style="color:#c084fc;font-size:clamp(10px,1.3vw,12px);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Spawn Level</div>
+          <div id="mapLevelLevel" style="color:#fff;font-size:clamp(18px,2.5vw,24px);font-weight:800;margin-top:6px;">Lv. 0</div>
+          <div id="mapLevelDesc" style="color:#9ca3af;font-size:clamp(10px,1.2vw,11px);margin-top:4px;">Lv. 1</div>
+          <div id="mapLevelPrice" style="color:#fbbf24;font-size:clamp(16px,2vw,20px);font-weight:800;margin-top:clamp(6px,1vw,10px);">$100</div>
+          <button id="mapBtnLevel" style="margin-top:clamp(6px,1vw,10px);width:100%;padding:clamp(8px,1vw,10px);background:#22c55e;color:#fff;border:none;border-radius:6px;font-size:clamp(11px,1.3vw,13px);font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:1px;" onmouseenter="this.style.background='#16a34a'" onmouseleave="this.style.background='#22c55e'">Buy</button>
         </div>
       </div>
-      <div style="background:rgba(255,255,255,0.06);border-radius:10px;width:220px;overflow:hidden;">
+      <div style="background:rgba(255,255,255,0.06);border-radius:10px;flex:1 1 200px;min-width:160px;max-width:220px;overflow:hidden;">
         <div style="background:#f97316;height:4px;"></div>
-        <div style="padding:14px;text-align:center;">
-          <div style="color:#fdba74;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Max Parts</div>
-          <div id="mapMaxPartsLevel" style="color:#fff;font-size:24px;font-weight:800;margin-top:6px;">Lv. 0</div>
-          <div id="mapMaxPartsDesc" style="color:#9ca3af;font-size:11px;margin-top:4px;">5 → 10</div>
-          <div id="mapMaxPartsPrice" style="color:#fbbf24;font-size:20px;font-weight:800;margin-top:10px;">$300</div>
-          <button id="mapBtnMaxParts" style="margin-top:10px;width:100%;padding:10px;background:#22c55e;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:1px;" onmouseenter="this.style.background='#16a34a'" onmouseleave="this.style.background='#22c55e'">Buy</button>
+        <div style="padding:clamp(10px,1.5vw,14px);text-align:center;">
+          <div style="color:#fdba74;font-size:clamp(10px,1.3vw,12px);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Max Parts</div>
+          <div id="mapMaxPartsLevel" style="color:#fff;font-size:clamp(18px,2.5vw,24px);font-weight:800;margin-top:6px;">Lv. 0</div>
+          <div id="mapMaxPartsDesc" style="color:#9ca3af;font-size:clamp(10px,1.2vw,11px);margin-top:4px;">5 → 10</div>
+          <div id="mapMaxPartsPrice" style="color:#fbbf24;font-size:clamp(16px,2vw,20px);font-weight:800;margin-top:clamp(6px,1vw,10px);">$300</div>
+          <button id="mapBtnMaxParts" style="margin-top:clamp(6px,1vw,10px);width:100%;padding:clamp(8px,1vw,10px);background:#22c55e;color:#fff;border:none;border-radius:6px;font-size:clamp(11px,1.3vw,13px);font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:1px;" onmouseenter="this.style.background='#16a34a'" onmouseleave="this.style.background='#22c55e'">Buy</button>
         </div>
       </div>
     </div>
-    <button id="mapShopClose" style="margin-top:14px;width:100%;padding:10px;background:rgba(255,255,255,0.08);color:#d1d5db;border:1px solid rgba(255,255,255,0.1);border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;text-transform:uppercase;letter-spacing:1px;" onmouseenter="this.style.background='rgba(255,255,255,0.16)'" onmouseleave="this.style.background='rgba(255,255,255,0.08)'">Close</button>
+    <button id="mapShopClose" style="margin-top:clamp(10px,1.5vw,14px);width:100%;padding:clamp(8px,1vw,10px);background:rgba(255,255,255,0.08);color:#d1d5db;border:1px solid rgba(255,255,255,0.1);border-radius:6px;font-size:clamp(11px,1.3vw,13px);font-weight:600;cursor:pointer;text-transform:uppercase;letter-spacing:1px;" onmouseenter="this.style.background='rgba(255,255,255,0.16)'" onmouseleave="this.style.background='rgba(255,255,255,0.08)'">Close</button>
   </div>
 </div>`;
                 document.body.appendChild(shopEl);

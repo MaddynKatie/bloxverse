@@ -2,6 +2,7 @@ import { sitePath } from './paths.js';
 
 /** Official game Lua scripts — list updated by `npm run dist`. */
 const GAME_SCRIPT_RELATIVE = [
+  'assets/games/+1speedrun/main.lua',
   'assets/games/backrooms/main.lua',
   'assets/games/blockyfights/main.lua',
   'assets/games/blockyfights/tp1.lua',

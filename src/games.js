@@ -174,6 +174,25 @@ export const games = [
     visits: 0,
     createdAt: '2026/06/18',
   },
+  {
+    id: 'plus1speedrun',
+    name: '+1 Speed Run',
+    official: true,
+    icon: './assets/icons/demo.png',
+    mapPath: './assets/models/+1speedrun.json',
+    scriptsPath: './assets/games/+1speedrun',
+    description: `🏃 Welcome to +1 Speed Run! 🏃
+⚡ Every step = +1 Speed
+💪 Train your speed and unlock powerful multipliers
+👥 Race against friends and other players
+🌍 Become the FASTEST on the server`,
+    category: 'Strategy',
+    worldFloor: false,
+    respawnY: -200,
+    activePlayers: 0,
+    visits: 0,
+    createdAt: '2026/06/18',
+  },
 ];
 
 export async function loadGameStats() {

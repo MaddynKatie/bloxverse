@@ -933,6 +933,7 @@ let climbCooldown = 0;
 
 let extraVelX = 0, extraVelZ = 0;
 let _charMoving = false;
+let _fakeMoving = false;
 
 // ─── Camera state ─────────────────────────────────────────────────────────────
 const cam = { yaw: 0, pitch: 0.35, distance: 25.6, targetDistance: 25.6,
@@ -3172,6 +3173,13 @@ function update(dt) {
         const halfZ = CHAR_HALF_W*asin + CHAR_HALF_D*acos;
         const swNearby = getNearbyColliders(character.position.x, character.position.y, character.position.z);
 
+        const _sweepTouch = (b) => {
+            if (window._bloxverse._charInstance) {
+                const _ti = b._meshRef?._instRef;
+                if (_ti && _ti.Touched) _ti.Touched.Fire(window._bloxverse._charInstance);
+            }
+        };
+
         let dx = velX * dt;
         for (const b of swNearby) {
             if (b.maxY <= fy0+0.05 || b.minY >= fy0+CHAR_HEIGHT) continue;
@@ -3183,12 +3191,12 @@ function update(dt) {
                 const edge = character.position.x + halfX;
                 if (edge > b.minX) continue;
                 const allow = b.minX - edge;
-                if (allow < dx) dx = Math.max(0, allow);
+                if (allow < dx) { dx = Math.max(0, allow); _sweepTouch(b); }
             } else if (dx < 0) {
                 const edge = character.position.x - halfX;
                 if (edge < b.maxX) continue;
                 const allow = b.maxX - edge;
-                if (allow > dx) dx = Math.min(0, allow);
+                if (allow > dx) { dx = Math.min(0, allow); _sweepTouch(b); }
             }
         }
         character.position.x += dx;
@@ -3204,12 +3212,12 @@ function update(dt) {
                 const edge = character.position.z + halfZ;
                 if (edge > b.minZ) continue;
                 const allow = b.minZ - edge;
-                if (allow < dz) dz = Math.max(0, allow);
+                if (allow < dz) { dz = Math.max(0, allow); _sweepTouch(b); }
             } else if (dz < 0) {
                 const edge = character.position.z - halfZ;
                 if (edge < b.maxZ) continue;
                 const allow = b.maxZ - edge;
-                if (allow > dz) dz = Math.min(0, allow);
+                if (allow > dz) { dz = Math.min(0, allow); _sweepTouch(b); }
             }
         }
         character.position.z += dz;
@@ -3275,7 +3283,7 @@ function update(dt) {
     }
 
     updateEmote(dt);
-    updateAnimations(dt, _charMoving);
+    updateAnimations(dt, _charMoving || _fakeMoving);
 
     // Apply emote rotation offsets directly so axes not covered by setRot still work,
     // and to bypass lerp smoothing for frame-accurate keyframe playback
@@ -3956,6 +3964,7 @@ window._bloxverse = {
     killPlayer: () => _dieRagdoll(),
     onRespawn(fn) { _respawnCallbacks.push(fn); },
     onDeath(fn) { _deathCallbacks.push(fn); },
+    setFakeMoving(v) { _fakeMoving = !!v; },
     _charInstance: null,
     setCharInstance: (inst) => { window._bloxverse._charInstance = inst; },
     
@@ -4014,6 +4023,15 @@ window._bloxverse = {
 
     _updateGuiInstances: (game) => {
         _gameRef = game;
+
+        if (!window._bloxverse._charInstance) {
+            const ws = game.Children.find(c => c.ClassName === 'Workspace');
+            if (ws) {
+                const p = Instance.new('Player', 'Player');
+                p.Parent = ws;
+                window._bloxverse._charInstance = p;
+            }
+        }
 
         // Wire up any parts created by loadMap before _gameRef was set
         const workspaceInst = game.Children.find(c => c.ClassName === 'Workspace');
@@ -4664,10 +4682,9 @@ window._bloxverse = {
     setPhysicsGravity(y) { physicsWorld.gravity.set(0, y, 0); },
     getPhysicsGravity: () => physicsWorld.gravity.y,
     // Simple billboard text sprite (for game scripts)
-    createBillboard(text, hexColor, x, y, z) {
+    createBillboard(text, hexColor, x, y, z, fontSize = 48) {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        const fontSize = 48;
         ctx.font = `bold ${fontSize}px Arial`;
         const metrics = ctx.measureText(text);
         const w = metrics.width + 16;

@@ -38,10 +38,10 @@ export function luaToJS(lua) {
             const _ikv = new RegExp('for\\s+(\\w+)\\s*,\\s*(\\w+)\\s+in\\s+ipairs\\s*\\(' + _np.source + '\\)\\s+do', 'g');
             const _ik  = new RegExp('for\\s+(\\w+)\\s+in\\s+ipairs\\s*\\(' + _np.source + '\\)\\s+do', 'g');
             const _pkv = new RegExp('for\\s+(\\w+)\\s*,\\s*(\\w+)\\s+in\\s+pairs\\s*\\(' + _np.source + '\\)\\s+do', 'g');
-            _s = _s.replace(_iv,  (_m, _v, _e) => { const _i = _forIdx++; return `for (let _ip${_i}=0; _ip${_i}<${_e}.length; _ip${_i}++) { let ${_v}=${_e}[_ip${_i}];`; });
-            _s = _s.replace(_ikv, (_m, _k, _v, _e) => { const _i = _forIdx++; return `for (let _ip${_i}=0; _ip${_i}<${_e}.length; _ip${_i}++) { let ${_v}=${_e}[_ip${_i}]; let ${_k}=_ip${_i};`; });
-            _s = _s.replace(_ik,  (_m, _v, _e) => { const _i = _forIdx++; return `for (let _ip${_i}=0; _ip${_i}<${_e}.length; _ip${_i}++) { let ${_v}=${_e}[_ip${_i}];`; });
-            _s = _s.replace(_pkv, (_m, _k, _v, _e) => { const _i = _forIdx++; return `for (let _pk${_i} in ${_e}) { let ${_v}=${_e}[_pk${_i}]; let ${_k}=_pk${_i};`; });
+            _s = _s.replace(_iv,  (_m, _v, _e) => { const _i = _forIdx++; return `for (let _ip${_i}=0; _ip${_i}<(${_e}).length; _ip${_i}++) { let ${_v}=(${_e})[_ip${_i}];`; });
+            _s = _s.replace(_ikv, (_m, _k, _v, _e) => { const _i = _forIdx++; return `for (let _ip${_i}=0; _ip${_i}<(${_e}).length; _ip${_i}++) { let ${_v}=(${_e})[_ip${_i}]; let ${_k}=_ip${_i};`; });
+            _s = _s.replace(_ik,  (_m, _v, _e) => { const _i = _forIdx++; return `for (let _ip${_i}=0; _ip${_i}<(${_e}).length; _ip${_i}++) { let ${_v}=(${_e})[_ip${_i}];`; });
+            _s = _s.replace(_pkv, (_m, _k, _v, _e) => { const _i = _forIdx++; return `for (let _pk${_i} in ${_e}) { let ${_v}=(${_e})[_pk${_i}]; let ${_k}=_pk${_i};`; });
             return _s;
         },
         // Numeric for loops: for i = start, stop[, step] do
@@ -73,7 +73,7 @@ export function luaToJS(lua) {
         (_s) => _s.replace(/~=/g, '!=='),
         (_s) => _s.replace(/(?<![=!<>])===(?!=)/g, '==='), // keep existing ===
         (_s) => _s.replace(/(?<![=!<>])==(?!=)/g, '==='),
-        (_s) => _s.replace(/#(\w+(?:\.\w+)*)/g, '$1.length'),
+        (_s) => _s.replace(/(?<!['"\w])#(\w+(?:\.\w+)*)/g, '$1.length'),
         // Convert top-level return { k = v } to Object.assign(exports, {k: v})
         // local functions become exports.fn (not bare names), so fall back to exports.fn
         (_s) => _s.replace(/^return\s*\{([^}]*)\}\s*;?\s*$/m, (_match, _inner) =>
