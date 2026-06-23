@@ -23,9 +23,10 @@ const GAME_SCRIPT_RELATIVE = [
 
 export async function loadGameScriptModules() {
   const modules = {};
+  const ts = Date.now();
   await Promise.all(
     GAME_SCRIPT_RELATIVE.map(async (rel) => {
-      const path = sitePath(rel);
+      const path = sitePath(rel) + '?v=' + ts;
       try {
         const res = await fetch(path);
         if (res.ok) modules[path] = await res.text();
