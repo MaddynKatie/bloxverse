@@ -446,7 +446,8 @@ export async function claimDailyBux(userId) {
     const result = await runTransaction(db, async (txn) => {
       const snap = await txn.get(doc(db, 'users', userId));
       if (!snap.exists()) return { claimed: false };
-      const today = new Date().toISOString().slice(0, 10);
+      const now = new Date();
+      const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
       const data = snap.data();
       if (data.lastDailyClaim === today) return { claimed: false };
       const oldBalance = data.bux || 0;

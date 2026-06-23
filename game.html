@@ -1700,8 +1700,8 @@
             buyBtn.classList.add('ready');
           }, GP_FILL_DURATION * 1000);
         };
-        getDoc(doc(db, 'users', auth.currentUser.uid)).then(snap => {
-          const b = snap.data()?.bux ?? 0;
+          getDoc(doc(db, 'users', auth.currentUser.uid)).then(snap => {
+            const b = snap.data()?.bux ?? 0;
           balanceEl.textContent = b;
           if (b < amount) {
             errorEl.textContent = 'Insufficient BUX! You don\'t have enough BUX to purchase this item.';
@@ -1779,8 +1779,8 @@
               buyBtn.classList.add('ready');
             }, GP_FILL_DURATION * 1000);
           };
-          getDoc(doc(db, 'users', auth.currentUser.uid)).then(snap => {
-            const b = snap.data()?.bux ?? 0;
+        getDoc(doc(db, 'users', auth.currentUser.uid)).then(snap => {
+          const b = snap.data()?.bux ?? 0;
             balanceEl.textContent = b;
             if (b < price) {
               errorEl.textContent = 'Insufficient BUX! You don\'t have enough BUX to purchase this item.';

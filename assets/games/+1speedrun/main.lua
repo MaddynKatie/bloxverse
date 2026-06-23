@@ -1,7 +1,7 @@
 local speed = 0
 local level = 1
 local totalSpeed = 0
-local speedToLevel = 100
+local nextLevelReq = math.floor(150 * math.pow(1, 2.45))
 local barWidth = 480
 local walkTimer = 0
 local pw = 0
@@ -27,7 +27,7 @@ local speedHeader = gui:CreateGui("TextLabel", {
 	PositionY = 0.80,
 	SizeX = 200,
 	SizeY = 26,
-	Text = "Speed",
+	Text = "",
 	TextColor = Color3.fromRGB(150, 200, 255),
 	FontSize = 22,
 	BackgroundColor = "transparent",
@@ -46,100 +46,113 @@ local totalSpeedLabel = gui:CreateGui("TextLabel", {
 
 local barFrame = gui:CreateGui("Frame", {
 	PositionX = 0.5,
-	PositionY = 0.92,
+	PositionY = 0.925,
 	SizeX = barWidth,
-	SizeY = 36,
-	BackgroundColor = Color3.fromRGB(25, 25, 35),
+	SizeY = 44,
+	BackgroundColor = Color3.fromRGB(190, 155, 90),
 })
 
 local barFill = gui:CreateGui("Frame", {
 	PositionX = 0,
-	PositionY = 0.92,
+	PositionY = 0.925,
 	SizeX = 0,
-	SizeY = 36,
-	BackgroundColor = Color3.fromRGB(50, 220, 100),
+	SizeY = 44,
+	BackgroundColor = Color3.fromRGB(230, 195, 120),
 })
 
 local levelLabel = gui:CreateGui("TextLabel", {
 	PositionX = 0,
-	PositionY = 0.92,
-	SizeX = 80,
-	SizeY = 36,
-	Text = "Lv 1",
-	TextColor = Color3.fromRGB(255, 200, 50),
-	FontSize = 16,
+	PositionY = 0.925,
+	SizeX = 160,
+	SizeY = 44,
+	Text = "Level 1",
+	TextColor = Color3.fromRGB(255, 255, 255),
+	FontSize = 20,
 	BackgroundColor = "transparent",
 })
 
 local progressLabel = gui:CreateGui("TextLabel", {
 	PositionX = 0,
-	PositionY = 0.92,
+	PositionY = 0.925,
 	SizeX = 160,
-	SizeY = 36,
+	SizeY = 44,
 	Text = "0 / 100",
+	TextColor = Color3.fromRGB(255, 255, 255),
+	FontSize = 17,
+	BackgroundColor = "transparent",
+})
+
+-- Right side panel — "Custom Speed" like image
+local panelFrame = gui:CreateGui("Frame", {
+	PositionX = 0.88,
+	PositionY = 0.30,
+	SizeX = 200,
+	SizeY = 180,
+	BackgroundColor = Color3.fromRGB(0, 190, 210),
+})
+
+local panelTitle = gui:CreateGui("TextLabel", {
+	PositionX = 0.88,
+	PositionY = 0.30,
+	SizeX = 180,
+	SizeY = 26,
+	Text = "Custom Speed",
 	TextColor = Color3.fromRGB(255, 255, 255),
 	FontSize = 16,
 	BackgroundColor = "transparent",
 })
 
--- Right side panel
-local panelFrame = gui:CreateGui("Frame", {
-	PositionX = 0.92,
-	PositionY = 0.26,
-	SizeX = 160,
-	SizeY = 190,
-	BackgroundColor = Color3.fromRGB(20, 20, 30),
-})
-
-local currentSpeedLabel = gui:CreateGui("TextLabel", {
-	PositionX = 0.92,
-	PositionY = 0.27,
-	SizeX = 140,
-	SizeY = 24,
-	Text = "Current: 12",
+local maxSpeedLabel = gui:CreateGui("TextLabel", {
+	PositionX = 0.88,
+	PositionY = 0.365,
+	SizeX = 180,
+	SizeY = 22,
+	Text = "Your Max Speed: 12",
 	TextColor = Color3.fromRGB(255, 255, 255),
-	FontSize = 14,
+	FontSize = 13,
 	BackgroundColor = "transparent",
 })
 
-local rebirthMultLabel = gui:CreateGui("TextLabel", {
-	PositionX = 0.92,
-	PositionY = 0.32,
-	SizeX = 140,
-	SizeY = 24,
-	Text = "Multiplier x1 (Rebirth)",
-	TextColor = Color3.fromRGB(100, 200, 255),
+-- DOM input styled like image (grey box)
+local doc = window.document
+local guiWrapper = gui._wrapper
+local inputEl = doc.createElement("input")
+inputEl.type = "text"
+inputEl.placeholder = "12"
+inputEl.style.cssText = "position:absolute;width:88px;height:34px;background:" .. "#" .. "ccc;color:" .. "#" .. "222;border:none;border-radius:6px 0 0 6px;padding:4px 8px;font-size:16px;font-weight:bold;outline:none;text-align:center;z-index:600;box-sizing:border-box;"
+guiWrapper.appendChild(inputEl)
+
+local setSpeedBtn = gui:CreateGui("TextButton", {
+	PositionX = 0.88,
+	PositionY = 0.425,
+	SizeX = 52,
+	SizeY = 34,
+	Text = "OK",
+	TextColor = Color3.fromRGB(255, 255, 255),
+	FontSize = 15,
+	BackgroundColor = Color3.fromRGB(50, 180, 80),
+})
+
+local currentSpeedLabel = gui:CreateGui("TextLabel", {
+	PositionX = 0.88,
+	PositionY = 0.48,
+	SizeX = 180,
+	SizeY = 20,
+	Text = "Current speed: 12",
+	TextColor = Color3.fromRGB(255, 255, 255),
 	FontSize = 12,
 	BackgroundColor = "transparent",
 })
 
-local maxSpeedLabel = gui:CreateGui("TextLabel", {
-	PositionX = 0.92,
-	PositionY = 0.36,
-	SizeX = 140,
-	SizeY = 24,
-	Text = "Max: 12",
-	TextColor = Color3.fromRGB(200, 200, 200),
-	FontSize = 14,
+local rebirthMultLabel = gui:CreateGui("TextLabel", {
+	PositionX = 0.88,
+	PositionY = 0.26,
+	SizeX = 200,
+	SizeY = 22,
+	Text = "Multiplier x1 (Rebirth)",
+	TextColor = Color3.fromRGB(150, 220, 255),
+	FontSize = 12,
 	BackgroundColor = "transparent",
-})
-
--- DOM text input in panel area
-local doc = window.document
-local inputEl = doc.createElement("input")
-inputEl.type = "text"
-inputEl.placeholder = "Speed"
-inputEl.style.cssText = "position:fixed;width:120px;height:28px;background:" .. "#" .. "333;color:" .. "#" .. "fff;border:1px solid " .. "#" .. "666;border-radius:4px;padding:4px 8px;font-size:13px;outline:none;text-align:center;z-index:600;"
-doc.body.appendChild(inputEl)
-
-local setSpeedBtn = gui:CreateGui("TextButton", {
-	PositionX = 0.92,
-	PositionY = 0.44,
-	SizeX = 120,
-	SizeY = 32,
-	Text = "Set Speed",
-	TextColor = Color3.fromRGB(255, 255, 255),
-	BackgroundColor = Color3.fromRGB(50, 120, 220),
 })
 
 setSpeedBtn.MouseButton1Click:Connect(function()
@@ -148,7 +161,7 @@ setSpeedBtn.MouseButton1Click:Connect(function()
 	if val and val >= 0 and val <= max then
 		currentWalkSpeed = val
 		game:SetWalkSpeed(val)
-		currentSpeedLabel.Text = "Current: " .. val
+		currentSpeedLabel.Text = "Current speed: " .. tostring(math.floor(val))
 	end
 end)
 
@@ -158,15 +171,26 @@ local getRebirthTarget = function()
 	return 100 * math.pow(2, _rebirthCount)
 end
 
+local winsLabel = gui:CreateGui("TextLabel", {
+	PositionX = 0.065,
+	PositionY = 0.22,
+	SizeX = 110,
+	SizeY = 28,
+	Text = "🏆 0 Wins",
+	TextColor = Color3.fromRGB(255, 215, 0),
+	FontSize = 15,
+	BackgroundColor = "transparent",
+})
+
 local rebirthBtn = gui:CreateGui("TextButton", {
-	PositionX = 0.02,
-	PositionY = 0.40,
-	SizeX = 90,
-	SizeY = 32,
-	Text = "Rebirth",
+	PositionX = 0.065,
+	PositionY = 0.315,
+	SizeX = 110,
+	SizeY = 100,
+	Text = "🔄\nRebirth",
 	TextColor = Color3.fromRGB(255, 255, 255),
-	FontSize = 14,
-	BackgroundColor = Color3.fromRGB(180, 60, 60),
+	FontSize = 15,
+	BackgroundColor = Color3.fromRGB(60, 110, 200),
 })
 
 -- Rebirth menu (created hidden)
@@ -420,10 +444,10 @@ local doRebirth = function()
 	speed = 0
 	_rebirthCount = _rebirthCount + 1
 	_rebirthMultiplier = 1 + 0.5 * _rebirthCount
-	currentWalkSpeed = (12 + (level - 1) * 2) * _rebirthMultiplier
+	currentWalkSpeed = 12
 	game:SetWalkSpeed(currentWalkSpeed)
-	currentSpeedLabel.Text = "Current: " .. currentWalkSpeed
-	maxSpeedLabel.Text = "Max: " .. (12 + (level - 1) * 2) * _rebirthMultiplier
+	currentSpeedLabel.Text = "Current speed: " .. tostring(math.floor(currentWalkSpeed))
+	maxSpeedLabel.Text = "Your Max Speed: " .. tostring(math.floor(12 + (level - 1) * 2))
 	rebirthMultLabel.Text = "Multiplier x" .. string.format("%.1f", _rebirthMultiplier) .. " (Rebirth)"
 	closeRebirthMenu()
 end
@@ -436,10 +460,10 @@ game.On("DeductComplete", function(success, name)
 	if success and name == "Skip Rebirth" then
 		_rebirthCount = _rebirthCount + 1
 		_rebirthMultiplier = 1 + 0.5 * _rebirthCount
-		currentWalkSpeed = (12 + (level - 1) * 2) * _rebirthMultiplier
+		currentWalkSpeed = 12 + (level - 1) * 2
 		game:SetWalkSpeed(currentWalkSpeed)
-		currentSpeedLabel.Text = "Current: " .. currentWalkSpeed
-		maxSpeedLabel.Text = "Max: " .. (12 + (level - 1) * 2) * _rebirthMultiplier
+		currentSpeedLabel.Text = "Current speed: " .. tostring(math.floor(currentWalkSpeed))
+		maxSpeedLabel.Text = "Your Max Speed: " .. tostring(math.floor(12 + (level - 1) * 2))
 		rebirthMultLabel.Text = "Multiplier x" .. string.format("%.1f", _rebirthMultiplier) .. " (Rebirth)"
 		closeRebirthMenu()
 	end
@@ -468,16 +492,33 @@ local layout = function()
 		if pw and pw > 0 and ph and ph > 0 then
 			barLeft = 0.5 * pw - barWidth / 2
 			barRight = 0.5 * pw + barWidth / 2
-			levelLabel.PositionX = barLeft + 45
+			levelLabel.PositionX = barLeft + 90
 			progressLabel.PositionX = barRight - 90
-			inputEl.style.left = (0.92 * pw - 60) .. "px"
-			inputEl.style.top = (0.37 * ph) .. "px"
+			-- wins label above rebirth button
+			winsLabel.PositionY = 0.315 * ph - 32
+			-- rebirth mult label above bar right side
+			rebirthMultLabel.PositionX = barRight - 110
+			rebirthMultLabel.PositionY = 0.895
+			-- Center input+button underneath the panel
+			local panelCenter = 0.88 * pw
+			local inputW = 88
+			local btnW = 52
+			local totalW = inputW + btnW
+			inputEl.style.left = ((panelCenter - totalW / 2) / pw * 100) .. "%"
+			inputEl.style.top = (0.425 * ph) .. "px"
+			setSpeedBtn.PositionX = panelCenter - totalW / 2 + inputW + btnW / 2
+			-- panel and its children
+			panelFrame.PositionX = panelCenter
+			panelTitle.PositionX = panelCenter
+			maxSpeedLabel.PositionX = panelCenter
+			currentSpeedLabel.PositionX = panelCenter
 			layoutDone = true
 		end
 	end
 end
 
 local updateWinsStat = function()
+	winsLabel.Text = "🏆 " .. tostring(totalWins) .. " Wins"
 	local lp = game:GetLocalPlayer()
 	if lp then
 		game:SetPlayerStat(lp.id, "Wins", totalWins)
@@ -527,7 +568,7 @@ local autoEquipStep = function()
 	if best ~= equippedStep then
 		equippedStep = best
 		updateStepPadColors()
-		currentSpeedLabel.Text = "Current: " .. currentWalkSpeed
+		currentSpeedLabel.Text = "Current speed: " .. tostring(math.floor(currentWalkSpeed))
 	end
 end
 
@@ -611,7 +652,7 @@ local setupStepPads = function()
 						if totalWins >= s.winsReq then
 							if equippedStep ~= s.num then
 								equippedStep = s.num
-								currentSpeedLabel.Text = "Current: " .. currentWalkSpeed
+								currentSpeedLabel.Text = "Current speed: " .. tostring(math.floor(currentWalkSpeed))
 								updateStepPadColors()
 							end
 						end
@@ -787,9 +828,9 @@ local updateWinBillboards = function()
 end
 
 local onGameStart = function()
-	currentWalkSpeed = (12 + (1 - 1) * 2) * _rebirthMultiplier
+	currentWalkSpeed = 12 + (level - 1) * 2
 	game:SetWalkSpeed(currentWalkSpeed)
-	maxSpeedLabel.Text = "Max: " .. (12 + (level - 1) * 2) * _rebirthMultiplier
+	maxSpeedLabel.Text = "Your Max Speed: " .. tostring(math.floor(12 + (level - 1) * 2))
 
 	local sp = game:GetPartPosition("SpawnLocation")
 	if sp then
@@ -832,7 +873,7 @@ local onUpdate = function(dt)
 						stepMult = 3
 					end
 				end
-				local gained = equippedStep * stepMult
+				local gained = equippedStep * stepMult * _rebirthMultiplier
 				speed = speed + gained
 				totalSpeed = totalSpeed + gained
 
@@ -842,25 +883,23 @@ local onUpdate = function(dt)
 					spawnFloatingText(charData.x, charData.y, charData.z, gained)
 				end
 
-				local toNext = level == 1 and 100 or 80 + level * 60
-				if speed >= toNext then
-					speed = speed - toNext
+				if speed >= nextLevelReq then
+					speed = speed - nextLevelReq
 					level = level + 1
-					speedToLevel = level == 1 and 100 or 80 + level * 60
-					currentWalkSpeed = (12 + (level - 1) * 2) * _rebirthMultiplier
+					nextLevelReq = math.floor(150 * math.pow(level, 2.45))
+					currentWalkSpeed = 12 + (level - 1) * 2
 					game:SetWalkSpeed(currentWalkSpeed)
-					currentSpeedLabel.Text = "Current: " .. currentWalkSpeed
-					maxSpeedLabel.Text = "Max: " .. (12 + (level - 1) * 2) * _rebirthMultiplier
+					currentSpeedLabel.Text = "Current speed: " .. tostring(math.floor(currentWalkSpeed))
+					maxSpeedLabel.Text = "Your Max Speed: " .. tostring(math.floor(12 + (level - 1) * 2))
 				end
 
-				local toNextDisplay = level == 1 and 100 or 80 + level * 60
-				local progress = math.min(1, speed / toNextDisplay)
+				local progress = math.min(1, speed / nextLevelReq)
 				local fillWidth = progress * barWidth
 				barFill.SizeX = fillWidth
 				barFill.PositionX = barLeft + fillWidth / 2
-				progressLabel.Text = math.floor(speed) .. " / " .. toNextDisplay
-				levelLabel.Text = "Lv " .. level
-				totalSpeedLabel.Text = tostring(totalSpeed)
+				progressLabel.Text = math.floor(speed) .. " / " .. nextLevelReq
+				levelLabel.Text = "Level " .. tostring(level)
+				totalSpeedLabel.Text = tostring(math.floor(totalSpeed * 100) / 100) .. " Speed"
 			end
 		else
 			walkTimer = 0
