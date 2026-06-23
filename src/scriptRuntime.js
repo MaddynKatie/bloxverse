@@ -88,6 +88,9 @@ export function luaToJS(lua) {
         (_s) => _s.replace(/\btype\s*\(/g, '_luaType('),
         // os.clock() → Date.now()/1000 (wall-clock seconds, usable for cooldowns)
         (_s) => _s.replace(/\bos\.clock\s*\(\s*\)/g, '(Date.now()/1000)'),
+        // Await async game API calls
+        (_s) => _s.replace(/\bgame\.DeductBux\s*\(/g, 'await game.DeductBux('),
+        (_s) => _s.replace(/\bgame\.PurchaseGamepass\s*\(/g, 'await game.PurchaseGamepass('),
         // Compound assignment operators: += -= *= /= //= %= ^= ..=
         // Placed after table-key transforms to avoid {x = …} → {x: …} conflict
         (_s) => _s.replace(
@@ -99,6 +102,8 @@ export function luaToJS(lua) {
         ),
         // ^=  →  **=  (JS supports **= natively)
         (_s) => _s.replace(/\^=(?=\s|$)/g, '**='),
+        // ^  →  **  (exponentiation, must run AFTER ^= is already converted)
+        (_s) => _s.replace(/\^/g, '**'),
         // //=  →  Math.floor(x / rhs) — capture RHS up to ; or newline
         (_s) => _s.replace(
             /(\w+(?:\s*\.\s*\w+)*(?:\s*\[[^\]]+\])*)\s*\/\/=\s*([^;\n]+)/g,
@@ -516,7 +521,7 @@ export function createInstanceProxy(inst) {
 // ── sprintf ────────────────────────────────────────────────────────────────────
 function sprintf(fmt, ...args) {
     let i = 0;
-    return fmt.replace(/%(-?)(\d*)(\\.?\d*)([xXdsf%])/g, (m, minus, width, prec, type) => {
+    return fmt.replace(/%(-?)(\d*)(\.?\d*)([xXdsf%])/g, (m, minus, width, prec, type) => {
         if (type === '%') return '%';
         const val = args[i++];
         if (val == null) return m;

@@ -206,6 +206,28 @@
     </div>
   </div>
 
+  <div id="gamepassPrompt" class="confirm-overlay" style="display:none;">
+    <div class="gamepass-box">
+      <div class="gp-header">
+        <span class="gp-header-title">Buy item</span>
+        <div class="gp-header-right">
+          <span class="gp-bux-balance"><span class="gp-bux-icon">B</span><span id="gpBalance">—</span></span>
+          <button id="btnCancelGamepass" class="gp-close-btn">✕</button>
+        </div>
+      </div>
+      <div class="gp-item-row">
+        <div class="gp-item-info">
+          <div class="gp-item-name" id="gpTitle">Gamepass</div>
+          <div class="gp-item-price"><span class="gp-bux-icon">B</span><span id="gpPrice">500</span></div>
+        </div>
+      </div>
+      <div class="gp-error" id="gpError"></div>
+      <div class="gp-footer">
+        <button id="btnBuyGamepass" class="gp-buy-btn"><span>Buy</span></button>
+      </div>
+    </div>
+  </div>
+
   <!-- Player Profile Menu -->
   <div id="playerMenu" class="player-menu" style="display: none;">
     <div class="player-menu-content">
@@ -540,6 +562,7 @@
     }
 
     let _ownedItems = [];
+    let _playerGamepasses = new Set();
 
     function doSendChat() {
       const raw = chatInput.value.trim();
@@ -1613,6 +1636,98 @@
 
     function makeGameAPI() {
       const bv = () => window._bloxverse;
+      let _promptOpen = false;
+      const purchaseGamepass = async (id, price) => {
+        if (!auth.currentUser || _playerGamepasses.has(id)) return false;
+        try {
+          if (price > 0) {
+            const snap = await getDoc(doc(db, 'users', auth.currentUser.uid));
+            const userBux = snap.data()?.bux ?? 0;
+            if (userBux < price) return false;
+            await setDoc(doc(db, 'users', auth.currentUser.uid), {
+              bux: userBux - price,
+              gamepasses: { [id]: true },
+            }, { merge: true });
+          } else {
+            await setDoc(doc(db, 'users', auth.currentUser.uid), {
+              gamepasses: { [id]: true },
+            }, { merge: true });
+          }
+          _playerGamepasses.add(id);
+          return true;
+        } catch (e) {
+          console.error('[Gamepass] Purchase failed:', e);
+          return false;
+        }
+      };
+      const deductBuxFn = async (amount) => {
+        if (!auth.currentUser || amount <= 0) return false;
+        try {
+          const snap = await getDoc(doc(db, 'users', auth.currentUser.uid));
+          const userBux = snap.data()?.bux ?? 0;
+          if (userBux < amount) return false;
+          await setDoc(doc(db, 'users', auth.currentUser.uid), {
+            bux: userBux - amount,
+          }, { merge: true });
+          return true;
+        } catch (e) {
+          console.error('[DeductBux] Failed:', e);
+          return false;
+        }
+      };
+      const promptDeductFn = (amount, name) => {
+        if (!auth.currentUser) return false;
+        if (_promptOpen) return false;
+        const overlay = document.getElementById('gamepassPrompt');
+        const title = document.getElementById('gpTitle');
+        const priceEl = document.getElementById('gpPrice');
+        const balanceEl = document.getElementById('gpBalance');
+        const buyBtn = document.getElementById('btnBuyGamepass');
+        const cancelBtn = document.getElementById('btnCancelGamepass');
+        const errorEl = document.getElementById('gpError');
+        title.textContent = name;
+        priceEl.textContent = amount;
+        errorEl.style.display = 'none';
+        buyBtn.classList.remove('ready', 'filling');
+        buyBtn.style.display = '';
+        let gpFillTimer = null;
+        const startFill = () => {
+          const GP_FILL_DURATION = 3;
+          void buyBtn.offsetWidth;
+          buyBtn.style.setProperty('--gp-fill-duration', GP_FILL_DURATION + 's');
+          buyBtn.classList.add('filling');
+          gpFillTimer = setTimeout(() => {
+            buyBtn.classList.add('ready');
+          }, GP_FILL_DURATION * 1000);
+        };
+        getDoc(doc(db, 'users', auth.currentUser.uid)).then(snap => {
+          const b = snap.data()?.bux ?? 0;
+          balanceEl.textContent = b;
+          if (b < amount) {
+            errorEl.textContent = 'Insufficient BUX! You don\'t have enough BUX to purchase this item.';
+            errorEl.style.display = 'block';
+            buyBtn.style.display = 'none';
+          } else {
+            startFill();
+          }
+        });
+        buyBtn.onclick = async () => {
+          if (!buyBtn.classList.contains('ready')) return;
+          if (gpFillTimer) clearTimeout(gpFillTimer);
+          _promptOpen = false;
+          overlay.style.display = 'none';
+          const success = await deductBuxFn(amount);
+          (gameEventListeners['DeductComplete'] || []).forEach(cb => cb(success, name));
+        };
+        cancelBtn.onclick = () => {
+          if (gpFillTimer) clearTimeout(gpFillTimer);
+          _promptOpen = false;
+          overlay.style.display = 'none';
+        };
+        _promptOpen = true;
+        overlay.style.display = 'flex';
+        return true;
+      };
       return {
         GetPlayers: () => getCurrentPlayers(),
         GetLocalPlayer: () => auth.currentUser ? makePlayerObj(auth.currentUser.uid, _currentUsername || 'Player') : null,
@@ -1636,6 +1751,64 @@
           const stats = _playerStats.get(playerId);
           return stats ? (stats[statName] ?? 0) : 0;
         },
+        HasGamepass: (id) => _playerGamepasses.has(id),
+        GetGamepasses: () => Array.from(_playerGamepasses),
+        PromptPurchase: (id, name, price) => {
+          if (!auth.currentUser) return false;
+          if (_playerGamepasses.has(id)) { appendChatMessage({ system: true, message: 'You already own ' + name + '!' }); return false; }
+          if (_promptOpen) return false;
+          const overlay = document.getElementById('gamepassPrompt');
+          const title = document.getElementById('gpTitle');
+          const priceEl = document.getElementById('gpPrice');
+          const balanceEl = document.getElementById('gpBalance');
+          const buyBtn = document.getElementById('btnBuyGamepass');
+          const cancelBtn = document.getElementById('btnCancelGamepass');
+          const errorEl = document.getElementById('gpError');
+          title.textContent = name;
+          priceEl.textContent = price;
+          errorEl.style.display = 'none';
+          buyBtn.classList.remove('ready', 'filling');
+          buyBtn.style.display = '';
+          let gpFillTimer = null;
+          const startFill = () => {
+            const GP_FILL_DURATION = 3;
+            void buyBtn.offsetWidth;
+            buyBtn.style.setProperty('--gp-fill-duration', GP_FILL_DURATION + 's');
+            buyBtn.classList.add('filling');
+            gpFillTimer = setTimeout(() => {
+              buyBtn.classList.add('ready');
+            }, GP_FILL_DURATION * 1000);
+          };
+          getDoc(doc(db, 'users', auth.currentUser.uid)).then(snap => {
+            const b = snap.data()?.bux ?? 0;
+            balanceEl.textContent = b;
+            if (b < price) {
+              errorEl.textContent = 'Insufficient BUX! You don\'t have enough BUX to purchase this item.';
+              errorEl.style.display = 'block';
+              buyBtn.style.display = 'none';
+            } else {
+              startFill();
+            }
+          });
+          buyBtn.onclick = () => {
+            if (!buyBtn.classList.contains('ready')) return;
+            if (gpFillTimer) clearTimeout(gpFillTimer);
+            _promptOpen = false;
+            overlay.style.display = 'none';
+            purchaseGamepass(id, price);
+          };
+          cancelBtn.onclick = () => {
+            if (gpFillTimer) clearTimeout(gpFillTimer);
+            _promptOpen = false;
+            overlay.style.display = 'none';
+          };
+          _promptOpen = true;
+          overlay.style.display = 'flex';
+          return true;
+        },
+        PurchaseGamepass: purchaseGamepass,
+        DeductBux: deductBuxFn,
+        PromptDeduct: promptDeductFn,
         SendChat: (msg) => {
           if (!msg || msg.length > 200) {
             appendChatMessage({ system: true, message: 'Your message is too long (max 200 characters).' });
@@ -2058,11 +2231,17 @@
 
               // Load and apply avatar colors, accessories, owned items from Firestore
               _ownedItems = [];
+              _playerGamepasses = new Set();
               try {
                 const avatarSnap = await getDoc(doc(db, 'users', user.uid));
                 if (avatarSnap.exists()) {
                   const avatarData = avatarSnap.data();
                   _ownedItems = avatarData.ownedItems || [];
+                  if (avatarData.gamepasses) {
+                    for (const id of Object.keys(avatarData.gamepasses)) {
+                      if (avatarData.gamepasses[id]) _playerGamepasses.add(id);
+                    }
+                  }
                   const isStalePreview = avatarData.avatarPreview && typeof avatarData.avatarPreview === 'string' && avatarData.avatarPreview.includes('/image/upload');
                   const needPreview = !avatarData.avatarPreview || isStalePreview;
                   if ((avatarData.avatarColors || avatarData.avatarClothing || avatarData.avatarAccessories || avatarData.avatarFace) && window._bloxverse) {

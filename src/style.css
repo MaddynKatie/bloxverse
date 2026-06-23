@@ -511,14 +511,13 @@ input[type=range] {
 }
 
 .confirm-overlay {
-  position: absolute;
+  position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.6);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10;
-  border-radius: 12px;
+  z-index: 999;
 }
 
 .confirm-box {
@@ -542,6 +541,148 @@ input[type=range] {
   margin-bottom: 18px;
   line-height: 1.4;
 }
+
+/* ── Gamepass modal entrance animation ── */
+@keyframes gpSlideIn {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes gpBuyFill {
+  from { width: 0%; }
+  to   { width: 100%; }
+}
+
+.gamepass-box {
+  background: #252525;
+  border-radius: 14px;
+  width: 380px;
+  max-width: 95vw;
+  overflow: hidden;
+  box-shadow: 0 12px 48px rgba(0,0,0,0.8);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  animation: gpSlideIn 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.gp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px 16px;
+}
+.gp-header-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+}
+.gp-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.gp-bux-balance {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(255,255,255,0.08);
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+.gp-bux-icon {
+  color: #93c5fd;
+  font-size: 14px;
+  font-weight: 800;
+}
+.gp-close-btn {
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: color 0.15s;
+  font-weight: 300;
+}
+.gp-close-btn:hover { color: #fff; }
+
+
+
+.gp-item-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px 20px 24px;
+}
+.gp-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.gp-item-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+}
+.gp-item-price {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.gp-error {
+  color: #fff;
+  font-size: 13px;
+  text-align: center;
+  padding: 0 14px 8px;
+  display: none;
+}
+.gp-footer {
+  padding: 0 14px 14px;
+}
+
+.gp-buy-btn {
+  position: relative;
+  width: 100%;
+  padding: 13px;
+  border: none;
+  border-radius: 8px;
+  background: #1d4ed8;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  overflow: hidden;
+  user-select: none;
+}
+.gp-buy-btn.ready { cursor: pointer; }
+.gp-buy-btn.ready:hover { filter: brightness(1.1); }
+
+.gp-buy-btn::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  width: 0%;
+  background: #2563eb;
+  pointer-events: none;
+}
+.gp-buy-btn.filling::before {
+  animation: gpBuyFill var(--gp-fill-duration, 3s) linear forwards;
+}
+.gp-buy-btn span {
+  position: relative;
+  z-index: 1;
+}
+
+.gamepass-icon  { display: none; }
+.gamepass-title { display: none; }
+.gamepass-desc  { display: none; }
+.gamepass-price { display: none; }
+.gamepass-balance { display: none; }
 
 .confirm-actions {
   display: flex;

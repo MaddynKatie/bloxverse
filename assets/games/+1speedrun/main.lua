@@ -16,6 +16,9 @@ local spawnPos = nil
 local onTreadmill = false
 local floatingTexts = {}
 local speedTextTimer = 0
+local _rebirthCount = 0
+local _rebirthMultiplier = 1
+local _rebirthMenuOpen = false
 
 local gui = game:CreateScreenGui("SpeedRunGUI")
 
@@ -99,9 +102,20 @@ local currentSpeedLabel = gui:CreateGui("TextLabel", {
 	BackgroundColor = "transparent",
 })
 
-local maxSpeedLabel = gui:CreateGui("TextLabel", {
+local rebirthMultLabel = gui:CreateGui("TextLabel", {
 	PositionX = 0.92,
 	PositionY = 0.32,
+	SizeX = 140,
+	SizeY = 24,
+	Text = "Multiplier x1 (Rebirth)",
+	TextColor = Color3.fromRGB(100, 200, 255),
+	FontSize = 12,
+	BackgroundColor = "transparent",
+})
+
+local maxSpeedLabel = gui:CreateGui("TextLabel", {
+	PositionX = 0.92,
+	PositionY = 0.36,
 	SizeX = 140,
 	SizeY = 24,
 	Text = "Max: 12",
@@ -138,6 +152,315 @@ setSpeedBtn.MouseButton1Click:Connect(function()
 	end
 end)
 
+
+
+local getRebirthTarget = function()
+	return 100 * math.pow(2, _rebirthCount)
+end
+
+local rebirthBtn = gui:CreateGui("TextButton", {
+	PositionX = 0.02,
+	PositionY = 0.40,
+	SizeX = 90,
+	SizeY = 32,
+	Text = "Rebirth",
+	TextColor = Color3.fromRGB(255, 255, 255),
+	FontSize = 14,
+	BackgroundColor = Color3.fromRGB(180, 60, 60),
+})
+
+-- Rebirth menu (created hidden)
+local rebirthBackdrop = gui:CreateGui("TextButton", {
+	PositionX = 0.5,
+	PositionY = 0,
+	SizeX = 1,
+	SizeY = 1,
+	Text = "",
+	BackgroundColor = Color3.fromRGB(0, 0, 0),
+	BackgroundTransparency = 0.4,
+	Visible = false,
+	ZIndex = 100,
+})
+local rbMenuBox = gui:CreateGui("Frame", {
+	PositionX = 0.5,
+	PositionY = 0.45,
+	SizeX = 340,
+	SizeY = 340,
+	BackgroundColor = Color3.fromRGB(25, 25, 40),
+	Visible = false,
+	ZIndex = 101,
+})
+local rbTitle = gui:CreateGui("TextLabel", {
+	PositionX = 0.5,
+	PositionY = 0.45,
+	SizeX = 340,
+	SizeY = 40,
+	Text = "Rebirth",
+	TextColor = Color3.fromRGB(255, 200, 50),
+	FontSize = 24,
+	BackgroundColor = "transparent",
+	Visible = false,
+	ZIndex = 102,
+})
+local rbLevelReq = gui:CreateGui("TextLabel", {
+	PositionX = 0.5,
+	PositionY = 0.45,
+	SizeX = 200,
+	SizeY = 30,
+	Text = "Level (target)",
+	TextColor = Color3.fromRGB(255, 255, 255),
+	FontSize = 16,
+	BackgroundColor = Color3.fromRGB(200, 170, 50),
+	Visible = false,
+	ZIndex = 102,
+})
+local rbCurrentMult = gui:CreateGui("TextLabel", {
+	PositionX = 0.5,
+	PositionY = 0.45,
+	SizeX = 110,
+	SizeY = 28,
+	Text = "x1.0 Speed",
+	TextColor = Color3.fromRGB(255, 255, 255),
+	FontSize = 14,
+	BackgroundColor = Color3.fromRGB(50, 180, 80),
+	Visible = false,
+	ZIndex = 102,
+})
+local rbArrow = gui:CreateGui("TextLabel", {
+	PositionX = 0.5,
+	PositionY = 0.45,
+	SizeX = 30,
+	SizeY = 28,
+	Text = "→",
+	TextColor = Color3.fromRGB(200, 200, 200),
+	FontSize = 20,
+	BackgroundColor = "transparent",
+	Visible = false,
+	ZIndex = 102,
+})
+local rbNextMult = gui:CreateGui("TextLabel", {
+	PositionX = 0.5,
+	PositionY = 0.45,
+	SizeX = 110,
+	SizeY = 28,
+	Text = "x1.5 Speed",
+	TextColor = Color3.fromRGB(255, 255, 255),
+	FontSize = 14,
+	BackgroundColor = Color3.fromRGB(50, 180, 80),
+	Visible = false,
+	ZIndex = 102,
+})
+local rbInfo = gui:CreateGui("TextLabel", {
+	PositionX = 0.5,
+	PositionY = 0.45,
+	SizeX = 300,
+	SizeY = 24,
+	Text = "Rebirth resets your speed level!",
+	TextColor = Color3.fromRGB(255, 200, 50),
+	FontSize = 13,
+	BackgroundColor = "transparent",
+	Visible = false,
+	ZIndex = 102,
+})
+local rbProgressBar = gui:CreateGui("Frame", {
+	PositionX = 0.5,
+	PositionY = 0.45,
+	SizeX = 280,
+	SizeY = 30,
+	BackgroundColor = Color3.fromRGB(30, 60, 120),
+	Visible = false,
+	ZIndex = 102,
+})
+local rbProgressFill = gui:CreateGui("Frame", {
+	PositionX = 0,
+	PositionY = 0,
+	SizeX = 0,
+	SizeY = 30,
+	BackgroundColor = Color3.fromRGB(50, 180, 230),
+	Visible = false,
+	ZIndex = 103,
+})
+local rbLevelText = gui:CreateGui("TextLabel", {
+	PositionX = 0.5,
+	PositionY = 0.45,
+	SizeX = 280,
+	SizeY = 30,
+	Text = "Level 1 / 10",
+	TextColor = Color3.fromRGB(255, 255, 255),
+	FontSize = 15,
+	BackgroundColor = "transparent",
+	Visible = false,
+	ZIndex = 103,
+})
+local rbDoBtn = gui:CreateGui("TextButton", {
+	PositionX = 0.5,
+	PositionY = 0.45,
+	SizeX = 110,
+	SizeY = 36,
+	Text = "Rebirth",
+	TextColor = Color3.fromRGB(255, 255, 255),
+	FontSize = 15,
+	BackgroundColor = Color3.fromRGB(200, 60, 80),
+	Visible = false,
+	ZIndex = 102,
+})
+local rbSkipBtn = gui:CreateGui("TextButton", {
+	PositionX = 0.5,
+	PositionY = 0.45,
+	SizeX = 110,
+	SizeY = 36,
+	Text = "Skip Rebirth!",
+	TextColor = Color3.fromRGB(255, 255, 255),
+	FontSize = 13,
+	BackgroundColor = Color3.fromRGB(30, 180, 200),
+	Visible = false,
+	ZIndex = 102,
+})
+
+local positionMenu = function()
+	pw = gui._wrapper.clientWidth
+	ph = gui._wrapper.clientHeight
+	if pw <= 0 or ph <= 0 then return end
+	local cx = 0.5 * pw
+	local cy = 0.45 * ph
+	rbMenuBox.PositionX = cx
+	rbMenuBox.PositionY = cy - 170
+	rbTitle.PositionX = cx
+	rbTitle.PositionY = cy - 170
+	rbLevelReq.PositionX = cx
+	rbLevelReq.PositionY = cy - 120
+	rbCurrentMult.PositionX = cx - 85
+	rbCurrentMult.PositionY = cy - 75
+	rbArrow.PositionX = cx
+	rbArrow.PositionY = cy - 75
+	rbNextMult.PositionX = cx + 85
+	rbNextMult.PositionY = cy - 75
+	rbInfo.PositionX = cx
+	rbInfo.PositionY = cy - 35
+	rbProgressBar.PositionX = cx
+	rbProgressBar.PositionY = cy + 5
+	local barLeft = cx - 140
+	rbProgressFill.PositionX = barLeft
+	rbProgressFill.PositionY = cy + 5
+	rbLevelText.PositionX = cx
+	rbLevelText.PositionY = cy + 5
+	rbDoBtn.PositionX = cx - 85
+	rbDoBtn.PositionY = cy + 50
+	rbSkipBtn.PositionX = cx + 85
+	rbSkipBtn.PositionY = cy + 50
+end
+
+local updateRebirthMenu = function()
+	positionMenu()
+	local target = 25 * math.pow(2, _rebirthCount)
+	local mult = 1 + 0.5 * _rebirthCount
+	local nextMult = 1 + 0.5 * (_rebirthCount + 1)
+	local multStr = "x" .. string.format("%.1f", mult) .. " Speed"
+	local nextStr = "x" .. string.format("%.1f", nextMult) .. " Speed"
+	rbLevelReq.Text = "Level " .. target
+	rbCurrentMult.Text = multStr
+	rbNextMult.Text = nextStr
+	local pw2 = gui._wrapper.clientWidth
+	local cx2 = 0.5 * pw2
+	local barLeft2 = cx2 - 140
+	local progress = math.min(1, level / target)
+	local fw = progress * 280
+	rbProgressFill.SizeX = fw
+	rbProgressFill.PositionX = barLeft2 + fw / 2
+	rbLevelText.Text = "Level " .. level .. " / " .. target
+	rebirthMultLabel.Text = "Multiplier x" .. string.format("%.1f", _rebirthMultiplier) .. " (Rebirth)"
+	if level >= target then
+		rbDoBtn.BackgroundColor = Color3.fromRGB(200, 60, 80)
+	else
+		rbDoBtn.BackgroundColor = Color3.fromRGB(100, 100, 100)
+	end
+end
+
+local openRebirthMenu = function()
+	if _rebirthMenuOpen then return end
+	_rebirthMenuOpen = true
+	positionMenu()
+	updateRebirthMenu()
+	rebirthBackdrop.Visible = true
+	rbMenuBox.Visible = true
+	rbTitle.Visible = true
+	rbLevelReq.Visible = true
+	rbCurrentMult.Visible = true
+	rbArrow.Visible = true
+	rbNextMult.Visible = true
+	rbInfo.Visible = true
+	rbProgressBar.Visible = true
+	rbProgressFill.Visible = true
+	rbLevelText.Visible = true
+	rbDoBtn.Visible = true
+	rbSkipBtn.Visible = true
+end
+
+local closeRebirthMenu = function()
+	_rebirthMenuOpen = false
+	rebirthBackdrop.Visible = false
+	rbMenuBox.Visible = false
+	rbTitle.Visible = false
+	rbLevelReq.Visible = false
+	rbCurrentMult.Visible = false
+	rbArrow.Visible = false
+	rbNextMult.Visible = false
+	rbInfo.Visible = false
+	rbProgressBar.Visible = false
+	rbProgressFill.Visible = false
+	rbLevelText.Visible = false
+	rbDoBtn.Visible = false
+	rbSkipBtn.Visible = false
+end
+
+local doRebirth = function()
+	local target = 25 * math.pow(2, _rebirthCount)
+	if level < target then return end
+	level = 1
+	speed = 0
+	_rebirthCount = _rebirthCount + 1
+	_rebirthMultiplier = 1 + 0.5 * _rebirthCount
+	currentWalkSpeed = (12 + (level - 1) * 2) * _rebirthMultiplier
+	game:SetWalkSpeed(currentWalkSpeed)
+	currentSpeedLabel.Text = "Current: " .. currentWalkSpeed
+	maxSpeedLabel.Text = "Max: " .. (12 + (level - 1) * 2) * _rebirthMultiplier
+	rebirthMultLabel.Text = "Multiplier x" .. string.format("%.1f", _rebirthMultiplier) .. " (Rebirth)"
+	closeRebirthMenu()
+end
+
+local skipRebirth = function()
+	game:PromptDeduct(20, "Skip Rebirth")
+end
+
+game.On("DeductComplete", function(success, name)
+	if success and name == "Skip Rebirth" then
+		_rebirthCount = _rebirthCount + 1
+		_rebirthMultiplier = 1 + 0.5 * _rebirthCount
+		currentWalkSpeed = (12 + (level - 1) * 2) * _rebirthMultiplier
+		game:SetWalkSpeed(currentWalkSpeed)
+		currentSpeedLabel.Text = "Current: " .. currentWalkSpeed
+		maxSpeedLabel.Text = "Max: " .. (12 + (level - 1) * 2) * _rebirthMultiplier
+		rebirthMultLabel.Text = "Multiplier x" .. string.format("%.1f", _rebirthMultiplier) .. " (Rebirth)"
+		closeRebirthMenu()
+	end
+end)
+
+rebirthBtn.MouseButton1Click:Connect(function()
+	openRebirthMenu()
+end)
+
+rebirthBackdrop.MouseButton1Click:Connect(function()
+	closeRebirthMenu()
+end)
+
+rbDoBtn.MouseButton1Click:Connect(function()
+	doRebirth()
+end)
+
+rbSkipBtn.MouseButton1Click:Connect(function()
+	skipRebirth()
+end)
+
 local layout = function()
 	if not layoutDone then
 		pw = gui._wrapper.clientWidth
@@ -158,6 +481,7 @@ local updateWinsStat = function()
 	local lp = game:GetLocalPlayer()
 	if lp then
 		game:SetPlayerStat(lp.id, "Wins", totalWins)
+		game:SendChat("TT|STAT|" .. lp.id .. "|Wins|" .. totalWins)
 	end
 end
 
@@ -213,6 +537,28 @@ local loadInitialWins = function()
 		local saved = game:GetPlayerStat(lp.id, "Wins")
 		if saved and saved > totalWins then
 			totalWins = saved
+			return true
+		end
+	end
+	return false
+end
+
+local onChat = function(player, message, data)
+	local parts = message:split("|")
+	if #parts >= 5 and parts[0] == "TT" and parts[1] == "STAT" then
+		local pid = parts[2]
+		local statName = parts[3]
+		local raw = parts[4]
+		local lp = game:GetLocalPlayer()
+		if lp and statName == "Wins" and pid == tostring(lp.id) then
+			local value = tonumber(raw)
+			if value and value > totalWins then
+				totalWins = value
+				if _stepPadsSetup then
+					autoEquipStep()
+					updateStepPadColors()
+				end
+			end
 		end
 	end
 end
@@ -232,21 +578,36 @@ local setupStepPads = function()
 				end
 			end
 			if entry and entry.mesh then
+				-- Clone materials so each pad has independent colors
+				-- (engine caches materials by size+color, shared with other parts)
+				do
+					local m = entry.mesh.material
+					if m and m.clone then
+						entry.mesh.material = m:clone()
+					elseif m then
+						local cloned = {}
+						for _, mat in ipairs(m) do
+							table.insert(cloned, mat:clone())
+						end
+						entry.mesh.material = cloned
+					end
+				end
 				local pos = entry.mesh.position
 				local stepLabel = "👟 +" .. s.num .. "/step"
 				local reqLabel = "Requires " .. s.winsReq .. " wins"
 				local greenSprite = window._bloxverse.createBillboard(
 					stepLabel, "#00FF00",
-					pos.x, pos.y + 4, pos.z, 48
+					pos.x, pos.y + 6, pos.z, 120
 				)
 				local orangeSprite = window._bloxverse.createBillboard(
 					reqLabel, "#FF8C00",
-					pos.x, pos.y + 2.5, pos.z, 36
+					pos.x, pos.y + 3.5, pos.z, 80
 				)
 				local instRef = entry.mesh._instRef
 				local conn = nil
 				if instRef and instRef.Touched then
 					conn = instRef.Touched:Connect(function()
+						print("Step pad touched: num=" .. s.num .. " winsReq=" .. s.winsReq .. " totalWins=" .. totalWins .. " equipped=" .. equippedStep)
 						if totalWins >= s.winsReq then
 							if equippedStep ~= s.num then
 								equippedStep = s.num
@@ -276,35 +637,74 @@ local setupStepPads = function()
 	end
 end
 
-local _treadmillTimer = 0
+local retryLoadWins = function()
+	delay(1, function()
+		if not _stepPadsSetup then
+			-- step pads not ready yet, retry later
+			retryLoadWins()
+			return
+		end
+		local loaded = loadInitialWins()
+		if loaded then
+			autoEquipStep()
+			updateStepPadColors()
+		end
+	end)
+end
 
--- Treadmill touch detection using tp1.lua pattern
-local _tm1, _tm2, _tm3
+local _treadmillTimer = 0
+local _treadmillConnected = false
+local _goldTreadmillConnected = false
+local _diamondTreadmillConnected = false
+local _promptCooldown = 0
+local _currentTreadmill = "basic"
+
 local updateTreadmillTouch = function()
-	if not _tm1 then
+	if not _treadmillConnected then
 		local p = workspace:FindFirstChild("basicTreadmill")
 		if p then
-			_tm1 = true
+			_treadmillConnected = true
+			local pos = p.Position
+			window._bloxverse.createBillboard("👟\nx1 Speed", "#FFFFFF", pos.x, pos.y + 5, pos.z, 64)
 			p.Touched:Connect(function()
 				_treadmillTimer = 0.3
+				_currentTreadmill = "basic"
 			end)
 		end
 	end
-	if not _tm2 then
-		local p = workspace:FindFirstChild("basicTreadmill2")
+	if not _goldTreadmillConnected then
+		local p = workspace:FindFirstChild("goldTreadmill")
 		if p then
-			_tm2 = true
+			_goldTreadmillConnected = true
+			local pos = p.Position
+			window._bloxverse.createBillboard("👟\nx3 Speed", "#FFD700", pos.x, pos.y + 5, pos.z, 64)
 			p.Touched:Connect(function()
-				_treadmillTimer = 0.3
+				if game:HasGamepass("speedrun_goldtreadmill") then
+					_treadmillTimer = 0.3
+					_currentTreadmill = "gold"
+					return
+				end
+				if _promptCooldown > 0 then return end
+				_promptCooldown = 2
+				game:PromptPurchase("speedrun_goldtreadmill", "Gold Treadmill", 45)
 			end)
 		end
 	end
-	if not _tm3 then
-		local p = workspace:FindFirstChild("basicTreadmill3")
+	if not _diamondTreadmillConnected then
+		local p = workspace:FindFirstChild("diamondTreadmill")
 		if p then
-			_tm3 = true
+			_diamondTreadmillConnected = true
+			local pos = p.Position
+			window._bloxverse.createBillboard("👟\nx9 Speed", "#00BFFF", pos.x, pos.y + 5, pos.z, 64)
 			p.Touched:Connect(function()
-				_treadmillTimer = 0.3
+				if game:HasGamepass("speedrun_diamondtreadmill") then
+					_treadmillTimer = 0.3
+					_currentTreadmill = "diamond"
+					return
+				end
+				if _promptCooldown > 0 then return end
+				_promptCooldown = 2
+				game:PromptPurchase("speedrun_diamondtreadmill", "Diamond Treadmill", 80)
 			end)
 		end
 	end
@@ -356,7 +756,7 @@ local updateWinBillboards = function()
 				winBillboards[name] = {
 					sprite = window._bloxverse.createBillboard(
 						label, "#FFD700",
-						pos.x, pos.y + 3, pos.z, 72
+						pos.x, pos.y + 5, pos.z, 128
 					),
 				}
 				local instRef = entry.mesh._instRef
@@ -387,19 +787,21 @@ local updateWinBillboards = function()
 end
 
 local onGameStart = function()
-	currentWalkSpeed = 12 + (1 - 1) * 2
+	currentWalkSpeed = (12 + (1 - 1) * 2) * _rebirthMultiplier
 	game:SetWalkSpeed(currentWalkSpeed)
-	maxSpeedLabel.Text = "Max: " .. (12 + (level - 1) * 2)
+	maxSpeedLabel.Text = "Max: " .. (12 + (level - 1) * 2) * _rebirthMultiplier
 
 	local sp = game:GetPartPosition("SpawnLocation")
 	if sp then
 		spawnPos = { x = sp.x, y = sp.y + 2, z = sp.z }
 	end
 
+	rebirthMultLabel.Text = "Multiplier x" .. string.format("%.1f", _rebirthMultiplier) .. " (Rebirth)"
 	layout()
 	setupStepPads()
 	updateWinBillboards()
 	updateWinsStat()
+	retryLoadWins()
 end
 
 local onUpdate = function(dt)
@@ -410,6 +812,7 @@ local onUpdate = function(dt)
 	local charData = game:GetCharacterData()
 	if charData then
 		_treadmillTimer = math.max(0, _treadmillTimer - dt)
+		_promptCooldown = math.max(0, _promptCooldown - dt)
 		local prevOnTreadmill = onTreadmill
 		onTreadmill = _treadmillTimer > 0
 
@@ -421,13 +824,22 @@ local onUpdate = function(dt)
 			walkTimer = walkTimer + dt
 			if walkTimer >= 0.1 then
 				walkTimer = 0
-				speed = speed + equippedStep
-				totalSpeed = totalSpeed + equippedStep
+				local stepMult = 1
+				if onTreadmill then
+					if _currentTreadmill == "diamond" then
+						stepMult = 9
+					elseif _currentTreadmill == "gold" then
+						stepMult = 3
+					end
+				end
+				local gained = equippedStep * stepMult
+				speed = speed + gained
+				totalSpeed = totalSpeed + gained
 
-				speedTextTimer = speedTextTimer + equippedStep
+				speedTextTimer = speedTextTimer + gained
 				if speedTextTimer >= 3 then
 					speedTextTimer = 0
-					spawnFloatingText(charData.x, charData.y, charData.z, equippedStep)
+					spawnFloatingText(charData.x, charData.y, charData.z, gained)
 				end
 
 				local toNext = level == 1 and 100 or 80 + level * 60
@@ -435,10 +847,10 @@ local onUpdate = function(dt)
 					speed = speed - toNext
 					level = level + 1
 					speedToLevel = level == 1 and 100 or 80 + level * 60
-					currentWalkSpeed = 12 + (level - 1) * 2
+					currentWalkSpeed = (12 + (level - 1) * 2) * _rebirthMultiplier
 					game:SetWalkSpeed(currentWalkSpeed)
 					currentSpeedLabel.Text = "Current: " .. currentWalkSpeed
-					maxSpeedLabel.Text = "Max: " .. (12 + (level - 1) * 2)
+					maxSpeedLabel.Text = "Max: " .. (12 + (level - 1) * 2) * _rebirthMultiplier
 				end
 
 				local toNextDisplay = level == 1 and 100 or 80 + level * 60
@@ -459,7 +871,6 @@ local onUpdate = function(dt)
 	setupStepPads()
 	updateTreadmillTouch()
 	updateWinBillboards()
-	autoEquipStep()
 end
 
-return { onGameStart = onGameStart, onUpdate = onUpdate }
+return { onGameStart = onGameStart, onUpdate = onUpdate, onChat = onChat }
