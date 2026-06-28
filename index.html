@@ -685,7 +685,19 @@ onclick="window.location.href='/bloxverse/auth'">Login / Sign Up</button>`;
         overlay.querySelector('#sendBuxSendBtn').addEventListener('click', () => {
           const amount = parseInt(overlay.querySelector('#sendBuxAmount').value, 10);
           const username = overlay.querySelector('#sendBuxName').textContent;
-          if (!selectedUserId || !amount || amount < 1) return;
+          const errEl = overlay.querySelector('#sendBuxErr');
+          if (!selectedUserId) return;
+          if (isNaN(amount) || amount < 1) {
+            errEl.textContent = 'Enter a valid positive amount.';
+            errEl.style.display = 'block';
+            return;
+          }
+          if (amount > bux) {
+            errEl.textContent = 'You don\'t have enough BUX to send this amount.';
+            errEl.style.display = 'block';
+            return;
+          }
+          errEl.style.display = 'none';
 
           const confirmOverlay = document.createElement('div');
           confirmOverlay.className = 'modal-overlay';

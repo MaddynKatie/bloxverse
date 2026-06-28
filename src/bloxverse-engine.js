@@ -555,6 +555,8 @@ function _refreshBlockTextures() {
         if (!child.isMesh) return;
         const halfSize = child.userData.halfSize;
         if (!halfSize) return;
+        // Skip sphere meshes — they use a single material, not the 6-face block array
+        if (child.geometry && child.geometry.type === 'SphereGeometry') return;
         const { sw, sh, sd } = halfSize;
         const mats = Array.isArray(child.material) ? child.material : [child.material];
         const color = mats[0]?.color?.getHex();
@@ -2976,6 +2978,14 @@ function updatePhysics(dt) {
     physicsBodies.forEach(({ body, anchored, mesh }) => {
         if (!anchored && body) {
             // Update mesh position from physics body
+            if (body.position.y < -50) {
+                if (mesh.userData.initialPos) {
+                    const ip = mesh.userData.initialPos;
+                    body.position.set(ip.x, ip.y, ip.z);
+                    body.velocity.set(0, 0, 0);
+                    body.angularVelocity.set(0, 0, 0);
+                }
+            }
             mesh.position.copy(body.position);
             mesh.quaternion.copy(body.quaternion);
             
@@ -3604,7 +3614,10 @@ window._bloxverse = {
                     const mats = Array.isArray(child.material) ? child.material : [child.material];
                     mats.forEach(mat => {
                         mat.map = tex;
-                        mat.color.set(0xffffff); // reset tint so texture shows true colors
+                        mat.color.set(0xffffff);
+                        mat.transparent = false;
+                        mat.opacity = 1;
+                        mat.depthWrite = true;
                         mat.needsUpdate = true;
                     });
                 }
@@ -3796,6 +3809,10 @@ window._bloxverse = {
                 entry.mesh.geometry?.dispose();
             }
         }
+        // Clear caches so disposed materials/geometries aren't reused
+        matCache.clear();
+        geoCache.clear();
+
         // Store part info for later physics reference
         const partMap = new Map();
         window._mapParts = [];
@@ -4314,10 +4331,27 @@ window._bloxverse = {
         const bodies = [];
         physicsBodies.forEach(({ body, anchored, mesh }) => {
             if (!anchored && body && mesh.userData.physicsId) {
-                if (!isLocalPhysicsOwner(mesh)) return;
                 const linearSpeed = Math.sqrt(body.velocity.x ** 2 + body.velocity.y ** 2 + body.velocity.z ** 2);
                 const angularSpeed = Math.sqrt(body.angularVelocity.x ** 2 + body.angularVelocity.y ** 2 + body.angularVelocity.z ** 2);
-                if (linearSpeed < 0.01 && angularSpeed < 0.01) return; // only sync moving bodies, lower threshold to allow settling
+                const isStationary = linearSpeed < 0.01 && angularSpeed < 0.01;
+                // Bodies that have never been synced: snap-broadcast once regardless of ownership
+                const neverSynced = !mesh.userData.physicsOwnerUntil;
+                if (neverSynced && isStationary) {
+                    // Mark as synced so we only do this once per session
+                    mesh.userData.physicsOwnerUntil = 1;
+                    bodies.push({
+                        id: mesh.userData.physicsId,
+                        snap: true,
+                        x: body.position.x, y: body.position.y, z: body.position.z,
+                        vx: 0, vy: 0, vz: 0,
+                        qx: body.quaternion.x, qy: body.quaternion.y,
+                        qz: body.quaternion.z, qw: body.quaternion.w,
+                        wx: 0, wy: 0, wz: 0
+                    });
+                    return;
+                }
+                if (!isLocalPhysicsOwner(mesh)) return;
+                if (isStationary) return;
                 mesh.userData.physicsOwnerUntil = performance.now() + PHYSICS_OWNER_SEND_EXTEND_MS;
                 bodies.push({
                     id: mesh.userData.physicsId,
@@ -4357,7 +4391,7 @@ window._bloxverse = {
                         body.force.set(0, 0, 0);
                         body.torque.set(0, 0, 0);
                         delete mesh.userData.physicsOwnerId;
-                        delete mesh.userData.physicsOwnerUntil;
+                        mesh.userData.physicsOwnerUntil = 1; // sentinel: already snap-synced, don't re-broadcast
                         delete mesh.userData.physicsOwnerClaimId;
                         mesh.position.copy(body.position);
                         mesh.quaternion.copy(body.quaternion);
