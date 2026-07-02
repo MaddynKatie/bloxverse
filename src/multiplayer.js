@@ -1,5 +1,6 @@
 let ws = null;
 let currentUserId = null;
+let onVoiceSignal = null;
 
 const SERVER_URL = 'wss://bloxverse.onrender.com';
 
@@ -30,6 +31,8 @@ export function connectMultiplayer(gameId, userId, username, onPlayerUpdate, onP
         onChatMsg(data);
       } else if (data.type === 'physicsState' && onPhysicsState) {
         onPhysicsState(data.userId, data.bodies);
+      } else if ((data.type === 'voice-offer' || data.type === 'voice-answer' || data.type === 'voice-ice') && onVoiceSignal) {
+        onVoiceSignal(data);
       }
     } catch (e) {
       console.error('Error parsing WS message', e);
@@ -39,6 +42,21 @@ export function connectMultiplayer(gameId, userId, username, onPlayerUpdate, onP
   ws.onclose = () => {
     console.log('Disconnected from multiplayer server');
   };
+}
+
+export function setOnVoiceSignal(cb) {
+  onVoiceSignal = cb;
+}
+
+export function sendVoiceSignal(type, payload, targetUserId) {
+  if (ws && ws.readyState === WebSocket.OPEN && currentUserId) {
+    ws.send(JSON.stringify({
+      type,
+      userId: currentUserId,
+      targetUserId,
+      ...payload
+    }));
+  }
 }
 
 export function sendChat(message, username, userId, unfiltered = false) {

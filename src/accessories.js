@@ -14,6 +14,8 @@ export const accessories = [
     },
     offset: { x: 0, y: 1.1, z: 0, rx: 0, ry: 0, rz: 0, scale: 0.01 },
     category: 'Hats',
+    created: 'May 24, 2026 3:00:00 PM',
+    updated: 'May 24, 2026 3:00:00 PM',
   },
   {
     id: 'palhair',
@@ -28,6 +30,8 @@ export const accessories = [
     },
     offset: { x: 0, y: 0.2, z: 0, rx: 0, ry: -3.1, rz: 0, scale: 1 },
     category: 'Hair',
+    created: 'May 24, 2026 3:20:00 PM',
+    updated: 'May 24, 2026 3:20:00 PM',
   },
   {
     id: 'bloodfiendhair',
@@ -42,6 +46,8 @@ export const accessories = [
     },
     offset: { x: 0.125, y: 0, z: -0.1, rx: 0, ry: -3.1, rz: 0, scale: 0.009 },
     category: 'Hair',
+    created: 'June 9, 2026 4:10:00 PM',
+    updated: 'June 9, 2026 4:10:00 PM',
   },
 ]
 

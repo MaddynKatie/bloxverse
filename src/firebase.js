@@ -632,11 +632,40 @@ export async function resolveProfileUser(profileUserId) {
 /**
  * Checks if a username is already taken by another user.
  */
-export async function isUsernameTaken(username) {
+export async function getEmailByUsername(username) {
+  const lower = username.toLowerCase();
   try {
-    const q = query(collection(db, 'users'), where('username', '==', username));
-    const snap = await getDocs(q);
-    return !snap.empty;
+    const snap = await getDoc(doc(db, 'usernames', lower));
+    if (snap.exists()) return snap.data().email;
+    return null;
+  } catch (e) {
+    console.error('Error looking up username:', e);
+    return null;
+  }
+}
+
+export async function backfillUsernameEntry(uid) {
+  try {
+    const snap = await getDoc(doc(db, 'users', uid));
+    if (!snap.exists()) return;
+    const data = snap.data();
+    if (data.username) {
+      const lower = data.username.toLowerCase();
+      const existing = await getDoc(doc(db, 'usernames', lower));
+      if (!existing.exists()) {
+        await setDoc(doc(db, 'usernames', lower), { uid, email: data.email });
+      }
+    }
+  } catch (e) {
+    console.error('Error backfilling username:', e);
+  }
+}
+
+export async function isUsernameTaken(username) {
+  const lower = username.toLowerCase();
+  try {
+    const snap = await getDoc(doc(db, 'usernames', lower));
+    return snap.exists();
   } catch (e) {
     console.error('Error checking username:', e);
     return false;

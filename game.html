@@ -23,6 +23,9 @@
   <title>BloxVerse - Play</title>
   <link rel="stylesheet" href="src/style.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <link rel="stylesheet" href="src/theme.css" />
+  <script type="module" src="src/theme.js"></script>
 </head>
 
 <body>
@@ -51,6 +54,9 @@
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
       </svg>
+    </button>
+    <button class="top-btn mic-off" id="btnMic" title="Voice Chat Off" style="display:none;">
+      <i class="fa-solid fa-microphone-slash"></i>
     </button>
   </div>
 
@@ -159,6 +165,37 @@
               <span id="graphicsModeLabel" style="font-size:12px;color:#9ca3af;">Auto</span>
             </div>
           </div>
+          <div class="setting-row">
+            <label>FPS Limit</label>
+            <div class="setting-control">
+              <select id="fpsLimitSelect" style="background:#2d2d2d;color:#fff;border:1px solid #555;border-radius:4px;padding:4px 8px;font-size:13px;">
+                <option value="0">Unlimited</option>
+                <option value="60">60 FPS</option>
+                <option value="120">120 FPS</option>
+                <option value="144">144 FPS</option>
+                <option value="160">160 FPS</option>
+                <option value="165">165 FPS</option>
+                <option value="180">180 FPS</option>
+                <option value="200">200 FPS</option>
+                <option value="240">240 FPS</option>
+              </select>
+            </div>
+          </div>
+          <div id="voiceSettingsGroup" style="display:none;">
+            <div class="setting-divider"></div>
+            <div class="setting-row">
+              <label>Microphone</label>
+              <div class="setting-control">
+                <select id="micDeviceSelect" style="background:#2d2d2d;color:#fff;border:1px solid #555;border-radius:4px;padding:4px 8px;font-size:13px;max-width:180px;"></select>
+              </div>
+            </div>
+            <div class="setting-row">
+              <label>Speaker</label>
+              <div class="setting-control">
+                <select id="speakerDeviceSelect" style="background:#2d2d2d;color:#fff;border:1px solid #555;border-radius:4px;padding:4px 8px;font-size:13px;max-width:180px;"></select>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="settings-tab-content" id="tabReport">
           <div class="report-form">
@@ -247,7 +284,7 @@
     import * as THREE from 'three';
     import { games } from './src/games.js';
     import { auth, db, getDoc, doc, setDoc, incrementGameVisits, rewardUniqueVisit, getFollowing, followUser, unfollowUser, getUserProfile, calculateAge, addTrustedFriend, removeTrustedFriend, checkBan, getRoles, banGuard, trackPresence, onSnapshot, collection, assignUserIdNum, submitReport } from './src/firebase.js';
-    import { connectMultiplayer, sendLocalTransform, sendPhysicsState, disconnectMultiplayer, sendChat } from './src/multiplayer.js';
+    import { connectMultiplayer, sendLocalTransform, sendPhysicsState, disconnectMultiplayer, sendChat, setOnVoiceSignal, sendVoiceSignal } from './src/multiplayer.js';
     import { onFriendRequests, sendFriendRequest as dbSendFriendRequest, acceptFriendRequest as dbAcceptFriendRequest, declineFriendRequest as dbDeclineFriendRequest, removeFriend } from './src/friends.js';
     import { executeScript, loadScriptsFromStorage, createInstanceProxy } from './src/scriptRuntime.js';
     import { Instance, PartInstance, ScriptInstance, initGameHierarchy } from './src/instances.js';
@@ -945,6 +982,7 @@
     const graphicsQualityValue = document.getElementById('graphicsQualityValue');
     const graphicsAutoToggle = document.getElementById('graphicsAutoToggle');
     const graphicsModeLabel = document.getElementById('graphicsModeLabel');
+    const fpsLimitSelect = document.getElementById('fpsLimitSelect');
 
     // Load saved settings
     try {
@@ -966,6 +1004,10 @@
         graphicsAutoToggle.checked = saved.graphicsAuto;
         graphicsModeLabel.textContent = saved.graphicsAuto ? 'Auto' : 'Manual';
         if (window._bloxverse) window._bloxverse.setGraphicsAuto(saved.graphicsAuto);
+      }
+      if (saved.fpsLimit != null) {
+        fpsLimitSelect.value = saved.fpsLimit;
+        if (window._bloxverse) window._bloxverse.setFpsLimit(Number(saved.fpsLimit));
       }
       if (graphicsAutoToggle.checked) {
         graphicsQualitySlider.disabled = true;
@@ -1215,6 +1257,12 @@
           window._bloxverse.setQuality(val);
         }
       }
+    });
+
+    fpsLimitSelect.addEventListener('change', () => {
+      const val = parseInt(fpsLimitSelect.value, 10);
+      saveSetting('fpsLimit', val);
+      if (window._bloxverse) window._bloxverse.setFpsLimit(val);
     });
 
     // Load map
@@ -2222,6 +2270,11 @@
                   currentUserIdNum = profile.userIdNum || null;
                   currentUserAge = calculateAge(profile.birthday);
                   currentUserTrustedFriends = new Set(profile.trustedFriends || []);
+                  try {
+                    const saved = JSON.parse(localStorage.getItem('bloxverse_settings') || '{}');
+                    saved.voiceEnabled = currentUserAge >= 13 && profile.voiceEnabled === true;
+                    localStorage.setItem('bloxverse_settings', JSON.stringify(saved));
+                  } catch (_) { }
                   getRoles(user.uid).then(r => _playerRoles.set(user.uid, r)).catch(() => { });
                 }
               } catch (e) {
@@ -2244,13 +2297,14 @@
                   }
                   const isStalePreview = avatarData.avatarPreview && typeof avatarData.avatarPreview === 'string' && avatarData.avatarPreview.includes('/image/upload');
                   const needPreview = !avatarData.avatarPreview || isStalePreview;
-                  if ((avatarData.avatarColors || avatarData.avatarClothing || avatarData.avatarAccessories || avatarData.avatarFace) && window._bloxverse) {
+                  if ((avatarData.avatarColors || avatarData.avatarClothing || avatarData.avatarPants || avatarData.avatarAccessories || avatarData.avatarFace) && window._bloxverse) {
                     const waitForChar = setInterval(() => {
                       if (window._bloxverse.getCharacter()) {
                         clearInterval(waitForChar);
                         window._bloxverse._setPlayerAvatarData(user.uid, {
                           colors: avatarData.avatarColors || {},
                           clothing: avatarData.avatarClothing || null,
+                          pants: avatarData.avatarPants || null,
                           accessories: avatarData.avatarAccessories || [],
                           face: avatarData.avatarFace,
                         });
@@ -2283,7 +2337,7 @@
                 const shopEl = document.createElement('div');
                 shopEl.id = 'mapShopRoot';
                 shopEl.innerHTML = `
-<button id="mapUpgradeBtn" style="display:none;position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:800;padding:8px 20px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer;font-weight:700;pointer-events:auto;box-shadow:0 4px 15px rgba(34,197,94,0.4);text-transform:uppercase;letter-spacing:1px;">UPGRADE</button>
+<button id="mapUpgradeBtn" style="display:none;position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:800;padding:8px 20px;background:#22c55e;color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer;font-weight:700;pointer-events:auto;box-shadow:0 4px 15px rgba(34,197,94,0.4);text-transform:uppercase;letter-spacing:1px;">UPGRADE</button>
 <div id="mapCashLabel" style="display:none;position:fixed;top:50px;left:50%;transform:translateX(-50%);z-index:800;color:#fff;font-size:22px;font-weight:700;pointer-events:none;text-shadow:0 2px 4px rgba(0,0,0,0.5);">$0</div>
 <div id="mapShopOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:820;cursor:pointer;pointer-events:auto;"></div>
 <div id="mapShopPanel" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:821;background:rgba(0,0,0,0.35);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-radius:12px;width:min(90vw,740px);pointer-events:auto;border:1px solid rgba(255,255,255,0.1);box-shadow:0 16px 48px rgba(0,0,0,0.5);overflow:hidden;">
@@ -2421,10 +2475,11 @@
                       getDoc(doc(db, 'users', p.userId)).then(snap => {
                         if (snap.exists() && window._bloxverse) {
                           const ad = snap.data();
-                          if (ad.avatarColors || ad.avatarClothing || ad.avatarAccessories || ad.avatarFace) {
+                          if (ad.avatarColors || ad.avatarClothing || ad.avatarPants || ad.avatarAccessories || ad.avatarFace) {
                             window._bloxverse._setPlayerAvatarData(p.userId, {
                               colors: ad.avatarColors || {},
                               clothing: ad.avatarClothing || null,
+                              pants: ad.avatarPants || null,
                               accessories: ad.avatarAccessories || [],
                               face: ad.avatarFace,
                             });
@@ -2581,6 +2636,316 @@
                   window._bloxverse._updateGuiInstances(gameRoot);
                 }
               };
+
+              // ─── Voice Chat System ───────────────────────────────────────
+              const STUN_SERVERS = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+              let audioCtx = null;
+              let localMicStream = null;
+              let voiceEnabled = false;
+              let micMuted = true;
+              const peers = new Map();
+              const remoteStreams = new Map();
+              const panners = new Map();
+              const talkingUsers = new Set();
+              const _playerSpeakingSprites = new Map();
+              const btnMic = document.getElementById('btnMic');
+              const voiceSettingsGroup = document.getElementById('voiceSettingsGroup');
+              const micDeviceSelect = document.getElementById('micDeviceSelect');
+              const speakerDeviceSelect = document.getElementById('speakerDeviceSelect');
+
+              function _getVoiceSettingEnabled() {
+                try {
+                  return JSON.parse(localStorage.getItem('bloxverse_settings') || '{}').voiceEnabled === true;
+                } catch (_) {
+                  return false;
+                }
+              }
+
+              function _voiceAllowed() {
+                return currentUserAge >= 13 && !!navigator.mediaDevices?.getUserMedia;
+              }
+
+              function _updateVoiceUi() {
+                const allowed = _voiceAllowed();
+                const optedIn = _getVoiceSettingEnabled();
+                if (voiceSettingsGroup) voiceSettingsGroup.style.display = allowed ? '' : 'none';
+                if (!btnMic) return;
+                btnMic.style.display = allowed && optedIn ? '' : 'none';
+                btnMic.disabled = !allowed || !optedIn;
+                btnMic.classList.toggle('mic-unavailable', !allowed || !optedIn);
+                btnMic.classList.toggle('mic-on', voiceEnabled && !micMuted);
+                btnMic.classList.toggle('mic-off', !voiceEnabled || micMuted);
+                btnMic.innerHTML = voiceEnabled && !micMuted
+                  ? '<i class="fa-solid fa-microphone"></i>'
+                  : '<i class="fa-solid fa-microphone-slash"></i>';
+                btnMic.title = voiceEnabled && !micMuted ? 'Voice Chat On' : 'Voice Chat Off';
+              }
+
+              function _removeSpeakingSprite(uid) {
+                const spr = _playerSpeakingSprites.get(uid);
+                const scene = window._bloxverse?._scene || window._bloxverse?.scene;
+                if (spr && scene) scene.remove(spr);
+                if (spr) { spr.material.map?.dispose(); spr.material.dispose(); }
+                _playerSpeakingSprites.delete(uid);
+              }
+
+              function _createSpeakingSprite() {
+                const c = document.createElement('canvas'); c.width = 96; c.height = 32;
+                const ctx = c.getContext('2d');
+                ctx.font = 'bold 28px system-ui,sans-serif';
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.strokeStyle = 'rgba(0,0,0,0.7)'; ctx.lineWidth = 3;
+                ctx.fillStyle = '#22c55e';
+                ctx.strokeText('🔊', 48, 16); ctx.fillText('🔊', 48, 16);
+                ctx.clearRect(0, 0, c.width, c.height);
+                ctx.fillStyle = 'rgba(0,0,0,0.65)';
+                ctx.beginPath();
+                if (ctx.roundRect) {
+                  ctx.roundRect(31, 1, 34, 30, 15);
+                } else {
+                  ctx.arc(48, 16, 15, 0, Math.PI * 2);
+                }
+                ctx.fill();
+                ctx.strokeStyle = '#22c55e';
+                ctx.lineWidth = 4;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(48, 7);
+                ctx.lineTo(48, 16);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(48, 11, 7, Math.PI, 0, true);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(48, 14, 12, 0, Math.PI, false);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(48, 20);
+                ctx.lineTo(48, 26);
+                ctx.moveTo(41, 26);
+                ctx.lineTo(55, 26);
+                ctx.stroke();
+                const tex = new THREE.CanvasTexture(c); tex.needsUpdate = true;
+                const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: true, depthWrite: false, sizeAttenuation: true }));
+                spr.scale.set(4, 1.4, 1);
+                return spr;
+              }
+
+              function _updateTalkingIndicators() {
+                const scene = window._bloxverse?._scene || window._bloxverse?.scene;
+                if (!scene) return;
+                if (!voiceEnabled) {
+                  for (const uid of Array.from(_playerSpeakingSprites.keys())) _removeSpeakingSprite(uid);
+                  return;
+                }
+                for (const uid of _knownPlayerIds) {
+                  const on = talkingUsers.has(uid);
+                  let spr = _playerSpeakingSprites.get(uid);
+                  const pos = _playerPositions.get(uid);
+                  if (on && pos) {
+                    if (!spr) { spr = _createSpeakingSprite(); scene.add(spr); _playerSpeakingSprites.set(uid, spr); }
+                    spr.position.set(pos.x, pos.y + 6, pos.z);
+                    spr.visible = true;
+                  } else if (spr) { spr.visible = false; }
+                }
+                for (const [uid, spr] of _playerSpeakingSprites) {
+                  if (!_knownPlayerIds.has(uid)) _removeSpeakingSprite(uid);
+                }
+              }
+
+              async function initVoice() {
+                if (voiceEnabled) return;
+                try {
+                  _updateVoiceUi();
+                  if (!_getVoiceSettingEnabled()) return;
+                  if (!_voiceAllowed()) { showToast('Voice chat requires a 13+ account.', 'info', 3000); return; }
+                  audioCtx = new AudioContext();
+                  const deviceId = localStorage.getItem('bloxverse_voice_mic') || '';
+                  localMicStream = await navigator.mediaDevices.getUserMedia({ audio: deviceId ? { deviceId: { exact: deviceId } } : true });
+                  voiceEnabled = true; micMuted = true;
+                  localMicStream.getAudioTracks().forEach(t => t.enabled = false);
+                  _updateVoiceUi();
+                  await _enumerateDevices();
+                  _updateSpeakerOutput();
+                  _maybeCreatePeers();
+                  showToast('Voice chat connected. Click mic icon to talk.', 'info', 3000);
+                } catch (e) { console.error('[Voice] Init failed:', e); showToast('Voice chat unavailable: ' + e.message, 'info', 3000); }
+              }
+
+              function _enumerateDevices() {
+                if (!navigator.mediaDevices?.enumerateDevices) return Promise.resolve();
+                return navigator.mediaDevices.enumerateDevices().then(devices => {
+                  if (!micDeviceSelect || !speakerDeviceSelect) return;
+                  const savedMic = localStorage.getItem('bloxverse_voice_mic') || '';
+                  const savedSpk = localStorage.getItem('bloxverse_voice_speaker') || '';
+                  micDeviceSelect.innerHTML = '<option value="">Default</option>';
+                  speakerDeviceSelect.innerHTML = '<option value="">Default</option>';
+                  devices.forEach(d => {
+                    if (d.kind === 'audioinput') {
+                      const o = document.createElement('option'); o.value = d.deviceId; o.textContent = d.label || `Mic ${micDeviceSelect.options.length}`;
+                      if (d.deviceId === savedMic) o.selected = true; micDeviceSelect.appendChild(o);
+                    } else if (d.kind === 'audiooutput') {
+                      const o = document.createElement('option'); o.value = d.deviceId; o.textContent = d.label || `Speaker ${speakerDeviceSelect.options.length}`;
+                      if (d.deviceId === savedSpk) o.selected = true; speakerDeviceSelect.appendChild(o);
+                    }
+                  });
+                  micDeviceSelect.onchange = () => { localStorage.setItem('bloxverse_voice_mic', micDeviceSelect.value); _restartMic(); };
+                  speakerDeviceSelect.onchange = () => { localStorage.setItem('bloxverse_voice_speaker', speakerDeviceSelect.value); _updateSpeakerOutput(); };
+                }).catch(() => {});
+              }
+
+              async function _restartMic() {
+                if (!voiceEnabled) return;
+                try {
+                  const deviceId = localStorage.getItem('bloxverse_voice_mic') || '';
+                  const s = await navigator.mediaDevices.getUserMedia({ audio: deviceId ? { deviceId: { exact: deviceId } } : true });
+                  s.getAudioTracks().forEach(t => t.enabled = !micMuted);
+                  const nt = s.getAudioTracks()[0];
+                  for (const [, pc] of peers) { const sender = pc.getSenders().find(s => s.track?.kind === 'audio'); if (sender) sender.replaceTrack(nt); }
+                  localMicStream?.getTracks().forEach(t => t.stop());
+                  localMicStream = s;
+                } catch (e) { console.error('[Voice] Restart mic failed:', e); }
+              }
+
+              function _updateSpeakerOutput() {
+                const id = localStorage.getItem('bloxverse_voice_speaker') || '';
+                if (audioCtx && typeof audioCtx.setSinkId === 'function') audioCtx.setSinkId(id).catch(() => {});
+              }
+
+              async function toggleMic() {
+                if (!voiceEnabled || !localMicStream) {
+                  await initVoice();
+                  if (!voiceEnabled || !localMicStream) return;
+                }
+                micMuted = !micMuted;
+                localMicStream.getAudioTracks().forEach(t => t.enabled = !micMuted);
+                _updateVoiceUi();
+              }
+
+              function _maybeCreatePeers() {
+                if (!voiceEnabled || !localMicStream) return;
+                for (const uid of _knownPlayerIds) {
+                  if (uid === user.uid || peers.has(uid)) continue;
+                  _createPeer(uid);
+                }
+              }
+
+              function _createPeer(uid) {
+                const pc = new RTCPeerConnection(STUN_SERVERS);
+                localMicStream.getTracks().forEach(t => pc.addTrack(t, localMicStream));
+                pc.ontrack = (e) => {
+                  const stream = e.streams[0]; remoteStreams.set(uid, stream);
+                  if (!audioCtx) return;
+                  const src = audioCtx.createMediaStreamSource(stream);
+                  const panner = new PannerNode(audioCtx, { distanceModel: 'inverse', refDistance: 10, maxDistance: 80, rolloffFactor: 1.5, panningModel: 'HRTF' });
+                  src.connect(panner).connect(audioCtx.destination);
+                  panners.set(uid, panner);
+                  const analyser = audioCtx.createAnalyser(); analyser.fftSize = 256;
+                  src.connect(analyser);
+                  const buf = new Uint8Array(analyser.frequencyBinCount);
+                  const check = () => {
+                    if (!voiceEnabled || !remoteStreams.has(uid)) return;
+                    analyser.getByteFrequencyData(buf);
+                    const avg = buf.reduce((a, b) => a + b, 0) / buf.length;
+                    if (avg > 15) talkingUsers.add(uid); else talkingUsers.delete(uid);
+                    requestAnimationFrame(check);
+                  };
+                  check();
+                };
+                pc.onicecandidate = (e) => { if (e.candidate) sendVoiceSignal('voice-ice', { candidate: e.candidate.toJSON() }, uid); };
+                pc.oniceconnectionstatechange = () => {
+                  if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+                    pc.close(); peers.delete(uid); remoteStreams.delete(uid); panners.delete(uid);
+                  }
+                };
+                peers.set(uid, pc);
+                if (user.uid < uid) {
+                  pc.createOffer().then(o => { pc.setLocalDescription(o); sendVoiceSignal('voice-offer', { offer: { type: o.type, sdp: o.sdp } }, uid); }).catch(e => console.error('[Voice] offer:', e));
+                }
+              }
+
+              function _handleVoiceSignal(data) {
+                if (!voiceEnabled || !localMicStream) return;
+                const from = data.userId;
+                if (from === user.uid || !_knownPlayerIds.has(from)) return;
+                if (data.type === 'voice-offer' && data.offer) {
+                  if (peers.has(from)) return;
+                  const pc = new RTCPeerConnection(STUN_SERVERS);
+                  localMicStream.getTracks().forEach(t => pc.addTrack(t, localMicStream));
+                  pc.ontrack = (e) => {
+                    const stream = e.streams[0]; remoteStreams.set(from, stream);
+                    if (!audioCtx) return;
+                    const src = audioCtx.createMediaStreamSource(stream);
+                    const panner = new PannerNode(audioCtx, { distanceModel: 'inverse', refDistance: 10, maxDistance: 80, rolloffFactor: 1.5, panningModel: 'HRTF' });
+                    src.connect(panner).connect(audioCtx.destination); panners.set(from, panner);
+                    const analyser = audioCtx.createAnalyser(); analyser.fftSize = 256;
+                    src.connect(analyser); const buf = new Uint8Array(analyser.frequencyBinCount);
+                    const check = () => {
+                      if (!voiceEnabled || !remoteStreams.has(from)) return;
+                      analyser.getByteFrequencyData(buf); const avg = buf.reduce((a, b) => a + b, 0) / buf.length;
+                      if (avg > 15) talkingUsers.add(from); else talkingUsers.delete(from);
+                      requestAnimationFrame(check);
+                    };
+                    check();
+                  };
+                  pc.onicecandidate = (e) => { if (e.candidate) sendVoiceSignal('voice-ice', { candidate: e.candidate.toJSON() }, from); };
+                  pc.oniceconnectionstatechange = () => {
+                    if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+                      pc.close(); peers.delete(from); remoteStreams.delete(from); panners.delete(from);
+                    }
+                  };
+                  pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+                  pc.createAnswer().then(a => { pc.setLocalDescription(a); sendVoiceSignal('voice-answer', { answer: { type: a.type, sdp: a.sdp } }, from); }).catch(e => console.error('[Voice] answer:', e));
+                  peers.set(from, pc);
+                } else if (data.type === 'voice-answer' && data.answer) {
+                  const pc = peers.get(from);
+                  if (pc && pc.remoteType !== 'answer') pc.setRemoteDescription(new RTCSessionDescription(data.answer)).catch(() => {});
+                } else if (data.type === 'voice-ice' && data.candidate) {
+                  const pc = peers.get(from);
+                  if (pc) try { pc.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch (e) {}
+                }
+              }
+
+              function _spatializeVoice() {
+                if (!voiceEnabled || !audioCtx || !window._bloxverse) return;
+                const char = window._bloxverse.getCharacter();
+                if (!char) return;
+                const p = char.position;
+                audioCtx.listener.positionX.value = p.x;
+                audioCtx.listener.positionY.value = p.y + 2;
+                audioCtx.listener.positionZ.value = p.z;
+                const ry = char.rotation.y;
+                audioCtx.listener.forwardX.value = -Math.sin(ry);
+                audioCtx.listener.forwardY.value = 0;
+                audioCtx.listener.forwardZ.value = -Math.cos(ry);
+                audioCtx.listener.upX.value = 0; audioCtx.listener.upY.value = 1; audioCtx.listener.upZ.value = 0;
+                for (const [uid, panner] of panners) {
+                  const pos = _playerPositions.get(uid);
+                  if (pos) { panner.positionX.value = pos.x; panner.positionY.value = pos.y + 2; panner.positionZ.value = pos.z; }
+                }
+              }
+
+              // Hook spatialization into the existing update loop
+              const _origUpdate = window._mpUpdate;
+              window._mpUpdate = (dt) => {
+                _origUpdate(dt);
+                _spatializeVoice();
+                _updateTalkingIndicators();
+              };
+
+              setOnVoiceSignal(_handleVoiceSignal);
+              document.getElementById('btnMic')?.addEventListener('click', toggleMic);
+              setInterval(() => { if (voiceEnabled) _maybeCreatePeers(); }, 2000);
+
+              _updateVoiceUi();
+              if (_voiceAllowed()) _enumerateDevices();
+              if (_getVoiceSettingEnabled()) {
+                const iv = setInterval(() => {
+                  if (window._bloxverse && localMicStream === null) { clearInterval(iv); initVoice(); }
+                }, 500);
+              }
+
+              // ─── End Voice Chat System ─────────────────────────────────────
 
               window.addEventListener('beforeunload', () => {
                 window._bloxverse?.clearLocalAccessories?.();
@@ -2785,6 +3150,7 @@
       }, 100);
     }
 
+    // ─── Voice Chat ───────────────────────────────────────────────────
     if (game) {
       if (document.readyState === 'complete') {
         startGame();

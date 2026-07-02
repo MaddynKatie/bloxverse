@@ -20,11 +20,13 @@
   <link rel="icon" type="image/png" href="assets/icons/bloxverseLogo.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BloxVerse - Avatar Editor</title>
+  <link rel="stylesheet" href="src/theme.css" />
   <link rel="stylesheet" href="src/main.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <script type="module" src="src/theme.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
-    html, body { height: 100%; margin: 0; background: #f2f2f2; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    html, body { height: 100%; margin: 0; background: var(--bg-primary); overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 
     .editor-page {
       display: flex;
@@ -36,8 +38,8 @@
     .editor-panel {
       width: 320px;
       min-width: 220px;
-      background: #fff;
-      border-right: 1px solid #e0e0e0;
+      background: var(--bg-surface);
+      border-right: var(--border);
       display: flex;
       flex-direction: column;
       padding: 16px;
@@ -49,7 +51,7 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      color: #555;
+      color: var(--text-secondary);
       text-decoration: none;
       font-size: 13px;
       margin-bottom: 12px;
@@ -58,10 +60,10 @@
       border: none;
       padding: 0;
     }
-    .back-btn:hover { color: #111; }
+    .back-btn:hover { color: var(--text-primary); }
 
     .editor-panel h2 {
-      color: #111;
+      color: var(--text-primary);
       font-size: 22px;
       margin: 0 0 2px 0;
       font-weight: 700;
@@ -72,7 +74,7 @@
     .viewer-container {
       width: 100%;
       aspect-ratio: 1 / 1.1;
-      background: #f7f7f7;
+      background: var(--bg-surface);
       border-radius: 12px;
       overflow: hidden;
       position: relative;
@@ -89,7 +91,7 @@
       bottom: 8px;
       left: 50%;
       transform: translateX(-50%);
-      color: #aaa;
+      color: var(--text-muted);
       font-size: 11px;
       user-select: none;
       pointer-events: none;
@@ -98,7 +100,7 @@
     /* Gender toggle */
     .gender-toggle {
       display: flex;
-      border: 1.5px solid #ddd;
+      border: 1.5px solid var(--border);
       border-radius: 8px;
       overflow: hidden;
       margin-bottom: 14px;
@@ -111,12 +113,12 @@
       font-size: 14px;
       font-weight: 600;
       cursor: pointer;
-      color: #888;
+      color: var(--text-muted);
       transition: all 0.15s;
     }
     .gender-btn.active {
-      background: #111;
-      color: #fff;
+      background: var(--text-primary);
+      color: var(--bg-primary);
       border-radius: 6px;
     }
 
@@ -136,7 +138,7 @@
     .color-swatch-item input[type="color"] {
       width: 100%;
       aspect-ratio: 1;
-      border: 2px solid #e0e0e0;
+      border: 2px solid var(--border);
       border-radius: 8px;
       cursor: pointer;
       padding: 3px;
@@ -144,10 +146,10 @@
     }
     .color-swatch-item input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
     .color-swatch-item input[type="color"]::-webkit-color-swatch { border: none; border-radius: 5px; }
-    .color-swatch-item input[type="color"]:hover { border-color: #aaa; }
+    .color-swatch-item input[type="color"]:hover { border-color: var(--text-muted); }
     .color-swatch-label {
       font-size: 11px;
-      color: #888;
+      color: var(--text-muted);
       text-align: center;
     }
 
@@ -169,29 +171,29 @@
       font-size: 15px;
       font-weight: 700;
       cursor: pointer;
-      background: #555;
+      background: var(--accent);
       color: #fff;
       transition: background 0.15s;
     }
-    .btn-save:hover { background: #333; }
+    .btn-save:hover { background: var(--accent-hover); }
 
     .btn-reset {
       padding: 10px;
-      border: 1.5px solid #ddd;
+      border: 1.5px solid var(--border);
       border-radius: 8px;
       font-size: 13px;
       font-weight: 500;
       cursor: pointer;
       background: transparent;
-      color: #555;
+      color: var(--text-secondary);
       transition: all 0.15s;
     }
-    .btn-reset:hover { background: #f5f5f5; }
+    .btn-reset:hover { background: var(--bg-tertiary); }
 
     /* ── RIGHT PANEL (catalog) ── */
     .catalog-panel {
       flex: 1;
-      background: #f2f2f2;
+      background: var(--bg-primary);
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -202,8 +204,8 @@
       display: flex;
       gap: 0;
       padding: 14px 20px 0;
-      border-bottom: 2px solid #e0e0e0;
-      background: #fff;
+      border-bottom: 2px solid var(--border);
+      background: var(--bg-surface);
     }
     .editor-tab {
       padding: 10px 20px;
@@ -212,13 +214,13 @@
       font-size: 14px;
       font-weight: 600;
       cursor: pointer;
-      color: #888;
+      color: var(--text-muted);
       border-bottom: 3px solid transparent;
       margin-bottom: -2px;
       transition: all 0.15s;
     }
-    .editor-tab.active { color: #111; border-bottom-color: #111; }
-    .editor-tab:hover:not(.active) { color: #555; }
+    .editor-tab.active { color: var(--text-primary); border-bottom-color: var(--text-primary); }
+    .editor-tab:hover:not(.active) { color: var(--text-secondary); }
 
     /* Tab content = scrollable catalog */
     .tab-content {
@@ -234,7 +236,7 @@
       font-size: 11px;
       font-weight: 700;
       letter-spacing: 1.5px;
-      color: #999;
+      color: var(--text-muted);
       text-transform: uppercase;
       margin: 0 0 12px 0;
     }
@@ -248,21 +250,21 @@
 
     /* Cards */
     .clothing-item, .acc-item {
-      background: #f7f7f7;
-      border: 1.5px solid #e8e8e8;
+      background: var(--bg-surface);
+      border: 1.5px solid var(--border);
       border-radius: 12px;
       padding: 10px;
       text-align: center;
       cursor: pointer;
       transition: all 0.15s;
     }
-    .clothing-item:hover, .acc-item:hover { border-color: #ccc; background: #fff; }
-    .clothing-item.equipped, .acc-item.equipped { border-color: #111; background: #fff; }
+    .clothing-item:hover, .acc-item:hover { border-color: var(--border-strong); background: var(--bg-secondary); }
+    .clothing-item.equipped, .acc-item.equipped { border-color: var(--accent); background: var(--bg-secondary); }
 
     .clothing-item-preview, .acc-item-icon {
       width: 100%;
       aspect-ratio: 1;
-      background: #efefef;
+      background: var(--bg-tertiary);
       border-radius: 8px;
       display: flex;
       align-items: center;
@@ -278,7 +280,7 @@
     }
 
     .clothing-item-name, .acc-item-name {
-      color: #222;
+      color: var(--text-primary);
       font-size: 12px;
       font-weight: 500;
       white-space: nowrap;
@@ -288,7 +290,7 @@
     .clothing-item-meta, .acc-item-category { display: none; }
 
     .acc-empty {
-      color: #aaa;
+      color: var(--text-muted);
       font-size: 13px;
       text-align: center;
       padding: 40px 10px;
@@ -301,8 +303,8 @@
       bottom: 30px;
       left: 50%;
       transform: translateX(-50%);
-      background: #222;
-      color: #fff;
+      background: var(--bg-secondary);
+      color: var(--text-primary);
       padding: 10px 24px;
       border-radius: 8px;
       font-size: 14px;
@@ -316,20 +318,20 @@
     /* Scrollbars */
     .editor-panel::-webkit-scrollbar, .tab-content::-webkit-scrollbar { width: 5px; }
     .editor-panel::-webkit-scrollbar-track, .tab-content::-webkit-scrollbar-track { background: transparent; }
-    .editor-panel::-webkit-scrollbar-thumb, .tab-content::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
-    .editor-panel, .tab-content { scrollbar-width: thin; scrollbar-color: #ddd transparent; }
+    .editor-panel::-webkit-scrollbar-thumb, .tab-content::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+    .editor-panel, .tab-content { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent; }
 
     /* Resize handle */
     .resize-handle {
       width: 6px;
       cursor: col-resize;
       flex-shrink: 0;
-      background: #e8e8e8;
+      background: var(--border);
       position: relative;
       z-index: 20;
       user-select: none;
     }
-    .resize-handle:hover { background: #ccc; }
+    .resize-handle:hover { background: var(--border-strong); }
   </style>
 </head>
 <body>
@@ -371,6 +373,8 @@
       <div class="tab-content active" id="tabClothing">
         <p class="catalog-category-label">Shirts</p>
         <div class="clothing-grid" id="clothingGrid"></div>
+        <p class="catalog-category-label">Pants</p>
+        <div class="clothing-grid" id="pantsGrid"></div>
       </div>
 
       <div class="tab-content" id="tabFaces">
@@ -394,20 +398,20 @@
     import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
     import { auth, db, getDoc, doc, setDoc, trackPresence } from './src/firebase.js';
     import { accessories, getAllAccessories, findAccessory } from './src/accessories.js';
-    import { applyAvatarClothing, findClothing, getAllClothing, preloadTexture, removeAvatarClothing } from './src/clothing.js';
+    import { applyAvatarClothing, removeAvatarClothing, applyAvatarPants, removeAvatarPants, findClothing, getAllClothing, preloadTexture } from './src/clothing.js';
     import { getAllFaces, findFace } from './src/faces.js';
     const STARTING_ITEMS = ['palhair', 'smile', 'blueandblackmotorcycleshirt'];
     const playerModelUrl = new URL('./assets/models/player.fbx', import.meta.url).href;
 
     const container = document.getElementById('viewerContainer');
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf7f7f7);
+    scene.background = null;
 
     const camera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 0.1, 100);
     camera.position.set(3, 2.5, 9);
     camera.lookAt(0, 1.2, 0);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.shadowMap.enabled = true;
@@ -481,6 +485,7 @@
     let _loadedAccessories = {};
     const _accessoryUpdaters = new Map();
     let _selectedClothingId = null;
+    let _selectedPantsId = null;
     let _equippedFaceId = 'smile';
     let _faceOverlayMesh = null;
     let _charHeight = 0;
@@ -834,11 +839,27 @@
       renderClothingGrid();
     }
 
+    function equipPants(pantsId) {
+      _selectedPantsId = pantsId;
+      if (avatar && pantsId) {
+        applyAvatarPants(avatar, pantsId);
+      }
+      renderPantsGrid();
+    }
+
+    function unequipPants() {
+      _selectedPantsId = null;
+      if (avatar) {
+        removeAvatarPants(avatar);
+      }
+      renderPantsGrid();
+    }
+
     function renderClothingGrid() {
       const grid = document.getElementById('clothingGrid');
-      const all = (auth.currentUser ? getAllClothing().filter(c => _ownedItems.includes(c.id)) : getAllClothing());
+      const all = (auth.currentUser ? getAllClothing().filter(c => c.category !== 'Pants' && _ownedItems.includes(c.id)) : getAllClothing().filter(c => c.category !== 'Pants'));
       if (all.length === 0) {
-        grid.innerHTML = '<div class="acc-empty">No clothing added yet. Get some in the marketplace! <code>assets/clothing</code>.</div>';
+        grid.innerHTML = '<div class="acc-empty">No shirts yet. Get some in the marketplace!</div>';
         return;
       }
       grid.innerHTML = all.map(item => `
@@ -857,6 +878,34 @@
             unequipClothing();
           } else {
             equipClothing(id);
+          }
+        });
+      });
+    }
+
+    function renderPantsGrid() {
+      const grid = document.getElementById('pantsGrid');
+      const all = (auth.currentUser ? getAllClothing().filter(c => c.category === 'Pants' && _ownedItems.includes(c.id)) : getAllClothing().filter(c => c.category === 'Pants'));
+      if (all.length === 0) {
+        grid.innerHTML = '<div class="acc-empty">No pants yet.</div>';
+        return;
+      }
+      grid.innerHTML = all.map(item => `
+        <div class="clothing-item ${_selectedPantsId === item.id ? 'equipped' : ''}" data-id="${item.id}">
+          <div class="clothing-item-preview">
+            <img src="${_clothingPreviewCache.get(item.id) || item.texturePath}" alt="${item.name}" />
+          </div>
+          <div class="clothing-item-name">${item.name}</div>
+          <div class="clothing-item-meta">${item.category || ''}</div>
+        </div>
+      `).join('');
+      grid.querySelectorAll('.clothing-item').forEach(el => {
+        el.addEventListener('click', () => {
+          const id = el.dataset.id;
+          if (_selectedPantsId === id) {
+            unequipPants();
+          } else {
+            equipPants(id);
           }
         });
       });
@@ -1104,10 +1153,10 @@
       if (!_previewRenderer) {
         const c = document.createElement('canvas');
         c.width = 256; c.height = 256;
-        _previewRenderer = new THREE.WebGLRenderer({ canvas: c, antialias: true, preserveDrawingBuffer: true, alpha: false });
+        _previewRenderer = new THREE.WebGLRenderer({ canvas: c, antialias: true, preserveDrawingBuffer: true, alpha: true });
         _previewRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         _previewRenderer.outputColorSpace = THREE.SRGBColorSpace;
-        _previewRenderer.setClearColor(0xb0b0b0);
+        _previewRenderer.setClearColor(0x000000, 0);
       }
       return _previewRenderer;
     }
@@ -1211,6 +1260,8 @@
               cam.position.set(0, 2.8, 18); cam.lookAt(0, 2.8, 0);
               const renderer = _getPreviewRenderer();
               const W = 256, H = 256;
+              const prevBg = scene.background;
+              scene.background = null;
               const rt = new THREE.WebGLRenderTarget(W, H);
               rt.texture.colorSpace = THREE.SRGBColorSpace;
               renderer.setRenderTarget(rt);
@@ -1219,6 +1270,7 @@
               const pixels = new Uint8Array(W * H * 4);
               renderer.readRenderTargetPixels(rt, 0, 0, W, H, pixels);
               rt.dispose();
+              scene.background = prevBg;
               wrapper.removeFromParent();
               removeAvatarClothing(avatar);
               for (const k of Object.keys(savedColors)) currentColors[k] = savedColors[k];
@@ -1237,7 +1289,7 @@
               for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
                 const si = (y * W + x) * 4, di = ((H - 1 - y) * W + x) * 4;
                 id.data[di] = pixels[si]; id.data[di + 1] = pixels[si + 1];
-                id.data[di + 2] = pixels[si + 2]; id.data[di + 3] = 255;
+                id.data[di + 2] = pixels[si + 2]; id.data[di + 3] = pixels[si + 3];
               }
               ctx.putImageData(id, 0, 0);
               resolve(canvas.toDataURL('image/png'));
@@ -1274,6 +1326,8 @@
           cam.position.set(0, 2.8, 18); cam.lookAt(0, 2.8, 0);
           const renderer = _getPreviewRenderer();
           const W = 256, H = 256;
+          const prevBg = scene.background;
+          scene.background = null;
           const rt = new THREE.WebGLRenderTarget(W, H);
           rt.texture.colorSpace = THREE.SRGBColorSpace;
           renderer.setRenderTarget(rt);
@@ -1282,6 +1336,7 @@
           const pixels = new Uint8Array(W * H * 4);
           renderer.readRenderTargetPixels(rt, 0, 0, W, H, pixels);
           rt.dispose();
+          scene.background = prevBg;
           removeAvatarClothing(avatar);
           for (const k of Object.keys(savedColors)) currentColors[k] = savedColors[k];
           applyColors();
@@ -1299,7 +1354,7 @@
           for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
             const si = (y * W + x) * 4, di = ((H - 1 - y) * W + x) * 4;
             id.data[di] = pixels[si]; id.data[di + 1] = pixels[si + 1];
-            id.data[di + 2] = pixels[si + 2]; id.data[di + 3] = 255;
+            id.data[di + 2] = pixels[si + 2]; id.data[di + 3] = pixels[si + 3];
           }
           ctx.putImageData(id, 0, 0);
           resolve(canvas.toDataURL('image/png'));
@@ -1358,6 +1413,18 @@
             _selectedClothingId = null;
             removeAvatarClothing(avatar);
           }
+          if (data.avatarPants && avatar && findClothing(data.avatarPants)) {
+            if (_ownedItems.includes(data.avatarPants)) {
+              _selectedPantsId = data.avatarPants;
+              applyAvatarPants(avatar, data.avatarPants);
+            } else {
+              _selectedPantsId = null;
+              removeAvatarPants(avatar);
+            }
+          } else if (avatar) {
+            _selectedPantsId = null;
+            removeAvatarPants(avatar);
+          }
           if (data.avatarAccessories && avatar) {
             _equippedAccessories = {};
             for (const id of data.avatarAccessories) {
@@ -1379,6 +1446,7 @@
           equipFace('smile');
         }
         renderClothingGrid();
+        renderPantsGrid();
         renderAccGrid();
       } catch (e) {
         console.error('Error loading avatar data:', e);
@@ -1396,6 +1464,7 @@
       }
       applyColors();
       unequipClothing();
+      unequipPants();
       for (const id of Object.keys(_equippedAccessories)) {
         removeAccessory(id);
       }
@@ -1413,6 +1482,7 @@
         await setDoc(doc(db, 'users', auth.currentUser.uid), {
           avatarColors: currentColors,
           avatarClothing: _selectedClothingId,
+          avatarPants: _selectedPantsId,
           avatarAccessories: Object.keys(_equippedAccessories),
           avatarFace: _equippedFaceId,
         }, { merge: true });
@@ -1439,13 +1509,13 @@
         canvas: thumbCanvas,
         antialias: true,
         preserveDrawingBuffer: true,
-        alpha: false,
+        alpha: true,
       });
       thumbRenderer.setPixelRatio(1);
       thumbRenderer.outputColorSpace = THREE.SRGBColorSpace;
       thumbRenderer.toneMapping = renderer.toneMapping;
       thumbRenderer.toneMappingExposure = renderer.toneMappingExposure;
-      thumbRenderer.setClearColor(0x000000);
+      thumbRenderer.setClearColor(0x000000, 0);
 
       // Set up a dedicated camera for the full-body shot
       const thumbCam = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
@@ -1461,7 +1531,7 @@
         }
       });
       const prevBg = scene.background ? scene.background.clone() : null;
-      scene.background = new THREE.Color(0x000000);
+      scene.background = null;
 
       // Capture via render target (reliable, same WebGL context)
       const W = 256, H = 256;
@@ -1481,7 +1551,7 @@
 
       thumbRenderer.dispose();
 
-      // Flip Y for canvas ImageData (Y=0 at top)
+      // Flip Y for canvas ImageData (Y=0 at top) — preserve alpha for transparency
       const canvas = document.createElement('canvas');
       canvas.width = W;
       canvas.height = H;
@@ -1494,7 +1564,7 @@
           imageData.data[di] = pixels[si];
           imageData.data[di + 1] = pixels[si + 1];
           imageData.data[di + 2] = pixels[si + 2];
-          imageData.data[di + 3] = 255;
+          imageData.data[di + 3] = pixels[si + 3];
         }
       }
       ctx.putImageData(imageData, 0, 0);

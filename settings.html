@@ -40,7 +40,7 @@
     }
 
     .settings-section {
-      background: #2a2b2d;
+      background: var(--bg-secondary);
       border-radius: 10px;
       padding: 16px;
       margin-bottom: 12px;
@@ -78,21 +78,21 @@
 
     .settings-row-desc {
       font-size: 12px;
-      color: #8a8c8e;
+      color: var(--text-muted);
       margin-top: 2px;
     }
 
     .settings-row-value {
       font-size: 13px;
-      color: #babbbe;
+      color: var(--text-secondary);
     }
 
     .settings-input {
-      background: #1a1d2e;
+      background: var(--bg-surface);
       border: 1px solid rgba(124,92,252,0.3);
       border-radius: 6px;
       padding: 6px 10px;
-      color: #fff;
+      color: var(--text-primary);
       font-family: inherit;
       font-size: 13px;
     }
@@ -104,7 +104,7 @@
 
     .settings-btn {
       background: rgba(124,92,252,0.4);
-      color: #fff;
+      color: var(--text-primary);
       border: none;
       border-radius: 6px;
       padding: 6px 14px;
@@ -122,18 +122,182 @@
       background: rgba(34,197,94,0.4);
     }
 
+    .settings-toggle {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+      flex: 0 0 auto;
+    }
+
+    .settings-toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .settings-toggle span {
+      position: absolute;
+      inset: 0;
+      border-radius: 999px;
+      background: #555;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    .settings-toggle span::before {
+      content: '';
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      left: 3px;
+      top: 3px;
+      border-radius: 50%;
+      background: #fff;
+      transition: transform 0.15s ease;
+    }
+
+    .settings-toggle input:checked + span {
+      background: #22c55e;
+    }
+
+    .settings-toggle input:checked + span::before {
+      transform: translateX(20px);
+    }
+
+    .settings-toggle input:disabled + span {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
     .settings-back {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      color: #8a8c8e;
+      color: var(--text-muted);
       text-decoration: none;
       font-size: 13px;
       margin-bottom: 16px;
     }
 
-    .settings-back:hover { color: #fff; }
+    .settings-back:hover { color: var(--text-primary); }
+
+    .settings-wrapper {
+      position: relative;
+    }
+    .settings-dropdown {
+      display: none;
+      position: absolute;
+      top: 100%;
+      right: 0;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      min-width: 140px;
+      z-index: 100;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .settings-dropdown.open { display: block; }
+    .settings-dropdown button {
+      display: block;
+      width: 100%;
+      padding: 10px 14px;
+      border: none;
+      background: none;
+      color: var(--text-secondary);
+      font-size: 13px;
+      text-align: left;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .settings-dropdown button:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+    .settings-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .settings-modal {
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      width: 90%;
+      max-width: 420px;
+      padding: 24px;
+    }
+    .settings-modal h3 {
+      margin: 0 0 16px;
+      font-size: 18px;
+    }
+    .settings-modal .field {
+      margin-bottom: 14px;
+    }
+    .settings-modal .field label {
+      display: block;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .settings-modal .field input {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-strong);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    .settings-modal .field input:focus {
+      outline: none;
+      border-color: rgba(124,92,252,0.6);
+    }
+    .settings-modal .field .error {
+      color: #e74c3c;
+      font-size: 12px;
+      margin-top: 4px;
+    }
+    .settings-modal .field .success {
+      color: #4caf50;
+      font-size: 12px;
+      margin-top: 4px;
+    }
+    .settings-modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+    .settings-modal-actions button {
+      padding: 8px 20px;
+      border-radius: 6px;
+      border: none;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .settings-modal-actions .cancel {
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+    }
+    .settings-modal-actions .cancel:hover { background: var(--bg-secondary); }
+    .settings-modal-actions .save {
+      background: rgba(124,92,252,0.5);
+      color: var(--text-primary);
+    }
+    .settings-modal-actions .save:hover { background: rgba(124,92,252,0.7); }
+    .settings-modal-actions .save:disabled { opacity: 0.5; cursor: default; }
   </style>
+
+  <link rel="stylesheet" href="src/theme.css" />
+  <script type="module" src="src/theme.js"></script>
 </head>
 
 <body>
@@ -146,6 +310,7 @@
       <div class="nav-links">
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/create'">Create</button>
+        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
       </div>
     </div>
     <div class="nav-right" id="navRight"></div>
@@ -155,7 +320,7 @@
 
   <script type="module">
     import { auth, db, calculateAge, logTransaction, assignUserIdNum, trackPresence } from './src/firebase.js';
-    import { onAuthStateChanged, signOut } from 'firebase/auth';
+    import { onAuthStateChanged, signOut, updateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider, sendEmailVerification } from 'firebase/auth';
     import { doc, getDoc, setDoc, onSnapshot, updateDoc, increment, collection, getDocs, query, where, limit } from 'firebase/firestore';
 
     const navRight = document.getElementById('navRight');
@@ -172,14 +337,22 @@
 
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       const userData = userDoc.exists() ? userDoc.data() : {};
-      const birthday = userData.birthday || '';
+      let birthday = userData.birthday || '';
       const username = userData.username || 'Player';
       const ownBux = userData.bux || 0;
       const ownNum = userData.userIdNum;
+      let age = calculateAge(birthday);
+      let canUseVoiceChat = age >= 13;
+      let voiceChatEnabled = canUseVoiceChat && userData.voiceEnabled === true;
       const ownProfileLink = ownNum ? `/bloxverse/profile?user=${ownNum}` : '/bloxverse/profile';
       const ownInitial = (userData.username || 'P').charAt(0).toUpperCase();
       const ownPreview = userData.avatarPreview || null;
       const _cb = Date.now();
+      try {
+        const saved = JSON.parse(localStorage.getItem('bloxverse_settings') || '{}');
+        saved.voiceEnabled = voiceChatEnabled;
+        localStorage.setItem('bloxverse_settings', JSON.stringify(saved));
+      } catch (_) {}
  
       settingsPage.innerHTML = `
         <a href="${ownProfileLink}" class="settings-back">
@@ -205,6 +378,72 @@
               <button class="settings-btn" id="editBirthdayBtn">Edit</button>
             </div>
           </div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-row-label">Email</div>
+              <div class="settings-row-desc">Your login email address</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span class="settings-row-value" id="emailDisplay">${user.email || 'Not set'}</span>
+              <button class="settings-btn" id="editEmailBtn">Edit</button>
+            </div>
+          </div>
+          ${!user.emailVerified ? `
+          <div class="settings-row" style="border:none;padding-top:0;">
+            <div style="display:flex;align-items:center;gap:8px;width:100%;">
+              <span style="color:#e74c3c;font-size:13px;">Email not verified</span>
+              <button class="settings-btn" id="verifyEmailBtn" style="background:rgba(231,76,60,0.4);font-size:11px;">Send verification email</button>
+              <span id="verifyEmailStatus" style="font-size:12px;color:var(--text-muted);display:none;"></span>
+            </div>
+          </div>
+          ` : ''}
+          ${user.email && !['gmail.com','yahoo.com','outlook.com','hotmail.com','icloud.com','protonmail.com','proton.me'].includes(user.email.split('@')[1]?.toLowerCase()) ? `
+          <div class="settings-row" style="border:none;padding-top:0;">
+            <span style="color:#e74c3c;font-size:12px;">Only Gmail, Yahoo, Outlook/Hotmail, iCloud, or Proton Mail are supported. Update your email to a supported provider.</span>
+          </div>
+          ` : ''}
+          <div class="settings-row">
+            <div>
+              <div class="settings-row-label">Password</div>
+              <div class="settings-row-desc">Change your account password</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span class="settings-row-value" id="passwordDisplay">${'•'.repeat(userData.passwordLength || 0) || '••••••••'}</span>
+              <button class="settings-btn" id="editPasswordBtn">Edit</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <h2>Appearance</h2>
+          </div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-row-label">Theme</div>
+              <div class="settings-row-desc">Switch between light and dark mode</div>
+            </div>
+            <select class="settings-input" id="themeSelect">
+              <option value="dark">Dark</option>
+              <option value="light">Light</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <h2>Communication</h2>
+          </div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-row-label">Voice Chat</div>
+              <div class="settings-row-desc" id="voiceChatDesc">${canUseVoiceChat ? 'Allow voice chat in experiences that support it' : 'Voice chat is only available for 13+ accounts'}</div>
+            </div>
+            <label class="settings-toggle" title="${canUseVoiceChat ? 'Voice Chat' : 'Requires a 13+ account'}">
+              <input type="checkbox" id="voiceChatToggle" ${voiceChatEnabled ? 'checked' : ''} ${canUseVoiceChat ? '' : 'disabled'} />
+              <span></span>
+            </label>
+          </div>
         </div>
 
         <div class="settings-section">
@@ -223,6 +462,13 @@
           </div>
         </div>
       `;
+
+      // Theme toggle
+      const themeSelect = document.getElementById('themeSelect');
+      import('./src/theme.js').then(mod => {
+        themeSelect.value = mod.getTheme();
+        themeSelect.addEventListener('change', () => mod.setTheme(themeSelect.value));
+      });
 
       // Nav bar
       navRight.innerHTML = `
@@ -250,36 +496,21 @@
               </button>
             </div>
           </div>
-          <div class="avatar-dropdown">
-            ${ownPreview ? `<img src="${ownPreview}?_cb=${_cb}" alt="" class="avatar-circle-img" data-initial="${ownInitial}" onerror="window.__handleBrokenAvatar(this, '${user.uid}')"/>` : `<div class="avatar-circle">${ownInitial}</div>`}
-            <div class="dropdown-menu">
-              <div class="dropdown-header">
-                <span class="dropdown-name">${username}</span>
-                <span class="dropdown-email">${user.email}</span>
-              </div>
-              <button class="dropdown-item" onclick="window.location.href='${ownProfileLink}'">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                  <circle cx="12" cy="7" r="4" />
-                </svg>
-                Profile
-              </button>
-              <button class="dropdown-item" onclick="window.location.href='/bloxverse/avatar'">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                </svg>
-                Avatar
-              </button>
-              <button class="dropdown-item" onclick="window._logout()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                  <polyline points="16 17 21 12 16 7" />
-                  <line x1="21" y1="12" x2="9" y2="12" />
-                </svg>
-                Log Out
-              </button>
+          <div class="settings-wrapper">
+            <button class="settings-nav-btn" id="navSettingsBtn" title="Settings">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+            </button>
+            <div class="settings-dropdown" id="navSettingsDropdown">
+              <button onclick="window.location.href='/bloxverse/settings'">Settings</button>
+              <button onclick="window._logout()">Log Out</button>
             </div>
           </div>
+          ${ownPreview
+            ? `<img src="${ownPreview}?_cb=${_cb}" alt="" class="avatar-circle-img" onclick="window.location.href='${ownProfileLink}'" data-initial="${ownInitial}" onerror="window.__handleBrokenAvatar(this, '${user.uid}')"/>`
+            : `<div class="avatar-circle" onclick="window.location.href='${ownProfileLink}'">${ownInitial}</div>`}
         </div>
       `;
 
@@ -291,17 +522,23 @@
         buxWrapper.classList.toggle('open');
       });
 
-      // Avatar dropdown toggle
-      const avatarCircle = navRight.querySelector('.avatar-circle') || navRight.querySelector('.avatar-circle-img');
-      const dropdown = navRight.querySelector('.avatar-dropdown');
-      avatarCircle.addEventListener('click', (e) => {
-        e.stopPropagation();
-        dropdown.classList.toggle('open');
-      });
+      // Settings dropdown toggle
+      const closeSettings = () => {
+        document.querySelectorAll('.settings-dropdown').forEach(d => d.classList.remove('open'));
+      };
+      const navSettingsBtn = document.getElementById('navSettingsBtn');
+      if (navSettingsBtn) {
+        navSettingsBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          closeSettings();
+          const dd = document.getElementById('navSettingsDropdown');
+          if (dd) dd.classList.toggle('open');
+        });
+      }
 
       document.addEventListener('click', (e) => {
-        if (!dropdown.contains(e.target)) {
-          dropdown.classList.remove('open');
+        if (!e.target.closest('.settings-wrapper')) {
+          closeSettings();
         }
         if (buxWrapper && !buxWrapper.contains(e.target)) {
           buxWrapper.classList.remove('open');
@@ -311,35 +548,235 @@
       // Birthday edit
       const editBtn = document.getElementById('editBirthdayBtn');
       if (editBtn) {
-        editBtn.addEventListener('click', () => {
+        let editingBirthday = false;
+        editBtn.addEventListener('click', async () => {
           const display = document.getElementById('birthdayDisplay');
-          const current = userData.birthday || '';
-          display.innerHTML = '<input type="date" id="birthdayInput" value="' + current + '" class="settings-input" style="width:140px;">';
-          editBtn.textContent = 'Save';
-          editBtn.onclick = async () => {
+          if (!editingBirthday) {
+            display.innerHTML = '<input type="date" id="birthdayInput" value="' + birthday + '" class="settings-input" style="width:140px;">';
+            editBtn.textContent = 'Save';
+            editingBirthday = true;
+            return;
+          }
+
+          const input = document.getElementById('birthdayInput');
+          if (input) {
             const newVal = document.getElementById('birthdayInput').value;
             if (!newVal) return;
             try {
               await setDoc(doc(db, 'users', user.uid), { birthday: newVal }, { merge: true });
+              birthday = newVal;
+              age = calculateAge(birthday);
+              canUseVoiceChat = age >= 13;
+              voiceChatEnabled = canUseVoiceChat && userData.voiceEnabled === true;
               const [py, pm, pd] = newVal.split('-');
               document.getElementById('birthdayDisplay').textContent = new Date(+py, +pm - 1, +pd).toLocaleDateString();
               editBtn.textContent = 'Edit';
               editBtn.classList.add('success');
               setTimeout(() => editBtn.classList.remove('success'), 2000);
-              editBtn.onclick = null;
+              editingBirthday = false;
+
+              const voiceChatToggle = document.getElementById('voiceChatToggle');
+              const voiceChatDesc = document.getElementById('voiceChatDesc');
+              if (voiceChatToggle) {
+                voiceChatToggle.disabled = !canUseVoiceChat;
+                voiceChatToggle.checked = canUseVoiceChat && userData.voiceEnabled === true;
+              }
+              if (!canUseVoiceChat && userData.voiceEnabled === true) {
+                userData.voiceEnabled = false;
+                await setDoc(doc(db, 'users', user.uid), { voiceEnabled: false }, { merge: true });
+              }
+              try {
+                const saved = JSON.parse(localStorage.getItem('bloxverse_settings') || '{}');
+                saved.voiceEnabled = canUseVoiceChat && userData.voiceEnabled === true;
+                localStorage.setItem('bloxverse_settings', JSON.stringify(saved));
+              } catch (_) {}
+              if (voiceChatDesc) {
+                voiceChatDesc.textContent = canUseVoiceChat ? 'Allow voice chat in experiences that support it' : 'Voice chat is only available for 13+ accounts';
+              }
             } catch (e) {
               console.error('Error saving birthday:', e);
+              editBtn.textContent = 'Save';
             }
-          };
+          }
         });
       }
 
+      // Email edit
+      const editEmailBtn = document.getElementById('editEmailBtn');
+      if (editEmailBtn) {
+        editEmailBtn.addEventListener('click', () => {
+          const overlay = document.createElement('div');
+          overlay.className = 'settings-modal-overlay';
+          overlay.innerHTML = `
+            <div class="settings-modal">
+              <h3>Change Email</h3>
+              <div class="field">
+                <label>Current Email</label>
+                <input type="email" id="emailCurrentDisplay" value="${user.email || ''}" disabled style="opacity:0.6;" />
+              </div>
+              <div class="field">
+                <label>New Email</label>
+                <input type="email" id="emailNewInput" placeholder="Enter new email" autocomplete="off" />
+                <div id="emailErr" class="error"></div>
+              </div>
+              <div class="field">
+                <label>Password</label>
+                <input type="password" id="emailPasswordInput" placeholder="Enter your password to confirm" autocomplete="current-password" />
+              </div>
+              <div class="settings-modal-actions">
+                <button class="cancel" onclick="this.closest('.settings-modal-overlay').remove()">Cancel</button>
+                <button class="save" id="emailSaveBtn">Save</button>
+              </div>
+            </div>
+          `;
+          document.body.appendChild(overlay);
+          const saveBtn = overlay.querySelector('#emailSaveBtn');
+          const newEmailInput = overlay.querySelector('#emailNewInput');
+          const passInput = overlay.querySelector('#emailPasswordInput');
+          const errEl = overlay.querySelector('#emailErr');
+          saveBtn.addEventListener('click', async () => {
+            const newEmail = newEmailInput.value.trim();
+            const password = passInput.value;
+            if (!newEmail) { errEl.textContent = 'Enter a new email'; return; }
+            if (!password) { errEl.textContent = 'Enter your password'; return; }
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+            try {
+              const credential = EmailAuthProvider.credential(user.email, password);
+              await reauthenticateWithCredential(user, credential);
+              await updateEmail(user, newEmail);
+              document.getElementById('emailDisplay').textContent = newEmail;
+              overlay.remove();
+            } catch (e) {
+              saveBtn.disabled = false;
+              saveBtn.textContent = 'Save';
+              if (e.code === 'auth/wrong-password') errEl.textContent = 'Incorrect password';
+              else if (e.code === 'auth/email-already-in-use') errEl.textContent = 'Email already in use';
+              else if (e.code === 'auth/requires-recent-login') errEl.textContent = 'Please log out and log back in, then try again';
+              else errEl.textContent = e.message;
+            }
+          });
+        });
+      }
+
+      // Send verification email
+      const verifyBtn = document.getElementById('verifyEmailBtn');
+      if (verifyBtn) {
+        verifyBtn.addEventListener('click', async () => {
+          const statusEl = document.getElementById('verifyEmailStatus');
+          verifyBtn.disabled = true;
+          verifyBtn.textContent = 'Sending...';
+          statusEl.style.display = 'inline';
+          statusEl.textContent = 'Sending...';
+          try {
+            await sendEmailVerification(auth.currentUser);
+            statusEl.textContent = 'Verification email sent! Check your inbox.';
+            setTimeout(() => { statusEl.style.display = 'none'; }, 5000);
+          } catch (e) {
+            statusEl.textContent = 'Failed: ' + e.message;
+          }
+          verifyBtn.disabled = false;
+          verifyBtn.textContent = 'Send verification email';
+        });
+      }
+
+      // Password edit
+      const editPasswordBtn = document.getElementById('editPasswordBtn');
+      if (editPasswordBtn) {
+        editPasswordBtn.addEventListener('click', () => {
+          const overlay = document.createElement('div');
+          overlay.className = 'settings-modal-overlay';
+          overlay.innerHTML = `
+            <div class="settings-modal">
+              <h3>Change Password</h3>
+              <div class="field">
+                <label>Current Password</label>
+                <input type="password" id="pwCurrentInput" placeholder="Enter current password" autocomplete="current-password" />
+              </div>
+              <div class="field">
+                <label>New Password</label>
+                <input type="password" id="pwNewInput" placeholder="Enter new password" autocomplete="new-password" />
+              </div>
+              <div class="field">
+                <label>Confirm New Password</label>
+                <input type="password" id="pwConfirmInput" placeholder="Confirm new password" autocomplete="new-password" />
+                <div id="pwErr" class="error"></div>
+              </div>
+              <div class="settings-modal-actions">
+                <button class="cancel" onclick="this.closest('.settings-modal-overlay').remove()">Cancel</button>
+                <button class="save" id="pwSaveBtn">Update Password</button>
+              </div>
+            </div>
+          `;
+          document.body.appendChild(overlay);
+          const saveBtn = overlay.querySelector('#pwSaveBtn');
+          const currentInput = overlay.querySelector('#pwCurrentInput');
+          const newInput = overlay.querySelector('#pwNewInput');
+          const confirmInput = overlay.querySelector('#pwConfirmInput');
+          const errEl = overlay.querySelector('#pwErr');
+          saveBtn.addEventListener('click', async () => {
+            const current = currentInput.value;
+            const newPw = newInput.value;
+            const confirm = confirmInput.value;
+            if (!current) { errEl.textContent = 'Enter current password'; return; }
+            if (!newPw) { errEl.textContent = 'Enter new password'; return; }
+            if (newPw.length < 6) { errEl.textContent = 'New password must be at least 6 characters'; return; }
+            if (newPw !== confirm) { errEl.textContent = 'Passwords do not match'; return; }
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Updating...';
+            try {
+              const credential = EmailAuthProvider.credential(user.email, current);
+              await reauthenticateWithCredential(user, credential);
+              await updatePassword(user, newPw);
+              await setDoc(doc(db, 'users', user.uid), { passwordLength: newPw.length }, { merge: true });
+              document.getElementById('passwordDisplay').textContent = '•'.repeat(newPw.length);
+              overlay.innerHTML = `
+                <div class="settings-modal">
+                  <h3 style="color:#4caf50;">Password Updated</h3>
+                  <p style="color:var(--text-secondary);font-size:14px;">Your password has been changed successfully.</p>
+                  <div class="settings-modal-actions">
+                    <button class="save" onclick="this.closest('.settings-modal-overlay').remove()">Done</button>
+                  </div>
+                </div>
+              `;
+            } catch (e) {
+              saveBtn.disabled = false;
+              saveBtn.textContent = 'Update Password';
+              if (e.code === 'auth/wrong-password') errEl.textContent = 'Incorrect current password';
+              else if (e.code === 'auth/weak-password') errEl.textContent = 'New password is too weak (min 6 characters)';
+              else if (e.code === 'auth/requires-recent-login') errEl.textContent = 'Please log out and log back in, then try again';
+              else errEl.textContent = e.message;
+            }
+          });
+        });
+      }
 
       // Privacy select
       const privacySelect = document.getElementById('privacySelect');
       if (privacySelect) {
         privacySelect.addEventListener('change', async () => {
           await setDoc(doc(db, 'users', user.uid), { profilePrivacy: privacySelect.value }, { merge: true });
+        });
+      }
+
+      const voiceChatToggle = document.getElementById('voiceChatToggle');
+      if (voiceChatToggle) {
+        voiceChatToggle.addEventListener('change', async () => {
+          if (!canUseVoiceChat) {
+            voiceChatToggle.checked = false;
+            return;
+          }
+          const enabled = voiceChatToggle.checked;
+          try {
+            await setDoc(doc(db, 'users', user.uid), { voiceEnabled: enabled }, { merge: true });
+            userData.voiceEnabled = enabled;
+            const saved = JSON.parse(localStorage.getItem('bloxverse_settings') || '{}');
+            saved.voiceEnabled = enabled;
+            localStorage.setItem('bloxverse_settings', JSON.stringify(saved));
+          } catch (e) {
+            console.error('Error saving voice chat setting:', e);
+            voiceChatToggle.checked = !enabled;
+          }
         });
       }
 
@@ -414,9 +851,9 @@
               <h3 style="font-size:16px;margin:0;">Confirm Transfer</h3>
             </div>
             <div class="modal-body">
-              <p style="color:#ccc;font-size:14px;line-height:1.5;margin:0 0 16px;">
+              <p style="color:var(--text-secondary);font-size:14px;line-height:1.5;margin:0 0 16px;">
                 Are you sure you want to send <strong style="color:#4caf50;">${amount.toLocaleString()} BUX</strong>
-                to <strong style="color:#fff;">${username}</strong>?
+                to <strong style="color:var(--text-primary);">${username}</strong>?
               </p>
               <div class="warning-box" style="margin:0;">
                 This transfer is <strong>final</strong>. You will not be able to recover these BUX.

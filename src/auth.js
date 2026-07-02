@@ -1,4 +1,4 @@
-import { auth, db, banGuard, isUsernameTaken, assignUserIdNum } from './firebase.js';
+import { auth, db, banGuard, isUsernameTaken, getEmailByUsername, backfillUsernameEntry, assignUserIdNum } from './firebase.js';
 import { sitePath } from './paths.js';
 import {
   createUserWithEmailAndPassword,
@@ -6,10 +6,17 @@ import {
   updateProfile,
   onAuthStateChanged
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, runTransaction } from 'firebase/firestore';
+import { doc, setDoc, getDoc, runTransaction, collection } from 'firebase/firestore';
 import { ProfanityFilter } from 'glin-profanity';
 
 const _filter = new ProfanityFilter({ leetspeakLevel: 'aggressive', normalizeUnicode: true });
+
+const ALLOWED_EMAIL_DOMAINS = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com', 'protonmail.com', 'proton.me'];
+
+function isAllowedEmail(email) {
+  const domain = email.split('@')[1]?.toLowerCase();
+  return domain && ALLOWED_EMAIL_DOMAINS.includes(domain);
+}
 
 // Tab switching
 window.switchTab = function(tab) {
@@ -54,6 +61,65 @@ signupPassword?.addEventListener('input', (e) => {
   strengthText.textContent = val.length > 0 ? labels[level] || 'Too short' : '';
 });
 
+// Live validation helpers
+function showFieldError(id, msg) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.toggle('visible', !!msg);
+}
+
+function validateUsernameLive(val) {
+  if (!val) return '';
+  if (val.length < 3 || val.length > 20) return 'Must be 3\u201320 characters';
+  if (!/^[A-Za-z0-9_]+$/.test(val)) return 'Only letters, numbers, and underscore';
+  if ((val.match(/_/g) || []).length > 1) return 'Only one underscore allowed';
+  if (val.startsWith('_') || val.endsWith('_')) return 'Underscore cannot be first or last';
+  const RESERVED = ['blox', 'admin', 'moderator', 'staff', 'system', 'roblox'];
+  if (RESERVED.some(n => val.toLowerCase() === n)) return 'This username is reserved';
+  if (_filter.checkProfanity(val).containsProfanity) return 'This username is not allowed';
+  return '';
+}
+
+function validateEmailLive(val) {
+  if (!val) return '';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) return 'Invalid email address';
+  if (!isAllowedEmail(val)) return 'Only Gmail, Yahoo, Outlook/Hotmail, iCloud, or Proton Mail allowed';
+  return '';
+}
+
+function validatePasswordLive(val) {
+  if (!val) return '';
+  return val.length >= 6 ? '' : 'At least 6 characters';
+}
+
+function validateConfirmLive(confirm) {
+  const pw = document.getElementById('signupPassword')?.value || '';
+  if (!confirm) return '';
+  return confirm === pw ? '' : 'Passwords do not match';
+}
+
+function validateBirthdayLive(val) {
+  if (!val) return '';
+  return val ? '' : 'Please enter your birthday';
+}
+
+// Live validation event listeners
+const su = document.getElementById('signupUsername');
+const se = document.getElementById('signupEmail');
+const sp = document.getElementById('signupPassword');
+const sc = document.getElementById('signupConfirm');
+const sb = document.getElementById('signupBirthday');
+
+su?.addEventListener('input', () => showFieldError('usernameError', validateUsernameLive(su.value.trim())));
+se?.addEventListener('input', () => showFieldError('emailError', validateEmailLive(se.value)));
+sp?.addEventListener('input', () => {
+  showFieldError('passwordError', validatePasswordLive(sp.value));
+  if (sc?.value) showFieldError('confirmError', validateConfirmLive(sc.value));
+});
+sc?.addEventListener('input', () => showFieldError('confirmError', validateConfirmLive(sc.value)));
+sb?.addEventListener('change', () => showFieldError('birthdayError', validateBirthdayLive(sb.value)));
+
 // Login
 document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -65,11 +131,25 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
   btn.textContent = 'Logging in...';
 
   try {
-    const email = document.getElementById('loginEmail').value;
+    const login = document.getElementById('loginEmail').value.trim();
     const password = document.getElementById('loginPassword').value;
+
+    let email = login;
+    if (!login.includes('@')) {
+      const found = await getEmailByUsername(login);
+      if (!found) {
+        errorEl.textContent = 'Username not found';
+        errorEl.classList.add('visible');
+        btn.disabled = false;
+        btn.textContent = 'Login';
+        return;
+      }
+      email = found;
+    }
 
     const cred = await signInWithEmailAndPassword(auth, email, password);
     if (await banGuard(cred.user.uid)) return;
+    await backfillUsernameEntry(cred.user.uid);
     window.location.href = sitePath('index.html');
   } catch (err) {
     errorEl.textContent = getAuthErrorMessage(err.code);
@@ -106,15 +186,54 @@ document.getElementById('signupForm')?.addEventListener('submit', async (e) => {
     return;
   }
 
+  if (!isAllowedEmail(email)) {
+    errorEl.textContent = 'Only Gmail, Yahoo, Outlook/Hotmail, iCloud, or Proton Mail allowed';
+    errorEl.classList.add('visible');
+    return;
+  }
+
+  // Username validation rules
+  if (username.length < 3 || username.length > 20) {
+    errorEl.textContent = 'Username must be 3 to 20 characters';
+    errorEl.classList.add('visible');
+    return;
+  }
+
+  const underscoreCount = (username.match(/_/g) || []).length;
+  if (underscoreCount > 1) {
+    errorEl.textContent = 'Username may only contain one underscore';
+    errorEl.classList.add('visible');
+    return;
+  }
+
+  if (username.startsWith('_') || username.endsWith('_')) {
+    errorEl.textContent = 'Underscore cannot be the first or last character';
+    errorEl.classList.add('visible');
+    return;
+  }
+
+  if (!/^[A-Za-z0-9_]+$/.test(username)) {
+    errorEl.textContent = 'Username may only contain letters, numbers, and one underscore';
+    errorEl.classList.add('visible');
+    return;
+  }
+
   if (_filter.checkProfanity(username).containsProfanity) {
     errorEl.textContent = 'This username is not allowed';
     errorEl.classList.add('visible');
     return;
   }
 
+  const RESERVED_NAMES = ['blox', 'admin', 'moderator', 'staff', 'system', 'roblox'];
+  if (RESERVED_NAMES.some(n => username.toLowerCase() === n)) {
+    errorEl.textContent = 'This username contains a restricted term';
+    errorEl.classList.add('visible');
+    return;
+  }
+
   // Check if username is already taken
   if (await isUsernameTaken(username)) {
-    errorEl.textContent = 'This username is already taken. Please choose another.';
+    errorEl.textContent = 'Username already taken';
     errorEl.classList.add('visible');
     btn.disabled = false;
     btn.textContent = 'Sign Up';
@@ -126,8 +245,11 @@ document.getElementById('signupForm')?.addEventListener('submit', async (e) => {
 
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, password);
-            await setDoc(doc(db, 'users', cred.user.uid), {
+      const uid = cred.user.uid;
+      const lower = username.toLowerCase();
+            await setDoc(doc(db, 'users', uid), {
         username,
+        username_lower: lower,
         email,
         birthday,
         bux: 0,
@@ -135,10 +257,13 @@ document.getElementById('signupForm')?.addEventListener('submit', async (e) => {
         trustedFriends: [],
         profanityFilter: true,
         lastDailyClaim: '',
+        passwordLength: password.length,
         createdAt: new Date().toISOString(),
       });
+      // Register in public username lookup
+      await setDoc(doc(db, 'usernames', lower), { uid, email });
       // Assign sequential userIdNum
-      await assignUserIdNum(cred.user.uid);
+      await assignUserIdNum(uid);
 
     const successEl = document.getElementById('authSuccess');
     successEl.textContent = 'Account created! Redirecting...';
@@ -161,7 +286,7 @@ function getAuthErrorMessage(code) {
     'auth/email-already-in-use': 'This email is already registered',
     'auth/invalid-email': 'Invalid email address',
     'auth/weak-password': 'Password must be at least 6 characters',
-    'auth/user-not-found': 'No account found with this email',
+    'auth/user-not-found': 'No account found',
     'auth/wrong-password': 'Incorrect password',
     'auth/too-many-requests': 'Too many attempts. Try again later',
     'auth/invalid-credential': 'Invalid email or password',
@@ -171,8 +296,9 @@ function getAuthErrorMessage(code) {
 }
 
 // Redirect if already logged in
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
   if (user && window.location.pathname.includes('auth.html')) {
+    await backfillUsernameEntry(user.uid);
     window.location.href = sitePath('index.html');
   }
 });

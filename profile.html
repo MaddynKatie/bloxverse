@@ -21,15 +21,25 @@
   <link rel="icon" type="image/png" href="assets/icons/bloxverseLogo.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BloxVerse - Profile</title>
-   <link rel="stylesheet" href="src/auth.css" />
+   <link rel="stylesheet" href="src/theme.css" />
+  <link rel="stylesheet" href="src/auth.css" />
   <link rel="stylesheet" href="src/main.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <script type="module" src="src/theme.js"></script>
   <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
     .profile-page {
-      max-width: 640px;
+      max-width: 780px;
       width: 100%;
-      padding: 24px;
-      padding-top: 76px;
+      padding: 0;
+      padding-top: 52px;
       margin: 0 auto;
     }
 
@@ -37,94 +47,129 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      color: #8a8c8e;
+      color: var(--text-muted);
       text-decoration: none;
       font-size: 13px;
-      margin-bottom: 16px;
+      padding: 12px 16px;
+      display: block;
     }
-    .profile-back:hover { color: #fff; }
-
-    /* ── Header card ─────────────────────────────── */
-    .profile-header {
-      background: linear-gradient(135deg, #0d69ac 0%, #00b06f 100%);
-      border-radius: 12px;
-      padding: 24px;
-      display: flex;
-      align-items: center;
-      gap: 20px;
-      margin-bottom: 16px;
+    .profile-back:hover { color: var(--text-primary); }
+    /* ── Banner + avatar ─────────────────────────── */
+    .profile-banner {
       position: relative;
-    }
-
-    .profile-avatar-large {
-      width: 96px;
-      height: 96px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #1a1c1e, #393b3d);
+      width: 100%;
+      height: 260px;
+      background: var(--bg-banner);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 34px;
-      font-weight: 700;
-      flex-shrink: 0;
-      border: 4px solid rgba(255,255,255,0.35);
-      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-    }
-    .profile-avatar-img {
-      object-fit: cover;
+      overflow: hidden;
     }
 
-    .profile-header-info { flex: 1; min-width: 0; }
+    /* Centered avatar preview image */
+    .profile-avatar-centered {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .profile-avatar-centered .profile-avatar-large {
+      width: 180px;
+      height: 180px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 64px;
+      font-weight: 700;
+      flex-shrink: 0;
+      color: var(--text-primary);
+    }
+    .profile-avatar-centered .profile-avatar-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    /* ── Header info below banner ─────────────────── */
+    .profile-header {
+      background: var(--bg-secondary);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      border-bottom: var(--border);
+      margin-bottom: 0;
+      position: relative;
+    }
+
+    /* Circular profile picture next to username */
+    .profile-header .profile-header-avatar {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: #e0e0e0;
+      border: 3px solid rgba(0,0,0,0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 700;
+      flex-shrink: 0;
+      color: var(--text-secondary);
+      overflow: hidden;
+    }
+    .profile-header .profile-header-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 50%;
+      display: block;
+    }
+
+    .profile-header-info { min-width: 0; flex: 1; }
     .profile-header-info h1 {
-      font-size: 28px;
+      font-size: 22px;
       font-weight: 700;
       margin: 0 0 2px 0;
+      color: var(--text-primary);
       display: flex;
       align-items: center;
       flex-wrap: wrap;
       gap: 4px;
     }
-    .profile-header-info .profile-tagline {
-      color: rgba(255,255,255,0.7);
+    .profile-tagline {
+      color: var(--text-muted);
       font-size: 13px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .profile-header-info .profile-tagline .badge-roles {
-      display: inline-flex;
-      gap: 4px;
     }
 
     /* ── Stats row ─────────────────────────────── */
     .profile-stats {
       display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
+      background: var(--bg-secondary);
+      border-bottom: var(--border);
       margin-bottom: 16px;
     }
     .profile-stat-card {
-      background: #2a2b2d;
-      border-radius: 10px;
-      padding: 14px 18px;
       flex: 1;
-      min-width: 100px;
+      padding: 14px 12px;
       text-align: center;
+      border-right: var(--border);
+      cursor: default;
     }
+    .profile-stat-card:last-child { border-right: none; }
     .profile-stat-card .stat-value {
-      font-size: 20px;
+      font-size: 18px;
       font-weight: 700;
-      color: #fff;
+      color: var(--text-primary);
     }
     .profile-stat-card .stat-label {
       font-size: 11px;
-      color: #8a8c8e;
+      color: var(--text-muted);
       text-transform: uppercase;
       letter-spacing: 0.5px;
       margin-top: 2px;
     }
     .profile-stat-card.bux .stat-value { color: #f2cd37; }
-    .profile-stat-card.joined .stat-value { font-size: 13px; }
+    .profile-stat-card.joined .stat-value { font-size: 12px; }
 
     .settings-nav-btn {
       display: flex;
@@ -134,22 +179,52 @@
       height: 32px;
       border: none;
       background: none;
-      color: #8a8c8e;
+      color: var(--text-muted);
       border-radius: 6px;
       cursor: pointer;
       transition: all 0.15s;
     }
-
-    .settings-nav-btn:hover {
-      background: rgba(255,255,255,0.08);
-      color: #fff;
+    .settings-nav-btn:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+    .settings-wrapper { position: relative; }
+    .settings-dropdown {
+      display: none;
+      position: absolute;
+      top: 100%;
+      right: 0;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      min-width: 140px;
+      z-index: 100;
+      overflow: hidden;
+      margin-top: 4px;
     }
+    .settings-dropdown.open { display: block; }
+    .settings-dropdown button {
+      display: block;
+      width: 100%;
+      padding: 10px 14px;
+      border: none;
+      background: none;
+      color: var(--text-secondary);
+      font-size: 13px;
+      text-align: left;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .settings-dropdown button:hover { background: var(--bg-tertiary); color: var(--text-primary); }
 
+    
+    /* ── Content layout ────────────────────────── */
+    .profile-content {
+      padding: 0 16px;
+    }
 
     /* ── Sections ──────────────────────────────── */
     .profile-section {
-      background: #2a2b2d;
-      border-radius: 10px;
+      background: var(--bg-secondary);
+      border-radius: 8px;
+      border: var(--border);
       padding: 16px;
       margin-bottom: 12px;
     }
@@ -158,31 +233,34 @@
       align-items: center;
       justify-content: space-between;
       margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: var(--border);
     }
     .profile-section-header h2 {
-      font-size: 16px;
-      font-weight: 600;
+      font-size: 15px;
+      font-weight: 700;
       margin: 0;
+      color: var(--text-primary);
     }
     .profile-section-header .section-count {
-      font-size: 13px;
-      color: #8a8c8e;
-      background: rgba(255,255,255,0.06);
+      font-size: 12px;
+      color: var(--text-muted);
+      background: var(--bg-tertiary);
       padding: 2px 10px;
       border-radius: 10px;
     }
     .profile-section .empty {
-      color: #8a8c8e;
+      color: var(--text-muted);
       font-size: 13px;
       text-align: center;
-      padding: 16px;
+      padding: 20px;
     }
 
-    /* ── Thumb grid (friends, followers, etc.) ────── */
+    /* ── Thumb grid ────────────────────────────── */
     .profile-thumb-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-      gap: 6px;
+      grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+      gap: 4px;
     }
     .profile-thumb {
       display: flex;
@@ -190,36 +268,35 @@
       align-items: center;
       gap: 4px;
       padding: 8px 4px;
-      border-radius: 10px;
+      border-radius: 8px;
       transition: background 0.15s;
       cursor: pointer;
       text-align: center;
     }
-    .profile-thumb:hover {
-      background: rgba(255,255,255,0.06);
-    }
+    .profile-thumb:hover { background: var(--bg-tertiary); }
+
     .profile-thumb-img {
       width: 56px;
       height: 56px;
       border-radius: 50%;
       object-fit: cover;
       display: block;
-      background: #1a1d2e;
-      border: 2px solid rgba(255,255,255,0.1);
+      background: #e0e0e0;
+      border: 2px solid rgba(0,0,0,0.08);
       flex-shrink: 0;
     }
     .profile-thumb-letter {
       width: 56px;
       height: 56px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #0d69ac, #00b06f);
+      background: #e0e0e0;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 20px;
       font-weight: 700;
       flex-shrink: 0;
-      color: #fff;
+      color: var(--text-secondary);
     }
     .avatar-circle-img {
       width: 30px;
@@ -231,13 +308,12 @@
       cursor: pointer;
       transition: border-color 0.15s ease;
     }
-    .avatar-circle-img:hover {
-      border-color: rgba(255,255,255,0.3);
-    }
+    .avatar-circle-img:hover { border-color: rgba(255,255,255,0.3); }
+
     .profile-thumb-name {
       font-size: 11px;
       font-weight: 500;
-      color: #babbbe;
+      color: var(--text-secondary);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -249,12 +325,8 @@
       padding: 2px 8px;
     }
 
-    /* ── Trusted friends styles ─────────────────── */
-    .trust-hint {
-      color: #8a8c8e;
-      font-size: 12px;
-      font-weight: 400;
-    }
+    /* ── Trusted friends ───────────────────────── */
+    .trust-hint { color: var(--text-muted); font-size: 12px; font-weight: 400; }
     .trust-btn {
       border: none;
       border-radius: 6px;
@@ -265,112 +337,61 @@
       transition: opacity 0.15s;
       flex-shrink: 0;
     }
-    .trust-btn.add {
-      background: rgba(34,197,94,0.2);
-      color: #22c55e;
-    }
+    .trust-btn.add { background: #14532d; color: #4ade80; }
     .trust-btn.add:hover { opacity: 0.8; }
-    .trust-btn.remove {
-      background: rgba(239,68,68,0.2);
-      color: #ef4444;
-    }
+    .trust-btn.remove { background: #450a0a; color: #f87171; }
     .trust-btn.remove:hover { opacity: 0.8; }
-    details.add-trusted summary {
-      cursor: pointer;
-      color: #5b9cfc;
-      font-size: 12px;
-      padding: 4px 0;
-    }
+    details.add-trusted summary { cursor: pointer; color: #4a9eff; font-size: 12px; padding: 4px 0; }
     details.add-trusted summary:hover { opacity: 0.8; }
 
-    /* ── Role badges ────────────────────────────── */
+    /* ── Role badges ───────────────────────────── */
     .role-badge {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      font-size: 16px;
-      color: #fff;
-      opacity: 0.9;
+      font-size: 15px;
       margin-left: 2px;
     }
-    .role-badge.developer { color: #44d9e6; }
-    .role-badge.admin     { color: #ff4444; }
-    .role-badge.mod       { color: #facc15; }
+    .role-badge.developer { color: #0891b2; }
+    .role-badge.admin     { color: #dc2626; }
+    .role-badge.mod       { color: #ca8a04; }
 
-    /* ── Bio ────────────────────────────────── */
-    .profile-bio {
-      color: rgba(255,255,255,0.85);
-      font-size: 14px;
-      line-height: 1.5;
-      margin-top: 8px;
-      word-wrap: break-word;
-    }
-    .profile-bio-empty {
-      color: rgba(255,255,255,0.4);
-      font-style: italic;
-    }
+    /* ── Bio ───────────────────────────────────── */
+    .profile-bio { color: var(--text-secondary); font-size: 14px; line-height: 1.5; margin-top: 6px; word-wrap: break-word; }
+    .profile-bio-empty { color: var(--text-muted); font-style: italic; }
     .bio-edit-btn {
-      background: rgba(255,255,255,0.1);
-      border: 1px solid rgba(255,255,255,0.2);
-      color: rgba(255,255,255,0.8);
-      padding: 4px 12px;
+      background: var(--bg-tertiary);
+      border: var(--border-strong);
+      color: var(--text-secondary);
+      padding: 5px 14px;
       border-radius: 6px;
       font-size: 12px;
       cursor: pointer;
       margin-top: 8px;
       transition: all 0.15s;
     }
-    .bio-edit-btn:hover {
-      background: rgba(255,255,255,0.2);
-      color: #fff;
-    }
-    .bio-editor {
-      margin-top: 8px;
-    }
+    .bio-edit-btn:hover { background: var(--bg-secondary); color: var(--text-primary); }
+    .bio-editor { margin-top: 8px; }
     .bio-textarea {
       width: 100%;
-      background: rgba(0,0,0,0.3);
-      border: 1px solid rgba(255,255,255,0.2);
+      background: var(--bg-surface);
+      border: var(--border);
       border-radius: 6px;
-      color: #fff;
+      color: var(--text-primary);
       font-size: 13px;
       padding: 8px;
       resize: vertical;
       box-sizing: border-box;
       font-family: inherit;
     }
-    .bio-textarea:focus {
-      outline: none;
-      border-color: #0d69ac;
-    }
-    .bio-editor-actions {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-top: 6px;
-    }
-    .bio-char-count {
-      font-size: 12px;
-      color: #8a8c8e;
-    }
-    .bio-btn {
-      padding: 6px 14px;
-      border-radius: 6px;
-      border: none;
-      font-size: 13px;
-      cursor: pointer;
-      margin-left: 6px;
-    }
-    .bio-btn-cancel {
-      background: rgba(255,255,255,0.1);
-      color: #8a8c8e;
-    }
-    .bio-btn-cancel:hover { background: rgba(255,255,255,0.2); }
-    .bio-btn-save {
-      background: #0d69ac;
-      color: #fff;
-    }
-    .bio-btn-save:hover { background: #0b5a94; }
+    .bio-textarea:focus { outline: none; border-color: rgba(88,101,242,0.6); }
+    .bio-editor-actions { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
+    .bio-char-count { font-size: 12px; color: var(--text-muted); }
+    .bio-btn { padding: 6px 14px; border-radius: 6px; border: none; font-size: 13px; cursor: pointer; margin-left: 6px; }
+    .bio-btn-cancel { background: var(--bg-tertiary); color: var(--text-secondary); }
+    .bio-btn-cancel:hover { background: var(--bg-secondary); }
+    .bio-btn-save { background: var(--accent); color: var(--text-primary); }
+    .bio-btn-save:hover { background: var(--accent-hover); }
   </style>
 </head>
 
@@ -384,6 +405,7 @@
       <div class="nav-links">
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/create'">Create</button>
+        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
       </div>
     </div>
     <div class="nav-right" id="navRight"></div>
@@ -447,6 +469,70 @@
       const userIdNum = userData.userIdNum;
       const hasUserIdNum = !!userIdNum;
 
+      if (!isOwnProfile && userData.profilePrivacy === 'friends' && !friendIds.includes(user.uid)) {
+        profilePage.innerHTML = '<div style="text-align:center;padding:64px 24px;"><div style="font-size:48px;margin-bottom:16px;">🔒</div><h2 style="margin:0 0 8px;font-size:20px;color:var(--text-primary);">Friends Only</h2><p style="margin:0;color:var(--text-muted);font-size:14px;">This profile is only visible to friends.</p></div>';
+        renderNav();
+        return;
+      }
+
+      // ── Privacy check: friends-only profiles ──────────────────────────
+      const ownUserData = isOwnProfile ? userData : await getDoc(doc(db, 'users', user.uid)).then(d => d.exists() ? d.data() : {});
+      const ownBux = ownUserData.bux || 0;
+      const ownNum = ownUserData.userIdNum;
+      const ownProfileLink = ownNum ? `/bloxverse/profile?user=${ownNum}` : '/bloxverse/profile';
+      const ownInitial = (ownUserData.username || 'P').charAt(0).toUpperCase();
+      const ownPreview = ownUserData.avatarPreview || null;
+
+      const _cb = Date.now();
+
+      navRight.innerHTML = `
+        <div class="user-info">
+          <div class="bux-wrapper" id="buxWrapper">
+            <button class="bux-btn" id="buxBtn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <text x="12" y="17" text-anchor="middle" font-size="14" font-weight="bold">B</text>
+              </svg>
+              <span id="ownBuxVal">${ownBux.toLocaleString()}</span>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="margin-left:4px;"><path d="M7 10l5 5 5-5z"/></svg>
+            </button>
+            <div class="bux-dropdown">
+              <div class="bux-dropdown-header">
+                <span class="bux-dropdown-label">Balance</span>
+                <span class="bux-dropdown-balance" id="buxDropdownBalance">${ownBux.toLocaleString()}</span>
+              </div>
+              <button class="bux-dropdown-item" onclick="window.openSendBuxModal()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-2 8-10V5l-8-3-8 3v7c0 8 8 10 8 10z"/></svg>
+                Send Bux
+              </button>
+              <button class="bux-dropdown-item" onclick="window.location.href='/bloxverse/transactions'">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                Transactions
+              </button>
+            </div>
+          </div>
+          <div class="settings-wrapper">
+            <button class="settings-nav-btn" id="navSettingsBtn" title="Settings">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+            </button>
+            <div class="settings-dropdown" id="navSettingsDropdown">
+              <button onclick="window.location.href='/bloxverse/settings'">Settings</button>
+              <button onclick="window._logout()">Log Out</button>
+            </div>
+          </div>
+          ${ownPreview
+            ? `<img src="${ownPreview}?_cb=${_cb}" alt="" class="avatar-circle-img" onclick="window.location.href='${ownProfileLink}'" data-initial="${ownInitial}" onerror="window.__handleBrokenAvatar(this, '${user.uid}')"/>`
+            : `<div class="avatar-circle" onclick="window.location.href='${ownProfileLink}'">${ownInitial}</div>`}
+        </div>
+      `;
+
+      if (!isOwnProfile && userData.profilePrivacy === 'friends' && !friendIds.includes(user.uid)) {
+        profilePage.innerHTML = '<div style="text-align:center;padding:64px 24px;"><div style="font-size:48px;margin-bottom:16px;">🔒</div><h2 style="margin:0 0 8px;font-size:20px;color:var(--text-primary);">Friends Only</h2><p style="margin:0;color:var(--text-muted);font-size:14px;">This profile is only visible to friends.</p></div>';
+        return;
+      }
+
       // Migration for existing users without a userIdNum
       if (isOwnProfile && !hasUserIdNum) {
         assignUserIdNum(user.uid).catch(() => {});
@@ -457,15 +543,18 @@
       const isThirteenPlus = age >= 13;
       const trustedFriendIds = userData.trustedFriends || [];
 
-
-      const _cb = Date.now();
-
       // Show Cloudinary preview image if available, otherwise initial letter
       window.__handleBrokenAvatar = async function(imgEl, uid) {
         try {
           const initial = imgEl.getAttribute('data-initial') || 'U';
           const letter = document.createElement('div');
-          if (imgEl.className.includes('profile-avatar-img')) {
+          const parent = imgEl.parentElement;
+          if (parent && parent.classList.contains('profile-header-avatar')) {
+            letter.className = 'profile-header-avatar';
+            letter.textContent = initial;
+            imgEl.replaceWith(letter);
+            return;
+          } else if (imgEl.className.includes('profile-avatar-img')) {
             letter.className = 'profile-avatar-large';
           } else if (imgEl.className.includes('avatar-circle-img')) {
             letter.className = 'avatar-circle';
@@ -553,32 +642,29 @@
           ${isOwnProfile ? 'Back to Home' : 'Back'}
         </a>
 
-        <div class="profile-header">
-          ${userData.avatarPreview ? `<img src="${userData.avatarPreview}?_cb=${_cb}" alt="" class="profile-avatar-large profile-avatar-img"/>` : `<div class="profile-avatar-large">${initial}</div>`}
-          <div class="profile-header-info">
-            <h1>${username}${badgeHtml}</h1>
-            <div class="profile-tagline">
-              ${email && isOwnProfile ? email : ''}
-            </div>
-            ${bio ? `<div class="profile-bio">${_escapeHtml(bio)}</div>` : (isOwnProfile ? '<div class="profile-bio profile-bio-empty">No bio yet</div>' : '')}
-            ${isOwnProfile ? `
-              <button class="bio-edit-btn" onclick="document.getElementById('bioEditor').style.display='block';this.style.display='none'">
-                <i class="fa-solid fa-pen"></i> Edit Bio
-              </button>
-              <div id="bioEditor" class="bio-editor" style="display:none">
-                <textarea id="bioTextarea" maxlength="500" rows="3" class="bio-textarea">${_escapeHtml(bio)}</textarea>
-                <div class="bio-editor-actions">
-                  <span class="bio-char-count"><span id="bioCount">${bio.length}</span>/500</span>
-                  <div>
-                    <button class="bio-btn bio-btn-cancel" onclick="document.getElementById('bioEditor').style.display='none';document.querySelector('.bio-edit-btn').style.display=''">Cancel</button>
-                    <button class="bio-btn bio-btn-save" onclick="saveBio()">Save</button>
-                  </div>
-                </div>
-              </div>
-            ` : ''}
+        <!-- Banner with centered avatar preview -->
+        <div class="profile-banner">
+          <div class="profile-avatar-centered">
+            ${userData.avatarPreview
+              ? `<div class="profile-avatar-large"><img src="${userData.avatarPreview}?_cb=${_cb}" alt="" class="profile-avatar-img" data-initial="${initial}" onerror="window.__handleBrokenAvatar(this,'${viewingUserId}')"/></div>`
+              : `<div class="profile-avatar-large">${initial}</div>`}
           </div>
         </div>
 
+        <!-- Username + info row with circular profile pic -->
+        <div class="profile-header">
+          <div class="profile-header-avatar">
+            ${userData.avatarPreview
+              ? `<img src="${userData.avatarPreview}?_cb=${_cb}" alt="" class="profile-avatar-img" data-initial="${initial}" onerror="window.__handleBrokenAvatar(this,'${viewingUserId}')"/>`
+              : `<span>${initial}</span>`}
+          </div>
+          <div class="profile-header-info">
+            <h1>${username}${badgeHtml}</h1>
+            <div class="profile-tagline">${email && isOwnProfile ? email : '&nbsp;'}</div>
+          </div>
+        </div>
+
+        <!-- Stats strip -->
         <div class="profile-stats">
           <div class="profile-stat-card bux">
             <div class="stat-value">${bux.toLocaleString()}</div>
@@ -600,76 +686,101 @@
             <div class="stat-value">${createdAt}</div>
             <div class="stat-label">Joined</div>
           </div>
-
         </div>
 
-        <div class="profile-section">
-          <div class="profile-section-header">
-            <h2>Friends</h2>
-            <span class="section-count">${friendIds.length}</span>
-          </div>
-          ${friendsList.length === 0 ? '<div class="empty">No friends yet</div>' : `
-            <div class="profile-thumb-grid">
-              ${friendsList.map(f => `
-                <div class="profile-thumb" onclick="window.location.href='/bloxverse/profile?user=${f.num}'">
-                  ${renderAvatarThumb(f.avatarPreview, (f.username || 'U').charAt(0).toUpperCase(), f.id)}
-                  <span class="profile-thumb-name">${f.username}</span>
-                </div>
-              `).join('')}
-            </div>
-          `}
-        </div>
+        <!-- Scrollable content -->
+        <div class="profile-content">
 
-        <div class="profile-section">
-          <div class="profile-section-header">
-            <h2>Followers</h2>
-            <span class="section-count">${followerIds.length}</span>
-          </div>
-          ${followersList.length === 0 ? '<div class="empty">No followers yet</div>' : `
-            <div class="profile-thumb-grid">
-              ${followersList.map(f => `
-                <div class="profile-thumb" onclick="window.location.href='/bloxverse/profile?user=${f.num}'">
-                  ${renderAvatarThumb(f.avatarPreview, (f.username || 'U').charAt(0).toUpperCase(), f.id)}
-                  <span class="profile-thumb-name">${f.username}</span>
-                </div>
-              `).join('')}
+          <!-- Bio section -->
+          <div class="profile-section">
+            <div class="profile-section-header">
+              <h2>About</h2>
+              ${isOwnProfile ? `<button class="bio-edit-btn" onclick="document.getElementById('bioEditor').style.display='block';this.style.display='none'"><i class="fa-solid fa-pen"></i> Edit</button>` : ''}
             </div>
-          `}
-        </div>
+            ${bio ? `<div class="profile-bio">${_escapeHtml(bio)}</div>` : `<div class="profile-bio profile-bio-empty">${isOwnProfile ? 'Add a bio to tell people about yourself.' : 'No bio yet.'}</div>`}
+            ${isOwnProfile ? `
+              <div id="bioEditor" class="bio-editor" style="display:none">
+                <textarea id="bioTextarea" maxlength="500" rows="3" class="bio-textarea">${_escapeHtml(bio)}</textarea>
+                <div class="bio-editor-actions">
+                  <span class="bio-char-count"><span id="bioCount">${bio.length}</span>/500</span>
+                  <div>
+                    <button class="bio-btn bio-btn-cancel" onclick="document.getElementById('bioEditor').style.display='none';document.querySelector('.bio-edit-btn').style.display=''">Cancel</button>
+                    <button class="bio-btn bio-btn-save" onclick="saveBio()">Save</button>
+                  </div>
+                </div>
+              </div>
+            ` : ''}
+          </div>
 
-        ${isOwnProfile && isThirteenPlus ? `
-        <div class="profile-section" id="trustedFriendsSection">
-          <div class="profile-section-header">
-            <h2>Trusted Friends <span class="trust-hint">(mutual, unfiltered chat)</span></h2>
-            <span class="section-count">${trustedFriendsList.length}</span>
-          </div>
-          ${trustedFriendsList.length === 0 ? '<div class="empty">No trusted friends yet. Add trusted friends from your friends list below.</div>' : `
-            <div class="profile-thumb-grid">
-              ${trustedFriendsList.map(f => `
-                <div class="profile-thumb">
-                  ${renderAvatarThumb(f.avatarPreview, (f.username || 'U').charAt(0).toUpperCase(), f.id)}
-                  <span class="profile-thumb-name">${f.username}</span>
-                  <button class="trust-btn remove" data-id="${f.id}" data-username="${f.username}">Remove</button>
-                </div>
-              `).join('')}
+          <div class="profile-section">
+            <div class="profile-section-header">
+              <h2>Friends</h2>
+              <span class="section-count">${friendIds.length}</span>
             </div>
-          `}
-          ${friendsList.filter(f => !trustedFriendIds.includes(f.id)).length > 0 ? `
-            <details class="add-trusted" style="margin-top:10px;">
-              <summary>Add trusted friend from friends list</summary>
-              <div style="margin-top:8px;" class="profile-thumb-grid">
-                ${friendsList.filter(f => !trustedFriendIds.includes(f.id)).map(f => `
-                  <div class="profile-thumb">
+            ${friendsList.length === 0 ? '<div class="empty">No friends yet</div>' : `
+              <div class="profile-thumb-grid">
+                ${friendsList.map(f => `
+                  <div class="profile-thumb" onclick="window.location.href='/bloxverse/profile?user=${f.num}'">
                     ${renderAvatarThumb(f.avatarPreview, (f.username || 'U').charAt(0).toUpperCase(), f.id)}
                     <span class="profile-thumb-name">${f.username}</span>
-                    <button class="trust-btn add" data-id="${f.id}" data-username="${f.username}">Trust</button>
                   </div>
                 `).join('')}
               </div>
-            </details>
+            `}
+          </div>
+
+          <div class="profile-section">
+            <div class="profile-section-header">
+              <h2>Followers</h2>
+              <span class="section-count">${followerIds.length}</span>
+            </div>
+            ${followersList.length === 0 ? '<div class="empty">No followers yet</div>' : `
+              <div class="profile-thumb-grid">
+                ${followersList.map(f => `
+                  <div class="profile-thumb" onclick="window.location.href='/bloxverse/profile?user=${f.num}'">
+                    ${renderAvatarThumb(f.avatarPreview, (f.username || 'U').charAt(0).toUpperCase(), f.id)}
+                    <span class="profile-thumb-name">${f.username}</span>
+                  </div>
+                `).join('')}
+              </div>
+            `}
+          </div>
+
+          ${isOwnProfile && isThirteenPlus ? `
+          <div class="profile-section" id="trustedFriendsSection">
+            <div class="profile-section-header">
+              <h2>Trusted Friends <span class="trust-hint">(unfiltered chat)</span></h2>
+              <span class="section-count">${trustedFriendsList.length}</span>
+            </div>
+            ${trustedFriendsList.length === 0 ? '<div class="empty">No trusted friends yet.</div>' : `
+              <div class="profile-thumb-grid">
+                ${trustedFriendsList.map(f => `
+                  <div class="profile-thumb">
+                    ${renderAvatarThumb(f.avatarPreview, (f.username || 'U').charAt(0).toUpperCase(), f.id)}
+                    <span class="profile-thumb-name">${f.username}</span>
+                    <button class="trust-btn remove" data-id="${f.id}" data-username="${f.username}">Remove</button>
+                  </div>
+                `).join('')}
+              </div>
+            `}
+            ${friendsList.filter(f => !trustedFriendIds.includes(f.id)).length > 0 ? `
+              <details class="add-trusted" style="margin-top:10px;">
+                <summary>Add from friends list</summary>
+                <div style="margin-top:8px;" class="profile-thumb-grid">
+                  ${friendsList.filter(f => !trustedFriendIds.includes(f.id)).map(f => `
+                    <div class="profile-thumb">
+                      ${renderAvatarThumb(f.avatarPreview, (f.username || 'U').charAt(0).toUpperCase(), f.id)}
+                      <span class="profile-thumb-name">${f.username}</span>
+                      <button class="trust-btn add" data-id="${f.id}" data-username="${f.username}">Trust</button>
+                    </div>
+                  `).join('')}
+                </div>
+              </details>
+            ` : ''}
+          </div>
           ` : ''}
+
         </div>
-        ` : ''}
       `;
 
       // Trusted Friends button handlers
@@ -712,78 +823,6 @@
         });
       }
 
-      // Nav
-      const ownUserData = isOwnProfile ? userData : await getDoc(doc(db, 'users', user.uid)).then(d => d.exists() ? d.data() : {});
-      const ownBux = ownUserData.bux || 0;
-      const ownNum = ownUserData.userIdNum;
-      const ownProfileLink = ownNum ? `/bloxverse/profile?user=${ownNum}` : '/bloxverse/profile';
-      const ownInitial = (ownUserData.username || 'P').charAt(0).toUpperCase();
-      const ownPreview = ownUserData.avatarPreview || null;
-
-      navRight.innerHTML = `
-        <div class="user-info">
-          <div class="bux-wrapper" id="buxWrapper">
-            <button class="bux-btn" id="buxBtn">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <text x="12" y="17" text-anchor="middle" font-size="14" font-weight="bold">B</text>
-              </svg>
-              <span id="ownBuxVal">${ownBux.toLocaleString()}</span>
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="margin-left:4px;"><path d="M7 10l5 5 5-5z"/></svg>
-            </button>
-            <div class="bux-dropdown">
-              <div class="bux-dropdown-header">
-                <span class="bux-dropdown-label">Balance</span>
-                <span class="bux-dropdown-balance" id="buxDropdownBalance">${ownBux.toLocaleString()}</span>
-              </div>
-              <button class="bux-dropdown-item" onclick="window.openSendBuxModal()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-2 8-10V5l-8-3-8 3v7c0 8 8 10 8 10z"/></svg>
-                Send Bux
-              </button>
-              <button class="bux-dropdown-item" onclick="window.location.href='/bloxverse/transactions'">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                Transactions
-              </button>
-            </div>
-          </div>
-          <button class="settings-nav-btn" onclick="window.location.href='/bloxverse/settings'" title="Settings">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-            </svg>
-          </button>
-          <div class="avatar-dropdown">
-            ${ownPreview ? `<img src="${ownPreview}?_cb=${_cb}" alt="" class="avatar-circle-img" data-initial="${ownInitial}" onerror="window.__handleBrokenAvatar(this, '${user.uid}')"/>` : `<div class="avatar-circle">${ownInitial}</div>`}
-            <div class="dropdown-menu">
-              <div class="dropdown-header">
-                <span class="dropdown-name">${ownUserData.username || 'Player'}</span>
-                <span class="dropdown-email">${user.email}</span>
-              </div>
-              <button class="dropdown-item" onclick="window.location.href='${ownProfileLink}'">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                  <circle cx="12" cy="7" r="4" />
-                </svg>
-                Profile
-              </button>
-              <button class="dropdown-item" onclick="window.location.href='/bloxverse/avatar'">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                </svg>
-                Avatar
-              </button>
-              <button class="dropdown-item" onclick="window._logout()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                  <polyline points="16 17 21 12 16 7" />
-                  <line x1="21" y1="12" x2="9" y2="12" />
-                </svg>
-                Log Out
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
-
       // Bux dropdown toggle
       const buxWrapper = document.getElementById('buxWrapper');
       const buxBtn = document.getElementById('buxBtn');
@@ -792,17 +831,24 @@
         buxWrapper.classList.toggle('open');
       });
 
-      // Make avatar dropdown clickable
-      const avatarCircle = navRight.querySelector('.avatar-circle, .avatar-circle-img');
-      const dropdown = navRight.querySelector('.avatar-dropdown');
-      avatarCircle.addEventListener('click', (e) => {
-        e.stopPropagation();
-        dropdown.classList.toggle('open');
+      // Settings dropdown toggles
+      const closeSettings = () => {
+        document.querySelectorAll('.settings-dropdown').forEach(d => d.classList.remove('open'));
+      };
+      ['#navSettingsBtn'].forEach(id => {
+        const btn = document.querySelector(id);
+        if (!btn) return;
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          closeSettings();
+          const dd = btn.closest('.settings-wrapper').querySelector('.settings-dropdown');
+          if (dd) dd.classList.toggle('open');
+        });
       });
 
       document.addEventListener('click', (e) => {
-        if (!dropdown.contains(e.target)) {
-          dropdown.classList.remove('open');
+        if (!e.target.closest('.settings-wrapper')) {
+          closeSettings();
         }
         if (buxWrapper && !buxWrapper.contains(e.target)) {
           buxWrapper.classList.remove('open');
@@ -879,9 +925,9 @@
               <h3 style="font-size:16px;margin:0;">Confirm Transfer</h3>
             </div>
             <div class="modal-body">
-              <p style="color:#ccc;font-size:14px;line-height:1.5;margin:0 0 16px;">
+              <p style="color:var(--text-secondary);font-size:14px;line-height:1.5;margin:0 0 16px;">
                 Are you sure you want to send <strong style="color:#4caf50;">${amount.toLocaleString()} BUX</strong>
-                to <strong style="color:#fff;">${username}</strong>?
+                to <strong style="color:var(--text-primary);">${username}</strong>?
               </p>
               <div class="warning-box" style="margin:0;">
                 This transfer is <strong>final</strong>. You will not be able to recover these BUX.

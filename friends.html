@@ -40,7 +40,7 @@
     }
 
     .friends-page-subtitle {
-      color: #8a8c8e;
+      color: var(--text-muted);
       font-size: 13px;
       margin-bottom: 20px;
     }
@@ -49,7 +49,7 @@
     .friends-tabs {
       display: flex;
       gap: 2px;
-      background: #2a2b2d;
+      background: var(--bg-secondary);
       border-radius: 10px;
       padding: 4px;
       margin-bottom: 16px;
@@ -60,7 +60,7 @@
       padding: 8px 12px;
       border: none;
       background: none;
-      color: #8a8c8e;
+      color: var(--text-muted);
       font-size: 13px;
       font-weight: 600;
       border-radius: 8px;
@@ -71,21 +71,21 @@
     }
 
     .friends-tab:hover {
-      color: #babbbe;
+      color: var(--text-secondary);
       background: rgba(255,255,255,0.04);
     }
 
     .friends-tab.active {
-      color: #fff;
-      background: #393b3d;
+      color: var(--text-primary);
+      background: var(--bg-tertiary);
     }
 
     .friends-tab .tab-badge {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      background: #00b06f;
-      color: #fff;
+      background: var(--accent);
+      color: var(--text-primary);
       font-size: 10px;
       font-weight: 700;
       min-width: 18px;
@@ -111,7 +111,7 @@
       align-items: center;
       gap: 10px;
       padding: 10px 12px;
-      background: #2a2b2d;
+      background: var(--bg-secondary);
       border-radius: 8px;
       margin-bottom: 6px;
       transition: background 0.15s;
@@ -119,14 +119,14 @@
     }
 
     .friend-list-item:hover {
-      background: #333537;
+      background: var(--bg-tertiary);
     }
 
     .friend-list-item .list-avatar {
       width: 36px;
       height: 36px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #0d69ac, #00b06f);
+      background: var(--bg-secondary);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -147,7 +147,7 @@
 
     .friend-list-item .list-sub {
       font-size: 11px;
-      color: #8a8c8e;
+      color: var(--text-muted);
     }
 
     .friend-list-item .list-actions {
@@ -158,10 +158,10 @@
 
     .accept-btn {
       padding: 5px 14px;
-      background: #00b06f;
+      background: var(--accent);
       border: none;
       border-radius: 6px;
-      color: #fff;
+      color: var(--text-primary);
       font-size: 12px;
       font-weight: 600;
       cursor: pointer;
@@ -169,7 +169,7 @@
     }
 
     .accept-btn:hover {
-      background: #009b61;
+      background: var(--accent-hover);
     }
 
     .decline-btn {
@@ -177,7 +177,7 @@
       background: transparent;
       border: 1px solid rgba(255,255,255,0.15);
       border-radius: 6px;
-      color: #8a8c8e;
+      color: var(--text-muted);
       font-size: 12px;
       font-weight: 600;
       cursor: pointer;
@@ -186,7 +186,7 @@
 
     .decline-btn:hover {
       border-color: rgba(255,255,255,0.3);
-      color: #fff;
+      color: var(--text-primary);
     }
 
     .remove-btn {
@@ -208,7 +208,7 @@
     .empty-state {
       text-align: center;
       padding: 40px 20px;
-      color: #8a8c8e;
+      color: var(--text-muted);
     }
 
     .empty-state svg {
@@ -229,14 +229,48 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      color: #8a8c8e;
+      color: var(--text-muted);
       text-decoration: none;
       font-size: 13px;
       margin-bottom: 16px;
     }
 
-    .friends-back:hover { color: #fff; }
+    .friends-back:hover { color: var(--text-primary); }
+
+    .settings-wrapper {
+      position: relative;
+    }
+    .settings-dropdown {
+      display: none;
+      position: absolute;
+      top: 100%;
+      right: 0;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      min-width: 140px;
+      z-index: 100;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .settings-dropdown.open { display: block; }
+    .settings-dropdown button {
+      display: block;
+      width: 100%;
+      padding: 10px 14px;
+      border: none;
+      background: none;
+      color: var(--text-secondary);
+      font-size: 13px;
+      text-align: left;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .settings-dropdown button:hover { background: var(--bg-tertiary); color: var(--text-primary); }
   </style>
+
+  <link rel="stylesheet" href="src/theme.css" />
+  <script type="module" src="src/theme.js"></script>
 </head>
 
 <body>
@@ -249,6 +283,7 @@
       <div class="nav-links">
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/create'">Create</button>
+        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
       </div>
     </div>
     <div class="nav-right" id="navRight"></div>
@@ -562,42 +597,21 @@
               </button>
             </div>
           </div>
-          <button class="settings-nav-btn" onclick="window.location.href='/bloxverse/settings'" title="Settings">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-            </svg>
-          </button>
-          <div class="avatar-dropdown">
-            ${ownPreview ? `<img src="${ownPreview}?_cb=${_cb}" alt="" class="avatar-circle-img" data-initial="${ownInitial}" onerror="window.__handleBrokenAvatar(this, '${user.uid}')"/>` : `<div class="avatar-circle">${ownInitial}</div>`}
-            <div class="dropdown-menu">
-              <div class="dropdown-header">
-                <span class="dropdown-name">${userData.username || 'Player'}</span>
-                <span class="dropdown-email">${user.email}</span>
-              </div>
-              <button class="dropdown-item" onclick="window.location.href='${ownProfileLink}'">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                  <circle cx="12" cy="7" r="4" />
-                </svg>
-                Profile
-              </button>
-              <button class="dropdown-item" onclick="window.location.href='/bloxverse/avatar'">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                </svg>
-                Avatar
-              </button>
-              <button class="dropdown-item" onclick="window._logout()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                  <polyline points="16 17 21 12 16 7" />
-                  <line x1="21" y1="12" x2="9" y2="12" />
-                </svg>
-                Log Out
-              </button>
+          <div class="settings-wrapper">
+            <button class="settings-nav-btn" id="navSettingsBtn" title="Settings">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+            </button>
+            <div class="settings-dropdown" id="navSettingsDropdown">
+              <button onclick="window.location.href='/bloxverse/settings'">Settings</button>
+              <button onclick="window._logout()">Log Out</button>
             </div>
           </div>
+          ${ownPreview
+            ? `<img src="${ownPreview}?_cb=${_cb}" alt="" class="avatar-circle-img" onclick="window.location.href='${ownProfileLink}'" data-initial="${ownInitial}" onerror="window.__handleBrokenAvatar(this, '${user.uid}')"/>`
+            : `<div class="avatar-circle" onclick="window.location.href='${ownProfileLink}'">${ownInitial}</div>`}
         </div>
       `;
 
@@ -608,16 +622,23 @@
         buxWrapper.classList.toggle('open');
       });
 
-      const avatarCircle = navRight.querySelector('.avatar-circle') || navRight.querySelector('.avatar-circle-img');
-      const dropdown = navRight.querySelector('.avatar-dropdown');
-      avatarCircle.addEventListener('click', (e) => {
-        e.stopPropagation();
-        dropdown.classList.toggle('open');
-      });
+      // Settings dropdown toggle
+      const closeSettings = () => {
+        document.querySelectorAll('.settings-dropdown').forEach(d => d.classList.remove('open'));
+      };
+      const navSettingsBtn = document.getElementById('navSettingsBtn');
+      if (navSettingsBtn) {
+        navSettingsBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          closeSettings();
+          const dd = document.getElementById('navSettingsDropdown');
+          if (dd) dd.classList.toggle('open');
+        });
+      }
 
       document.addEventListener('click', (e) => {
-        if (!dropdown.contains(e.target)) {
-          dropdown.classList.remove('open');
+        if (!e.target.closest('.settings-wrapper')) {
+          closeSettings();
         }
         if (buxWrapper && !buxWrapper.contains(e.target)) {
           buxWrapper.classList.remove('open');
@@ -708,9 +729,9 @@
               <h3 style="font-size:16px;margin:0;">Confirm Transfer</h3>
             </div>
             <div class="modal-body">
-              <p style="color:#ccc;font-size:14px;line-height:1.5;margin:0 0 16px;">
+              <p style="color:var(--text-secondary);font-size:14px;line-height:1.5;margin:0 0 16px;">
                 Are you sure you want to send <strong style="color:#4caf50;">${amount.toLocaleString()} BUX</strong>
-                to <strong style="color:#fff;">${username}</strong>?
+                to <strong style="color:var(--text-primary);">${username}</strong>?
               </p>
               <div class="warning-box" style="margin:0;">
                 This transfer is <strong>final</strong>. You will not be able to recover these BUX.

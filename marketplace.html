@@ -40,7 +40,7 @@
       margin-bottom: 4px;
     }
     .mp-header p {
-      color: #949ba4;
+      color: var(--text-muted);
       font-size: 14px;
     }
     .mp-controls {
@@ -55,7 +55,7 @@
       min-width: 200px;
       display: flex;
       align-items: center;
-      background: #2b2d31;
+      background: var(--bg-secondary);
       border-radius: 8px;
       padding: 0 12px;
       gap: 8px;
@@ -64,13 +64,13 @@
       flex: 1;
       background: none;
       border: none;
-      color: #fff;
+      color: var(--text-primary);
       padding: 10px 0;
       font-size: 14px;
       outline: none;
     }
-    .mp-search input::placeholder { color: #5c6066; }
-    .mp-search svg { color: #5c6066; width: 18px; height: 18px; flex-shrink: 0; }
+    .mp-search input::placeholder { color: var(--text-muted); }
+    .mp-search svg { color: var(--text-muted); width: 18px; height: 18px; flex-shrink: 0; }
     .mp-filters {
       display: flex;
       gap: 8px;
@@ -79,14 +79,14 @@
     .mp-filter {
       padding: 7px 14px;
       border-radius: 6px;
-      border: 1px solid #2b2d31;
+      border: 1px solid var(--border);
       background: transparent;
-      color: #949ba4;
+      color: var(--text-muted);
       font-size: 13px;
       cursor: pointer;
       transition: all 0.15s;
     }
-    .mp-filter:hover { border-color: #5865f2; color: #fff; }
+    .mp-filter:hover { border-color: #5865f2; color: var(--text-primary); }
     .mp-filter.active { background: #5865f2; border-color: #5865f2; color: #fff; }
     .mp-grid {
       display: grid;
@@ -94,7 +94,7 @@
       gap: 16px;
     }
     .mp-card {
-      background: #2b2d31;
+      background: var(--bg-secondary);
       border-radius: 10px;
       overflow: hidden;
       cursor: pointer;
@@ -102,11 +102,11 @@
       border: 2px solid transparent;
     }
     .mp-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.4); }
-    .mp-card.equipped { border-color: #4a7dff; }
+    .mp-card.equipped { border-color: var(--accent); }
     .mp-card-thumb {
       width: 100%;
       aspect-ratio: 1;
-      background: #1e1f22;
+      background: var(--bg-surface);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -174,7 +174,7 @@
     }
     .mp-modal.open { display: flex; }
     .mp-modal-content {
-      background: #2b2d31;
+      background: var(--bg-secondary);
       border-radius: 12px;
       max-width: 700px;
       width: 90%;
@@ -186,7 +186,7 @@
     .mp-modal-preview {
       width: 340px;
       min-height: 340px;
-      background: #1e1f22;
+      background: var(--bg-surface);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -215,7 +215,7 @@
     }
     .mp-modal-body .mp-modal-type {
       font-size: 12px;
-      color: #949ba4;
+      color: var(--text-muted);
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.5px;
@@ -229,13 +229,13 @@
     .mp-modal-body .mp-modal-price.free { color: #4ade80; }
     .mp-modal-body .mp-modal-author {
       font-size: 13px;
-      color: #949ba4;
+      color: var(--text-muted);
       margin-top: -4px;
       margin-bottom: 10px;
     }
     .mp-modal-body .mp-modal-author span { color: #5865f2; }
     .mp-modal-body .mp-modal-desc {
-      color: #b5bac1;
+      color: var(--text-secondary);
       font-size: 14px;
       line-height: 1.5;
       margin-bottom: 16px;
@@ -265,17 +265,33 @@
       border: 1px solid #4a7dff;
       cursor: default;
     }
+    .mp-modal-dates {
+      margin: 12px 0;
+      font-size: 13px;
+    }
+    .mp-date-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    .mp-date-label {
+      color: var(--text-muted);
+      min-width: 60px;
+    }
+    .mp-date-value {
+      color: var(--text-secondary);
+    }
     .mp-modal-actions .btn-close {
-      background: #1e1f22;
-      color: #949ba4;
+      background: var(--bg-surface);
+      color: var(--text-muted);
     }
 
     .mp-empty {
       text-align: center;
       padding: 48px 24px;
-      color: #949ba4;
+      color: var(--text-muted);
     }
-    .mp-empty h3 { font-size: 18px; margin-bottom: 6px; color: #dbdee1; }
+    .mp-empty h3 { font-size: 18px; margin-bottom: 6px; color: var(--text-primary); }
 
     .bux-icon {
       display: inline-flex;
@@ -293,7 +309,41 @@
     }
     .mp-price .bux-icon { width: 14px; height: 14px; font-size: 9px; }
     .mp-modal-price .bux-icon { width: 20px; height: 20px; font-size: 12px; }
+
+    .settings-wrapper {
+      position: relative;
+    }
+    .settings-dropdown {
+      display: none;
+      position: absolute;
+      top: 100%;
+      right: 0;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      min-width: 140px;
+      z-index: 100;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .settings-dropdown.open { display: block; }
+    .settings-dropdown button {
+      display: block;
+      width: 100%;
+      padding: 10px 14px;
+      border: none;
+      background: none;
+      color: var(--text-secondary);
+      font-size: 13px;
+      text-align: left;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .settings-dropdown button:hover { background: var(--bg-tertiary); color: var(--text-primary); }
   </style>
+
+  <link rel="stylesheet" href="src/theme.css" />
+  <script type="module" src="src/theme.js"></script>
 </head>
 
 <body>
@@ -306,6 +356,7 @@
       <div class="nav-links">
         <button class="nav-link-btn active" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/create'">Create</button>
+        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
       </div>
     </div>
     <div class="nav-center" id="navCenter"></div>
@@ -350,6 +401,10 @@
         <div class="mp-modal-author">by <span id="modalAuthor" style="color:#5865f2;cursor:pointer;">BloxVerse</span></div>
         <div class="mp-modal-price" id="modalPrice"><span class="bux-icon">B</span> 10</div>
         <div class="mp-modal-desc" id="modalDesc">Description here.</div>
+        <div class="mp-modal-dates">
+          <div class="mp-date-row"><span class="mp-date-label">Created</span><span class="mp-date-value" id="modalCreated"></span></div>
+          <div class="mp-date-row"><span class="mp-date-label">Updated</span><span class="mp-date-value" id="modalUpdated"></span></div>
+        </div>
         <div class="mp-modal-actions">
           <button class="btn-buy" id="btnBuy">Get Free</button>
           <button class="btn-close" id="btnModalClose">Close</button>
@@ -370,7 +425,7 @@
     import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
     import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
     import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-    import { applyAvatarClothing, preloadTexture, removeAvatarClothing } from './src/avatar-clothing.js';
+    import { applyAvatarClothing, preloadTexture, removeAvatarClothing, applyAvatarPants, removeAvatarPants } from './src/avatar-clothing.js';
 
     const STARTING_ITEMS = ['palhair', 'smile', 'blueandblackmotorcycleshirt'];
 
@@ -473,7 +528,7 @@
             </div>
             <div class="mp-card-body">
               <div class="mp-name">${escHtml(item.name)}</div>
-              <div class="mp-author" style="font-size:11px;color:#949ba4;margin-top:1px;">by <a href="#" class="mp-author-link" data-author="${escHtml(item.author || 'BloxVerse')}" onclick="event.stopPropagation(); window.openAuthorProfile(this.dataset.author); return false;" style="color:#5865f2;text-decoration:none;">${escHtml(item.author || 'BloxVerse')}</a></div>
+              <div class="mp-author" style="font-size:11px;color:var(--text-muted);margin-top:1px;">by <a href="#" class="mp-author-link" data-author="${escHtml(item.author || 'BloxVerse')}" onclick="event.stopPropagation(); window.openAuthorProfile(this.dataset.author); return false;" style="color:#5865f2;text-decoration:none;">${escHtml(item.author || 'BloxVerse')}</a></div>
               <div class="mp-price ${priceCls}">${priceStr}</div>
             </div>
           </div>
@@ -500,6 +555,8 @@
       modalPrice.innerHTML = formatPrice(item.price);
       modalPrice.className = 'mp-modal-price' + (item.price > 0 ? '' : ' free');
       modalDesc.textContent = item.description || '';
+      document.getElementById('modalCreated').textContent = item.created || '';
+      document.getElementById('modalUpdated').textContent = item.updated || '';
       if (owned) {
         btnBuy.textContent = 'Owned';
         btnBuy.className = 'btn-owned';
@@ -572,12 +629,12 @@
       const h = container.clientHeight || 340;
 
       const scene = new THREE.Scene();
-      scene.background = new THREE.Color(0xffffff);
+      scene.background = null;
 
       const camera = new THREE.PerspectiveCamera(25, w / h, 0.1, 100);
       camera.position.set(5, 3.5, 14);
 
-      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.setSize(w, h);
       renderer.shadowMap.enabled = true;
@@ -688,10 +745,10 @@
       if (!_previewRenderer) {
         const c = document.createElement('canvas');
         c.width = 256; c.height = 256;
-        _previewRenderer = new THREE.WebGLRenderer({ canvas: c, antialias: true, preserveDrawingBuffer: true, alpha: false });
+        _previewRenderer = new THREE.WebGLRenderer({ canvas: c, antialias: true, preserveDrawingBuffer: true, alpha: true });
         _previewRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         _previewRenderer.outputColorSpace = THREE.SRGBColorSpace;
-        _previewRenderer.setClearColor(0xb0b0b0);
+        _previewRenderer.setClearColor(0x000000, 0);
       }
       return _previewRenderer;
     }
@@ -725,7 +782,7 @@
           if (accDef.textures?.displacementMap) texPromises.push(preloadTexture(accDef.textures.displacementMap));
           Promise.all(texPromises).then(() => {
             const savedBg = _p.scene.background;
-            _p.scene.background = new THREE.Color(0xffffff);
+            _p.scene.background = null;
             const savedAccKeys = Object.keys(_p.accessories);
             for (const id of savedAccKeys) { _p.accessories[id].removeFromParent(); delete _p.accessories[id]; }
             const savedColors = [];
@@ -802,7 +859,7 @@
                 for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
                   const si = (y * W + x) * 4, di = ((H - 1 - y) * W + x) * 4;
                   id.data[di] = pixels[si]; id.data[di + 1] = pixels[si + 1];
-                  id.data[di + 2] = pixels[si + 2]; id.data[di + 3] = 255;
+                  id.data[di + 2] = pixels[si + 2]; id.data[di + 3] = pixels[si + 3];
                 }
                 ctx.putImageData(id, 0, 0);
                 resolve(canvas.toDataURL('image/png'));
@@ -817,7 +874,7 @@
         if (!clothing || !clothing.texturePath) return resolve(null);
         preloadTexture(clothing.texturePath).then(() => {
           const savedBg = _p.scene.background;
-          _p.scene.background = new THREE.Color(0xffffff);
+          _p.scene.background = null;
           const savedAccKeys = Object.keys(_p.accessories);
           for (const id of savedAccKeys) { _p.accessories[id].removeFromParent(); delete _p.accessories[id]; }
           const savedColors = [];
@@ -836,7 +893,12 @@
           const hiddenGround = [];
           _p.scene.traverse(child => { if (child.userData?.isGround) { hiddenGround.push(child); child.visible = false; } });
           removeAvatarClothing(_p.avatar);
-          applyAvatarClothing(_p.avatar, item.id);
+          removeAvatarPants(_p.avatar);
+          if (clothing.category === 'Pants') {
+            applyAvatarPants(_p.avatar, item.id);
+          } else {
+            applyAvatarClothing(_p.avatar, item.id);
+          }
           const cam = new THREE.PerspectiveCamera(20, 1, 0.1, 100);
           cam.position.set(0, 2.8, 18); cam.lookAt(0, 2.8, 0);
           const renderer = _getPreviewRenderer();
@@ -850,6 +912,7 @@
           renderer.readRenderTargetPixels(rt, 0, 0, W, H, pixels);
           rt.dispose();
           removeAvatarClothing(_p.avatar);
+          removeAvatarPants(_p.avatar);
           for (const { mat, color } of savedColors) {
             mat.color.setHex(color);
             mat.needsUpdate = true;
@@ -863,7 +926,7 @@
           for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
             const si = (y * W + x) * 4, di = ((H - 1 - y) * W + x) * 4;
             id.data[di] = pixels[si]; id.data[di + 1] = pixels[si + 1];
-            id.data[di + 2] = pixels[si + 2]; id.data[di + 3] = 255;
+            id.data[di + 2] = pixels[si + 2]; id.data[di + 3] = pixels[si + 3];
           }
           ctx.putImageData(id, 0, 0);
           resolve(canvas.toDataURL('image/png'));
@@ -935,6 +998,10 @@
         removeAvatarClothing(_p.avatar);
         _p.clothingId = null;
       }
+      if (_p.pantsId) {
+        removeAvatarPants(_p.avatar);
+        _p.pantsId = null;
+      }
       if (_p.faceMesh) {
         _p.faceMesh.removeFromParent();
         if (_p.faceMesh.material) {
@@ -973,8 +1040,13 @@
         }
       });
       if (item._type === 'clothing') {
-        applyAvatarClothing(_p.avatar, item.id);
-        _p.clothingId = item.id;
+        if (item.category === 'Pants') {
+          applyAvatarPants(_p.avatar, item.id);
+          _p.pantsId = item.id;
+        } else {
+          applyAvatarClothing(_p.avatar, item.id);
+          _p.clothingId = item.id;
+        }
       } else if (item._type === 'face') {
         equipPreviewFace(item);
       } else if (item._type === 'accessory') {
@@ -1323,18 +1395,21 @@
                 </button>
               </div>
             </div>
-            <div class="avatar-dropdown" id="userDropdown">
-              ${ownPreview ? `<img src="${ownPreview}?_cb=${_cb}" alt="" class="avatar-circle-img" data-initial="${initial}" onerror="window.__handleBrokenAvatar(this, '${user.uid}')"/>` : `<div class="avatar-circle">${initial}</div>`}
-              <div class="dropdown-menu">
-                <div class="dropdown-header">
-                  <span class="dropdown-name">${username}</span>
-                  <span class="dropdown-email">${user.email}</span>
-                </div>
-                <button class="dropdown-item" onclick="window.location.href='${ownProfileLink}'"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Profile</button>
-                <button class="dropdown-item" onclick="window.location.href='/bloxverse/avatar'"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>Avatar</button>
-                <button class="dropdown-item" onclick="window._logout()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Log Out</button>
-              </div>
+          <div class="settings-wrapper">
+            <button class="settings-nav-btn" id="navSettingsBtn" title="Settings">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+            </button>
+            <div class="settings-dropdown" id="navSettingsDropdown">
+              <button onclick="window.location.href='/bloxverse/settings'">Settings</button>
+              <button onclick="window._logout()">Log Out</button>
             </div>
+          </div>
+          ${ownPreview
+            ? `<img src="${ownPreview}?_cb=${_cb}" alt="" class="avatar-circle-img" onclick="window.location.href='${ownProfileLink}'" data-initial="${initial}" onerror="window.__handleBrokenAvatar(this, '${user.uid}')"/>`
+            : `<div class="avatar-circle" onclick="window.location.href='${ownProfileLink}'">${initial}</div>`}
           </div>
         `;
 
@@ -1342,14 +1417,24 @@
           e.stopPropagation();
           document.getElementById('buxWrapper').classList.toggle('open');
         });
-        const avatarTrigger = document.querySelector('#userDropdown .avatar-circle') || document.querySelector('#userDropdown .avatar-circle-img');
-        if (avatarTrigger) avatarTrigger.addEventListener('click', (e) => {
-          e.stopPropagation();
-          document.getElementById('userDropdown').classList.toggle('open');
-        });
+        // Settings dropdown toggle
+        const closeSettings = () => {
+          document.querySelectorAll('.settings-dropdown').forEach(d => d.classList.remove('open'));
+        };
+        const navSettingsBtn = document.getElementById('navSettingsBtn');
+        if (navSettingsBtn) {
+          navSettingsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeSettings();
+            const dd = document.getElementById('navSettingsDropdown');
+            if (dd) dd.classList.toggle('open');
+          });
+        }
+
         document.addEventListener('click', (e) => {
-          const ud = document.getElementById('userDropdown');
-          if (ud && !ud.contains(e.target)) ud.classList.remove('open');
+          if (!e.target.closest('.settings-wrapper')) {
+            closeSettings();
+          }
           const bw = document.getElementById('buxWrapper');
           if (bw && !bw.contains(e.target)) bw.classList.remove('open');
         });

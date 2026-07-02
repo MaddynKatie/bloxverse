@@ -8,7 +8,7 @@ const studTextureUrl = new URL('../assets/textures/stud.jpeg', import.meta.url).
 const inletTextureUrl = new URL('../assets/textures/inlet.jpg', import.meta.url).href;
 import { findAccessory } from './accessories.js';
 import { findFace } from './faces.js';
-import { applyAvatarClothing, removeAvatarClothing } from './avatar-clothing.js';
+import { applyAvatarClothing, removeAvatarClothing, applyAvatarPants, removeAvatarPants } from './avatar-clothing.js';
 import { findEmote } from './emotes.js';
 import { Instance } from './instances.js';
 
@@ -60,6 +60,8 @@ const _fpsHistory = [];
 const _fpsWindow = 30;
 let _autoAdjustCooldown = 0;
 let _qualityChangeCallback = null;
+let _targetFps = 0;
+let _nextRenderTime = performance.now();
 
 // ─── Chat Bubble Config ────────────────────────────────────────────────
 const BUBBLE_WORLD_W  = 4.0;
@@ -453,14 +455,14 @@ function _updateNameLabelPositions() {
 
 // ─── Scene ───────────────────────────────────────────────────────────────────
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0x87CEEB, 192, 480);
+scene.fog = new THREE.Fog(0x87CEEB, 140, 350);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 3200);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setClearColor(0x87CEEB);
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setPixelRatio(1.0);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 document.body.appendChild(renderer.domElement);
@@ -478,8 +480,8 @@ scene.add(ambient);
 const sun = new THREE.DirectionalLight(0xffffff, 1.2);
 sun.position.set(160, 320, 160);
 sun.castShadow = true;
-sun.shadow.mapSize.width = 4096;
-sun.shadow.mapSize.height = 4096;
+sun.shadow.mapSize.width = 2048;
+sun.shadow.mapSize.height = 2048;
 sun.shadow.bias = -0.0002;
 sun.shadow.normalBias = 0;
 sun.shadow.camera.near = 1;
@@ -2176,6 +2178,15 @@ function _applyClothingToModel(model, clothingId) {
         applyAvatarClothing(model, clothingId);
     } else {
         removeAvatarClothing(model);
+    }
+}
+
+function _applyPantsToModel(model, pantsId) {
+    if (!model) return;
+    if (pantsId) {
+        applyAvatarPants(model, pantsId);
+    } else {
+        removeAvatarPants(model);
     }
 }
 
@@ -4558,13 +4569,16 @@ window._bloxverse = {
         p = { mesh: clone, bones, rest, targetX: x, targetY: y, targetZ: z, targetRy: correctedRy, targetQ, moving, grounded, climbState, dead: !!dead, animTime: 0 };
         otherPlayers.set(userId, p);
 
-            // Apply stored avatar data if available
+            // Apply stored avatar data if available, otherwise neutral defaults
             const storedData = _playerAvatarData.get(userId);
             if (storedData) {
                 _applyColorsToModel(clone, storedData.colors);
                 _applyClothingToModel(clone, storedData.clothing);
+                _applyPantsToModel(clone, storedData.pants);
                 _applyAccessoriesToModel(userId, clone, storedData.accessories);
                 _applyFaceToModel(clone, storedData.face);
+            } else {
+                _applyColorsToModel(clone, { Body: '#a0a0a0', Legs: '#a0a0a0', Arms: '#a0a0a0', Head: '#c4a882' });
             }
             
             // Set initial visual top (accessories may update it later)
@@ -4615,6 +4629,7 @@ window._bloxverse = {
         if (userId === currentUserId && character) {
             if (data.colors) _applyColorsToModel(character, data.colors);
             _applyClothingToModel(character, data.clothing);
+            _applyPantsToModel(character, data.pants);
             _applyAccessoriesToModel(userId, character, data.accessories);
             _applyFaceToModel(character, data.face);
             _recalcVisualTop(userId);
@@ -4623,6 +4638,7 @@ window._bloxverse = {
         if (p && p.mesh) {
             if (data.colors) _applyColorsToModel(p.mesh, data.colors);
             _applyClothingToModel(p.mesh, data.clothing);
+            _applyPantsToModel(p.mesh, data.pants);
             _applyAccessoriesToModel(userId, p.mesh, data.accessories);
             _applyFaceToModel(p.mesh, data.face);
             _recalcVisualTop(userId);
@@ -4708,6 +4724,8 @@ window._bloxverse = {
     },
     getGraphicsLevel() { return _graphicsLevel; },
     onQualityChange(fn) { _qualityChangeCallback = fn; },
+    setFpsLimit(fps) { _targetFps = Math.max(0, fps); },
+    getFpsLimit() { return _targetFps; },
     // Mobile key registry — scanned from script IsKeyDown calls
     getJoystick: () => joystickVector,
     _registerMobileKey(key) { _pendingMobileKeys.add(key); },
@@ -4752,18 +4770,58 @@ window._bloxverse = {
 };
 
 function _applyGraphicsLevel() {
-    const t = (_graphicsLevel - 1) / 9;
-    const ratio = 0.5 + t * (Math.min(window.devicePixelRatio, 2) - 0.5);
-    renderer.setPixelRatio(ratio);
-    // No shadow map resizing to avoid flash from dispose/recreate
-    if (t < 0.15) {
-        renderer.shadowMap.enabled = false;
+    const level = _graphicsLevel;
+    const dpr = window.devicePixelRatio;
+
+    let pr;
+    if (level <= 5) {
+        pr = 0.5 + (level - 1) * 0.125;
     } else {
-        renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFShadowMap;
+        if (level <= 7) {
+            pr = 1.0 + (level - 5) * 0.25;
+        } else {
+            const caps = { 8: 1.35, 9: 1.5, 10: 1.75 };
+            const muls = { 8: 0.9, 9: 1.0, 10: 1.2 };
+            pr = Math.min(dpr * muls[level], caps[level]);
+        }
     }
-    scene.fog.near = 96 + t * 96;
-    scene.fog.far = 240 + t * 240;
+    renderer.setPixelRatio(pr);
+
+    if (level <= 4) {
+        renderer.shadowMap.enabled = false;
+        sun.castShadow = false;
+        if (sun.shadow.map) {
+            sun.shadow.map.dispose();
+            sun.shadow.map = null;
+        }
+    } else {
+        const shadowSizes = { 5: 2048, 6: 2048, 7: 2048, 8: 2048, 9: 4096, 10: 4096 };
+        const newSize = shadowSizes[level];
+        if (!sun.castShadow || sun.shadow.mapSize.width !== newSize) {
+            sun.castShadow = true;
+            sun.shadow.mapSize.width = newSize;
+            sun.shadow.mapSize.height = newSize;
+            if (sun.shadow.map) {
+                sun.shadow.map.dispose();
+                sun.shadow.map = null;
+            }
+        }
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = level >= 6 ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+    }
+
+    const fogTables = { near: [48,72,96,120,140,160,176,184,190,192], far: [120,180,240,300,350,400,440,460,475,480] };
+    scene.fog.near = fogTables.near[level - 1];
+    scene.fog.far = fogTables.far[level - 1];
+
+    if (level >= 8) {
+        if (renderer.toneMapping === THREE.NoToneMapping) {
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.0;
+        }
+    } else {
+        renderer.toneMapping = THREE.NoToneMapping;
+    }
 }
 
 // ─── Game loop ────────────────────────────────────────────────────────────────
@@ -4774,6 +4832,16 @@ const MAX_PHYS_STEPS = 5;
 
 function loop(now) {
     requestAnimationFrame(loop);
+
+    // FPS limiter at top — skips the ENTIRE frame including physics
+    if (_targetFps > 0) {
+        if (now < _nextRenderTime) return;
+        // Accumulate: carry overshoot forward so average stays accurate
+        _nextRenderTime += 1000 / _targetFps;
+        // If we've fallen behind by more than one frame (tab was hidden etc), reset
+        if (now - _nextRenderTime > 1000 / _targetFps) _nextRenderTime = now;
+    }
+
     const frameDt = Math.min((now - lastTime) / 1000, 0.1);
     lastTime = now;
 

@@ -8,8 +8,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #2a2a3a;
-  border: 1px solid #3a3a4a;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 8px 12px;
   max-width: 400px;
@@ -18,7 +18,7 @@
 
 .player-search-bar svg {
   flex-shrink: 0;
-  color: #8a8c8e;
+  color: var(--text-muted);
 }
 
 .player-search-bar input {
@@ -31,7 +31,7 @@
 }
 
 .player-search-bar input::placeholder {
-  color: #8a8c8e;
+  color: var(--text-muted);
 }
 
 .search-results {
@@ -41,14 +41,14 @@
 .search-empty {
   text-align: center;
   padding: 64px 20px;
-  color: #8a8c8e;
+  color: var(--text-muted);
 }
 
 .search-empty h2 {
   font-size: 20px;
   font-weight: 600;
   margin-bottom: 8px;
-  color: #ccc;
+  color: var(--text-secondary);
 }
 
 .search-empty p {
@@ -58,14 +58,14 @@
 .search-loading {
   text-align: center;
   padding: 48px 20px;
-  color: #8a8c8e;
+  color: var(--text-muted);
 }
 
 .loading-spinner {
   width: 32px;
   height: 32px;
   border: 3px solid #3a3a4a;
-  border-top-color: #60a5fa;
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   margin: 0 auto 16px;
@@ -82,7 +82,7 @@
 .results-header h2 {
   font-size: 18px;
   font-weight: 600;
-  color: #ccc;
+  color: var(--text-secondary);
 }
 
 .player-grid {
@@ -96,29 +96,36 @@
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  background: #2a2a3a;
-  border: 1px solid #3a3a4a;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
   border-radius: 8px;
   cursor: pointer;
   transition: background 0.15s;
 }
 
 .player-card:hover {
-  background: #3a3a4a;
+  background: var(--bg-tertiary);
 }
 
 .player-avatar {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #60a5fa, #3b82f6);
+  background: #e0e0e0;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 20px;
   font-weight: 700;
-  color: #fff;
+  color: #555;
   flex-shrink: 0;
+  overflow: hidden;
+}
+.player-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 .player-info {
@@ -135,7 +142,7 @@
 
 .player-join-date {
   font-size: 12px;
-  color: #8a8c8e;
+  color: var(--text-muted);
 }
 
 .player-action {

@@ -7,6 +7,8 @@ export const clothingItems = [
     author: 'BloxVerse',
     category: 'Shirts',
     texturePath: new URL('../assets/clothing/i❤️bloxverse.png', import.meta.url).href,
+    created: 'May 13, 2026 6:12:00 PM',
+    updated: 'May 13, 2026 6:12:00 PM',
   },
   {
     id: 'shirt-template-blank',
@@ -16,6 +18,8 @@ export const clothingItems = [
     author: 'BloxVerse',
     category: 'Templates',
     texturePath: new URL('../assets/clothing/shirtTemplateBlank.png', import.meta.url).href,
+    created: 'May 13, 2026 6:00:00 PM',
+    updated: 'May 13, 2026 6:00:00 PM',
   },
   {
     id: 'template-shirts-r15',
@@ -25,6 +29,8 @@ export const clothingItems = [
     author: 'BloxVerse',
     category: 'Templates',
     texturePath: new URL('../assets/clothing/Template-Shirts-R15.png', import.meta.url).href,
+    created: 'May 13, 2026 6:00:00 PM',
+    updated: 'May 13, 2026 6:00:00 PM',
   },
   {
     id: 'egyptianshirt',
@@ -34,6 +40,8 @@ export const clothingItems = [
     author: 'BloxVerse',
     category: 'Shirts',
     texturePath: new URL('../assets/clothing/egyptianShirt.png', import.meta.url).href,
+    created: 'May 13, 2026 6:00:00 PM',
+    updated: 'May 13, 2026 6:00:00 PM',
   },
   {
     id: 'colorful-joseph',
@@ -43,6 +51,8 @@ export const clothingItems = [
     author: 'Joseph',
     category: 'Shirts',
     texturePath: new URL('../assets/clothing/colorfulJoseph.png', import.meta.url).href,
+    created: 'May 13, 2026 6:14:00 PM',
+    updated: 'May 13, 2026 6:14:00 PM',
   },
   {
     id: 'bloxverseenthusiast',
@@ -52,6 +62,8 @@ export const clothingItems = [
     author: 'Zarif',
     category: 'Shirts',
     texturePath: new URL('../assets/clothing/bloxverseEnthusiast.png', import.meta.url).href,
+    created: 'May 13, 2026 6:20:00 PM',
+    updated: 'May 13, 2026 6:20:00 PM',
   },
   {
     id: 'basicsuit',
@@ -61,6 +73,8 @@ export const clothingItems = [
     author: 'BloxVerse',
     category: 'Shirts',
     texturePath: new URL('../assets/clothing/basicSuit.png', import.meta.url).href,
+    created: 'May 13, 2026 6:34:00 PM',
+    updated: 'May 13, 2026 6:34:00 PM',
   },
   {
     id: 'blueandblackmotorcycleshirt',
@@ -70,6 +84,8 @@ export const clothingItems = [
     author: 'BloxVerse',
     category: 'Shirts',
     texturePath: new URL('../assets/clothing/blueAndBlackMotorcycleShirt.png', import.meta.url).href,
+    created: 'May 13, 2026 6:40:00 PM',
+    updated: 'May 13, 2026 6:40:00 PM',
   },
   {
     id: 'duckshirt',
@@ -79,6 +95,8 @@ export const clothingItems = [
     author: 'BloxVerse',
     category: 'Shirts',
     texturePath: new URL('../assets/clothing/duck.png', import.meta.url).href,
+    created: 'May 25, 2026 6:00:00 PM',
+    updated: 'May 25, 2026 6:00:00 PM',
   },
   {
     id: 'ronaldoshirt',
@@ -88,6 +106,8 @@ export const clothingItems = [
     author: 'BloxVerse',
     category: 'Shirts',
     texturePath: new URL('../assets/clothing/ronaldoShirt.png', import.meta.url).href,
+    created: 'May 25, 2026 6:00:00 PM',
+    updated: 'May 25, 2026 6:00:00 PM',
   },
   {
     id: 'fadebearhoodie',
@@ -97,6 +117,8 @@ export const clothingItems = [
     author: 'BloxVerse',
     category: 'Shirts',
     texturePath: new URL('../assets/clothing/fadeBearHoodie.png', import.meta.url).href,
+    created: 'May 25, 2026 6:00:00 PM',
+    updated: 'May 25, 2026 6:00:00 PM',
   },
   {
     id: 'blockyfightshirt',
@@ -106,6 +128,8 @@ export const clothingItems = [
     author: 'BloxVerse',
     category: 'Shirts',
     texturePath: new URL('../assets/clothing/blockyFightShirt.png', import.meta.url).href,
+    created: 'June 2, 2026 10:00:00 AM',
+    updated: 'June 2, 2026 10:00:00 AM',
   },
   {
     id: 'yellowcamoshirt',
@@ -115,6 +139,8 @@ export const clothingItems = [
     author: 'BloxVerse',
     category: 'Shirts',
     texturePath: new URL('../assets/clothing/yellowCamoShirt.png', import.meta.url).href,
+    created: 'June 2, 2026 10:00:00 AM',
+    updated: 'June 2, 2026 10:00:00 AM',
   },
   {
     id: 'perkypolosweater',
@@ -124,6 +150,8 @@ export const clothingItems = [
     author: 'Perky',
     category: 'Shirts',
     texturePath: new URL('../assets/clothing/perkyPoloSweater.png', import.meta.url).href,
+    created: 'June 4, 2026 3:48:00 PM',
+    updated: 'June 4, 2026 3:48:00 PM',
   },
   {
     id: 'tancamoshirt',
@@ -133,6 +161,8 @@ export const clothingItems = [
     author: 'BloxVerse',
     category: 'Shirts',
     texturePath: new URL('../assets/clothing/tanCamoShirt.png', import.meta.url).href,
+    created: 'June 4, 2026 3:48:00 PM',
+    updated: 'June 4, 2026 3:48:00 PM',
   },
   {
     id: 'mikushirt',
@@ -142,6 +172,8 @@ export const clothingItems = [
     author: 'hi :D',
     category: 'Shirts',
     texturePath: new URL('../assets/clothing/ukiMShirt.png', import.meta.url).href,
+    created: 'June 6, 2026 11:14:00 AM',
+    updated: 'June 6, 2026 11:14:00 AM',
   },
   {
     id: 'bloxverseshirt',
@@ -151,6 +183,20 @@ export const clothingItems = [
     author: 'Perky',
     category: 'Shirts',
     texturePath: new URL('../assets/clothing/bloxverseShirt.png', import.meta.url).href,
+    created: 'June 7, 2026 4:36:00 PM',
+    updated: 'June 7, 2026 4:36:00 PM',
+  },
+  // ── Pants ────────────────────────────────────────────────────────────────────
+  {
+    id: 'templatepants',
+    name: 'Template Pants',
+    description: 'A template to use as a starting point for your own designs.',
+    price: 0,
+    author: 'BloxVerse',
+    category: 'Pants',
+    texturePath: new URL('../assets/clothing/pants/pantsTemplate.png', import.meta.url).href,
+    created: 'June 29, 2026 2:23:00 PM',
+    updated: 'June 29, 2026 2:23:00 PM',
   },
 ];
 
@@ -165,5 +211,7 @@ export function findClothing(id) {
 export {
   applyAvatarClothing,
   removeAvatarClothing,
+  applyAvatarPants,
+  removeAvatarPants,
   preloadTexture,
 } from './avatar-clothing.js';

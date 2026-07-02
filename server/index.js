@@ -174,6 +174,7 @@ wss.on('connection', (ws, req) => {
 
     let data;
     let isChat = false;
+    let isVoice = false;
     try {
       data = JSON.parse(message);
       if (data.type === 'chat') {
@@ -184,15 +185,21 @@ wss.on('connection', (ws, req) => {
         if (data.message && typeof data.message === 'string') {
           gs.handleChat(data.userId, data.message);
         }
+      } else if (data.type === 'voice-offer' || data.type === 'voice-answer' || data.type === 'voice-ice') {
+        isVoice = true;
+        if (!data.userId) data.userId = userId;
       }
     } catch (e) {}
 
     const msgToSend = isChat ? JSON.stringify(data) : message;
 
     for (const client of currentRoom) {
-      if ((client !== ws || isChat) && client.readyState === 1) {
-        client.send(msgToSend);
-      }
+      if (client.readyState !== 1) continue;
+      // Send back to sender for chat; for voice/others, skip sender unless targeted relay should still exclude sender
+      if (client === ws && !isChat) continue;
+      // Targeted relay: if payload specifies targetUserId, only send to that peer
+      if (isVoice && data.targetUserId && client.userId !== data.targetUserId) continue;
+      client.send(msgToSend);
     }
   });
 

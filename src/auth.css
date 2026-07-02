@@ -6,8 +6,8 @@
 
 body {
   font-family: 'Gotham SSm', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  background-color: #232527;
-  color: #fff;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -33,13 +33,13 @@ body {
 }
 
 .auth-header p {
-  color: #8a8c8e;
+  color: var(--text-muted);
   font-size: 14px;
 }
 
 .auth-tabs {
   display: flex;
-  background-color: #393b3d;
+  background-color: var(--bg-tertiary);
   border-radius: 8px;
   padding: 4px;
   margin-bottom: 24px;
@@ -51,7 +51,7 @@ body {
   text-align: center;
   background: none;
   border: none;
-  color: #8a8c8e;
+  color: var(--text-muted);
   font-size: 14px;
   font-weight: 600;
   border-radius: 6px;
@@ -60,8 +60,8 @@ body {
 }
 
 .auth-tab.active {
-  background-color: #00b06f;
-  color: #fff;
+  background-color: var(--accent);
+  color: var(--text-primary);
 }
 
 .auth-form {
@@ -80,28 +80,28 @@ body {
   display: block;
   font-size: 13px;
   font-weight: 500;
-  color: #babbbe;
+  color: var(--text-secondary);
   margin-bottom: 6px;
 }
 
 .form-group input {
   width: 100%;
   padding: 12px 14px;
-  background-color: #393b3d;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border);
   border-radius: 8px;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 14px;
   outline: none;
   transition: border-color 0.15s ease;
 }
 
 .form-group input:focus {
-  border-color: #00b06f;
+  border-color: var(--accent);
 }
 
 .form-group input::placeholder {
-  color: #6b6c6e;
+  color: var(--text-muted);
 }
 
 .form-error {
@@ -118,10 +118,10 @@ body {
 .auth-submit {
   width: 100%;
   padding: 12px;
-  background-color: #00b06f;
+  background-color: var(--accent);
   border: none;
   border-radius: 8px;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
@@ -130,11 +130,11 @@ body {
 }
 
 .auth-submit:hover {
-  background-color: #009b61;
+  background-color: var(--accent-hover);
 }
 
 .auth-submit:disabled {
-  background-color: #6b6c6e;
+  background-color: var(--text-muted);
   cursor: not-allowed;
 }
 
@@ -142,7 +142,7 @@ body {
   display: flex;
   align-items: center;
   margin: 20px 0;
-  color: #6b6c6e;
+  color: var(--text-muted);
   font-size: 12px;
 }
 
@@ -151,11 +151,22 @@ body {
   content: '';
   flex: 1;
   height: 1px;
-  background-color: rgba(255, 255, 255, 0.06);
+  background-color: var(--border);
 }
 
 .auth-divider span {
   padding: 0 12px;
+}
+
+.field-error {
+  color: #e74c3c;
+  font-size: 11px;
+  margin-top: 4px;
+  display: none;
+}
+
+.field-error.visible {
+  display: block;
 }
 
 .password-strength {
@@ -167,18 +178,18 @@ body {
 .strength-bar {
   flex: 1;
   height: 3px;
-  background-color: #393b3d;
+  background-color: var(--bg-tertiary);
   border-radius: 2px;
   transition: background-color 0.15s ease;
 }
 
 .strength-bar.weak { background-color: #e74c3c; }
 .strength-bar.medium { background-color: #f39c12; }
-.strength-bar.strong { background-color: #00b06f; }
+.strength-bar.strong { background-color: var(--accent); }
 
 .strength-text {
   font-size: 11px;
-  color: #8a8c8e;
+  color: var(--text-muted);
   margin-top: 4px;
 }
 
@@ -194,32 +205,32 @@ body {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  border: 3px solid #393b3d;
+  border: 3px solid var(--bg-tertiary);
 }
 
-.status-dot.offline { background-color: #6b6c6e; }
+.status-dot.offline { background-color: var(--text-muted); }
 .status-dot.online { background-color: #0d69ac; }
-.status-dot.in-game { background-color: #00b06f; }
+.status-dot.in-game { background-color: var(--accent); }
 
 .back-link {
   display: block;
   text-align: center;
   margin-top: 20px;
-  color: #8a8c8e;
+  color: var(--text-muted);
   text-decoration: none;
   font-size: 13px;
 }
 
 .back-link:hover {
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .auth-success {
-  background-color: rgba(0, 176, 111, 0.1);
-  border: 1px solid #00b06f;
+  background-color: var(--accent-soft);
+  border: 1px solid var(--accent);
   border-radius: 8px;
   padding: 12px;
-  color: #00b06f;
+  color: var(--accent);
   font-size: 13px;
   text-align: center;
   margin-bottom: 16px;

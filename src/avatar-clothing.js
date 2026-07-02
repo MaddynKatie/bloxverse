@@ -5,7 +5,9 @@ import { findClothing } from './clothing.js';
 const textureLoader = new THREE.TextureLoader();
 const textureCache = new Map();
 const overlayCache = new WeakMap();
+const pantsCache = new WeakMap();
 const remappedGeometryCache = new WeakMap();
+const pantsRemappedCache = new WeakMap();
 
 // Normalized rectangles from the exact obfuscated code mappings
 const TEMPLATE_RECTS = {
@@ -80,6 +82,8 @@ function classifyBoneName(boneName) {
   if (name.includes('torso')) return 'torso';
   if (name.includes('left_arm') || name.includes('left arm')) return 'leftArm';
   if (name.includes('right_arm') || name.includes('right arm')) return 'rightArm';
+  if (name.includes('left_leg') || name.includes('left leg')) return 'leftLeg';
+  if (name.includes('right_leg') || name.includes('right leg')) return 'rightLeg';
   return null;
 }
 
@@ -134,7 +138,7 @@ function analyzeTriangles(mesh) {
     else if (p1) part = p1;
     else if (p2) part = p2;
 
-    if (!part) continue;
+    if (!part || !partBounds[part]) continue;
 
     triangles.push({ start: i, part });
     expandBounds(partBounds[part], positions, i);
@@ -211,6 +215,7 @@ function buildRemappedGeometry(mesh) {
   for (const triangle of triangles) {
     const bounds = partBounds[triangle.part];
     const faceRects = TEMPLATE_RECTS[triangle.part];
+    if (!faceRects) continue;
     const i = triangle.start;
     const p0 = new THREE.Vector3(positions.getX(i), positions.getY(i), positions.getZ(i));
     const p1 = new THREE.Vector3(positions.getX(i + 1), positions.getY(i + 1), positions.getZ(i + 1));
@@ -316,6 +321,167 @@ function applyAvatarClothing(model, clothingId) {
   return overlay;
 }
 
+function removeAvatarPants(model) {
+  const overlay = pantsCache.get(model);
+  if (!overlay) return;
+  overlay.removeFromParent();
+  overlay.geometry?.dispose?.();
+  const materials = Array.isArray(overlay.material) ? overlay.material : [overlay.material];
+  for (const material of materials) material?.dispose?.();
+  pantsCache.delete(model);
+}
+
+function analyzeLegTriangles(mesh) {
+  const positions = mesh.geometry.attributes.position;
+  const partBounds = { leftLeg: createEmptyBounds(), rightLeg: createEmptyBounds() };
+  const triangles = [];
+
+  for (let i = 0; i < positions.count; i += 3) {
+    const p0 = getDominantPart(mesh, i);
+    const p1 = getDominantPart(mesh, i + 1);
+    const p2 = getDominantPart(mesh, i + 2);
+
+    let part = null;
+    if (p0 && p0 === p1 && p0 === p2) part = p0;
+    else if (p0 && p0 === p1) part = p0;
+    else if (p1 && p1 === p2) part = p1;
+    else if (p0 && p0 === p2) part = p0;
+    else if (p0) part = p0;
+    else if (p1) part = p1;
+    else if (p2) part = p2;
+
+    if (!part || !partBounds[part]) continue;
+
+    triangles.push({ start: i, part });
+    expandBounds(partBounds[part], positions, i);
+    expandBounds(partBounds[part], positions, i + 1);
+    expandBounds(partBounds[part], positions, i + 2);
+  }
+
+  return { triangles, partBounds };
+}
+
+function buildRemappedGeometryPants(mesh) {
+  if (pantsRemappedCache.has(mesh.geometry)) {
+    return pantsRemappedCache.get(mesh.geometry).clone();
+  }
+
+  const source = mesh.geometry;
+  const positions = source.attributes.position;
+  const normals = source.attributes.normal;
+  const skinIndex = source.attributes.skinIndex;
+  const skinWeight = source.attributes.skinWeight;
+  const { triangles, partBounds } = analyzeLegTriangles(mesh);
+
+  const legToArm = { leftLeg: 'leftArm', rightLeg: 'rightArm' };
+
+  const remappedPositions = [];
+  const remappedNormals = [];
+  const remappedSkinIndices = [];
+  const remappedSkinWeights = [];
+  const remappedUvs = [];
+
+  for (const triangle of triangles) {
+    const armPart = legToArm[triangle.part];
+    if (!armPart) continue;
+
+    const bounds = partBounds[triangle.part];
+    const faceRects = TEMPLATE_RECTS[armPart];
+    const i = triangle.start;
+    const p0 = new THREE.Vector3(positions.getX(i), positions.getY(i), positions.getZ(i));
+    const p1 = new THREE.Vector3(positions.getX(i + 1), positions.getY(i + 1), positions.getZ(i + 1));
+    const p2 = new THREE.Vector3(positions.getX(i + 2), positions.getY(i + 2), positions.getZ(i + 2));
+
+    const edge1 = new THREE.Vector3().subVectors(p1, p0);
+    const edge2 = new THREE.Vector3().subVectors(p2, p0);
+    const faceNormal = new THREE.Vector3().crossVectors(edge1, edge2).normalize();
+
+    const face = detectFace(faceNormal.x, faceNormal.y, faceNormal.z);
+    const rect = faceRects[face];
+    if (!rect) continue;
+
+    const verts = [p0, p1, p2];
+    for (let j = 0; j < 3; j++) {
+      const sourceIndex = i + j;
+      const vertex = verts[j];
+      const local = sampleFaceUV(triangle.part, face, vertex, bounds);
+      const [u, v] = toTemplateUV(rect, local.u, local.v);
+
+      remappedPositions.push(vertex.x, vertex.y, vertex.z);
+      remappedNormals.push(
+        normals.getX(sourceIndex),
+        normals.getY(sourceIndex),
+        normals.getZ(sourceIndex),
+      );
+      remappedSkinIndices.push(
+        skinIndex.getX(sourceIndex),
+        skinIndex.getY(sourceIndex),
+        skinIndex.getZ(sourceIndex),
+        skinIndex.getW(sourceIndex),
+      );
+      remappedSkinWeights.push(
+        skinWeight.getX(sourceIndex),
+        skinWeight.getY(sourceIndex),
+        skinWeight.getZ(sourceIndex),
+        skinWeight.getW(sourceIndex),
+      );
+      remappedUvs.push(u, v);
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(remappedPositions, 3));
+  geometry.setAttribute('normal', new THREE.Float32BufferAttribute(remappedNormals, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(remappedUvs, 2));
+  geometry.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(remappedSkinIndices, 4));
+  geometry.setAttribute('skinWeight', new THREE.Float32BufferAttribute(remappedSkinWeights, 4));
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
+
+  pantsRemappedCache.set(mesh.geometry, geometry.clone());
+  return geometry;
+}
+
+function applyAvatarPants(model, clothingId) {
+  removeAvatarPants(model);
+
+  const clothing = findClothing(clothingId);
+  if (!model || !clothing) return null;
+
+  const baseMesh = getBaseSkinnedMesh(model);
+  if (!baseMesh) return null;
+
+  const geometry = buildRemappedGeometryPants(baseMesh);
+  const material = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    map: getTexture(clothing.texturePath),
+    transparent: true,
+    alphaTest: 0.05,
+    roughness: 0.85,
+    metalness: 0.0,
+    side: THREE.FrontSide,
+  });
+  material.toneMapped = false;
+
+  const overlay = new THREE.SkinnedMesh(geometry, material);
+  overlay.name = `${baseMesh.name || 'avatar'}_pants_overlay`;
+  overlay.castShadow = true;
+  overlay.receiveShadow = true;
+  overlay.frustumCulled = false;
+  overlay.renderOrder = 2;
+  overlay.userData.isClothingOverlay = true;
+  overlay.position.copy(baseMesh.position);
+  overlay.quaternion.copy(baseMesh.quaternion);
+  overlay.scale.copy(baseMesh.scale);
+  overlay.bindMode = baseMesh.bindMode;
+  overlay.bind(baseMesh.skeleton, baseMesh.bindMatrix.clone());
+  overlay.bindMatrixInverse.copy(baseMesh.bindMatrixInverse);
+
+  baseMesh.parent?.add(overlay);
+  pantsCache.set(model, overlay);
+  return overlay;
+}
+
 function preloadTexture(path) {
   if (!textureCache.has(path)) {
     getTexture(path);
@@ -334,5 +500,7 @@ function preloadTexture(path) {
 export {
   applyAvatarClothing,
   removeAvatarClothing,
+  applyAvatarPants,
+  removeAvatarPants,
   preloadTexture,
 };
