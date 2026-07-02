@@ -198,6 +198,17 @@ export const clothingItems = [
     created: 'June 29, 2026 2:23:00 PM',
     updated: 'June 29, 2026 2:23:00 PM',
   },
+  {
+    id: 'blockyfightspants',
+    name: 'Blocky Fights Pants',
+    description: 'Pants designed to go along with the Blocky Fights shirt.',
+    price: 15,
+    author: 'BloxVerse',
+    category: 'Pants',
+    texturePath: new URL('../assets/clothing/pants/blockyfightsPants.png', import.meta.url).href,
+    created: 'July 2, 2026 5:53:32 PM',
+    updated: 'July 2, 2026 6:04:29 PM',
+  },
 ];
 
 export function getAllClothing() {
