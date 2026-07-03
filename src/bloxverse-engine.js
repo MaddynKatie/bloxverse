@@ -49,6 +49,7 @@ const PHYSICS_OWNER_CLAIM_SUFFIX = Math.floor(Math.random() * 1000);
 let _worldFloorEnabled = true;
 let _respawnY = -100;
 let _dead = false;
+let _deathType = 0; // 0 = alive, 1 = void death, 2 = ragdoll/damage death
 let _respawnTimer = 0;
 const _respawnCallbacks = [];
 const _deathCallbacks = [];
@@ -1040,7 +1041,7 @@ window.addEventListener('touchstart', (e) => {
     document.body.style.cursor = 'none';
     const uiContainer = document.createElement('div');
     _touchUI = uiContainer;
-    uiContainer.style.position = 'absolute';
+    uiContainer.style.position = 'fixed';
     uiContainer.style.inset = '0';
     uiContainer.style.pointerEvents = 'none';
     uiContainer.style.zIndex = '999';
@@ -1048,10 +1049,10 @@ window.addEventListener('touchstart', (e) => {
 
     const joyBase = document.createElement('div');
     joyBase.style.position = 'absolute';
-    joyBase.style.bottom = '40px';
-    joyBase.style.left = '40px';
-    joyBase.style.width = '120px';
-    joyBase.style.height = '120px';
+    joyBase.style.bottom = 'clamp(8px, 4vh, 40px)';
+    joyBase.style.left = 'clamp(8px, 3vw, 40px)';
+    joyBase.style.width = 'clamp(80px, 18vmin, 120px)';
+    joyBase.style.height = 'clamp(80px, 18vmin, 120px)';
     joyBase.style.borderRadius = '50%';
     joyBase.style.background = 'rgba(255,255,255,0.2)';
     joyBase.style.border = '2px solid rgba(255,255,255,0.4)';
@@ -1113,10 +1114,10 @@ window.addEventListener('touchstart', (e) => {
 
     const jumpBtn = document.createElement('div');
     jumpBtn.style.position = 'absolute';
-    jumpBtn.style.bottom = '40px';
-    jumpBtn.style.right = '40px';
-    jumpBtn.style.width = '80px';
-    jumpBtn.style.height = '80px';
+    jumpBtn.style.bottom = 'clamp(8px, 4vh, 40px)';
+    jumpBtn.style.right = 'clamp(8px, 3vw, 40px)';
+    jumpBtn.style.width = 'clamp(56px, 14vmin, 80px)';
+    jumpBtn.style.height = 'clamp(56px, 14vmin, 80px)';
     jumpBtn.style.borderRadius = '50%';
     jumpBtn.style.background = 'rgba(255,255,255,0.2)';
     jumpBtn.style.border = '2px solid rgba(255,255,255,0.4)';
@@ -1125,7 +1126,7 @@ window.addEventListener('touchstart', (e) => {
     jumpBtn.style.justifyContent = 'center';
     jumpBtn.style.alignItems = 'center';
     jumpBtn.style.color = 'rgba(255,255,255,0.6)';
-    jumpBtn.style.fontSize = '32px';
+    jumpBtn.style.fontSize = 'clamp(20px, 6vmin, 32px)';
     jumpBtn.innerHTML = '&#8593;';
     uiContainer.appendChild(jumpBtn);
 
@@ -1143,13 +1144,13 @@ window.addEventListener('touchstart', (e) => {
     const _createMobileBtn = (key, label) => {
         if (_mobileCreatedKeys.has(key)) return;
         _mobileCreatedKeys.add(key);
-        const yOff = 120 + _mobileCreatedKeys.size * 80;
+        const idx = _mobileCreatedKeys.size;
         const btn = document.createElement('div');
         btn.style.position = 'absolute';
-        btn.style.bottom = yOff + 'px';
-        btn.style.right = '40px';
-        btn.style.width = '64px';
-        btn.style.height = '64px';
+        btn.style.bottom = `clamp(8px, 4vh, 40px)`;
+        btn.style.right = `clamp(${70 + (idx - 1) * 60}px, ${8 + idx * 12}vmin, ${40 + idx * 70}px)`;
+        btn.style.width = 'clamp(48px, 12vmin, 64px)';
+        btn.style.height = 'clamp(48px, 12vmin, 64px)';
         btn.style.borderRadius = '50%';
         btn.style.background = 'rgba(255,255,255,0.2)';
         btn.style.border = '2px solid rgba(255,255,255,0.4)';
@@ -1158,7 +1159,7 @@ window.addEventListener('touchstart', (e) => {
         btn.style.justifyContent = 'center';
         btn.style.alignItems = 'center';
         btn.style.color = 'rgba(255,255,255,0.8)';
-        btn.style.fontSize = '14px';
+        btn.style.fontSize = 'clamp(11px, 3vmin, 14px)';
         btn.style.fontWeight = 'bold';
         btn.innerHTML = label;
         uiContainer.appendChild(btn);
@@ -1175,10 +1176,10 @@ window.addEventListener('touchstart', (e) => {
 
     const lockBtn = document.createElement('div');
     lockBtn.style.position = 'absolute';
-    lockBtn.style.bottom = '40px';
-    lockBtn.style.right = '140px';
-    lockBtn.style.width = '60px';
-    lockBtn.style.height = '60px';
+    lockBtn.style.bottom = 'clamp(8px, 4vh, 40px)';
+    lockBtn.style.right = 'clamp(74px, 16vmin, 140px)';
+    lockBtn.style.width = 'clamp(44px, 11vmin, 60px)';
+    lockBtn.style.height = 'clamp(44px, 11vmin, 60px)';
     lockBtn.style.borderRadius = '50%';
     lockBtn.style.background = 'rgba(255,255,255,0.2)';
     lockBtn.style.border = '2px solid rgba(255,255,255,0.4)';
@@ -2040,6 +2041,10 @@ function _loadAccessoryForUser(userId, accessoryId, avatarObj) {
             return;
         }
         map.set(accessoryId, { wrapper, update });
+        const remoteP = userId === currentUserId ? null : otherPlayers.get(userId);
+        if ((userId === currentUserId && _dead) || remoteP?.dead) {
+            wrapper.visible = false;
+        }
         _recalcVisualTop(userId);
     };
 
@@ -3050,7 +3055,9 @@ function update(dt) {
             character.position.set(_spawnPoint.x, _spawnPoint.y + CHAR_FOOT_OFFSET, _spawnPoint.z);
             character.visible = true;
             _setLocalAvatarVisible(true);
+            _setLocalLabelsVisible(true);
             _dead = false;
+            _deathType = 0;
             for (const fn of _respawnCallbacks) fn();
         }
         return;
@@ -3409,12 +3416,14 @@ function updateCamera(fpDt) {
 
     // Smooth character opacity fade based on blend amount
     const opacity = 1 - _firstPersonBlend;
-    _setLocalAvatarOpacity(opacity);
-    character.visible = opacity > 0.0001;
-    if (opacity > 0.0001) {
-        _setLocalAvatarVisible(true);
-    } else {
-        _setLocalAvatarVisible(false);
+    if (!_dead) {
+        _setLocalAvatarOpacity(opacity);
+        character.visible = opacity > 0.0001;
+        if (opacity > 0.0001) {
+            _setLocalAvatarVisible(true);
+        } else {
+            _setLocalAvatarVisible(false);
+        }
     }
 
     // Toggle mouse-look state (no right-click needed, cursor hidden)
@@ -3427,12 +3436,23 @@ function updateCamera(fpDt) {
     }
 }
 
+function _setLocalLabelsVisible(visible) {
+    const nameData = _playerNames.get(currentUserId);
+    if (nameData?.sprite) nameData.sprite.visible = visible;
+    const bar = _playerHealthBars.get(currentUserId);
+    if (bar?.sprite) bar.sprite.visible = visible;
+    const streakData = _playerStreaks.get(currentUserId);
+    if (streakData?.sprite) streakData.sprite.visible = visible;
+}
+
 function _die() {
     if (_dead || !character) return;
     character.visible = false;
     _setLocalAvatarVisible(false);
+    _setLocalLabelsVisible(false);
     velY = 0; extraVelX = 0; extraVelZ = 0;
     _dead = true;
+    _deathType = 1;
     _respawnTimer = 5;
     for (const fn of _deathCallbacks) fn();
 }
@@ -3486,6 +3506,7 @@ function _dieRagdoll() {
     _ragdollParts.push({ mesh: proxy, body });
     velY = 0; extraVelX = 0; extraVelZ = 0;
     _dead = true;
+    _deathType = 2;
     _respawnTimer = 5;
     for (const fn of _deathCallbacks) fn();
 }
@@ -4493,9 +4514,9 @@ window._bloxverse = {
     let ry = character.rotation.y % (2 * Math.PI);
     if (ry > Math.PI)  ry -= 2 * Math.PI;
     if (ry < -Math.PI) ry += 2 * Math.PI;
-    return { x: character.position.x, y: character.position.y, z: character.position.z, ry, moving: isMoving, grounded: sendGrounded, climbState: sendClimb, dead: _dead, qx: character.quaternion.x, qy: character.quaternion.y, qz: character.quaternion.z, qw: character.quaternion.w };
+    return { x: character.position.x, y: character.position.y, z: character.position.z, ry, moving: isMoving, grounded: sendGrounded, climbState: sendClimb, dead: _dead, deathType: _deathType, qx: character.quaternion.x, qy: character.quaternion.y, qz: character.quaternion.z, qw: character.quaternion.w };
     },
-    updateOtherPlayer: (userId, x, y, z, ry, moving, grounded, climbState, username = null, qx, qy, qz, qw, dead, health) => {
+    updateOtherPlayer: (userId, x, y, z, ry, moving, grounded, climbState, username = null, qx, qy, qz, qw, dead, health, deathType) => {
     if (!character) return; // Not fully loaded yet
     // Don't create/update a clone for the local player (same-account multi-device scenario)
     if (userId === currentUserId) return;
@@ -4565,8 +4586,9 @@ window._bloxverse = {
             clone.rotation.set(0, correctedRy, 0);
         }
         scene.add(clone);
+        clone.visible = !(dead && deathType === 1);
         const targetQ = new THREE.Quaternion(qx||0, qy||0, qz||0, qw||1);
-        p = { mesh: clone, bones, rest, targetX: x, targetY: y, targetZ: z, targetRy: correctedRy, targetQ, moving, grounded, climbState, dead: !!dead, animTime: 0 };
+        p = { mesh: clone, bones, rest, targetX: x, targetY: y, targetZ: z, targetRy: correctedRy, targetQ, moving, grounded, climbState, dead: !!dead, deathType: deathType || 0, animTime: 0 };
         otherPlayers.set(userId, p);
 
             // Apply stored avatar data if available, otherwise neutral defaults
@@ -4588,6 +4610,7 @@ window._bloxverse = {
             if (username) {
                 if (!_playerNames.has(userId)) {
                     const sprite = _createNameSprite(username);
+                    sprite.visible = !(dead && deathType === 1);
                     _playerNames.set(userId, { username, sprite });
                 }
             }
@@ -4596,10 +4619,25 @@ window._bloxverse = {
             if (health !== undefined && !isNaN(health)) {
                 const bar = _createHealthBarSprite();
                 _updateHealthBarSprite(bar, health, 100);
+                if (dead && deathType === 1) bar.sprite.visible = false;
                 _playerHealthBars.set(userId, bar);
             }
         } else {
-            p.targetX = x; p.targetY = y; p.targetZ = z; p.targetRy = correctedRy; p.moving = moving; p.grounded = grounded; p.climbState = climbState; p.dead = !!dead;
+            const voidDead = dead && deathType === 1;
+            if (p.mesh) p.mesh.visible = !voidDead;
+            const nameData = _playerNames.get(userId);
+            if (nameData?.sprite) nameData.sprite.visible = !voidDead;
+            const bar = _playerHealthBars.get(userId);
+            if (bar?.sprite && voidDead) bar.sprite.visible = false;
+            const streakData = _playerStreaks.get(userId);
+            if (streakData?.sprite) streakData.sprite.visible = !voidDead;
+            const accMap = _playerAccessoryInstances.get(userId);
+            if (accMap) {
+                for (const entry of accMap.values()) {
+                    if (entry.wrapper) entry.wrapper.visible = !voidDead;
+                }
+            }
+            p.targetX = x; p.targetY = y; p.targetZ = z; p.targetRy = correctedRy; p.moving = moving; p.grounded = grounded; p.climbState = climbState; p.dead = !!dead; p.deathType = deathType || 0;
             if (qw !== undefined) {
                 p.targetQ.set(qx, qy, qz, qw);
             }
@@ -4618,6 +4656,7 @@ window._bloxverse = {
                     _playerHealthBars.set(userId, bar);
                 }
                 _updateHealthBarSprite(bar, health, 100);
+                if (voidDead) bar.sprite.visible = false;
             }
         }
     },
@@ -4704,6 +4743,8 @@ window._bloxverse = {
     },
     setOtherPlayerHealth: (userId, health) => {
         if (userId === currentUserId) return;
+        const p = otherPlayers.get(userId);
+        if (p?.dead) return;
         let bar = _playerHealthBars.get(userId);
         if (!bar) {
             bar = _createHealthBarSprite();
@@ -4807,7 +4848,7 @@ function _applyGraphicsLevel() {
             }
         }
         renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = level >= 6 ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+        renderer.shadowMap.type = THREE.PCFShadowMap;
     }
 
     const fogTables = { near: [48,72,96,120,140,160,176,184,190,192], far: [120,180,240,300,350,400,440,460,475,480] };

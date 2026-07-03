@@ -56,7 +56,12 @@
       </svg>
     </button>
     <button class="top-btn mic-off" id="btnMic" title="Voice Chat Off" style="display:none;">
-      <i class="fa-solid fa-microphone-slash"></i>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3a3 3 0 0 0-3 3v4a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z"></path>
+        <path d="M19 10a7 7 0 0 1-14 0"></path>
+        <path d="M12 19v2"></path>
+        <path d="M8 22h8"></path>
+      </svg>
     </button>
   </div>
 
@@ -146,6 +151,13 @@
                 <input type="checkbox" id="shiftlockToggle" checked />
                 <span class="toggle-slider"></span>
               </label>
+            </div>
+          </div>
+          <div class="setting-row">
+            <label>Master Volume</label>
+            <div class="setting-control">
+              <input type="range" id="masterVolumeSlider" min="1" max="10" step="1" value="10" style="width:100px;" />
+              <span id="masterVolumeValue" style="min-width:20px;text-align:center;">10</span>
             </div>
           </div>
           <div class="setting-row">
@@ -1009,6 +1021,11 @@
         fpsLimitSelect.value = saved.fpsLimit;
         if (window._bloxverse) window._bloxverse.setFpsLimit(Number(saved.fpsLimit));
       }
+      if (saved.masterVolume != null) {
+        masterVolumeSlider.value = saved.masterVolume;
+        masterVolumeValue.textContent = saved.masterVolume;
+        _setMasterVolume(Number(saved.masterVolume));
+      }
       if (graphicsAutoToggle.checked) {
         graphicsQualitySlider.disabled = true;
         graphicsQualitySlider.style.opacity = '0.4';
@@ -1273,6 +1290,7 @@
     const _knownPlayerIds = new Set();
     const _playerPositions = new Map(); // userId -> { x, y, z }
     const _playerHealth = new Map(); // userId -> health
+    const _playerDead = new Map(); // userId -> boolean
     const _playerStats = new Map(); // userId -> { statName: value }
     let _lastLeaderboardPlayers = [];
     let _localPlayerHealth = 100;
@@ -1297,7 +1315,7 @@
       const r = ratio > 0.5 ? Math.floor(255 * (1 - (ratio - 0.5) * 2)) : 255;
       const g = ratio > 0.5 ? 255 : Math.floor(255 * (ratio * 2));
       fill.style.backgroundColor = `rgb(${r},${g},0)`;
-      bar.style.display = _localPlayerHealth < _localPlayerMaxHealth ? 'block' : 'none';
+      bar.style.display = (_localPlayerHealth < _localPlayerMaxHealth && !(window._bloxverse?.isDead?.())) ? 'block' : 'none';
       if (_localPlayerHealth <= 0 && window._bloxverse && !window._bloxverse.isDead()) {
         window._bloxverse.killPlayer();
       }
@@ -2429,13 +2447,14 @@
               }
 
               connectMultiplayer(gameId, user.uid, username,
-                (id, x, y, z, ry, moving, grounded, climbState, qx, qy, qz, qw, dead, health) => {
+                (id, x, y, z, ry, moving, grounded, climbState, qx, qy, qz, qw, dead, health, deathType) => {
                   if (!_knownPlayerIds.has(id)) return;
                   if (window._bloxverse) {
                     const playerUsername = _playerUsernames.get(id);
-                    window._bloxverse.updateOtherPlayer(id, x, y, z, ry, moving, grounded, climbState, playerUsername, qx, qy, qz, qw, dead, health);
+                    window._bloxverse.updateOtherPlayer(id, x, y, z, ry, moving, grounded, climbState, playerUsername, qx, qy, qz, qw, dead, health, deathType);
                   }
                   _playerPositions.set(id, { x, y, z, ry });
+                  _playerDead.set(id, !!dead);
                   if (health !== undefined && !isNaN(health)) _playerHealth.set(id, health);
                 },
                 (id) => {
@@ -2443,6 +2462,7 @@
                   _knownPlayerIds.delete(id);
                   _fetchedAvatarPlayers.delete(id);
                   _playerTrustedFriends.delete(id);
+                  _playerDead.delete(id);
                   const playerObj = getCurrentPlayers().find(p => p.id === id) || makePlayerObj(id, _playerUsernames.get(id) || 'Player');
                   for (const ex of scriptExports) {
                     try { ex.onPlayerLeave?.(playerObj); } catch (e) { console.error('[Script] onPlayerLeave error:', e); }
@@ -2627,7 +2647,7 @@
                 if (window._mpTimer >= 0.1 && window._bloxverse) {
                   window._mpTimer = 0;
                   const loc = window._bloxverse.getLocalTransform();
-                  if (loc) sendLocalTransform(loc.x, loc.y, loc.z, loc.ry, loc.moving, loc.grounded, loc.climbState, loc.qx, loc.qy, loc.qz, loc.qw, loc.dead, _localPlayerHealth);
+                  if (loc) sendLocalTransform(loc.x, loc.y, loc.z, loc.ry, loc.moving, loc.grounded, loc.climbState, loc.qx, loc.qy, loc.qz, loc.qw, loc.dead, _localPlayerHealth, loc.deathType);
                   const phys = window._bloxverse.getPhysicsState();
                   if (phys && phys.length > 0) sendPhysicsState(phys);
                 }
@@ -2638,16 +2658,30 @@
               };
 
               // ─── Voice Chat System ───────────────────────────────────────
-              const STUN_SERVERS = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
-              let audioCtx = null;
+              const STUN_SERVERS = {
+                iceServers: [
+                  { urls: 'stun:stun.l.google.com:19302' },
+                  { urls: 'stun:stun1.l.google.com:19302' },
+                  { urls: 'stun:stun2.l.google.com:19302' },
+                  { urls: 'stun:stun3.l.google.com:19302' },
+                  { urls: 'stun:stun4.l.google.com:19302' }
+                ],
+                iceCandidatePoolSize: 0
+              };
               let localMicStream = null;
               let voiceEnabled = false;
               let micMuted = true;
               const peers = new Map();
               const remoteStreams = new Map();
+              const remoteAudioElements = new Map();
+              let masterVolume = 1;
+              const masterVolumeSlider = document.getElementById('masterVolumeSlider');
+              const masterVolumeValue = document.getElementById('masterVolumeValue');
               const panners = new Map();
+              const voiceAnalyzers = new Map();
               const talkingUsers = new Set();
               const _playerSpeakingSprites = new Map();
+              const pendingIceCandidates = new Map();
               const btnMic = document.getElementById('btnMic');
               const voiceSettingsGroup = document.getElementById('voiceSettingsGroup');
               const micDeviceSelect = document.getElementById('micDeviceSelect');
@@ -2655,14 +2689,17 @@
 
               function _getVoiceSettingEnabled() {
                 try {
-                  return JSON.parse(localStorage.getItem('bloxverse_settings') || '{}').voiceEnabled === true;
+                  const stored = JSON.parse(localStorage.getItem('bloxverse_settings') || '{}');
+                  if (stored.voiceEnabled === false) return false;
+                  if (stored.voiceEnabled === true) return true;
+                  return true;
                 } catch (_) {
-                  return false;
+                  return true;
                 }
               }
 
               function _voiceAllowed() {
-                return currentUserAge >= 13 && !!navigator.mediaDevices?.getUserMedia;
+                return !!navigator.mediaDevices?.getUserMedia;
               }
 
               function _updateVoiceUi() {
@@ -2670,15 +2707,29 @@
                 const optedIn = _getVoiceSettingEnabled();
                 if (voiceSettingsGroup) voiceSettingsGroup.style.display = allowed ? '' : 'none';
                 if (!btnMic) return;
-                btnMic.style.display = allowed && optedIn ? '' : 'none';
-                btnMic.disabled = !allowed || !optedIn;
-                btnMic.classList.toggle('mic-unavailable', !allowed || !optedIn);
+                btnMic.style.display = allowed && optedIn !== false ? '' : 'none';
+                btnMic.disabled = !allowed || optedIn === false;
+                btnMic.classList.toggle('mic-unavailable', !allowed || optedIn === false);
                 btnMic.classList.toggle('mic-on', voiceEnabled && !micMuted);
                 btnMic.classList.toggle('mic-off', !voiceEnabled || micMuted);
                 btnMic.innerHTML = voiceEnabled && !micMuted
                   ? '<i class="fa-solid fa-microphone"></i>'
                   : '<i class="fa-solid fa-microphone-slash"></i>';
                 btnMic.title = voiceEnabled && !micMuted ? 'Voice Chat On' : 'Voice Chat Off';
+              }
+
+              async function _ensureVoiceAudioReady() {
+                try {
+                  await document.documentElement.play();
+                } catch (_) {}
+              }
+
+              async function _resumeRemoteVoicePlayback() {
+                for (const [, audioEl] of remoteAudioElements) {
+                  try {
+                    if (audioEl.paused) await audioEl.play();
+                  } catch (_) {}
+                }
               }
 
               function _removeSpeakingSprite(uid) {
@@ -2689,45 +2740,179 @@
                 _playerSpeakingSprites.delete(uid);
               }
 
-              function _createSpeakingSprite() {
-                const c = document.createElement('canvas'); c.width = 96; c.height = 32;
-                const ctx = c.getContext('2d');
-                ctx.font = 'bold 28px system-ui,sans-serif';
-                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                ctx.strokeStyle = 'rgba(0,0,0,0.7)'; ctx.lineWidth = 3;
-                ctx.fillStyle = '#22c55e';
-                ctx.strokeText('🔊', 48, 16); ctx.fillText('🔊', 48, 16);
-                ctx.clearRect(0, 0, c.width, c.height);
-                ctx.fillStyle = 'rgba(0,0,0,0.65)';
-                ctx.beginPath();
-                if (ctx.roundRect) {
-                  ctx.roundRect(31, 1, 34, 30, 15);
-                } else {
-                  ctx.arc(48, 16, 15, 0, Math.PI * 2);
+              let voiceAudioCtx = null;
+              const voiceSources = new Map();   // uid -> MediaStreamAudioSourceNode
+              const voiceGainNodes = new Map(); // uid -> GainNode (per-player, distance-controlled)
+              let _spatialFrameId = null;
+              const VOICE_MAX_DIST = 120;
+              const VOICE_BOOST = 5.0;
+
+              function _resumeVoiceAudioCtx() {
+                if (voiceAudioCtx && voiceAudioCtx.state === 'suspended') {
+                  voiceAudioCtx.resume().catch(() => {});
                 }
+              }
+
+              function _setupSpatialAudio(uid, stream) {
+                if (!stream || voiceSources.has(uid)) return null;
+                try {
+                  if (!voiceAudioCtx) {
+                    voiceAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    voiceAudioCtx.resume().catch(() => {});
+                  }
+                  const src = voiceAudioCtx.createMediaStreamSource(stream);
+                  const gain = voiceAudioCtx.createGain();
+                  gain.gain.value = 1.0;
+                  src.connect(gain);
+                  gain.connect(voiceAudioCtx.destination);
+                  voiceSources.set(uid, src);
+                  voiceGainNodes.set(uid, gain);
+                  _startSpatialUpdate();
+                  _resumeVoiceAudioCtx();
+                  console.log('[Voice] audio chain created for', uid);
+                  return gain;
+                } catch (err) {
+                  console.warn('[Voice] audio setup failed:', err);
+                  return null;
+                }
+              }
+
+              function _startSpatialUpdate() {
+                if (_spatialFrameId) return;
+                function update() {
+                  if (!voiceAudioCtx || voiceGainNodes.size === 0 || !voiceEnabled) {
+                    _spatialFrameId = null;
+                    return;
+                  }
+                  let localPos;
+                  try {
+                    const char = window._bloxverse?.getCharacter?.();
+                    if (char) {
+                      localPos = { x: char.position.x, y: char.position.y, z: char.position.z };
+                    }
+                  } catch (_) {}
+                  if (localPos) {
+                    voiceAudioCtx.listener.positionX.value = localPos.x;
+                    voiceAudioCtx.listener.positionY.value = localPos.y;
+                    voiceAudioCtx.listener.positionZ.value = localPos.z;
+                    voiceAudioCtx.listener.forwardX.value = 0;
+                    voiceAudioCtx.listener.forwardY.value = 0;
+                    voiceAudioCtx.listener.forwardZ.value = -1;
+                    voiceAudioCtx.listener.upX.value = 0;
+                    voiceAudioCtx.listener.upY.value = 1;
+                    voiceAudioCtx.listener.upZ.value = 0;
+                    for (const [uid, gain] of voiceGainNodes) {
+                      const pos = _playerPositions.get(uid);
+                      if (pos) {
+                        const dx = localPos.x - pos.x;
+                        const dy = localPos.y - pos.y;
+                        const dz = localPos.z - pos.z;
+                        const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                        let vol = Math.max(0, 1 - dist / VOICE_MAX_DIST);
+                        vol = vol * vol * masterVolume * VOICE_BOOST;
+                        gain.gain.setValueAtTime(vol, voiceAudioCtx.currentTime);
+                      }
+                    }
+                  }
+                  _spatialFrameId = requestAnimationFrame(update);
+                }
+                _spatialFrameId = requestAnimationFrame(update);
+              }
+
+              function _applyMasterVolume() {
+                // update loop reads masterVolume each frame, no action needed here
+                if (window._bloxverse && typeof window._bloxverse.setMasterVolume === 'function') {
+                  window._bloxverse.setMasterVolume(Math.max(0, Math.min(1, masterVolume)));
+                }
+              }
+
+              function _attachRemoteVoiceAudio(uid, stream) {
+                if (!stream) return;
+                remoteStreams.set(uid, stream);
+                let audioEl = remoteAudioElements.get(uid);
+                if (!audioEl) {
+                  audioEl = document.createElement('audio');
+                  audioEl.autoplay = true;
+                  audioEl.playsInline = true;
+                  audioEl.setAttribute('playsinline', 'true');
+                  audioEl.muted = true;
+                  audioEl.style.display = 'none';
+                  document.body.appendChild(audioEl);
+                  remoteAudioElements.set(uid, audioEl);
+                }
+                audioEl.srcObject = stream;
+                _setupSpatialAudio(uid, stream);
+                audioEl.play().then(() => {
+                  console.log('[Voice] remote audio started for', uid);
+                }).catch(err => {
+                  console.warn('[Voice] remote audio play failed for', uid, err);
+                  setTimeout(() => _resumeRemoteVoicePlayback(), 1000);
+                });
+              }
+
+              function _cleanupVoicePeer(uid) {
+                const pc = peers.get(uid);
+                if (pc) pc.close();
+                peers.delete(uid);
+                remoteStreams.delete(uid);
+                const src = voiceSources.get(uid);
+                if (src) { try { src.disconnect(); } catch (_) {} }
+                voiceSources.delete(uid);
+                const gainNode = voiceGainNodes.get(uid);
+                if (gainNode) { try { gainNode.disconnect(); } catch (_) {} }
+                voiceGainNodes.delete(uid);
+                const audioEl = remoteAudioElements.get(uid);
+                if (audioEl) {
+                  try { audioEl.srcObject = null; } catch (_) {}
+                  try { document.body.removeChild(audioEl); } catch (_) {}
+                }
+                remoteAudioElements.delete(uid);
+                voiceAnalyzers.delete(uid);
+                talkingUsers.delete(uid);
+                pendingIceCandidates.delete(uid);
+                _removeSpeakingSprite(uid);
+              }
+
+              function _queueVoiceIce(uid, candidate) {
+                if (!pendingIceCandidates.has(uid)) pendingIceCandidates.set(uid, []);
+                pendingIceCandidates.get(uid).push(candidate);
+              }
+
+              async function _addVoiceIce(uid, pc, candidate) {
+                if (!pc.remoteDescription) {
+                  _queueVoiceIce(uid, candidate);
+                  return;
+                }
+                try {
+                  await pc.addIceCandidate(new RTCIceCandidate(candidate));
+                } catch (e) {
+                  console.warn('[Voice] ICE candidate failed:', e);
+                }
+              }
+
+              async function _flushVoiceIce(uid, pc) {
+                const queued = pendingIceCandidates.get(uid) || [];
+                pendingIceCandidates.delete(uid);
+                for (const candidate of queued) await _addVoiceIce(uid, pc, candidate);
+              }
+
+              function _createSpeakingSprite() {
+                const c = document.createElement('canvas'); c.width = 48; c.height = 32;
+                const ctx = c.getContext('2d');
+                ctx.clearRect(0, 0, c.width, c.height);
+                const br = 10;
+                ctx.fillStyle = 'rgba(255,255,255,0.95)';
+                ctx.beginPath();
+                ctx.roundRect(4, 4, 40, 24, br);
                 ctx.fill();
-                ctx.strokeStyle = '#22c55e';
-                ctx.lineWidth = 4;
-                ctx.lineCap = 'round';
-                ctx.beginPath();
-                ctx.moveTo(48, 7);
-                ctx.lineTo(48, 16);
-                ctx.stroke();
-                ctx.beginPath();
-                ctx.arc(48, 11, 7, Math.PI, 0, true);
-                ctx.stroke();
-                ctx.beginPath();
-                ctx.arc(48, 14, 12, 0, Math.PI, false);
-                ctx.stroke();
-                ctx.beginPath();
-                ctx.moveTo(48, 20);
-                ctx.lineTo(48, 26);
-                ctx.moveTo(41, 26);
-                ctx.lineTo(55, 26);
-                ctx.stroke();
+                ctx.fillStyle = '#0f172a';
+                ctx.font = 'bold 18px system-ui, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('🎙️', c.width / 2, c.height / 2);
                 const tex = new THREE.CanvasTexture(c); tex.needsUpdate = true;
                 const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: true, depthWrite: false, sizeAttenuation: true }));
-                spr.scale.set(4, 1.4, 1);
+                spr.scale.set(0.8, 0.8, 1);
                 return spr;
               }
 
@@ -2738,13 +2923,16 @@
                   for (const uid of Array.from(_playerSpeakingSprites.keys())) _removeSpeakingSprite(uid);
                   return;
                 }
+                const targetHeight = 6.2;
                 for (const uid of _knownPlayerIds) {
-                  const on = talkingUsers.has(uid);
+                  const on = talkingUsers.has(uid) && !_playerDead.get(uid);
                   let spr = _playerSpeakingSprites.get(uid);
                   const pos = _playerPositions.get(uid);
                   if (on && pos) {
                     if (!spr) { spr = _createSpeakingSprite(); scene.add(spr); _playerSpeakingSprites.set(uid, spr); }
-                    spr.position.set(pos.x, pos.y + 6, pos.z);
+                    const currentY = spr.position.y;
+                    const desiredY = pos.y + targetHeight;
+                    spr.position.lerp(new THREE.Vector3(pos.x, desiredY, pos.z), 0.24);
                     spr.visible = true;
                   } else if (spr) { spr.visible = false; }
                 }
@@ -2757,13 +2945,26 @@
                 if (voiceEnabled) return;
                 try {
                   _updateVoiceUi();
-                  if (!_getVoiceSettingEnabled()) return;
-                  if (!_voiceAllowed()) { showToast('Voice chat requires a 13+ account.', 'info', 3000); return; }
-                  audioCtx = new AudioContext();
+                  if (!_voiceAllowed()) { showToast('Voice chat is unavailable because this browser does not allow microphone access.', 'info', 3000); return; }
+                  if (_getVoiceSettingEnabled() === false) {
+                    try {
+                      const saved = JSON.parse(localStorage.getItem('bloxverse_settings') || '{}');
+                      saved.voiceEnabled = true;
+                      localStorage.setItem('bloxverse_settings', JSON.stringify(saved));
+                    } catch (_) {}
+                  }
+                  await _ensureVoiceAudioReady();
                   const deviceId = localStorage.getItem('bloxverse_voice_mic') || '';
-                  localMicStream = await navigator.mediaDevices.getUserMedia({ audio: deviceId ? { deviceId: { exact: deviceId } } : true });
-                  voiceEnabled = true; micMuted = true;
-                  localMicStream.getAudioTracks().forEach(t => t.enabled = false);
+                  localMicStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                      echoCancellation: false,
+                      noiseSuppression: false,
+                      autoGainControl: false,
+                      deviceId: deviceId ? { exact: deviceId } : undefined
+                    }
+                  });
+                  voiceEnabled = true; micMuted = false;
+                  localMicStream.getAudioTracks().forEach(t => t.enabled = true);
                   _updateVoiceUi();
                   await _enumerateDevices();
                   _updateSpeakerOutput();
@@ -2808,8 +3009,7 @@
               }
 
               function _updateSpeakerOutput() {
-                const id = localStorage.getItem('bloxverse_voice_speaker') || '';
-                if (audioCtx && typeof audioCtx.setSinkId === 'function') audioCtx.setSinkId(id).catch(() => {});
+                // no-op: browser audio element handles output device selection automatically when available
               }
 
               async function toggleMic() {
@@ -2817,6 +3017,7 @@
                   await initVoice();
                   if (!voiceEnabled || !localMicStream) return;
                 }
+                await _ensureVoiceAudioReady();
                 micMuted = !micMuted;
                 localMicStream.getAudioTracks().forEach(t => t.enabled = !micMuted);
                 _updateVoiceUi();
@@ -2825,7 +3026,7 @@
               function _maybeCreatePeers() {
                 if (!voiceEnabled || !localMicStream) return;
                 for (const uid of _knownPlayerIds) {
-                  if (uid === user.uid || peers.has(uid)) continue;
+                  if (uid === user.uid || peers.has(uid) || user.uid > uid) continue;
                   _createPeer(uid);
                 }
               }
@@ -2833,109 +3034,184 @@
               function _createPeer(uid) {
                 const pc = new RTCPeerConnection(STUN_SERVERS);
                 localMicStream.getTracks().forEach(t => pc.addTrack(t, localMicStream));
-                pc.ontrack = (e) => {
-                  const stream = e.streams[0]; remoteStreams.set(uid, stream);
-                  if (!audioCtx) return;
-                  const src = audioCtx.createMediaStreamSource(stream);
-                  const panner = new PannerNode(audioCtx, { distanceModel: 'inverse', refDistance: 10, maxDistance: 80, rolloffFactor: 1.5, panningModel: 'HRTF' });
-                  src.connect(panner).connect(audioCtx.destination);
-                  panners.set(uid, panner);
-                  const analyser = audioCtx.createAnalyser(); analyser.fftSize = 256;
-                  src.connect(analyser);
-                  const buf = new Uint8Array(analyser.frequencyBinCount);
-                  const check = () => {
-                    if (!voiceEnabled || !remoteStreams.has(uid)) return;
-                    analyser.getByteFrequencyData(buf);
-                    const avg = buf.reduce((a, b) => a + b, 0) / buf.length;
-                    if (avg > 15) talkingUsers.add(uid); else talkingUsers.delete(uid);
-                    requestAnimationFrame(check);
-                  };
-                  check();
+                pc.ontrack = async (e) => {
+                  const stream = e.streams?.[0];
+                  if (!stream) return;
+                  console.log('[Voice] remote track received for', uid, stream.getAudioTracks().length);
+                  remoteStreams.set(uid, stream);
+                  _attachRemoteVoiceAudio(uid, stream);
+                  talkingUsers.add(uid);
+                  _updateTalkingIndicators();
+                  try {
+                    await _ensureVoiceAudioReady();
+                    const audioCtx = new AudioContext();
+                    await audioCtx.resume();
+                    const analyser = audioCtx.createAnalyser();
+                    analyser.fftSize = 256;
+                    analyser.smoothingTimeConstant = 0.85;
+                    const src = audioCtx.createMediaStreamSource(stream);
+                    src.connect(analyser);
+                    const buf = new Uint8Array(analyser.frequencyBinCount);
+                    voiceAnalyzers.set(uid, analyser);
+                    let quietFrames = 0;
+                    const check = () => {
+                      if (!voiceEnabled || !remoteStreams.has(uid)) return;
+                      analyser.getByteFrequencyData(buf);
+                      const peak = Math.max(...buf);
+                      if (peak > 90) {
+                        quietFrames = 0;
+                        talkingUsers.add(uid);
+                      } else {
+                        quietFrames += 1;
+                        if (quietFrames > 6) talkingUsers.delete(uid);
+                      }
+                      requestAnimationFrame(check);
+                    };
+                    check();
+                  } catch (err) {
+                    console.error('[Voice] audio setup failed for', uid, err);
+                  }
                 };
                 pc.onicecandidate = (e) => { if (e.candidate) sendVoiceSignal('voice-ice', { candidate: e.candidate.toJSON() }, uid); };
                 pc.oniceconnectionstatechange = () => {
-                  if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
-                    pc.close(); peers.delete(uid); remoteStreams.delete(uid); panners.delete(uid);
+                  console.log('[Voice] ICE state for', uid, pc.iceConnectionState);
+                  if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'closed') {
+                    _cleanupVoicePeer(uid);
                   }
+                };
+                pc.onconnectionstatechange = () => {
+                  console.log('[Voice] Connection state for', uid, pc.connectionState);
                 };
                 peers.set(uid, pc);
                 if (user.uid < uid) {
-                  pc.createOffer().then(o => { pc.setLocalDescription(o); sendVoiceSignal('voice-offer', { offer: { type: o.type, sdp: o.sdp } }, uid); }).catch(e => console.error('[Voice] offer:', e));
+                  pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: false })
+                    .then(async (o) => {
+                      await pc.setLocalDescription(o);
+                      sendVoiceSignal('voice-offer', { offer: { type: o.type, sdp: o.sdp } }, uid);
+                    })
+                    .catch(e => console.error('[Voice] offer:', e));
                 }
               }
 
-              function _handleVoiceSignal(data) {
+              async function _handleVoiceSignal(data) {
                 if (!voiceEnabled || !localMicStream) return;
                 const from = data.userId;
                 if (from === user.uid || !_knownPlayerIds.has(from)) return;
                 if (data.type === 'voice-offer' && data.offer) {
-                  if (peers.has(from)) return;
+                  if (peers.has(from)) _cleanupVoicePeer(from);
                   const pc = new RTCPeerConnection(STUN_SERVERS);
                   localMicStream.getTracks().forEach(t => pc.addTrack(t, localMicStream));
-                  pc.ontrack = (e) => {
-                    const stream = e.streams[0]; remoteStreams.set(from, stream);
-                    if (!audioCtx) return;
-                    const src = audioCtx.createMediaStreamSource(stream);
-                    const panner = new PannerNode(audioCtx, { distanceModel: 'inverse', refDistance: 10, maxDistance: 80, rolloffFactor: 1.5, panningModel: 'HRTF' });
-                    src.connect(panner).connect(audioCtx.destination); panners.set(from, panner);
-                    const analyser = audioCtx.createAnalyser(); analyser.fftSize = 256;
-                    src.connect(analyser); const buf = new Uint8Array(analyser.frequencyBinCount);
-                    const check = () => {
-                      if (!voiceEnabled || !remoteStreams.has(from)) return;
-                      analyser.getByteFrequencyData(buf); const avg = buf.reduce((a, b) => a + b, 0) / buf.length;
-                      if (avg > 15) talkingUsers.add(from); else talkingUsers.delete(from);
-                      requestAnimationFrame(check);
-                    };
-                    check();
+                  pc.ontrack = async (e) => {
+                    const stream = e.streams?.[0];
+                    if (!stream) return;
+                    console.log('[Voice] remote track received for', from, stream.getAudioTracks().length);
+                    remoteStreams.set(from, stream);
+                    _attachRemoteVoiceAudio(from, stream);
+                    talkingUsers.add(from);
+                    _updateTalkingIndicators();
+                    try {
+                      await _ensureVoiceAudioReady();
+                      const audioCtx = new AudioContext();
+                      await audioCtx.resume();
+                      const analyser = audioCtx.createAnalyser();
+                      analyser.fftSize = 256;
+                      analyser.smoothingTimeConstant = 0.85;
+                      const src = audioCtx.createMediaStreamSource(stream);
+                      src.connect(analyser);
+                      const buf = new Uint8Array(analyser.frequencyBinCount);
+                      voiceAnalyzers.set(from, analyser);
+                      let quietFrames = 0;
+                      const check = () => {
+                        if (!voiceEnabled || !remoteStreams.has(from)) return;
+                        analyser.getByteFrequencyData(buf); const peak = Math.max(...buf);
+                        if (peak > 90) {
+                          quietFrames = 0;
+                          talkingUsers.add(from);
+                        } else {
+                          quietFrames += 1;
+                          if (quietFrames > 6) talkingUsers.delete(from);
+                        }
+                        requestAnimationFrame(check);
+                      };
+                      check();
+                    } catch (err) {
+                      console.error('[Voice] audio setup failed for', from, err);
+                    }
                   };
                   pc.onicecandidate = (e) => { if (e.candidate) sendVoiceSignal('voice-ice', { candidate: e.candidate.toJSON() }, from); };
                   pc.oniceconnectionstatechange = () => {
-                    if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
-                      pc.close(); peers.delete(from); remoteStreams.delete(from); panners.delete(from);
+                    console.log('[Voice] ICE state for', from, pc.iceConnectionState);
+                    if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'closed') {
+                      _cleanupVoicePeer(from);
                     }
                   };
-                  pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-                  pc.createAnswer().then(a => { pc.setLocalDescription(a); sendVoiceSignal('voice-answer', { answer: { type: a.type, sdp: a.sdp } }, from); }).catch(e => console.error('[Voice] answer:', e));
+                  pc.onconnectionstatechange = () => {
+                    console.log('[Voice] Connection state for', from, pc.connectionState);
+                  };
                   peers.set(from, pc);
+                  try {
+                    await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+                    await _flushVoiceIce(from, pc);
+                    const answer = await pc.createAnswer({ offerToReceiveAudio: true, offerToReceiveVideo: false });
+                    await pc.setLocalDescription(answer);
+                    sendVoiceSignal('voice-answer', { answer: { type: answer.type, sdp: answer.sdp } }, from);
+                  } catch (e) {
+                    console.error('[Voice] answer:', e);
+                    _cleanupVoicePeer(from);
+                  }
                 } else if (data.type === 'voice-answer' && data.answer) {
                   const pc = peers.get(from);
-                  if (pc && pc.remoteType !== 'answer') pc.setRemoteDescription(new RTCSessionDescription(data.answer)).catch(() => {});
+                  if (pc && pc.remoteDescription?.type !== 'answer') {
+                    try {
+                      await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+                      await _flushVoiceIce(from, pc);
+                    } catch (e) {
+                      console.warn('[Voice] remote answer failed:', e);
+                    }
+                  }
                 } else if (data.type === 'voice-ice' && data.candidate) {
                   const pc = peers.get(from);
-                  if (pc) try { pc.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch (e) {}
+                  if (pc) await _addVoiceIce(from, pc, data.candidate);
+                  else _queueVoiceIce(from, data.candidate);
                 }
               }
 
-              function _spatializeVoice() {
-                if (!voiceEnabled || !audioCtx || !window._bloxverse) return;
-                const char = window._bloxverse.getCharacter();
-                if (!char) return;
-                const p = char.position;
-                audioCtx.listener.positionX.value = p.x;
-                audioCtx.listener.positionY.value = p.y + 2;
-                audioCtx.listener.positionZ.value = p.z;
-                const ry = char.rotation.y;
-                audioCtx.listener.forwardX.value = -Math.sin(ry);
-                audioCtx.listener.forwardY.value = 0;
-                audioCtx.listener.forwardZ.value = -Math.cos(ry);
-                audioCtx.listener.upX.value = 0; audioCtx.listener.upY.value = 1; audioCtx.listener.upZ.value = 0;
-                for (const [uid, panner] of panners) {
-                  const pos = _playerPositions.get(uid);
-                  if (pos) { panner.positionX.value = pos.x; panner.positionY.value = pos.y + 2; panner.positionZ.value = pos.z; }
-                }
-              }
-
-              // Hook spatialization into the existing update loop
+              // Hook talking indicator updates into the existing update loop
               const _origUpdate = window._mpUpdate;
               window._mpUpdate = (dt) => {
                 _origUpdate(dt);
-                _spatializeVoice();
                 _updateTalkingIndicators();
               };
 
+              function _syncMasterVolumeUI() {
+                if (masterVolumeSlider) masterVolumeSlider.value = String(Math.round(masterVolume * 10));
+                if (masterVolumeValue) masterVolumeValue.textContent = String(Math.round(masterVolume * 10));
+              }
+
+              function _setMasterVolume(value) {
+                masterVolume = Math.max(0, Math.min(1, value / 10));
+                _syncMasterVolumeUI();
+                _applyMasterVolume();
+              }
+
+              if (masterVolumeSlider) {
+                masterVolumeSlider.addEventListener('input', (e) => {
+                  const value = parseInt(e.target.value, 10) || 10;
+                  _setMasterVolume(value);
+                  saveSetting('masterVolume', value);
+                });
+              }
+              _setMasterVolume(10);
+
               setOnVoiceSignal(_handleVoiceSignal);
-              document.getElementById('btnMic')?.addEventListener('click', toggleMic);
+              document.getElementById('btnMic')?.addEventListener('click', async () => {
+                await toggleMic();
+                await _resumeRemoteVoicePlayback();
+              });
+              document.addEventListener('pointerdown', () => { _resumeRemoteVoicePlayback(); _resumeVoiceAudioCtx(); }, { passive: true });
+              document.addEventListener('touchstart', () => { _resumeRemoteVoicePlayback(); _resumeVoiceAudioCtx(); }, { passive: true });
               setInterval(() => { if (voiceEnabled) _maybeCreatePeers(); }, 2000);
+              setInterval(() => { _resumeRemoteVoicePlayback(); }, 1000);
 
               _updateVoiceUi();
               if (_voiceAllowed()) _enumerateDevices();

@@ -2,7 +2,7 @@
 <html lang="en">
 
 <head>
-  <script type="importmap">
+    <script type="importmap">
   {
     "imports": {
       "three": "https://esm.sh/three@0.184.0",
@@ -15,9 +15,8 @@
     }
   }
   </script>
-  <base href="/bloxverse/">
 
-    <meta charset="UTF-8" />
+  <meta charset="UTF-8" />
   <link rel="icon" type="image/png" href="assets/icons/bloxverseLogo.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BloxVerse - Transactions</title>
@@ -68,7 +67,7 @@
     .tx-table-wrap {
       background: var(--bg-secondary);
       border-radius: 10px;
-      overflow: hidden;
+      overflow-x: auto;
     }
     .tx-table {
       width: 100%;
@@ -125,6 +124,19 @@
       color: var(--text-muted);
     }
 
+    @media (max-width: 768px) {
+      .tx-page { padding: 12px; padding-top: 60px; }
+      .tx-page h1 { font-size: 20px; }
+      .tx-balance-card { padding: 14px 16px; }
+      .tx-balance-card .balance-amount { font-size: 22px; }
+      .tx-table th, .tx-table td { padding: 8px 10px; font-size: 12px; }
+      .tx-table .tx-time { font-size: 10px; }
+    }
+    @media (max-width: 480px) {
+      .tx-table th, .tx-table td { padding: 6px 8px; font-size: 11px; }
+      .tx-table .tx-desc { max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    }
+
     .settings-wrapper {
       position: relative;
     }
@@ -164,11 +176,14 @@
 <body>
   <nav class="navbar">
     <div class="nav-left">
+      <button class="nav-hamburger" id="navHamburger" aria-label="Menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+      </button>
       <div class="logo" onclick="window.location.href='/bloxverse/'">
         
         <span class="logo-text">BloxVerse</span>
       </div>
-      <div class="nav-links">
+      <div class="nav-links" id="navLinks">
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/create'">Create</button>
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
@@ -532,6 +547,18 @@
         if (resultsEl.style.display === 'block') resultsEl.style.display = 'none';
       }, { once: true });
     };
+
+    // Hamburger menu toggle
+    const _hamburger = document.getElementById('navHamburger');
+    const _navLinks = document.getElementById('navLinks');
+    if (_hamburger && _navLinks) {
+      _hamburger.addEventListener('click', () => {
+        _navLinks.classList.toggle('open');
+      });
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.navbar')) _navLinks.classList.remove('open');
+      });
+    }
 
     window.__handleBrokenAvatar = async function(imgEl, uid) {
       try {

@@ -1119,3 +1119,163 @@ input[type=range] {
   transition: width 0.2s ease, background-color 0.2s ease;
   border-radius: 3px;
 }
+
+/* ── Mobile Responsive ──────────────────────── */
+@media (max-width: 768px) {
+  .top-bar {
+    top: 8px;
+    left: 8px;
+    gap: 6px;
+  }
+  .top-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+  }
+
+  .chat-container {
+    left: 8px;
+    top: 52px;
+    width: calc(100vw - 16px);
+    max-width: 350px;
+  }
+
+  .leaderboard {
+    width: 160px;
+    right: 8px;
+    top: 16px;
+  }
+  .leaderboard.collapsed {
+    transform: translateX(calc(100% + 12px));
+  }
+  .leaderboard-list {
+    max-height: 200px;
+  }
+
+  .healthbar {
+    width: 120px;
+    right: 8px;
+    top: 8px;
+  }
+
+  .player-menu {
+    right: 12px;
+    top: 56px;
+    width: 220px;
+  }
+
+  .settings-panel-content {
+    max-width: 95vw;
+    margin-top: 48px;
+    max-height: 85vh;
+  }
+  .settings-tabs {
+    overflow-x: auto;
+    justify-content: flex-start;
+    gap: 0;
+    -webkit-overflow-scrolling: touch;
+  }
+  .settings-tab {
+    padding: 10px 16px;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+  .settings-tab-content {
+    padding: 14px;
+  }
+  .setting-row {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .setting-control input[type=range] {
+    width: 80px;
+  }
+  .settings-panel-footer {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .settings-panel-footer .settings-btn {
+    min-width: 70px;
+    font-size: 12px;
+    padding: 6px 12px;
+    flex: 1;
+  }
+
+  .gamepass-box {
+    width: 95vw;
+  }
+
+  .friend-request-toast {
+    width: calc(100vw - 32px);
+    max-width: 320px;
+  }
+}
+
+@media (max-width: 480px) {
+  .chat-container {
+    width: calc(100vw - 16px);
+    max-width: none;
+    left: 8px;
+    right: 8px;
+    height: 200px;
+  }
+
+  .chat-message {
+    font-size: 12px;
+  }
+
+  .leaderboard {
+    width: 140px;
+  }
+  .leaderboard-item {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  .leaderboard-header {
+    padding: 6px 8px;
+    font-size: 10px;
+  }
+
+  .player-menu {
+    width: calc(100vw - 24px);
+    right: 12px;
+    top: 52px;
+  }
+
+  .settings-panel-content {
+    border-radius: 8px;
+    max-height: 90vh;
+    margin-top: 32px;
+  }
+  .settings-panel-header {
+    padding: 10px 14px;
+  }
+  .settings-panel-header h3 {
+    font-size: 15px;
+  }
+  .settings-tab {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  .settings-tab-content {
+    padding: 10px;
+  }
+  .setting-row label {
+    font-size: 12px;
+  }
+  .settings-panel-footer {
+    padding: 10px 14px;
+  }
+  .settings-panel-footer .settings-btn {
+    font-size: 11px;
+    padding: 5px 10px;
+    min-width: 60px;
+  }
+
+  .people-item {
+    padding: 6px 8px;
+  }
+  .people-name {
+    font-size: 13px;
+  }
+}

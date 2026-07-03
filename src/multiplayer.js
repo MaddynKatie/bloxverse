@@ -24,7 +24,7 @@ export function connectMultiplayer(gameId, userId, username, onPlayerUpdate, onP
       if (data.type === 'leave') {
         onPlayerLeave(data.userId);
       } else if (data.type === 'update') {
-        onPlayerUpdate(data.userId, data.x, data.y, data.z, data.ry, data.moving, data.grounded, data.climbState, data.qx, data.qy, data.qz, data.qw, data.dead, data.health);
+        onPlayerUpdate(data.userId, data.x, data.y, data.z, data.ry, data.moving, data.grounded, data.climbState, data.qx, data.qy, data.qz, data.qw, data.dead, data.health, data.deathType);
       } else if (data.type === 'playerList' && onPlayerList) {
         onPlayerList(data.players);
       } else if (data.type === 'chat' && onChatMsg) {
@@ -65,12 +65,12 @@ export function sendChat(message, username, userId, unfiltered = false) {
   }
 }
 
-export function sendLocalTransform(x, y, z, ry, moving, grounded, climbState, qx, qy, qz, qw, dead, health) {
+export function sendLocalTransform(x, y, z, ry, moving, grounded, climbState, qx, qy, qz, qw, dead, health, deathType) {
   if (ws && ws.readyState === WebSocket.OPEN && currentUserId) {
     const payload = JSON.stringify({
       type: 'update',
       userId: currentUserId,
-      x, y, z, ry, moving, grounded, climbState, qx, qy, qz, qw, dead, health
+      x, y, z, ry, moving, grounded, climbState, qx, qy, qz, qw, dead, health, deathType
     });
     ws.send(payload);
   }

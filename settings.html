@@ -5,17 +5,12 @@
   <script type="importmap">
   {
     "imports": {
-      "three": "https://esm.sh/three@0.184.0",
-      "three/": "https://esm.sh/three@0.184.0/",
       "firebase/app": "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js",
       "firebase/auth": "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js",
-      "firebase/firestore": "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js",
-      "cannon-es": "https://esm.sh/cannon-es@0.20.0",
-      "glin-profanity": "https://esm.sh/glin-profanity@3.3.0"
+      "firebase/firestore": "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js"
     }
   }
   </script>
-  <base href="/bloxverse/">
 
   <meta charset="UTF-8" />
   <link rel="icon" type="image/png" href="assets/icons/bloxverseLogo.png" />
@@ -294,6 +289,17 @@
     }
     .settings-modal-actions .save:hover { background: rgba(124,92,252,0.7); }
     .settings-modal-actions .save:disabled { opacity: 0.5; cursor: default; }
+    @media (max-width: 768px) {
+      .settings-page { padding: 16px; padding-top: 64px; }
+      .settings-page h1 { font-size: 18px; }
+      .settings-section { padding: 12px; }
+      .settings-row { flex-wrap: wrap; gap: 6px; }
+      .settings-row-desc { font-size: 11px; }
+    }
+    @media (max-width: 480px) {
+      .settings-page { padding: 12px; padding-top: 56px; }
+      .settings-row { flex-direction: column; align-items: flex-start; }
+    }
   </style>
 
   <link rel="stylesheet" href="src/theme.css" />
@@ -303,11 +309,14 @@
 <body>
   <nav class="navbar">
     <div class="nav-left">
+      <button class="nav-hamburger" id="navHamburger" aria-label="Menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+      </button>
       <div class="logo" onclick="window.location.href='/bloxverse/'">
         
         <span class="logo-text">BloxVerse</span>
       </div>
-      <div class="nav-links">
+      <div class="nav-links" id="navLinks">
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/create'">Create</button>
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
@@ -781,6 +790,18 @@
       }
 
     });
+
+    // Hamburger menu toggle
+    const hamburger = document.getElementById('navHamburger');
+    const navLinks = document.getElementById('navLinks');
+    if (hamburger && navLinks) {
+      hamburger.addEventListener('click', () => {
+        navLinks.classList.toggle('open');
+      });
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.navbar')) navLinks.classList.remove('open');
+      });
+    }
 
     window._logout = async () => {
       await signOut(auth);

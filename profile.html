@@ -2,7 +2,7 @@
 <html lang="en">
 
 <head>
-  <script type="importmap">
+    <script type="importmap">
   {
     "imports": {
       "three": "https://esm.sh/three@0.184.0",
@@ -15,9 +15,8 @@
     }
   }
   </script>
-  <base href="/bloxverse/">
 
-    <meta charset="UTF-8" />
+  <meta charset="UTF-8" />
   <link rel="icon" type="image/png" href="assets/icons/bloxverseLogo.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BloxVerse - Profile</title>
@@ -170,6 +169,25 @@
     }
     .profile-stat-card.bux .stat-value { color: #f2cd37; }
     .profile-stat-card.joined .stat-value { font-size: 12px; }
+
+    @media (max-width: 768px) {
+      .profile-page { padding-top: 48px; }
+      .profile-banner { height: 180px; }
+      .profile-avatar-centered .profile-avatar-large { width: 120px; height: 120px; font-size: 42px; }
+      .profile-header { padding: 12px 16px; flex-wrap: wrap; }
+      .profile-header-info h1 { font-size: 18px; }
+      .profile-stats { flex-wrap: wrap; }
+      .profile-stat-card { flex: 1 1 33%; min-width: 60px; padding: 10px 6px; }
+      .profile-stat-card .stat-value { font-size: 15px; }
+      .profile-stat-card .stat-label { font-size: 10px; }
+      .profile-section { padding: 12px; }
+    }
+    @media (max-width: 480px) {
+      .profile-banner { height: 140px; }
+      .profile-avatar-centered .profile-avatar-large { width: 90px; height: 90px; font-size: 32px; }
+      .profile-header-info h1 { font-size: 16px; }
+      .profile-stat-card { flex: 1 1 50%; }
+    }
 
     .settings-nav-btn {
       display: flex;
@@ -398,11 +416,14 @@
 <body>
   <nav class="navbar">
     <div class="nav-left">
+      <button class="nav-hamburger" id="navHamburger" aria-label="Menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+      </button>
       <div class="logo" onclick="window.location.href='/bloxverse/'">
         
         <span class="logo-text">BloxVerse</span>
       </div>
-      <div class="nav-links">
+      <div class="nav-links" id="navLinks">
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/create'">Create</button>
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
@@ -855,6 +876,18 @@
         }
       });
     });
+
+    // Hamburger menu toggle
+    const hamburger = document.getElementById('navHamburger');
+    const navLinks = document.getElementById('navLinks');
+    if (hamburger && navLinks) {
+      hamburger.addEventListener('click', () => {
+        navLinks.classList.toggle('open');
+      });
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.navbar')) navLinks.classList.remove('open');
+      });
+    }
 
     window._logout = async () => {
       await signOut(auth);

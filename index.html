@@ -2,7 +2,7 @@
 <html lang="en">
 
 <head>
-  <script type="importmap">
+    <script type="importmap">
   {
     "imports": {
       "three": "https://esm.sh/three@0.184.0",
@@ -15,9 +15,8 @@
     }
   }
   </script>
-  <base href="/bloxverse/">
 
-    <meta charset="UTF-8" />
+  <meta charset="UTF-8" />
   <link rel="icon" type="image/png" href="assets/icons/bloxverseLogo.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BloxVerse</title>
@@ -63,11 +62,14 @@
   <!-- Navbar -->
   <nav class="navbar">
     <div class="nav-left">
+      <button class="nav-hamburger" id="navHamburger" aria-label="Menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+      </button>
       <div class="logo" onclick="window.location.reload()">
         
         <span class="logo-text">BloxVerse</span>
       </div>
-      <div class="nav-links">
+      <div class="nav-links" id="navLinks">
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/create'">Create</button>
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
@@ -643,6 +645,18 @@ onclick="window.location.href='/bloxverse/auth'">Login / Sign Up</button>`;
         if (activeDropdown) { activeDropdown.classList.remove('open'); activeDropdown = null; }
       }
     });
+
+    // Hamburger menu toggle
+    const hamburger = document.getElementById('navHamburger');
+    const navLinks = document.getElementById('navLinks');
+    if (hamburger && navLinks) {
+      hamburger.addEventListener('click', () => {
+        navLinks.classList.toggle('open');
+      });
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.navbar')) navLinks.classList.remove('open');
+      });
+    }
 
     window._logout = async () => {
       if (buxUnsub) { buxUnsub(); buxUnsub = null; }
