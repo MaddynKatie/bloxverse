@@ -45,14 +45,6 @@ window.showForgotPassword = function() {
   document.getElementById('forgotError').classList.remove('visible');
   document.getElementById('forgotSuccess').style.display = 'none';
   document.getElementById('forgotEmail').value = '';
-  const container = document.getElementById('forgotCaptchaContainer');
-  if (typeof hcaptcha !== 'undefined') {
-    if (container.hasChildNodes()) {
-      hcaptcha.reset();
-    } else {
-      hcaptcha.render(container, { sitekey: '42382d9c-3d68-424a-a678-f1e46ac4789a' });
-    }
-  }
 };
 
 window.showLogin = function() {
@@ -61,9 +53,6 @@ window.showLogin = function() {
   document.getElementById('loginForm').classList.add('active');
   document.getElementById('authSubtitle').textContent = 'Sign in to continue';
   document.getElementById('authSuccess').classList.remove('visible');
-  // Clean up hCaptcha when leaving forgot form
-  const container = document.getElementById('forgotCaptchaContainer');
-  if (container) container.innerHTML = '';
 };
 
 // Password strength checker
