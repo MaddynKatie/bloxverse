@@ -3,6 +3,7 @@ import { sitePath } from './paths.js';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  sendPasswordResetEmail,
   updateProfile,
   onAuthStateChanged
 } from 'firebase/auth';
@@ -33,6 +34,26 @@ window.switchTab = function(tab) {
     document.getElementById('signupForm').classList.add('active');
     document.getElementById('authSubtitle').textContent = 'Create your account';
   }
+};
+
+window.showForgotPassword = function() {
+  document.querySelectorAll('.auth-tabs').forEach(t => t.style.display = 'none');
+  document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+  document.getElementById('authSuccess').classList.remove('visible');
+  document.getElementById('forgotForm').classList.add('active');
+  document.getElementById('authSubtitle').textContent = 'Reset your password';
+  document.getElementById('forgotError').classList.remove('visible');
+  document.getElementById('forgotSuccess').style.display = 'none';
+  document.getElementById('forgotEmail').value = '';
+  if (typeof hcaptcha !== 'undefined') hcaptcha.reset();
+};
+
+window.showLogin = function() {
+  document.querySelectorAll('.auth-tabs').forEach(t => t.style.display = '');
+  document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+  document.getElementById('loginForm').classList.add('active');
+  document.getElementById('authSubtitle').textContent = 'Sign in to continue';
+  document.getElementById('authSuccess').classList.remove('visible');
 };
 
 // Password strength checker
@@ -160,6 +181,56 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
   }
 });
 
+// Forgot Password
+document.getElementById('forgotForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorEl = document.getElementById('forgotError');
+  const btn = document.getElementById('forgotBtn');
+  const successEl = document.getElementById('forgotSuccess');
+
+  errorEl.classList.remove('visible');
+  successEl.style.display = 'none';
+
+  const email = document.getElementById('forgotEmail').value.trim();
+
+  if (!email) {
+    errorEl.textContent = 'Please enter your email';
+    errorEl.classList.add('visible');
+    return;
+  }
+
+  const captchaToken = typeof hcaptcha !== 'undefined' ? hcaptcha.getResponse() : '';
+  if (!captchaToken) {
+    errorEl.textContent = 'Please complete the captcha';
+    errorEl.classList.add('visible');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+
+  try {
+    await sendPasswordResetEmail(auth, email);
+    successEl.style.display = 'block';
+    successEl.textContent = 'Reset link sent! Check your email.';
+    successEl.classList.add('visible');
+    btn.textContent = 'Sent';
+  } catch (err) {
+    const msg = err.code === 'auth/user-not-found'
+      ? 'No account found with this email'
+      : err.code === 'auth/invalid-email'
+      ? 'Invalid email address'
+      : err.code === 'auth/too-many-requests'
+      ? 'Too many requests. Try again later.'
+      : 'Failed to send reset link. Try again later.';
+    errorEl.textContent = msg;
+    errorEl.classList.add('visible');
+  } finally {
+    btn.disabled = false;
+    if (btn.textContent === 'Sending...') btn.textContent = 'Send Reset Link';
+  }
+});
+
 // Signup
 document.getElementById('signupForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -182,6 +253,12 @@ document.getElementById('signupForm')?.addEventListener('submit', async (e) => {
 
   if (!birthday) {
     errorEl.textContent = 'Please enter your birthday';
+    errorEl.classList.add('visible');
+    return;
+  }
+
+  if (!document.getElementById('signupTerms')?.checked) {
+    errorEl.textContent = 'You must agree to the Terms of Service and Privacy Policy';
     errorEl.classList.add('visible');
     return;
   }

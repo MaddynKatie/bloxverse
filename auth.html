@@ -25,6 +25,7 @@
 
   <link rel="stylesheet" href="src/theme.css" />
   <script type="module" src="src/theme.js"></script>
+  <script src="https://hcaptcha.com/1/api.js" async defer></script>
 </head>
 
 <body>
@@ -51,9 +52,34 @@
         <label for="loginPassword">Password</label>
         <input type="password" id="loginPassword" placeholder="Enter your password" required />
       </div>
+      <div style="text-align:right;margin-top:-8px;margin-bottom:12px;">
+        <a href="#" class="forgot-link" onclick="showForgotPassword();return false;">Forgot password?</a>
+      </div>
       <div class="form-error" id="loginError"></div>
       <button type="submit" class="auth-submit" id="loginBtn">Login</button>
     </form>
+
+    <!-- Forgot Password Form -->
+    <div class="auth-form" id="forgotForm">
+      <div style="margin-bottom:20px;">
+        <p style="color:var(--text-muted);font-size:13px;line-height:1.5;">
+          Enter the verified email on your account and we'll send you a reset link.
+        </p>
+      </div>
+      <div class="form-group">
+        <label for="forgotEmail">Email</label>
+        <input type="email" id="forgotEmail" placeholder="Enter your email" required />
+      </div>
+      <div class="form-group">
+        <div class="h-captcha" data-sitekey="10000000-ffff-ffff-ffff-000000000000" id="forgotCaptchaContainer"></div>
+      </div>
+      <div class="form-error" id="forgotError"></div>
+      <div class="auth-success" id="forgotSuccess" style="display:none;text-align:center;padding:12px;border-radius:8px;margin-bottom:16px;"></div>
+      <button type="submit" class="auth-submit" id="forgotBtn">Send Reset Link</button>
+      <div style="text-align:center;margin-top:14px;">
+        <a href="#" class="forgot-link" onclick="showLogin();return false;">← Back to login</a>
+      </div>
+    </div>
 
     <!-- Signup Form -->
     <form class="auth-form" id="signupForm">
@@ -89,11 +115,16 @@
         <input type="date" id="signupBirthday" required />
         <div class="field-error" id="birthdayError"></div>
       </div>
+      <div class="form-group terms-group">
+        <label class="terms-label">
+          <input type="checkbox" id="signupTerms" required />
+          <span>I agree to the <a href="/bloxverse/terms" target="_blank">Terms of Service</a> and <a href="/bloxverse/privacy" target="_blank">Privacy Policy</a></span>
+        </label>
+        <div class="field-error" id="termsError"></div>
+      </div>
       <div class="form-error" id="signupError"></div>
       <button type="submit" class="auth-submit" id="signupBtn">Sign Up</button>
     </form>
-
-    <a href="/" class="back-link">← Back to home</a>
   </div>
 
   <script type="module" src="src/auth.js"></script>
