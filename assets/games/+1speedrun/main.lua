@@ -453,7 +453,7 @@ local doRebirth = function()
 end
 
 local skipRebirth = function()
-	game:PromptDeduct(20, "Skip Rebirth")
+	game:PromptDeveloperProduct("skip_rebirth", "Skip Rebirth", 20)
 end
 
 game.On("DeductComplete", function(success, name)

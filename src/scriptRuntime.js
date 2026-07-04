@@ -91,6 +91,8 @@ export function luaToJS(lua) {
         // Await async game API calls
         (_s) => _s.replace(/\bgame\.DeductBux\s*\(/g, 'await game.DeductBux('),
         (_s) => _s.replace(/\bgame\.PurchaseGamepass\s*\(/g, 'await game.PurchaseGamepass('),
+        (_s) => _s.replace(/\bgame\.PurchaseDeveloperProduct\s*\(/g, 'await game.PurchaseDeveloperProduct('),
+        (_s) => _s.replace(/\bgame\.PromptDeveloperProduct\s*\(/g, 'await game.PromptDeveloperProduct('),
         // Compound assignment operators: += -= *= /= //= %= ^= ..=
         // Placed after table-key transforms to avoid {x = …} → {x: …} conflict
         (_s) => _s.replace(

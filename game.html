@@ -295,7 +295,7 @@
   <script type="module">
     import * as THREE from 'three';
     import { games } from './src/games.js';
-    import { auth, db, getDoc, doc, setDoc, incrementGameVisits, rewardUniqueVisit, getFollowing, followUser, unfollowUser, getUserProfile, calculateAge, addTrustedFriend, removeTrustedFriend, checkBan, getRoles, banGuard, trackPresence, onSnapshot, collection, assignUserIdNum, submitReport } from './src/firebase.js';
+    import { auth, db, getDoc, doc, setDoc, incrementGameVisits, rewardUniqueVisit, getFollowing, followUser, unfollowUser, getUserProfile, calculateAge, addTrustedFriend, removeTrustedFriend, checkBan, getRoles, banGuard, trackPresence, onSnapshot, collection, assignUserIdNum, submitReport, logTransaction } from './src/firebase.js';
     import { connectMultiplayer, sendLocalTransform, sendPhysicsState, disconnectMultiplayer, sendChat, setOnVoiceSignal, sendVoiceSignal } from './src/multiplayer.js';
     import { onFriendRequests, sendFriendRequest as dbSendFriendRequest, acceptFriendRequest as dbAcceptFriendRequest, declineFriendRequest as dbDeclineFriendRequest, removeFriend } from './src/friends.js';
     import { executeScript, loadScriptsFromStorage, createInstanceProxy } from './src/scriptRuntime.js';
@@ -1708,15 +1708,22 @@
         try {
           if (price > 0) {
             const snap = await getDoc(doc(db, 'users', auth.currentUser.uid));
-            const userBux = snap.data()?.bux ?? 0;
+            const data = snap.data();
+            const userBux = data?.bux ?? 0;
             if (userBux < price) return false;
+            const gamepasses = data?.gamepasses || {};
+            gamepasses[id] = true;
             await setDoc(doc(db, 'users', auth.currentUser.uid), {
               bux: userBux - price,
-              gamepasses: { [id]: true },
+              gamepasses,
             }, { merge: true });
+            await logTransaction(auth.currentUser.uid, -price, userBux - price, 'Gamepass', id);
           } else {
+            const snap = await getDoc(doc(db, 'users', auth.currentUser.uid));
+            const gamepasses = snap.data()?.gamepasses || {};
+            gamepasses[id] = true;
             await setDoc(doc(db, 'users', auth.currentUser.uid), {
-              gamepasses: { [id]: true },
+              gamepasses,
             }, { merge: true });
           }
           _playerGamepasses.add(id);
@@ -1793,6 +1800,23 @@
         _promptOpen = true;
         overlay.style.display = 'flex';
         return true;
+      };
+      const purchaseDeveloperProduct = async (id, price) => {
+        if (!auth.currentUser) return false;
+        try {
+          const snap = await getDoc(doc(db, 'users', auth.currentUser.uid));
+          const userBux = snap.data()?.bux ?? 0;
+          if (userBux < price) return false;
+          const newBux = userBux - price;
+          await setDoc(doc(db, 'users', auth.currentUser.uid), {
+            bux: newBux,
+          }, { merge: true });
+          await logTransaction(auth.currentUser.uid, -price, newBux, 'DeveloperProduct', id);
+          return true;
+        } catch (e) {
+          console.error('[DeveloperProduct] Purchase failed:', e);
+          return false;
+        }
       };
       return {
         GetPlayers: () => getCurrentPlayers(),
@@ -1873,6 +1897,60 @@
           return true;
         },
         PurchaseGamepass: purchaseGamepass,
+        PurchaseDeveloperProduct: purchaseDeveloperProduct,
+        PromptDeveloperProduct: (id, name, price) => {
+          if (!auth.currentUser) return false;
+          if (_promptOpen) return false;
+          const overlay = document.getElementById('gamepassPrompt');
+          const title = document.getElementById('gpTitle');
+          const priceEl = document.getElementById('gpPrice');
+          const balanceEl = document.getElementById('gpBalance');
+          const buyBtn = document.getElementById('btnBuyGamepass');
+          const cancelBtn = document.getElementById('btnCancelGamepass');
+          const errorEl = document.getElementById('gpError');
+          title.textContent = name;
+          priceEl.textContent = price;
+          errorEl.style.display = 'none';
+          buyBtn.classList.remove('ready', 'filling');
+          buyBtn.style.display = '';
+          let gpFillTimer = null;
+          const startFill = () => {
+            const GP_FILL_DURATION = 3;
+            void buyBtn.offsetWidth;
+            buyBtn.style.setProperty('--gp-fill-duration', GP_FILL_DURATION + 's');
+            buyBtn.classList.add('filling');
+            gpFillTimer = setTimeout(() => {
+              buyBtn.classList.add('ready');
+            }, GP_FILL_DURATION * 1000);
+          };
+        getDoc(doc(db, 'users', auth.currentUser.uid)).then(snap => {
+          const b = snap.data()?.bux ?? 0;
+            balanceEl.textContent = b;
+            if (b < price) {
+              errorEl.textContent = 'Insufficient BUX! You don\'t have enough BUX to purchase this item.';
+              errorEl.style.display = 'block';
+              buyBtn.style.display = 'none';
+            } else {
+              startFill();
+            }
+          });
+          buyBtn.onclick = async () => {
+            if (!buyBtn.classList.contains('ready')) return;
+            if (gpFillTimer) clearTimeout(gpFillTimer);
+            _promptOpen = false;
+            overlay.style.display = 'none';
+            const success = await purchaseDeveloperProduct(id, price);
+            (gameEventListeners['DeductComplete'] || []).forEach(cb => cb(success, name));
+          };
+          cancelBtn.onclick = () => {
+            if (gpFillTimer) clearTimeout(gpFillTimer);
+            _promptOpen = false;
+            overlay.style.display = 'none';
+          };
+          _promptOpen = true;
+          overlay.style.display = 'flex';
+          return true;
+        },
         DeductBux: deductBuxFn,
         PromptDeduct: promptDeductFn,
         SendChat: (msg) => {
