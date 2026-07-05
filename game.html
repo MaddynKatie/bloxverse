@@ -2575,7 +2575,7 @@
                           const ad = snap.data();
                           if (ad.avatarColors || ad.avatarClothing || ad.avatarPants || ad.avatarAccessories || ad.avatarFace) {
                             window._bloxverse._setPlayerAvatarData(p.userId, {
-                              colors: ad.avatarColors || {},
+                              colors: ad.avatarColors || { Body: '#1e3a5f', Legs: '#2d5a27', Arms: '#1e3a5f', Head: '#c4a882' },
                               clothing: ad.avatarClothing || null,
                               pants: ad.avatarPants || null,
                               accessories: ad.avatarAccessories || [],

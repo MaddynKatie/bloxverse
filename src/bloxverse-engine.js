@@ -4594,7 +4594,10 @@ window._bloxverse = {
             // Apply stored avatar data if available, otherwise neutral defaults
             const storedData = _playerAvatarData.get(userId);
             if (storedData) {
-                _applyColorsToModel(clone, storedData.colors);
+                const cols = storedData.colors && Object.keys(storedData.colors).length > 0
+                    ? storedData.colors
+                    : { Body: '#1e3a5f', Legs: '#2d5a27', Arms: '#1e3a5f', Head: '#c4a882' };
+                _applyColorsToModel(clone, cols);
                 _applyClothingToModel(clone, storedData.clothing);
                 _applyPantsToModel(clone, storedData.pants);
                 _applyAccessoriesToModel(userId, clone, storedData.accessories);
@@ -4666,7 +4669,7 @@ window._bloxverse = {
     _setPlayerAvatarData(userId, data) {
         _playerAvatarData.set(userId, data);
         if (userId === currentUserId && character) {
-            if (data.colors) _applyColorsToModel(character, data.colors);
+            if (data.colors && Object.keys(data.colors).length > 0) _applyColorsToModel(character, data.colors);
             _applyClothingToModel(character, data.clothing);
             _applyPantsToModel(character, data.pants);
             _applyAccessoriesToModel(userId, character, data.accessories);
@@ -4675,7 +4678,7 @@ window._bloxverse = {
         }
         const p = otherPlayers.get(userId);
         if (p && p.mesh) {
-            if (data.colors) _applyColorsToModel(p.mesh, data.colors);
+            if (data.colors && Object.keys(data.colors).length > 0) _applyColorsToModel(p.mesh, data.colors);
             _applyClothingToModel(p.mesh, data.clothing);
             _applyPantsToModel(p.mesh, data.pants);
             _applyAccessoriesToModel(userId, p.mesh, data.accessories);
