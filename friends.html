@@ -315,7 +315,7 @@
         getDoc(doc(db, 'users', fid)).then(fDoc => {
           if (!fDoc.exists()) return null;
           const fData = fDoc.data();
-          return { id: fid, num: fData.userIdNum, username: fData.username || 'Unknown' };
+          return { id: fid, num: fData.userIdNum, username: fData.username || 'Unknown', avatarPreview: fData.avatarPreview || null };
         }).catch(() => null)
       ));
       return results.filter(Boolean);
@@ -347,8 +347,10 @@
       for (const r of cachedRequests) {
         try {
           const fromDoc = await getDoc(doc(db, 'users', r.from));
-          r.fromUsername = fromDoc.exists() ? fromDoc.data().username : 'Unknown';
-        } catch { r.fromUsername = 'Unknown'; }
+          const d = fromDoc.exists() ? fromDoc.data() : {};
+          r.fromUsername = d.username || 'Unknown';
+          r.fromAvatarPreview = d.avatarPreview || null;
+        } catch { r.fromUsername = 'Unknown'; r.fromAvatarPreview = null; }
       }
 
       renderPage();
@@ -404,7 +406,7 @@
       document.querySelectorAll('.friends-tab').forEach(tab => {
         tab.addEventListener('click', () => {
           activeTab = tab.dataset.tab;
-          loadAllData();
+          renderPage();
         });
       });
 
@@ -466,6 +468,14 @@
       });
     }
 
+    function avatarHtml(item) {
+      const initial = (item.username || 'U').charAt(0).toUpperCase();
+      if (item.avatarPreview) {
+        return `<div class="list-avatar"><img src="${item.avatarPreview}" alt="${initial}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"></div>`;
+      }
+      return `<div class="list-avatar">${initial}</div>`;
+    }
+
     function renderRequests() {
       if (cachedRequests.length === 0) {
         return `<div class="empty-state">
@@ -475,9 +485,10 @@
         </div>`;
       }
 
-      return cachedRequests.map(r => `
-        <div class="friend-list-item">
-          <div class="list-avatar">${(r.fromUsername || '?').charAt(0).toUpperCase()}</div>
+      return cachedRequests.map(r => {
+        const reqItem = { username: r.fromUsername, avatarPreview: r.fromAvatarPreview };
+        return `<div class="friend-list-item">
+          ${avatarHtml(reqItem)}
           <div class="list-info">
             <div class="list-name">${r.fromUsername || 'Unknown'}</div>
             <div class="list-sub">Wants to be friends</div>
@@ -486,8 +497,8 @@
             <button class="accept-btn accept-request" data-reqid="${r.id}" data-fromid="${r.from}" data-toid="${r.to}">Accept</button>
             <button class="decline-btn decline-request" data-reqid="${r.id}">Decline</button>
           </div>
-        </div>
-      `).join('');
+        </div>`;
+      }).join('');
     }
 
     function renderFriends() {
@@ -501,7 +512,7 @@
 
       return cachedFriends.map(f => `
         <div class="friend-list-item" onclick="window.location.href='/bloxverse/profile?user=${f.num}'">
-          <div class="list-avatar">${(f.username || 'U').charAt(0).toUpperCase()}</div>
+          ${avatarHtml(f)}
           <div class="list-info">
             <div class="list-name">${f.username}</div>
             <div class="list-sub">Friend</div>
@@ -524,7 +535,7 @@
 
       return cachedFollowing.map(f => `
         <div class="friend-list-item" onclick="window.location.href='/bloxverse/profile?user=${f.num}'">
-          <div class="list-avatar">${(f.username || 'U').charAt(0).toUpperCase()}</div>
+          ${avatarHtml(f)}
           <div class="list-info">
             <div class="list-name">${f.username}</div>
             <div class="list-sub">Following</div>
@@ -547,7 +558,7 @@
 
       return cachedFollowers.map(f => `
         <div class="friend-list-item" onclick="window.location.href='/bloxverse/profile?user=${f.num}'">
-          <div class="list-avatar">${(f.username || 'U').charAt(0).toUpperCase()}</div>
+          ${avatarHtml(f)}
           <div class="list-info">
             <div class="list-name">${f.username}</div>
             <div class="list-sub">Follower</div>

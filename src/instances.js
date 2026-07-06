@@ -175,7 +175,7 @@ export class PartInstance extends Instance {
   constructor(name) {
     super('Part', name);
     this.Shape = 'Block';
-    this.Size = [4, 4, 4];
+    this.Size = [4, 1.2, 2];
     this.Color = new THREE.Color(0x808080);
     this.Anchored = true;
     this.CanCollide = true;

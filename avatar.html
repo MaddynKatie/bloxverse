@@ -96,6 +96,25 @@
       user-select: none;
       pointer-events: none;
     }
+    .viewer-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 32px; height: 32px;
+      border: none;
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--text-primary) 10%, transparent);
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      z-index: 5;
+      backdrop-filter: blur(4px);
+    }
+    .viewer-btn:hover { color: var(--text-primary); }
+    .viewer-btn.active { color: var(--accent); }
 
     /* Gender toggle */
     .gender-toggle {
@@ -347,6 +366,9 @@
 
       <!-- 3D viewer embedded in left panel -->
       <div class="viewer-container" id="viewerContainer">
+        <button class="viewer-btn active" id="rotateToggle" title="Toggle auto-rotate">
+          <i class="fas fa-sync-alt"></i>
+        </button>
       </div>
 
       <!-- Color swatches — populated by JS -->
@@ -434,6 +456,11 @@
     controls.autoRotate = true;
     controls.autoRotateSpeed = 2;
     controls.update();
+
+    document.getElementById('rotateToggle').addEventListener('click', () => {
+      controls.autoRotate = !controls.autoRotate;
+      document.getElementById('rotateToggle').classList.toggle('active');
+    });
 
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0x666666, 0);
     scene.add(hemiLight);
@@ -1108,10 +1135,10 @@
         _materialList = matNameList;
         currentColors = {};
         _originalColors = {};
-        const FALLBACK_COLORS = ['#ffd700', '#00cc44', '#4488ff', '#ff66aa', '#aaaaaa', '#6644aa'];
-        for (const [idx, name] of matNameList.entries()) {
+        const DEFAULT_COLORS = { Body: '#2d8a4e', Legs: '#2a6bb0', Arms: '#d4a017', Head: '#c4a882' };
+        for (const name of matNameList) {
           const mat = uniqueMats.get(name);
-          const hex = FALLBACK_COLORS[idx] || '#cccccc';
+          const hex = DEFAULT_COLORS[name] || '#cccccc';
           currentColors[name] = hex;
           _originalColors[name] = hex;
           mat.color.setStyle(hex, THREE.SRGBColorSpace);
@@ -1192,6 +1219,7 @@
         if (accDef.textures?.displacementMap) texPromises.push(preloadTexture(accDef.textures.displacementMap));
         Promise.all(texPromises).then(() => {
           const savedOverlay = _selectedClothingId;
+          const savedPants = _selectedPantsId;
           const savedColors = {};
           for (const k of Object.keys(currentColors)) savedColors[k] = currentColors[k];
           const faceMesh = _faceOverlayMesh;
@@ -1201,6 +1229,7 @@
           const hiddenGround = [];
           scene.traverse(child => { if (child.userData?.isGround) { hiddenGround.push(child); child.visible = false; } });
           removeAvatarClothing(avatar);
+          removeAvatarPants(avatar);
           for (const k of Object.keys(currentColors)) currentColors[k] = '#ffffff';
           applyColors();
           _loadAccessoryMesh(accDef).then(modelRoot => {
@@ -1273,9 +1302,11 @@
               scene.background = prevBg;
               wrapper.removeFromParent();
               removeAvatarClothing(avatar);
+              removeAvatarPants(avatar);
               for (const k of Object.keys(savedColors)) currentColors[k] = savedColors[k];
               applyColors();
               if (savedOverlay) applyAvatarClothing(avatar, savedOverlay);
+              if (savedPants) applyAvatarPants(avatar, savedPants);
               for (const [id, vis] of Object.entries(savedAccVis)) {
                 const w = _loadedAccessories[id];
                 if (w) w.visible = vis;
@@ -1310,6 +1341,7 @@
         if (!clothing || !clothing.texturePath) return resolve(null);
         preloadTexture(clothing.texturePath).then(() => {
           const savedOverlay = _selectedClothingId;
+          const savedPants = _selectedPantsId;
           const savedColors = {};
           for (const k of Object.keys(currentColors)) savedColors[k] = currentColors[k];
           const faceMesh = _faceOverlayMesh;
@@ -1319,9 +1351,14 @@
           const hiddenGround = [];
           scene.traverse(child => { if (child.userData?.isGround) { hiddenGround.push(child); child.visible = false; } });
           removeAvatarClothing(avatar);
+          removeAvatarPants(avatar);
           for (const k of Object.keys(currentColors)) currentColors[k] = '#ffffff';
           applyColors();
-          applyAvatarClothing(avatar, item.id);
+          if (clothing.category === 'Pants') {
+            applyAvatarPants(avatar, item.id);
+          } else {
+            applyAvatarClothing(avatar, item.id);
+          }
           const cam = new THREE.PerspectiveCamera(20, 1, 0.1, 100);
           cam.position.set(0, 2.8, 18); cam.lookAt(0, 2.8, 0);
           const renderer = _getPreviewRenderer();
@@ -1338,9 +1375,11 @@
           rt.dispose();
           scene.background = prevBg;
           removeAvatarClothing(avatar);
+          removeAvatarPants(avatar);
           for (const k of Object.keys(savedColors)) currentColors[k] = savedColors[k];
           applyColors();
           if (savedOverlay) applyAvatarClothing(avatar, savedOverlay);
+          if (savedPants) applyAvatarPants(avatar, savedPants);
           for (const [id, vis] of Object.entries(savedAccVis)) {
             const w = _loadedAccessories[id];
             if (w) w.visible = vis;

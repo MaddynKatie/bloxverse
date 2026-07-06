@@ -623,6 +623,12 @@ function getCachedSphereGeo(radius) {
     return geoCache.get(key);
 }
 
+function getCachedCylGeo(radius, height) {
+    const key = `cyl:${radius},${height}`;
+    if (!geoCache.has(key)) geoCache.set(key, new THREE.CylinderGeometry(radius, radius, height, 24));
+    return geoCache.get(key);
+}
+
 function getCachedMats(sw, sh, sd, color) {
     const key = `${sw},${sh},${sd},${color}`;
     if (matCache.has(key)) return matCache.get(key);
@@ -842,6 +848,9 @@ function computeMass(sw, sh, sd, shape) {
     if (shape === 'Ball') {
         const r = Math.max(sw, sh, sd) / 2;
         volume = (4 / 3) * Math.PI * r * r * r;
+    } else if (shape === 'Cylinder') {
+        const r = Math.max(sw, sd) / 2;
+        volume = Math.PI * r * r * sh;
     } else {
         volume = sw * sh * sd;
     }
@@ -855,6 +864,9 @@ function addStud(sw, sh, sd, color, x, y, z, rx = 0, ry = 0, rz = 0, anchored = 
     if (shape === 'Ball') {
         const radius = Math.max(sw, sh, sd) / 2;
         mesh = new THREE.Mesh(getCachedSphereGeo(radius), getSphereMat(color));
+    } else if (shape === 'Cylinder') {
+        const radius = Math.max(sw, sd) / 2;
+        mesh = new THREE.Mesh(getCachedCylGeo(radius, sh), getCachedMats(sw, sh, sd, color));
     } else {
         mesh = new THREE.Mesh(getCachedGeo(sw, sh, sd), getCachedMats(sw, sh, sd, color));
     }
@@ -873,6 +885,9 @@ function addStud(sw, sh, sd, color, x, y, z, rx = 0, ry = 0, rz = 0, anchored = 
     if (shape === 'Ball') {
         const radius = Math.max(sw, sh, sd) / 2;
         cannonShape = new CANNON.Sphere(radius);
+    } else if (shape === 'Cylinder') {
+        const radius = Math.max(sw, sd) / 2;
+        cannonShape = new CANNON.Cylinder(radius, radius, sh, 24);
     } else {
         cannonShape = new CANNON.Box(new CANNON.Vec3(sw / 2, sh / 2, sd / 2));
     }
@@ -1147,7 +1162,7 @@ window.addEventListener('touchstart', (e) => {
         const idx = _mobileCreatedKeys.size;
         const btn = document.createElement('div');
         btn.style.position = 'absolute';
-        btn.style.bottom = `clamp(8px, 4vh, 40px)`;
+        btn.style.bottom = `clamp(76px, 18vmin, 130px)`;
         btn.style.right = `clamp(${70 + (idx - 1) * 60}px, ${8 + idx * 12}vmin, ${40 + idx * 70}px)`;
         btn.style.width = 'clamp(48px, 12vmin, 64px)';
         btn.style.height = 'clamp(48px, 12vmin, 64px)';
@@ -1723,6 +1738,12 @@ function finishClimbUpdate(dt, anyInput) {
 
 // ─── Character model load ─────────────────────────────────────────────────────
 let character = null;
+let _masterVolume = 1;
+let _sfxVolume = 1;
+let _prevGrounded = true;
+let _sfxRunning = null;
+let _sfxSwoosh = null;
+let _sfxThud = null;
 let _spawnPoint = { x: 0, y: null, z: 0, ry: Math.PI };
 const otherPlayers = new Map();
 const _playerAvatarData = new Map(); // userId -> { colors, clothing, accessories, face }
@@ -2474,7 +2495,6 @@ function _applyFaceToModel(mesh, faceId) {
         const faceSize = headSize * 0.85;
         const m = new THREE.Mesh(new THREE.PlaneGeometry(faceSize, faceSize), mat);
         m.position.set(0, headSize * 0.42, headSize * 0.51);
-        m.renderOrder = 3;
         m.userData.isFaceOverlay = true;
         headBone.add(m);
     }, undefined, (err) => console.error('FACE TEX LOAD FAILED:', err));
@@ -2648,6 +2668,14 @@ fbxLoader.load(playerModelUrl, (fbx) => {
     
     // Set initial visual top for local player
     _recalcVisualTop(currentUserId);
+
+    _prevGrounded = true;
+    if (!_sfxRunning) {
+        _sfxRunning = new Audio('assets/sounds/running.mp3');
+        _sfxRunning.loop = true;
+        _sfxSwoosh = new Audio('assets/sounds/swoosh.mp3');
+        _sfxThud = new Audio('assets/sounds/thud.mp3');
+    }
 
     renderer.shadowMap.needsUpdate = true;
 });
@@ -3303,6 +3331,33 @@ function update(dt) {
         grounded = false;
         coyoteTimer = 0;
         jumpBuffer  = 0;
+        if (_sfxSwoosh) {
+            _sfxSwoosh.volume = _sfxVolume;
+            _sfxSwoosh.currentTime = 0;
+            _sfxSwoosh.play().catch(() => {});
+        }
+    }
+
+    if (_sfxThud) {
+        const _justLanded = grounded && !_prevGrounded;
+        if (_justLanded) {
+            _sfxThud.volume = Math.min(1, _sfxVolume * 2.5);
+            _sfxThud.currentTime = 0;
+            _sfxThud.play().catch(() => {});
+        }
+    }
+    _prevGrounded = grounded;
+
+    if (_charMoving && grounded) {
+        if (_sfxRunning && _sfxRunning.paused) {
+            _sfxRunning.volume = _sfxVolume;
+            _sfxRunning.play().catch(() => {});
+        }
+    } else {
+        if (_sfxRunning && !_sfxRunning.paused) {
+            _sfxRunning.pause();
+            _sfxRunning.currentTime = 0;
+        }
     }
 
     // Respawn if fallen off
@@ -3790,7 +3845,7 @@ window._bloxverse = {
         const parts = Array.isArray(data) ? data : (data.parts || []);
         const scripts = (!Array.isArray(data) && data.scripts) ? data.scripts : [];
         
-        const valid = parts.filter(p => p.Type === 'Part' && (p.Shape === 'Block' || p.Shape === 'Ball'));
+        const valid = parts.filter(p => p.Type === 'Part' && (p.Shape === 'Block' || p.Shape === 'Ball' || p.Shape === 'Cylinder'));
         if (!valid.length) return;
         let minX=Infinity,minY=Infinity,minZ=Infinity,maxX=-Infinity,maxY=-Infinity,maxZ=-Infinity;
         for (const p of valid) {
@@ -3894,6 +3949,7 @@ window._bloxverse = {
                         pl.Brightness != null ? pl.Brightness : 1,
                         pl.Range != null ? pl.Range : 16
                     );
+                    light.decay = 2;
                     light.position.copy(entry.mesh.position);
                     light.castShadow = false; // point light shadows are expensive
                     light.visible = pl.Enabled !== false;
@@ -4014,6 +4070,8 @@ window._bloxverse = {
     onRespawn(fn) { _respawnCallbacks.push(fn); },
     onDeath(fn) { _deathCallbacks.push(fn); },
     setFakeMoving(v) { _fakeMoving = !!v; },
+    setMasterVolume(v) { _masterVolume = v; },
+    setSfxVolume(v) { _sfxVolume = v; },
     _charInstance: null,
     setCharInstance: (inst) => { window._bloxverse._charInstance = inst; },
     
@@ -4029,6 +4087,7 @@ window._bloxverse = {
                 const inWorkspace = true; // since we start traverse from workspace below
                 if (!inst._engineRef) {
                     inst._engineRef = new THREE.PointLight(inst.Color, inst.Brightness, inst.Range);
+                    inst._engineRef.decay = 2;
                     inst._engineRef.castShadow = inst.Shadows;
                     scene.add(inst._engineRef);
                 }
@@ -4036,6 +4095,7 @@ window._bloxverse = {
                 inst._engineRef.color.copy(inst.Color);
                 inst._engineRef.intensity = inst.Brightness;
                 inst._engineRef.distance = inst.Range;
+                inst._engineRef.decay = 2;
                 // Inherit position from parent if parent is a part
                 if (inst.Parent && inst.Parent.ClassName === 'Part' && inst.Parent.mesh) {
                     inst._engineRef.position.copy(inst.Parent.mesh.position);
@@ -4307,12 +4367,14 @@ window._bloxverse = {
     _setPartMass(mesh, mass) {
         const entry = physicsBodies.get(mesh);
         if (entry && !entry.anchored) {
+            const shapeType = entry.body.shapes[0]?.type;
+            const shape = shapeType === CANNON.Shape.types.SPHERE ? 'Ball' : shapeType === CANNON.Shape.types.CYLINDER ? 'Cylinder' : 'Block';
             const m = mass === 'auto' || mass == null
                 ? computeMass(
                     mesh.userData.halfSize.sw,
                     mesh.userData.halfSize.sh,
                     mesh.userData.halfSize.sd,
-                    entry.body.shapes[0]?.type === CANNON.Shape.types.SPHERE ? 'Ball' : 'Block'
+                    shape
                   )
                 : Number(mass);
             entry.body.mass = m;
@@ -4322,10 +4384,14 @@ window._bloxverse = {
     _resizePart(mesh, sw, sh, sd) {
         const entry = physicsBodies.get(mesh);
         if (entry) {
-            const shape = entry.body.shapes[0]?.type === CANNON.Shape.types.SPHERE ? 'Ball' : 'Block';
+            const shapeType = entry.body.shapes[0]?.type;
+            const shape = shapeType === CANNON.Shape.types.SPHERE ? 'Ball' : shapeType === CANNON.Shape.types.CYLINDER ? 'Cylinder' : 'Block';
             if (shape === 'Ball') {
                 const r = Math.max(sw, sh, sd) / 2;
                 mesh.geometry = getCachedSphereGeo(r);
+            } else if (shape === 'Cylinder') {
+                const r = Math.max(sw, sd) / 2;
+                mesh.geometry = getCachedCylGeo(r, sh);
             } else {
                 mesh.geometry = getCachedGeo(sw, sh, sd);
                 const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
@@ -4340,6 +4406,9 @@ window._bloxverse = {
             if (shape === 'Ball') {
                 const r = Math.max(sw, sh, sd) / 2;
                 body.addShape(new CANNON.Sphere(r));
+            } else if (shape === 'Cylinder') {
+                const r = Math.max(sw, sd) / 2;
+                body.addShape(new CANNON.Cylinder(r, r, sh, 24));
             } else {
                 body.addShape(new CANNON.Box(new CANNON.Vec3(sw/2, sh/2, sd/2)));
             }
@@ -4596,14 +4665,14 @@ window._bloxverse = {
             if (storedData) {
                 const cols = storedData.colors && Object.keys(storedData.colors).length > 0
                     ? storedData.colors
-                    : { Body: '#1e3a5f', Legs: '#2d5a27', Arms: '#1e3a5f', Head: '#c4a882' };
+                    : { Body: '#2d8a4e', Legs: '#2a6bb0', Arms: '#d4a017', Head: '#c4a882' };
                 _applyColorsToModel(clone, cols);
                 _applyClothingToModel(clone, storedData.clothing);
                 _applyPantsToModel(clone, storedData.pants);
                 _applyAccessoriesToModel(userId, clone, storedData.accessories);
                 _applyFaceToModel(clone, storedData.face);
             } else {
-                _applyColorsToModel(clone, { Body: '#a0a0a0', Legs: '#a0a0a0', Arms: '#a0a0a0', Head: '#c4a882' });
+                _applyColorsToModel(clone, { Body: '#2d8a4e', Legs: '#2a6bb0', Arms: '#d4a017', Head: '#c4a882' });
             }
             
             // Set initial visual top (accessories may update it later)

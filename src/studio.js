@@ -22,9 +22,6 @@ let _transformMode = 'select';
 let _toolbarContainer = null;
 let _isTransforming = false;
 let _renamingInstance = null;
-let _guiPreviewContainer = null;
-let _guiEditorWindow = null;
-let _guiEditorVisible = false;
 let _draggedInstance = null;
 // ── Test mode physics & character constants (matching bloxverse-engine.js) ──
 const G_LEVEL         = 0;
@@ -70,6 +67,56 @@ let _anim = { time: 0, bones: {}, rest: {} };
 let _testModeKeyCleanup = null;
 let _activeScriptControllers = new Set();
 
+const STUDS_PER_TILE = 4;
+const _studioTexCache = new Map();
+
+let _studTexImage = null;
+let _inletTexImage = null;
+let _studioTexReady = false;
+let _inletTexReady = false;
+
+const _studTextureUrl = new URL('../assets/textures/stud.jpeg', import.meta.url).href;
+const _inletTextureUrl = new URL('../assets/textures/inlet.jpg', import.meta.url).href;
+
+fetch(_studTextureUrl).then(r => r.blob()).then(blob => createImageBitmap(blob)).then(bitmap => { _studTexImage = bitmap; _studioTexReady = true; }).catch(() => {});
+fetch(_inletTextureUrl).then(r => r.blob()).then(blob => createImageBitmap(blob)).then(bitmap => { _inletTexImage = bitmap; _inletTexReady = true; }).catch(() => {});
+
+function _studioStudTex(rx, ry) {
+    if (!_studTexImage) return null;
+    const t = new THREE.Texture(_studTexImage);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.repeat.set(rx, ry);
+    t.needsUpdate = true;
+    return t;
+}
+
+function _studioInletTex(rx, ry) {
+    if (!_inletTexImage) return null;
+    const t = new THREE.Texture(_inletTexImage);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.repeat.set(rx, ry);
+    t.needsUpdate = true;
+    return t;
+}
+
+function getStudioMats(sw, sh, sd, color) {
+    const key = `${sw},${sh},${sd},${color}`;
+    if (_studioTexCache.has(key)) return _studioTexCache.get(key);
+    const t = (v) => v / STUDS_PER_TILE;
+    const mats = [
+        new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0 }),
+        new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0 }),
+        new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0, map: _studioStudTex(t(sw), t(sd)) }),
+        new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0, map: _studioInletTex(t(sw), t(sd)) }),
+        new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0 }),
+        new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0 }),
+    ];
+    _studioTexCache.set(key, mats);
+    return mats;
+}
+
 function initGameHierarchy() {
   _game = createBaseHierarchy();
   
@@ -106,19 +153,23 @@ function _updateObjectVisibility(inst) {
       scene.remove(inst.mesh);
     }
   } else if (inst.ClassName === 'PointLight' && shouldVisible) {
-    // Create visual icon for PointLight in Studio
     const geo = new THREE.SphereGeometry(0.4, 8, 8);
     const mat = new THREE.MeshBasicMaterial({ color: inst.Color, wireframe: true });
     inst.mesh = new THREE.Mesh(geo, mat);
     inst.mesh.userData.instance = inst;
-    inst.mesh.position.set(0, 5, 0); // Default
-    
+    if (inst.Parent && inst.Parent.ClassName === 'Part' && inst.Parent.mesh) {
+      inst.mesh.position.copy(inst.Parent.mesh.position);
+    } else if (inst.Parent && inst.Parent.ClassName === 'Part' && inst.Parent.Position) {
+      inst.mesh.position.set(inst.Parent.Position[0], inst.Parent.Position[1], inst.Parent.Position[2]);
+    } else {
+      inst.mesh.position.set(0, 5, 0);
+    }
     const light = new THREE.PointLight(inst.Color, inst.Brightness, inst.Range);
+    light.decay = 2;
     light.castShadow = inst.Shadows;
     light.visible = inst.Enabled !== false;
     inst._lightRef = light;
     inst.mesh.add(light);
-    
     scene.add(inst.mesh);
   }
   
@@ -129,7 +180,8 @@ function _updateObjectVisibility(inst) {
 function _addPartMesh(inst, px, py, pz) {
   const [sw, sh, sd] = inst.Size;
   const geo = createGeometry(inst.Shape, sw, sh, sd);
-  const mat = new THREE.MeshStandardMaterial({ color: inst.Color, roughness: 0.6, metalness: 0.0 });
+  const colorHex = inst.Color instanceof THREE.Color ? inst.Color.getHex() : 0x808080;
+  const mat = inst.Shape === 'Block' ? getStudioMats(sw, sh, sd, colorHex) : new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.6, metalness: 0 });
   inst.mesh = new THREE.Mesh(geo, mat);
   inst.mesh.position.set(px, py, pz);
   inst.mesh.castShadow = true;
@@ -137,6 +189,21 @@ function _addPartMesh(inst, px, py, pz) {
   inst.mesh.userData.instance = inst;
   
   _updateObjectVisibility(inst);
+}
+
+function disposeMaterials(mat) {
+  if (Array.isArray(mat)) mat.forEach(m => m.dispose());
+  else mat.dispose();
+}
+function applyMatColor(mat, color) {
+  if (Array.isArray(mat)) mat.forEach(m => { m.color.copy(color); m.needsUpdate = true; });
+  else { mat.color.copy(color); mat.needsUpdate = true; }
+}
+function applyMatTransparency(mat, val) {
+  const t = val > 0;
+  const o = Math.max(0, Math.min(1, 1 - val));
+  if (Array.isArray(mat)) mat.forEach(m => { m.transparent = t; m.opacity = o; m.needsUpdate = true; });
+  else { mat.transparent = t; mat.opacity = o; mat.needsUpdate = true; }
 }
 
 // Undo/redo
@@ -499,15 +566,6 @@ export function initStudio(container, explorerEl, propsEl, onChange) {
   renderer.toneMappingExposure = 1.2;
   container.appendChild(renderer.domElement);
 
-  // GUI Preview Container
-  _guiPreviewContainer = document.createElement('div');
-  _guiPreviewContainer.id = 'studio-gui-preview';
-  _guiPreviewContainer.style.cssText = `
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    pointer-events: none; overflow: hidden;
-  `;
-  container.appendChild(_guiPreviewContainer);
-
   controls = new OrbitControls(camera, renderer.domElement);
   controls.target.set(0, 0, 0);
   controls.enableDamping = true;
@@ -522,9 +580,20 @@ export function initStudio(container, explorerEl, propsEl, onChange) {
     transformControls = new TransformControls(camera, renderer.domElement);
     transformControls.enabled = false;
     transformControls.setSize(0.8);
-    // In r184+, add getHelper() (the TransformControlsRoot) to scene instead
     const helper = transformControls.getHelper();
-    if (helper) scene.add(helper);
+    if (helper) {
+      helper.traverse(child => {
+        if (child.material) {
+          if (Array.isArray(child.material)) {
+            child.material.forEach(m => { m.transparent = false; m.opacity = 1; });
+          } else {
+            child.material.transparent = false;
+            child.material.opacity = 1;
+          }
+        }
+      });
+      scene.add(helper);
+    }
     transformControls.addEventListener('dragging-changed', (event) => {
       controls.enabled = !event.value;
     });
@@ -554,6 +623,24 @@ export function initStudio(container, explorerEl, propsEl, onChange) {
     });
     transformControls.addEventListener('mouseUp', () => {
       _isTransforming = false;
+      if (_transformMode === 'scale' && selectedInstance && selectedInstance.mesh) {
+        const mesh = selectedInstance.mesh;
+        const s = mesh.scale;
+        if (Math.abs(s.x - 1) > 0.001 || Math.abs(s.y - 1) > 0.001 || Math.abs(s.z - 1) > 0.001) {
+          const sz = selectedInstance.Size;
+          const newSize = [sz[0] * s.x, sz[1] * s.y, sz[2] * s.z];
+          selectedInstance.Size = newSize;
+          mesh.geometry.dispose();
+          mesh.geometry = createGeometry(selectedInstance.Shape, newSize[0], newSize[1], newSize[2]);
+          if (selectedInstance.Shape === 'Block') {
+            const colorHex = selectedInstance.Color instanceof THREE.Color ? selectedInstance.Color.getHex() : 0x808080;
+            disposeMaterials(mesh.material);
+            mesh.material = getStudioMats(newSize[0], newSize[1], newSize[2], colorHex);
+          }
+          mesh.scale.set(1, 1, 1);
+          updateProps();
+        }
+      }
       if (_onChangeCallback) _onChangeCallback(getPartsData());
     });
   } catch (e) {
@@ -565,10 +652,10 @@ export function initStudio(container, explorerEl, propsEl, onChange) {
   const hemi = new THREE.HemisphereLight(0x87CEEB, 0x3a7d44, 1.0);
   scene.add(hemi);
 
-  const ambient = new THREE.AmbientLight(0x404060, 0.3);
+  const ambient = new THREE.AmbientLight(0x404060, 0.15);
   scene.add(ambient);
 
-  const dir = new THREE.DirectionalLight(0xffeedd, 2.0);
+  const dir = new THREE.DirectionalLight(0xffeedd, 0.8);
   dir.position.set(60, 120, 40);
   dir.castShadow = true;
   dir.shadow.mapSize.set(2048, 2048);
@@ -580,27 +667,17 @@ export function initStudio(container, explorerEl, propsEl, onChange) {
   dir.shadow.camera.bottom = -100;
   scene.add(dir);
 
-  const fill = new THREE.DirectionalLight(0x8888ff, 0.5);
+  const fill = new THREE.DirectionalLight(0x8888ff, 0.2);
   fill.position.set(-40, 30, -40);
   scene.add(fill);
 
-  const rim = new THREE.DirectionalLight(0xffffff, 0.5);
+  const rim = new THREE.DirectionalLight(0xffffff, 0.2);
   rim.position.set(0, -10, 60);
   scene.add(rim);
 
-  // Grid
-  const gridHelper = new THREE.Group();
-  const grid = new THREE.GridHelper(200, 40, 0x444466, 0x333355);
-  grid.position.y = 0;
-  gridHelper.add(grid);
-  scene.add(gridHelper);
-
-  const axes = new THREE.AxesHelper(5);
-  scene.add(axes);
-
   // Selection highlight
   const selGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1));
-  const selMat = new THREE.LineBasicMaterial({ color: 0x00ff88, depthTest: false, linewidth: 2 });
+  const selMat = new THREE.LineBasicMaterial({ color: 0x4488ff, depthTest: false, linewidth: 2 });
   _selectionBox = new THREE.LineSegments(selGeo, selMat);
   _selectionBox.visible = false;
   _selectionBox.renderOrder = 999;
@@ -649,7 +726,6 @@ export function initStudio(container, explorerEl, propsEl, onChange) {
     }
     
     _updateSelectionBox();
-    _updateStudioGuiPreview();
     _updateStudioSurfaceGuis();
     renderer.render(scene, camera);
   }
@@ -764,32 +840,7 @@ function _createToolbar(container) {
     _toolbarContainer.appendChild(btn);
   }
   
-  // GUI Editor toggle
-  const sep = document.createElement('div');
-  sep.style.cssText = 'width:1px;height:20px;background:rgba(200,200,200,0.15);margin:0 4px;';
-  _toolbarContainer.appendChild(sep);
   
-  const guiBtn = document.createElement('button');
-  guiBtn.className = 'studio-tool-btn';
-  guiBtn.title = 'Toggle 2D GUI Editor';
-  guiBtn.innerHTML = '☰';
-  guiBtn.style.cssText = `
-    background: transparent; border: none; color: rgba(200,200,200,0.6);
-    width: 30px; height: 28px; border-radius: 4px; cursor: pointer;
-    font-size: 13px; display: flex; align-items: center; justify-content: center;
-    transition: all 0.15s;
-  `;
-  guiBtn.addEventListener('click', () => {
-    _guiEditorVisible = !_guiEditorVisible;
-    if (_guiEditorVisible) {
-      _openGuiEditorWindow();
-    } else {
-      _closeGuiEditorWindow();
-    }
-    guiBtn.style.background = _guiEditorVisible ? 'rgba(88,101,242,0.35)' : 'transparent';
-    guiBtn.style.color = _guiEditorVisible ? '#fff' : 'rgba(200,200,200,0.6)';
-  });
-  _toolbarContainer.appendChild(guiBtn);
   container.appendChild(_toolbarContainer);
 }
 
@@ -863,9 +914,7 @@ export function loadMapData(data) {
     if (p.Transparency != null && p.Transparency > 0) {
       inst.Transparency = Math.max(0, Math.min(1, p.Transparency));
       if (inst.mesh) {
-        inst.mesh.material.transparent = true;
-        inst.mesh.material.opacity = Math.max(0, 1 - inst.Transparency);
-        inst.mesh.material.needsUpdate = true;
+        applyMatTransparency(inst.mesh.material, inst.Transparency);
       }
     }
   }
@@ -883,6 +932,7 @@ export function loadMapData(data) {
         plInst.Shadows = pl.Shadows === true;
         plInst.Enabled = pl.Enabled !== false;
         plInst.setParent(partInst);
+        _updateObjectVisibility(plInst);
       }
     }
   }
@@ -938,7 +988,11 @@ function clearParts() {
     if (node.mesh) {
       scene.remove(node.mesh);
       node.mesh.geometry.dispose();
-      node.mesh.material.dispose();
+      if (Array.isArray(node.mesh.material)) {
+        node.mesh.material.forEach(m => m.dispose());
+      } else {
+        node.mesh.material.dispose();
+      }
       node.mesh = null;
     }
     node.Children.forEach(collect);
@@ -966,7 +1020,7 @@ export function addPart(name, sw, sh, sd, colorHex, px, py, pz, anchored, shape,
   inst.Shape = shape || 'Block';
 
   const geo = createGeometry(inst.Shape, sw, sh, sd);
-  const mat = new THREE.MeshStandardMaterial({ color: inst.Color, roughness: 0.6, metalness: 0.0 });
+  const mat = shape === 'Block' ? getStudioMats(sw, sh, sd, colorHex) : new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.6, metalness: 0 });
   inst.mesh = new THREE.Mesh(geo, mat);
   inst.mesh.position.set(px, py, pz);
   if (rotation) {
@@ -995,7 +1049,7 @@ export function deleteSelectedPart() {
   if (selectedInstance.mesh) {
     scene.remove(selectedInstance.mesh);
     selectedInstance.mesh.geometry.dispose();
-    selectedInstance.mesh.material.dispose();
+    disposeMaterials(selectedInstance.mesh.material);
   }
   selectedInstance.Destroy();
   selectedInstance = null;
@@ -1088,11 +1142,7 @@ function _loadSnapshot(data) {
     const inst = addPart(p.Name || 'Part', p.Size[0], p.Size[1], p.Size[2], p.Color ? new THREE.Color(p.Color[0], p.Color[1], p.Color[2]) : 0x808080, p.Position[0], p.Position[1], p.Position[2], p.Anchored !== false, p.Shape || 'Block', workspace, p.Rotation);
     if (p.Transparency != null && p.Transparency > 0) {
       inst.Transparency = Math.max(0, Math.min(1, p.Transparency));
-      if (inst.mesh) {
-        inst.mesh.material.transparent = true;
-        inst.mesh.material.opacity = Math.max(0, 1 - inst.Transparency);
-        inst.mesh.material.needsUpdate = true;
-      }
+      if (inst.mesh) applyMatTransparency(inst.mesh.material, inst.Transparency);
     }
   }
   selectInstance(null);
@@ -1274,61 +1324,8 @@ function rebuildExplorer() {
             rebuildExplorer();
             if (_onChangeCallback) _onChangeCallback(getPartsData());
           }},
-          { label: 'Sound', action: () => {
-            const s = new Sound('Sound');
-            s.setParent(inst);
-            _updateObjectVisibility(s);
-            rebuildExplorer();
-            if (_onChangeCallback) _onChangeCallback(getPartsData());
-          }},
           { label: 'PointLight', action: () => {
             const l = new PointLight('PointLight');
-            l.setParent(inst);
-            _updateObjectVisibility(l);
-            rebuildExplorer();
-            if (_onChangeCallback) _onChangeCallback(getPartsData());
-          }},
-          { label: 'Sky', action: () => {
-            const s = new Sky();
-            s.setParent(inst);
-            _updateObjectVisibility(s);
-            rebuildExplorer();
-            if (_onChangeCallback) _onChangeCallback(getPartsData());
-          }},
-          { label: 'Atmosphere', action: () => {
-            const a = new Atmosphere();
-            a.setParent(inst);
-            _updateObjectVisibility(a);
-            rebuildExplorer();
-            if (_onChangeCallback) _onChangeCallback(getPartsData());
-          }},
-          { label: 'SurfaceGui', action: () => {
-            const g = new SurfaceGui('SurfaceGui');
-            g.setParent(inst);
-            _updateObjectVisibility(g);
-            rebuildExplorer();
-            if (_onChangeCallback) _onChangeCallback(getPartsData());
-          }},
-          { label: 'ScreenGui', action: () => {
-            const g = new ScreenGui('ScreenGui');
-            g.setParent(inst);
-            rebuildExplorer();
-            if (_onChangeCallback) _onChangeCallback(getPartsData());
-          }},
-          { label: 'Frame', action: () => {
-            const g = new Frame('Frame');
-            g.setParent(inst);
-            rebuildExplorer();
-            if (_onChangeCallback) _onChangeCallback(getPartsData());
-          }},
-          { label: 'TextButton', action: () => {
-            const g = new TextButton('TextButton');
-            g.setParent(inst);
-            rebuildExplorer();
-            if (_onChangeCallback) _onChangeCallback(getPartsData());
-          }},
-          { label: 'TextLabel', action: () => {
-            const l = new TextLabel('TextLabel');
             l.setParent(inst);
             _updateObjectVisibility(l);
             rebuildExplorer();
@@ -1512,11 +1509,7 @@ function updateProps() {
         if (!inst) return;
         inst[f.key] = val;
         // Real-time 3D scene updates during drag
-        if (inst.mesh && f.key === 'Transparency') {
-          inst.mesh.material.transparent = val > 0;
-          inst.mesh.material.opacity = Math.max(0, Math.min(1, 1 - val));
-          inst.mesh.material.needsUpdate = true;
-        }
+        if (inst.mesh && f.key === 'Transparency') applyMatTransparency(inst.mesh.material, val);
         if (f.key === 'Brightness') {
           const sun = scene.children.find(c => c.isDirectionalLight && c.position.y > 50);
           if (sun) sun.intensity = val * 2.0;
@@ -1597,10 +1590,7 @@ function updateProps() {
           if (!inst) return;
           const color = new THREE.Color(input.value);
           inst[f.key] = color;
-          if (inst.mesh && f.key === 'Color') {
-            inst.mesh.material.color.copy(color);
-            inst.mesh.material.needsUpdate = true;
-          }
+          if (inst.mesh && f.key === 'Color') applyMatColor(inst.mesh.material, color);
           if (f.key === 'SkyboxColor') scene.background = color;
           if (f.key === 'SunColor') {
             const sun = scene.children.find(c => c.isDirectionalLight && c.position.y > 50);
@@ -1615,38 +1605,32 @@ function updateProps() {
     propsContainer.appendChild(row);
   }
 
-  // GUI Editor button for SurfaceGui
-  if (selectedInstance && (selectedInstance.ClassName === 'SurfaceGui' || selectedInstance.ClassName === 'ScreenGui')) {
-    const btnRow = document.createElement('div');
-    btnRow.style.cssText = 'padding:8px;';
-    const btn = document.createElement('button');
-    btn.textContent = 'Open 2D GUI Editor';
-    btn.style.cssText = 'width:100%;padding:6px;background:rgba(88,101,242,0.3);border:1px solid rgba(88,101,242,0.5);border-radius:4px;color:#fff;cursor:pointer;font-size:12px;';
-    btn.onmouseenter = () => { btn.style.background = 'rgba(88,101,242,0.5)'; };
-    btn.onmouseleave = () => { btn.style.background = 'rgba(88,101,242,0.3)'; };
-    btn.onclick = () => {
-      _guiEditorVisible = true;
-      _openGuiEditorWindow();
-      const guiBtn = document.querySelector('.studio-tool-btn[title*="GUI"]');
-      if (guiBtn) { guiBtn.style.background = 'rgba(88,101,242,0.35)'; guiBtn.style.color = '#fff'; }
-    };
-    btnRow.appendChild(btn);
-    propsContainer.appendChild(btnRow);
-  }
 }
 
 function rebuildMesh(inst) {
   if (!inst.mesh) return;
   const mesh = inst.mesh;
   const oldGeo = mesh.geometry;
-  const newGeo = createGeometry(inst.Shape || 'Block', inst.Size[0], inst.Size[1], inst.Size[2]);
+  const [sw, sh, sd] = inst.Size;
+  const newGeo = createGeometry(inst.Shape || 'Block', sw, sh, sd);
   mesh.geometry = newGeo;
   oldGeo.dispose();
-  const mat = mesh.material;
-  mat.color.copy(inst.Color);
-  mat.transparent = (inst.Transparency || 0) > 0;
-  mat.opacity = Math.max(0, Math.min(1, 1 - (inst.Transparency || 0)));
-  mat.needsUpdate = true;
+  const colorHex = inst.Color instanceof THREE.Color ? inst.Color.getHex() : 0x808080;
+  if (inst.Shape === 'Block') {
+    const newMats = getStudioMats(sw, sh, sd, colorHex);
+    disposeMaterials(mesh.material);
+    mesh.material = newMats;
+  } else {
+    const mat = mesh.material;
+    if (Array.isArray(mat)) {
+      mat.forEach(m => { m.color.copy(inst.Color); m.transparent = (inst.Transparency || 0) > 0; m.opacity = Math.max(0, Math.min(1, 1 - (inst.Transparency || 0))); m.needsUpdate = true; });
+    } else {
+      mat.color.copy(inst.Color);
+      mat.transparent = (inst.Transparency || 0) > 0;
+      mat.opacity = Math.max(0, Math.min(1, 1 - (inst.Transparency || 0)));
+      mat.needsUpdate = true;
+    }
+  }
 }
 
 function applyProp(key, val) {
@@ -1690,7 +1674,12 @@ function applyProp(key, val) {
       break;
     case 'Color': {
       inst.Color = new THREE.Color(val);
-      rebuildMesh(inst);
+      if (inst.ClassName === 'PointLight') {
+        if (inst.mesh) inst.mesh.material.color.copy(inst.Color);
+        if (inst._lightRef) inst._lightRef.color.copy(inst.Color);
+      } else {
+        rebuildMesh(inst);
+      }
       break;
     }
     case 'Transparency': {
@@ -1719,8 +1708,12 @@ function applyProp(key, val) {
       break;
     case 'Brightness':
       inst.Brightness = parseFloat(val);
-      const sun2 = scene.children.find(c => c.isDirectionalLight && c.position.y > 50);
-      if (sun2) sun2.intensity = inst.Brightness * 2.0;
+      if (inst.ClassName === 'PointLight' && inst._lightRef) {
+        inst._lightRef.intensity = inst.Enabled !== false ? inst.Brightness : 0;
+      } else {
+        const sun2 = scene.children.find(c => c.isDirectionalLight && c.position.y > 50);
+        if (sun2) sun2.intensity = inst.Brightness * 2.0;
+      }
       break;
     case 'sunX': inst.SunPosition[0] = parseFloat(val); break;
     case 'sunY': inst.SunPosition[1] = parseFloat(val); break;
@@ -1747,20 +1740,18 @@ function applyProp(key, val) {
     case 'Looped': inst.Looped = !!val; break;
     case 'Enabled': 
       inst.Enabled = !!val;
-      if (inst._lightRef) inst._lightRef.visible = inst.Enabled;
+      if (inst._lightRef) {
+        inst._lightRef.visible = inst.Enabled;
+        inst._lightRef.intensity = inst.Enabled ? inst.Brightness : 0;
+      }
       break;
     case 'Range':
-      inst.Range = parseFloat(val);
+      inst.Range = Math.max(0, parseFloat(val) || 0);
       if (inst._lightRef) inst._lightRef.distance = inst.Range;
       break;
     case 'Shadows':
       inst.Shadows = !!val;
       if (inst._lightRef) inst._lightRef.castShadow = inst.Shadows;
-      break;
-    case 'Color':
-      inst.Color = new THREE.Color(val);
-      if (inst.mesh && inst.ClassName === 'PointLight') inst.mesh.material.color.copy(inst.Color);
-      if (inst._lightRef) inst._lightRef.color.copy(inst.Color);
       break;
     case 'Text': inst.Text = String(val); break;
     case 'FontSize': inst.FontSize = parseFloat(val); break;
@@ -1779,203 +1770,6 @@ function applyProp(key, val) {
   _updateSelectionBox();
   if (_onChangeCallback) _onChangeCallback(getPartsData());
   updateProps();
-}
-
-function _updateStudioGuiPreview() {
-  if (!_guiPreviewContainer || !_game) return;
-  _guiPreviewContainer.innerHTML = '';
-  
-  const renderGui = (inst, parentEl) => {
-    if (inst.Visible === false) return;
-    
-    let el = null;
-    if (inst.ClassName === 'Frame') {
-      el = document.createElement('div');
-    } else if (inst.ClassName === 'TextLabel') {
-      el = document.createElement('div');
-      el.textContent = inst.Text;
-      el.style.display = 'flex';
-      el.style.alignItems = 'center';
-      el.style.justifyContent = 'center';
-      const tAlpha = 1 - (inst.TextTransparency || 0);
-      if (tAlpha <= 0) {
-        el.style.color = 'transparent';
-      } else if (tAlpha < 1) {
-        const tc = inst.TextColor;
-        el.style.color = tc ? 'rgba(' + Math.round(tc.r * 255) + ',' + Math.round(tc.g * 255) + ',' + Math.round(tc.b * 255) + ',' + tAlpha + ')' : '#fff';
-      } else {
-        el.style.color = '#' + inst.TextColor.getHexString();
-      }
-      el.style.fontSize = inst.FontSize + 'px';
-    } else if (inst.ClassName === 'TextButton') {
-      el = document.createElement('button');
-      el.textContent = inst.Text;
-      const btAlpha = 1 - (inst.TextTransparency || 0);
-      if (btAlpha <= 0) {
-        el.style.color = 'transparent';
-      } else if (btAlpha < 1) {
-        const tc = inst.TextColor;
-        el.style.color = tc ? 'rgba(' + Math.round(tc.r * 255) + ',' + Math.round(tc.g * 255) + ',' + Math.round(tc.b * 255) + ',' + btAlpha + ')' : '#fff';
-      } else {
-        el.style.color = '#' + (inst.TextColor ? inst.TextColor.getHexString() : 'ffffff');
-      }
-      el.style.fontSize = inst.FontSize + 'px';
-    }
-    
-    if (el) {
-      el.style.position = 'absolute';
-      const [px, py] = inst.Position || [0, 0];
-      const [sx, sy] = inst.Size || [100, 100];
-      
-      el.style.left = px <= 1 ? (px * 100) + '%' : px + 'px';
-      el.style.top = py <= 1 ? (py * 100) + '%' : py + 'px';
-      el.style.width = sx <= 1 ? (sx * 100) + '%' : sx + 'px';
-      el.style.height = sy <= 1 ? (sy * 100) + '%' : sy + 'px';
-      
-      const bgAlpha = 1 - (inst.BackgroundTransparency || 0);
-      if (bgAlpha <= 0) {
-        el.style.backgroundColor = 'transparent';
-      } else if (bgAlpha >= 1) {
-        const bgColor = inst.BackgroundColor || inst.Color;
-        el.style.backgroundColor = bgColor ? '#' + bgColor.getHexString() : '#333';
-      } else {
-        const c = inst.BackgroundColor || inst.Color;
-        if (c) {
-          el.style.backgroundColor = 'rgba(' + Math.round(c.r * 255) + ',' + Math.round(c.g * 255) + ',' + Math.round(c.b * 255) + ',' + bgAlpha + ')';
-        } else {
-          el.style.backgroundColor = 'transparent';
-        }
-      }
-      el.style.border = (inst === selectedInstance) ? '1px solid #5865f2' : 'none';
-      el.style.pointerEvents = 'auto'; 
-      
-      if (inst === selectedInstance) {
-        el.style.cursor = 'move';
-        el.onmousedown = (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          const startX = e.clientX;
-          const startY = e.clientY;
-          const [startPosX, startPosY] = inst.Position;
-          
-          const onMouseMove = (moveEvent) => {
-            const dx = moveEvent.clientX - startX;
-            const dy = moveEvent.clientY - startY;
-            
-            const parentRect = parentEl.getBoundingClientRect();
-            if (inst.Position[0] <= 1) {
-              inst.Position[0] = startPosX + (dx / parentRect.width);
-            } else {
-              inst.Position[0] = startPosX + dx;
-            }
-            
-            if (inst.Position[1] <= 1) {
-              inst.Position[1] = startPosY + (dy / parentRect.height);
-            } else {
-              inst.Position[1] = startPosY + dy;
-            }
-            
-            updateProps();
-            _updateStudioGuiPreview();
-          };
-          
-          const onMouseUp = () => {
-            document.removeEventListener('mousemove', onMouseMove);
-            document.removeEventListener('mouseup', onMouseUp);
-            if (_onChangeCallback) _onChangeCallback(getPartsData());
-          };
-          
-          document.addEventListener('mousemove', onMouseMove);
-          document.addEventListener('mouseup', onMouseUp);
-        };
-      } else {
-        el.onmousedown = (e) => {
-          e.stopPropagation();
-          selectInstance(inst);
-        };
-      }
-
-      parentEl.appendChild(el);
-      inst.Children.forEach(child => renderGui(child, el));
-    } else {
-       inst.Children.forEach(child => renderGui(child, parentEl));
-    }
-  };
-
-  const traverse = (node) => {
-    if (node.ClassName === 'ScreenGui' && node.Enabled !== false) {
-      renderGui(node, _guiPreviewContainer);
-    } else if (node.ClassName !== 'SurfaceGui') {
-      node.Children.forEach(traverse);
-    }
-  };
-  
-  traverse(_game);
-  
-  if (_guiEditorWindow && _guiEditorVisible) {
-    const editorContainer = _guiEditorWindow._innerContainer;
-    if (editorContainer) {
-      editorContainer.innerHTML = '';
-      const traverseEditor = (node) => {
-        if ((node.ClassName === 'ScreenGui' || node.ClassName === 'SurfaceGui') && node.Enabled !== false) {
-          renderGui(node, editorContainer);
-        } else {
-          node.Children.forEach(traverseEditor);
-        }
-      };
-      traverseEditor(_game);
-    }
-  }
-}
-
-function _openGuiEditorWindow() {
-  if (_guiEditorWindow) { _guiEditorWindow.style.display = 'flex'; return; }
-  _guiEditorWindow = document.createElement('div');
-  _guiEditorWindow.style.cssText = `
-    position: fixed; bottom: 40px; right: 20px; width: 380px; height: 300px;
-    background: rgba(10,16,30,0.95); border: 1px solid rgba(88,101,242,0.4);
-    border-radius: 8px; z-index: 10000; display: flex; flex-direction: column;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.5); overflow: hidden;
-    resize: both; min-width: 200px; min-height: 150px;
-  `;
-  const header = document.createElement('div');
-  header.style.cssText = `
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 6px 10px; background: rgba(88,101,242,0.2); user-select: none;
-    cursor: move; font-size: 12px; color: rgba(200,200,200,0.8);
-  `;
-  header.innerHTML = '<span>GUI Editor</span><span style="cursor:pointer;font-size:14px;">&times;</span>';
-  header.lastChild.onclick = () => { _guiEditorVisible = false; _closeGuiEditorWindow(); };
-  
-  const inner = document.createElement('div');
-  inner.style.cssText = 'flex:1;position:relative;overflow:hidden;pointer-events:none;';
-  _guiEditorWindow.appendChild(header);
-  _guiEditorWindow.appendChild(inner);
-  
-  // Drag
-  let dragging = false, dragStart = { x: 0, y: 0 }, startPos = { x: 0, y: 0 };
-  header.onmousedown = (e) => {
-    if (e.target === header.lastChild) return;
-    dragging = true;
-    dragStart.x = e.clientX; dragStart.y = e.clientY;
-    const rect = _guiEditorWindow.getBoundingClientRect();
-    startPos.x = rect.left; startPos.y = rect.top;
-  };
-  document.addEventListener('mousemove', (e) => {
-    if (!dragging) return;
-    _guiEditorWindow.style.left = (startPos.x + e.clientX - dragStart.x) + 'px';
-    _guiEditorWindow.style.top = (startPos.y + e.clientY - dragStart.y) + 'px';
-    _guiEditorWindow.style.right = 'auto';
-    _guiEditorWindow.style.bottom = 'auto';
-  });
-  document.addEventListener('mouseup', () => { dragging = false; });
-  
-  document.body.appendChild(_guiEditorWindow);
-  _guiEditorWindow._innerContainer = inner;
-}
-
-function _closeGuiEditorWindow() {
-  if (_guiEditorWindow) _guiEditorWindow.style.display = 'none';
 }
 
 function _getGuiContentHash(inst) {
@@ -2416,9 +2210,9 @@ function _spawnTestCharacter() {
 
     // Assign a default color scheme (matching game's _applyColorsToModel)
     _applyColorsToModel(fbx, {
-      Body: '#1e3a5f',
-      Legs: '#2d5a27',
-      Arms: '#1e3a5f',
+      Body: '#2d8a4e',
+      Legs: '#2a6bb0',
+      Arms: '#d4a017',
       Head: '#c4a882',
     });
 

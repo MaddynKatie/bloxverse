@@ -295,7 +295,7 @@ async function initializeEditor() {
         }
     });
     studioAddBtn.addEventListener('click', () => {
-        studio.addPart('Part', 4, 4, 4, 0x808080, 0, 0, 0, false);
+        studio.addPart('Part', 4, 1.2, 2, 0x808080, 0, 0, 0, false);
     });
 
     // Global keyboard shortcuts (Ctrl+Z / Ctrl+Y)

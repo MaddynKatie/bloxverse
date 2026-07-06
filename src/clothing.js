@@ -77,15 +77,15 @@ export const clothingItems = [
     updated: 'May 13, 2026 6:34:00 PM',
   },
   {
-    id: 'blueandblackmotorcycleshirt',
-    name: 'Blue and Black Motorcycle Shirt',
-    description: 'Classic blue t-shirt with a black motorcycle design on the front.',
+    id: 'motorcycleshirt',
+    name: 'Motorcycle Shirt',
+    description: 'Classic black and purple shirt with a black motorcycle design on the front.',
     price: 0,
     author: 'BloxVerse',
     category: 'Shirts',
-    texturePath: new URL('../assets/clothing/blueAndBlackMotorcycleShirt.png', import.meta.url).href,
+    texturePath: new URL('../assets/clothing/MotorcycleShirt.png', import.meta.url).href,
     created: 'May 13, 2026 6:40:00 PM',
-    updated: 'May 13, 2026 6:40:00 PM',
+    updated: 'July 6, 2026 10:14:46 AM',
   },
   {
     id: 'duckshirt',
@@ -188,17 +188,6 @@ export const clothingItems = [
   },
   // ── Pants ────────────────────────────────────────────────────────────────────
   {
-    id: 'templatepants',
-    name: 'Template Pants',
-    description: 'A template to use as a starting point for your own designs.',
-    price: 0,
-    author: 'BloxVerse',
-    category: 'Pants',
-    texturePath: new URL('../assets/clothing/pants/pantsTemplate.png', import.meta.url).href,
-    created: 'June 29, 2026 2:23:00 PM',
-    updated: 'June 29, 2026 2:23:00 PM',
-  },
-  {
     id: 'blockyfightspants',
     name: 'Blocky Fights Pants',
     description: 'Pants designed to go along with the Blocky Fights shirt.',
@@ -208,6 +197,17 @@ export const clothingItems = [
     texturePath: new URL('../assets/clothing/pants/blockyfightsPants.png', import.meta.url).href,
     created: 'July 2, 2026 5:53:32 PM',
     updated: 'July 2, 2026 6:04:29 PM',
+  },
+  {
+    id: 'errorpants',
+    name: 'Error Pants',
+    description: 'Uh oh.. Seems like the textures are missing.',
+    price: 10,
+    author: 'BloxVerse',
+    category: 'Pants',
+    texturePath: new URL('../assets/clothing/pants/errorPants.png', import.meta.url).href,
+    created: 'July 6, 2026 10:53:37 AM',
+    updated: 'July 6, 2026 10:54:37 AM',
   },
 ];
 
