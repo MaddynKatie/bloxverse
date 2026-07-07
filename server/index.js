@@ -4,7 +4,7 @@ const url = require('url');
 const fs = require('fs');
 const path = require('path');
 const QRCode = require('qrcode');
-const otplib = require('otplib');
+const { authenticator } = require('otplib');
 const { GameServer } = require('./game-server.js');
 
 const FIREBASE_API_KEY = process.env.FIREBASE_API_KEY || 'AIzaSyA-4DyZMqHgMCme2-hicVg4AV5ax-_fnmY';
@@ -146,8 +146,8 @@ const server = http.createServer(async (req, res) => {
         }
 
         // Generate TOTP secret using otplib
-        const secret = otplib.generateSecret();
-        const otpauthUrl = otplib.generateURI({ type: 'totp', issuer: 'BloxVerse', label: email, secret });
+        const secret = authenticator.generateSecret();
+        const otpauthUrl = authenticator.keyuri(encodeURIComponent(email), 'BloxVerse', secret);
         const qrCodeDataUrl = await QRCode.toDataURL(otpauthUrl, { width: 200, margin: 1 });
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -172,8 +172,8 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        const result = await otplib.verify({ token: code, secret });
-        if (!result?.valid) {
+        const isValid = authenticator.check(code, secret);
+        if (!isValid) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Invalid code. Try again.' }));
           return;
@@ -214,9 +214,7 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        // Verify TOTP code
-        const result = await otplib.verify({ token: code, secret });
-        if (!result?.valid) {
+        if (!authenticator.check(code, secret)) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Invalid code. Try again.' }));
           return;
