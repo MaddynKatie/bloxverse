@@ -227,6 +227,7 @@
       width: 90%;
       max-width: 420px;
       padding: 24px;
+      position: relative;
     }
     .settings-modal h3 {
       margin: 0 0 16px;
@@ -294,6 +295,23 @@
     }
     .settings-modal-actions .save:hover { background: rgba(124,92,252,0.7); }
     .settings-modal-actions .save:disabled { opacity: 0.5; cursor: default; }
+    .settings-modal-close {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 4px;
+      line-height: 1;
+    }
+    .settings-modal-close:hover { color: var(--text-primary); }
+    .settings-modal-actions.full-width button {
+      width: 100%;
+      justify-content: center;
+      padding: 10px 20px;
+    }
     @media (max-width: 768px) {
       .settings-page { padding: 16px; padding-top: 64px; }
       .settings-page h1 { font-size: 18px; }
@@ -337,6 +355,11 @@
     import { onAuthStateChanged, signOut, updateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider, sendEmailVerification } from 'firebase/auth';
     import { doc, getDoc, setDoc, onSnapshot, updateDoc, increment, collection, getDocs, query, where, limit } from 'firebase/firestore';
 
+    const _checkSvg = '<span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:#22c55e;flex-shrink:0;"><svg viewBox="0 0 16 16" width="9" height="9" fill="none"><path d="M3.5 8.5L6.5 11.5L12.5 4.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
+    const _xSvg = '<span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:#e74c3c;flex-shrink:0;"><svg viewBox="0 0 16 16" width="8" height="8" fill="none"><path d="M4 4L12 12M12 4L4 12" stroke="white" stroke-width="2" stroke-linecap="round"/></svg></span>';
+    const _closeX = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none"><path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+    const _serverBase = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:8080' : 'https://bloxverse.onrender.com';
+
     const navRight = document.getElementById('navRight');
     const settingsPage = document.getElementById('settingsPage');
 
@@ -368,6 +391,9 @@
         localStorage.setItem('bloxverse_settings', JSON.stringify(saved));
       } catch (_) {}
  
+      // Check 2FA enrollment from Firestore
+      const has2FA = userData.totpEnabled === true;
+
       settingsPage.innerHTML = `
         <a href="${ownProfileLink}" class="settings-back">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -394,23 +420,18 @@
           </div>
           <div class="settings-row">
             <div>
-              <div class="settings-row-label">Email</div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div class="settings-row-label" style="margin:0;">Email</div>
+                ${user.emailVerified ? _checkSvg : _xSvg}
+              </div>
               <div class="settings-row-desc">Your login email address</div>
             </div>
             <div style="display:flex;align-items:center;gap:8px;">
               <span class="settings-row-value" id="emailDisplay">${user.email || 'Not set'}</span>
               <button class="settings-btn" id="editEmailBtn">Edit</button>
+              ${!user.emailVerified ? `<button class="settings-btn" id="verifyEmailBtn" style="background:rgba(231,76,60,0.4);font-size:11px;">Verify</button><span id="verifyEmailStatus" style="font-size:12px;color:var(--text-muted);display:none;"></span>` : ''}
             </div>
           </div>
-          ${!user.emailVerified ? `
-          <div class="settings-row" style="border:none;padding-top:0;">
-            <div style="display:flex;align-items:center;gap:8px;width:100%;">
-              <span style="color:#e74c3c;font-size:13px;">Email not verified</span>
-              <button class="settings-btn" id="verifyEmailBtn" style="background:rgba(231,76,60,0.4);font-size:11px;">Send verification email</button>
-              <span id="verifyEmailStatus" style="font-size:12px;color:var(--text-muted);display:none;"></span>
-            </div>
-          </div>
-          ` : ''}
           ${user.email && !['gmail.com','yahoo.com','outlook.com','hotmail.com','icloud.com','protonmail.com','proton.me'].includes(user.email.split('@')[1]?.toLowerCase()) ? `
           <div class="settings-row" style="border:none;padding-top:0;">
             <span style="color:#e74c3c;font-size:12px;">Only Gmail, Yahoo, Outlook/Hotmail, iCloud, or Proton Mail are supported. Update your email to a supported provider.</span>
@@ -473,6 +494,22 @@
               <option value="public" ${(userData.profilePrivacy || 'public') === 'public' ? 'selected' : ''}>Everyone</option>
               <option value="friends" ${userData.profilePrivacy === 'friends' ? 'selected' : ''}>Friends Only</option>
             </select>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <h2>Security</h2>
+          </div>
+          <div class="settings-row">
+            <div>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <div class="settings-row-label" style="margin:0;">Two-Factor Authentication</div>
+                ${has2FA ? _checkSvg : _xSvg}
+              </div>
+              <div class="settings-row-desc">${has2FA ? '2FA is enabled on your account' : 'Add an extra layer of security to your account'}</div>
+            </div>
+            <button class="settings-btn" id="${has2FA ? 'disable2FABtn' : 'enable2FABtn'}" style="${has2FA ? 'background:rgba(231,76,60,0.4);' : ''}">${has2FA ? 'Disable' : 'Enable'}</button>
           </div>
         </div>
       `;
@@ -791,6 +828,219 @@
             console.error('Error saving voice chat setting:', e);
             voiceChatToggle.checked = !enabled;
           }
+        });
+      }
+
+      // Enable 2FA
+      const enableBtn = document.getElementById('enable2FABtn');
+      if (enableBtn) {
+        enableBtn.addEventListener('click', () => {
+          const overlay = document.createElement('div');
+          overlay.className = 'settings-modal-overlay';
+          overlay.innerHTML = `
+            <div class="settings-modal">
+              <button class="settings-modal-close" onclick="this.closest('.settings-modal-overlay').remove()">${_closeX}</button>
+              <h3>Two-Factor Authentication</h3>
+              <p style="color:var(--text-secondary);font-size:13px;margin-bottom:16px;">Step 1 of 2 — confirm your password to start setup</p>
+              <div class="field">
+                <label>Current Password</label>
+                <input type="password" id="mfaStep1Pass" placeholder="Enter your password" autocomplete="current-password" />
+                <div id="mfaStep1Err" class="error"></div>
+              </div>
+              <div class="settings-modal-actions full-width">
+                <button class="save" id="mfaStep1Continue">Continue</button>
+              </div>
+            </div>
+          `;
+          document.body.appendChild(overlay);
+
+          const passInput = overlay.querySelector('#mfaStep1Pass');
+          const errEl = overlay.querySelector('#mfaStep1Err');
+          const continueBtn = overlay.querySelector('#mfaStep1Continue');
+
+          const doStep1 = async () => {
+            const password = passInput.value;
+            if (!password) { errEl.textContent = 'Enter your password'; return; }
+            continueBtn.disabled = true;
+            continueBtn.textContent = 'Verifying...';
+            try {
+              const res = await fetch(_serverBase + '/api/2fa/setup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: user.email, password }),
+              });
+              const data = await res.json();
+              if (!res.ok) {
+                throw new Error(data.error || 'Setup failed');
+              }
+
+              // Step 1 passed — show Step 2
+              overlay.innerHTML = `
+                <div class="settings-modal">
+                  <button class="settings-modal-close" onclick="this.closest('.settings-modal-overlay').remove()">${_closeX}</button>
+                  <h3>Enable Two-Factor Authentication</h3>
+                  <p style="color:var(--text-secondary);font-size:13px;margin-bottom:16px;">Step 2 of 2 — scan this QR code with an authenticator app, then enter the code it shows.</p>
+                  <div style="text-align:center;margin:16px 0;">
+                    <img src="${data.qr_code}" alt="QR Code" style="width:180px;height:180px;border-radius:8px;background:#fff;padding:8px;" />
+                  </div>
+                  <p style="font-size:12px;color:var(--text-muted);text-align:center;margin-bottom:12px;">Can't scan it? Enter this key manually instead:</p>
+                  <div style="background:var(--bg-surface);border-radius:6px;padding:10px 12px;text-align:center;font-family:monospace;font-size:13px;color:var(--text-primary);margin-bottom:16px;word-break:break-all;">${data.secret}</div>
+                  <div class="field">
+                    <label>6-digit code from your app</label>
+                    <input type="text" id="mfaStep2Code" placeholder="Enter code" maxlength="6" autocomplete="off" />
+                    <div id="mfaStep2Err" class="error"></div>
+                  </div>
+                  <div class="settings-modal-actions full-width">
+                    <button class="save" id="mfaStep2Confirm">Confirm &amp; Enable</button>
+                  </div>
+                </div>
+              `;
+
+              const codeInput = overlay.querySelector('#mfaStep2Code');
+              const step2Err = overlay.querySelector('#mfaStep2Err');
+              const confirmBtn = overlay.querySelector('#mfaStep2Confirm');
+
+              // Store secret in Firestore first
+              try {
+                await setDoc(doc(db, 'users', user.uid), { totpSecret: data.secret }, { merge: true });
+              } catch (e) {
+                step2Err.textContent = 'Failed to save setup data. Try again.';
+                confirmBtn.disabled = false;
+                return;
+              }
+
+              const doVerify = async () => {
+                const code = codeInput.value.trim();
+                if (!code || code.length !== 6 || !/^\d{6}$/.test(code)) {
+                  step2Err.textContent = 'Enter a valid 6-digit code';
+                  return;
+                }
+                confirmBtn.disabled = true;
+                confirmBtn.textContent = 'Enabling...';
+                try {
+                  const verifyRes = await fetch(_serverBase + '/api/2fa/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: user.email, code, secret: data.secret }),
+                  });
+                  const verifyData = await verifyRes.json();
+                  if (!verifyRes.ok) {
+                    throw new Error(verifyData.error || 'Verification failed');
+                  }
+                  await setDoc(doc(db, 'users', user.uid), { totpEnabled: true }, { merge: true });
+                  overlay.innerHTML = `
+                    <div class="settings-modal">
+                      <h3 style="color:#22c55e;">2FA Enabled</h3>
+                      <p style="color:var(--text-secondary);font-size:14px;">Two-factor authentication is now active on your account.</p>
+                      <div class="settings-modal-actions full-width">
+                        <button class="save" onclick="location.reload()">Done</button>
+                      </div>
+                    </div>
+                  `;
+                } catch (e) {
+                  confirmBtn.disabled = false;
+                  confirmBtn.textContent = 'Confirm & Enable';
+                  step2Err.textContent = e.message;
+                }
+              };
+
+              confirmBtn.addEventListener('click', doVerify);
+              codeInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') doVerify();
+              });
+              codeInput.focus();
+            } catch (e) {
+              continueBtn.disabled = false;
+              continueBtn.textContent = 'Continue';
+              errEl.textContent = e.message;
+            }
+          };
+
+          continueBtn.addEventListener('click', doStep1);
+          passInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') doStep1();
+          });
+          passInput.focus();
+        });
+      }
+
+      // Disable 2FA
+      const disableBtn = document.getElementById('disable2FABtn');
+      if (disableBtn) {
+        disableBtn.addEventListener('click', async () => {
+          if (!has2FA) return;
+          const storedSecret = userData.totpSecret;
+          if (!storedSecret) { return; }
+          const overlay = document.createElement('div');
+          overlay.className = 'settings-modal-overlay';
+          overlay.innerHTML = `
+            <div class="settings-modal">
+              <button class="settings-modal-close" onclick="this.closest('.settings-modal-overlay').remove()">${_closeX}</button>
+              <h3>Disable Two-Factor Authentication</h3>
+              <p style="color:var(--text-secondary);font-size:13px;margin-bottom:16px;">Confirm your password and a current code from your authenticator app.</p>
+              <div class="field">
+                <label>Current Password</label>
+                <input type="password" id="mfaDisablePass" placeholder="Enter your password" autocomplete="current-password" />
+                <div id="mfaDisableErr" class="error"></div>
+              </div>
+              <div class="field">
+                <label>Verification Code</label>
+                <input type="text" id="mfaDisableCode" placeholder="000000" maxlength="6" inputmode="numeric" pattern="[0-9]*" />
+              </div>
+              <div class="settings-modal-actions full-width">
+                <button class="save" id="mfaDisableBtn" style="background:rgba(231,76,60,0.4);">Disable</button>
+              </div>
+            </div>
+          `;
+          document.body.appendChild(overlay);
+
+          const passInput = overlay.querySelector('#mfaDisablePass');
+          const codeInput = overlay.querySelector('#mfaDisableCode');
+          const errEl = overlay.querySelector('#mfaDisableErr');
+          const disableConfirmBtn = overlay.querySelector('#mfaDisableBtn');
+
+          const doDisable = async () => {
+            const password = passInput.value;
+            const code = codeInput.value;
+            if (!password) { errEl.textContent = 'Enter your password'; return; }
+            if (!code || code.length !== 6) { errEl.textContent = 'Enter a valid 6-digit code'; return; }
+            disableConfirmBtn.disabled = true;
+            disableConfirmBtn.textContent = 'Disabling...';
+            try {
+              const res = await fetch(_serverBase + '/api/2fa/disable', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: user.email, password, code, secret: storedSecret }),
+              });
+              const data = await res.json();
+              if (!res.ok) {
+                throw new Error(data.error || 'Failed to disable 2FA');
+              }
+              await setDoc(doc(db, 'users', user.uid), { totpSecret: null, totpEnabled: false }, { merge: true });
+              overlay.innerHTML = `
+                <div class="settings-modal">
+                  <h3 style="color:#22c55e;">2FA Disabled</h3>
+                  <p style="color:var(--text-secondary);font-size:14px;">Two-factor authentication has been turned off for your account.</p>
+                  <div class="settings-modal-actions full-width">
+                    <button class="save" onclick="location.reload()">Done</button>
+                  </div>
+                </div>
+              `;
+            } catch (e) {
+              disableConfirmBtn.disabled = false;
+              disableConfirmBtn.textContent = 'Disable';
+              errEl.textContent = e.message;
+            }
+          };
+
+          disableConfirmBtn.addEventListener('click', doDisable);
+          codeInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') doDisable();
+          });
+          passInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') codeInput.focus();
+          });
+          passInput.focus();
         });
       }
 

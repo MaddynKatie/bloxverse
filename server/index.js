@@ -194,10 +194,10 @@ const server = http.createServer(async (req, res) => {
     req.on('data', chunk => body += chunk);
     req.on('end', async () => {
       try {
-        const { email, password } = JSON.parse(body);
-        if (!email || !password) {
+        const { email, password, code, secret } = JSON.parse(body);
+        if (!email || !password || !code || !secret) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Email and password required' }));
+          res.end(JSON.stringify({ error: 'Email, password, code, and secret required' }));
           return;
         }
 
@@ -214,7 +214,14 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        // Password confirmed — client handles clearing Firestore fields
+        // Verify TOTP code
+        const result = await otplib.verify({ token: code, secret });
+        if (!result?.valid) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid code. Try again.' }));
+          return;
+        }
+
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true }));
       } catch (err) {
