@@ -4,13 +4,11 @@ const url = require('url');
 const fs = require('fs');
 const path = require('path');
 const QRCode = require('qrcode');
+const otplib = require('otplib');
 const { GameServer } = require('./game-server.js');
 
 const FIREBASE_API_KEY = process.env.FIREBASE_API_KEY || 'AIzaSyA-4DyZMqHgMCme2-hicVg4AV5ax-_fnmY';
 const FIREBASE_AUTH_URL = 'https://identitytoolkit.googleapis.com/v1/accounts';
-
-// Store pending TOTP enrollments: email -> { idToken, sessionInfo }
-const pendingEnrollments = new Map();
 
 // Store scripts in memory (in production, use a database)
 const gameScripts = new Map();
@@ -147,38 +145,13 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        const idToken = signInData.idToken;
-
-        // Start TOTP enrollment via Firebase Auth REST API
-        const startRes = await fetch(`${FIREBASE_AUTH_URL}:startMfaEnrollment?key=${FIREBASE_API_KEY}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ idToken, totpEnrollmentInfo: {} }),
-        });
-        const startData = await startRes.json();
-        if (!startRes.ok) {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: startData.error?.message || 'Failed to start enrollment' }));
-          return;
-        }
-
-        const sessionInfo = startData.sessionInfo;
-        const sharedSecretKey = startData.totpEnrollmentInfo?.sharedSecretKey;
-        if (!sessionInfo || !sharedSecretKey) {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Invalid enrollment response from Firebase' }));
-          return;
-        }
-
-        // Build otpauth URL and generate QR code
-        const otpauthUrl = `otpauth://totp/BloxVerse:${encodeURIComponent(email)}?secret=${sharedSecretKey}&issuer=BloxVerse&algorithm=SHA1&digits=6&period=30`;
+        // Generate TOTP secret using otplib
+        const secret = otplib.generateSecret();
+        const otpauthUrl = otplib.generateURI({ type: 'totp', issuer: 'BloxVerse', label: email, secret });
         const qrCodeDataUrl = await QRCode.toDataURL(otpauthUrl, { width: 200, margin: 1 });
 
-        // Store pending enrollment
-        pendingEnrollments.set(email, { idToken, sessionInfo });
-
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ qr_code: qrCodeDataUrl, secret: sharedSecretKey }));
+        res.end(JSON.stringify({ qr_code: qrCodeDataUrl, secret }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
@@ -192,41 +165,19 @@ const server = http.createServer(async (req, res) => {
     req.on('data', chunk => body += chunk);
     req.on('end', async () => {
       try {
-        const { email, code } = JSON.parse(body);
-        if (!email || !code) {
+        const { email, code, secret } = JSON.parse(body);
+        if (!email || !code || !secret) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Email and verification code required' }));
+          res.end(JSON.stringify({ error: 'Email, code, and secret required' }));
           return;
         }
 
-        const pending = pendingEnrollments.get(email);
-        if (!pending || !pending.idToken || !pending.sessionInfo) {
+        const result = await otplib.verify({ token: code, secret });
+        if (!result?.valid) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'No pending enrollment found. Please start setup again.' }));
+          res.end(JSON.stringify({ error: 'Invalid code. Try again.' }));
           return;
         }
-
-        // Finalize TOTP enrollment via Firebase Auth REST API
-        const finalizeRes = await fetch(`${FIREBASE_AUTH_URL}:finalizeMfaEnrollment?key=${FIREBASE_API_KEY}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            idToken: pending.idToken,
-            totpVerificationInfo: {
-              sessionInfo: pending.sessionInfo,
-              verificationCode: code,
-            },
-          }),
-        });
-        const finalizeData = await finalizeRes.json();
-        if (!finalizeRes.ok) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: finalizeData.error?.message === 'INVALID_PENDING_TOKEN' ? 'Invalid code. Try again.' : (finalizeData.error?.message || 'Verification failed') }));
-          return;
-        }
-
-        // Clear pending enrollment
-        pendingEnrollments.delete(email);
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true }));
@@ -263,42 +214,7 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        const idToken = signInData.idToken;
-
-        // Look up user's enrolled MFA factors
-        const lookupRes = await fetch(`${FIREBASE_AUTH_URL}:lookup?key=${FIREBASE_API_KEY}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ idToken }),
-        });
-        const lookupData = await lookupRes.json();
-        if (!lookupRes.ok) {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: lookupData.error?.message || 'Failed to lookup user' }));
-          return;
-        }
-
-        const mfaInfo = lookupData.users?.[0]?.mfaInfo || [];
-        const totpFactor = mfaInfo.find(f => f.factorId === 'totp');
-        if (!totpFactor) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'No TOTP factor found to disable' }));
-          return;
-        }
-
-        // Remove the TOTP factor
-        const withdrawRes = await fetch(`${FIREBASE_AUTH_URL}:withdrawMfa?key=${FIREBASE_API_KEY}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ idToken, mfaEnrollmentId: totpFactor.mfaEnrollmentId }),
-        });
-        const withdrawData = await withdrawRes.json();
-        if (!withdrawRes.ok) {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: withdrawData.error?.message || 'Failed to disable 2FA' }));
-          return;
-        }
-
+        // Password confirmed — client handles clearing Firestore fields
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true }));
       } catch (err) {
