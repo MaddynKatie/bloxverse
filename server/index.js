@@ -3,7 +3,14 @@ const http = require('http');
 const url = require('url');
 const fs = require('fs');
 const path = require('path');
+const QRCode = require('qrcode');
 const { GameServer } = require('./game-server.js');
+
+const FIREBASE_API_KEY = process.env.FIREBASE_API_KEY || 'AIzaSyA-4DyZMqHgMCme2-hicVg4AV5ax-_fnmY';
+const FIREBASE_AUTH_URL = 'https://identitytoolkit.googleapis.com/v1/accounts';
+
+// Store pending TOTP enrollments: email -> { idToken, sessionInfo }
+const pendingEnrollments = new Map();
 
 // Store scripts in memory (in production, use a database)
 const gameScripts = new Map();
@@ -105,6 +112,195 @@ const server = http.createServer(async (req, res) => {
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true, publishedAt: new Date().toISOString() }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
+
+  // ── 2FA Endpoints ────────────────────────────────────────────────────────────
+
+  if (pathname === '/api/2fa/setup' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', async () => {
+      try {
+        const { email, password } = JSON.parse(body);
+        if (!email || !password) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Email and password required' }));
+          return;
+        }
+
+        // Verify password via Firebase Auth REST API
+        const signInRes = await fetch(`${FIREBASE_AUTH_URL}:signInWithPassword?key=${FIREBASE_API_KEY}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, returnSecureToken: true }),
+        });
+        const signInData = await signInRes.json();
+        if (!signInRes.ok) {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: signInData.error?.message === 'INVALID_PASSWORD' ? 'Current password is incorrect' : (signInData.error?.message || 'Authentication failed') }));
+          return;
+        }
+
+        const idToken = signInData.idToken;
+
+        // Start TOTP enrollment via Firebase Auth REST API
+        const startRes = await fetch(`${FIREBASE_AUTH_URL}:startMfaEnrollment?key=${FIREBASE_API_KEY}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken, totpEnrollmentInfo: {} }),
+        });
+        const startData = await startRes.json();
+        if (!startRes.ok) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: startData.error?.message || 'Failed to start enrollment' }));
+          return;
+        }
+
+        const sessionInfo = startData.sessionInfo;
+        const sharedSecretKey = startData.totpEnrollmentInfo?.sharedSecretKey;
+        if (!sessionInfo || !sharedSecretKey) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid enrollment response from Firebase' }));
+          return;
+        }
+
+        // Build otpauth URL and generate QR code
+        const otpauthUrl = `otpauth://totp/BloxVerse:${encodeURIComponent(email)}?secret=${sharedSecretKey}&issuer=BloxVerse&algorithm=SHA1&digits=6&period=30`;
+        const qrCodeDataUrl = await QRCode.toDataURL(otpauthUrl, { width: 200, margin: 1 });
+
+        // Store pending enrollment
+        pendingEnrollments.set(email, { idToken, sessionInfo });
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ qr_code: qrCodeDataUrl, secret: sharedSecretKey }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
+
+  if (pathname === '/api/2fa/verify' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', async () => {
+      try {
+        const { email, code } = JSON.parse(body);
+        if (!email || !code) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Email and verification code required' }));
+          return;
+        }
+
+        const pending = pendingEnrollments.get(email);
+        if (!pending || !pending.idToken || !pending.sessionInfo) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'No pending enrollment found. Please start setup again.' }));
+          return;
+        }
+
+        // Finalize TOTP enrollment via Firebase Auth REST API
+        const finalizeRes = await fetch(`${FIREBASE_AUTH_URL}:finalizeMfaEnrollment?key=${FIREBASE_API_KEY}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            idToken: pending.idToken,
+            totpVerificationInfo: {
+              sessionInfo: pending.sessionInfo,
+              verificationCode: code,
+            },
+          }),
+        });
+        const finalizeData = await finalizeRes.json();
+        if (!finalizeRes.ok) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: finalizeData.error?.message === 'INVALID_PENDING_TOKEN' ? 'Invalid code. Try again.' : (finalizeData.error?.message || 'Verification failed') }));
+          return;
+        }
+
+        // Clear pending enrollment
+        pendingEnrollments.delete(email);
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
+
+  if (pathname === '/api/2fa/disable' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', async () => {
+      try {
+        const { email, password } = JSON.parse(body);
+        if (!email || !password) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Email and password required' }));
+          return;
+        }
+
+        // Verify password
+        const signInRes = await fetch(`${FIREBASE_AUTH_URL}:signInWithPassword?key=${FIREBASE_API_KEY}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, returnSecureToken: true }),
+        });
+        const signInData = await signInRes.json();
+        if (!signInRes.ok) {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: signInData.error?.message === 'INVALID_PASSWORD' ? 'Current password is incorrect' : (signInData.error?.message || 'Authentication failed') }));
+          return;
+        }
+
+        const idToken = signInData.idToken;
+
+        // Look up user's enrolled MFA factors
+        const lookupRes = await fetch(`${FIREBASE_AUTH_URL}:lookup?key=${FIREBASE_API_KEY}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken }),
+        });
+        const lookupData = await lookupRes.json();
+        if (!lookupRes.ok) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: lookupData.error?.message || 'Failed to lookup user' }));
+          return;
+        }
+
+        const mfaInfo = lookupData.users?.[0]?.mfaInfo || [];
+        const totpFactor = mfaInfo.find(f => f.factorId === 'totp');
+        if (!totpFactor) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'No TOTP factor found to disable' }));
+          return;
+        }
+
+        // Remove the TOTP factor
+        const withdrawRes = await fetch(`${FIREBASE_AUTH_URL}:withdrawMfa?key=${FIREBASE_API_KEY}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken, mfaEnrollmentId: totpFactor.mfaEnrollmentId }),
+        });
+        const withdrawData = await withdrawRes.json();
+        if (!withdrawRes.ok) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: withdrawData.error?.message || 'Failed to disable 2FA' }));
+          return;
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
