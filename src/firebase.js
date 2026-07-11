@@ -278,7 +278,7 @@ export async function publishGame(data) {
     description: data.description || '',
     category: data.category || 'User Created',
     authorId: data.authorId,
-    authorName: data.authorName || 'Player',
+    authorName: data.authorName || 'Unknown',
     icon: data.icon || './assets/icons/demo.png',
     mapUrl,
     visits: 0,
@@ -670,4 +670,17 @@ export async function isUsernameTaken(username) {
     console.error('Error checking username:', e);
     return false;
   }
+}
+
+export async function lookupUserByNum(userIdNum) {
+  try {
+    const snap = await getDocs(query(collection(db, 'users'), where('userIdNum', '==', userIdNum)));
+    if (!snap.empty) {
+      const u = snap.docs[0].data();
+      return { uid: snap.docs[0].id, username: u.username || 'Unknown', avatarPreview: u.avatarPreview || null };
+    }
+  } catch (e) {
+    console.warn('Error looking up user by num:', e);
+  }
+  return null;
 }

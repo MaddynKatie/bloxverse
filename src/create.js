@@ -1,7 +1,7 @@
 import { sitePath } from './paths.js';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db, banGuard, isProfane } from './firebase.js';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { loadScriptsFromStorage, saveScriptsToStorage } from './scriptRuntime.js';
 import * as studio from './studio.js';
 
@@ -272,6 +272,11 @@ async function initializeEditor() {
             for (const [sname, sdata] of Object.entries(scripts)) {
                 publishedScripts[sname] = sdata.code || sdata;
             }
+            let authorName = 'Player';
+            try {
+                const userSnap = await getDoc(doc(db, 'users', user.uid));
+                if (userSnap.exists()) authorName = userSnap.data().username || 'Player';
+            } catch (_) {}
             const gameId = await publishGame({
                 name,
                 description: desc || '',
@@ -282,7 +287,7 @@ async function initializeEditor() {
                     lighting: gameData.lighting,
                 },
                 authorId: user.uid,
-                authorName: 'Player',
+                authorName,
                 icon: _selectedThumb || './assets/icons/demo.png',
             });
             closePublishModal();

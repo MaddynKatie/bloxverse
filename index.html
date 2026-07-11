@@ -205,7 +205,6 @@
       }).catch(() => {});
     }
     loadGames().then(() => {
-      // Real-time listener for game changes on all published game cards
       onSnapshot(collection(db, 'publishedGames'), (snap) => {
         snap.docChanges().forEach(change => {
           const data = change.doc.data();

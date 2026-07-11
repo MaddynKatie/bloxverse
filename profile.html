@@ -675,10 +675,13 @@
 
         <!-- Username + info row with circular profile pic -->
         <div class="profile-header">
-          <div class="profile-header-avatar">
-            ${userData.avatarPreview
-              ? `<img src="${userData.avatarPreview}?_cb=${_cb}" alt="" class="profile-avatar-img" data-initial="${initial}" onerror="window.__handleBrokenAvatar(this,'${viewingUserId}')"/>`
-              : `<span>${initial}</span>`}
+          <div class="avatar-with-status">
+            <div class="profile-header-avatar">
+              ${userData.avatarPreview
+                ? `<img src="${userData.avatarPreview}?_cb=${_cb}" alt="" class="profile-avatar-img" data-initial="${initial}" onerror="window.__handleBrokenAvatar(this,'${viewingUserId}')"/>`
+                : `<span>${initial}</span>`}
+            </div>
+            <div class="status-dot offline" id="profileStatusDotHeader"></div>
           </div>
           <div class="profile-header-info">
             <h1>${username}${badgeHtml}</h1>
@@ -844,6 +847,27 @@
           document.getElementById('bioCount').textContent = bioTextarea.value.length;
         });
       }
+
+      // Presence / Status listener
+      const statusDotBanner = document.getElementById('profileStatusDotBanner');
+      const statusDotHeader = document.getElementById('profileStatusDotHeader');
+      const updateStatus = (status) => {
+        if (statusDotHeader) { statusDotHeader.className = 'status-dot ' + status; }
+      };
+      updateStatus('offline');
+      const presenceUnsub = onSnapshot(doc(db, 'presence', viewingUserId), (snap) => {
+        let status = 'offline';
+        if (snap.exists()) {
+          const p = snap.data();
+          const lastSeen = p.lastSeen?.toMillis?.() ?? p.lastSeen;
+          const twoMinAgo = Date.now() - 120000;
+          if (lastSeen && lastSeen < twoMinAgo) status = 'offline';
+          else if (p.inGame) status = 'in-game';
+          else if (p.online) status = 'online';
+        }
+        updateStatus(status);
+      }, () => updateStatus('offline'));
+      window.addEventListener('beforeunload', () => presenceUnsub?.());
 
       // Bux dropdown toggle
       const buxWrapper = document.getElementById('buxWrapper');

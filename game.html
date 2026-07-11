@@ -2378,11 +2378,6 @@
                   currentUserIdNum = profile.userIdNum || null;
                   currentUserAge = calculateAge(profile.birthday);
                   currentUserTrustedFriends = new Set(profile.trustedFriends || []);
-                  try {
-                    const saved = JSON.parse(localStorage.getItem('bloxverse_settings') || '{}');
-                    saved.voiceEnabled = currentUserAge >= 13 && profile.voiceEnabled === true;
-                    localStorage.setItem('bloxverse_settings', JSON.stringify(saved));
-                  } catch (_) { }
                   getRoles(user.uid).then(r => _playerRoles.set(user.uid, r)).catch(() => { });
                 }
               } catch (e) {
@@ -2567,6 +2562,7 @@
                     // Call onPlayerJoin for new players
                     if (!_knownPlayerIds.has(p.userId)) {
                       _knownPlayerIds.add(p.userId);
+                      if (voiceEnabled && localMicStream) _maybeCreatePeers();
                       const playerObj = makePlayerObj(p.userId, p.username);
                       for (const ex of scriptExports) {
                         try { ex.onPlayerJoin?.(playerObj); } catch (e) { console.error('[Script] onPlayerJoin error:', e); }
@@ -2785,9 +2781,9 @@
                   const stored = JSON.parse(localStorage.getItem('bloxverse_settings') || '{}');
                   if (stored.voiceEnabled === false) return false;
                   if (stored.voiceEnabled === true) return true;
-                  return true;
+                  return false;
                 } catch (_) {
-                  return true;
+                  return false;
                 }
               }
 
@@ -2797,12 +2793,11 @@
 
               function _updateVoiceUi() {
                 const allowed = _voiceAllowed();
-                const optedIn = _getVoiceSettingEnabled();
                 if (voiceSettingsGroup) voiceSettingsGroup.style.display = allowed ? '' : 'none';
                 if (!btnMic) return;
-                btnMic.style.display = allowed && optedIn !== false ? '' : 'none';
-                btnMic.disabled = !allowed || optedIn === false;
-                btnMic.classList.toggle('mic-unavailable', !allowed || optedIn === false);
+                btnMic.style.display = allowed ? '' : 'none';
+                btnMic.disabled = !allowed;
+                btnMic.classList.toggle('mic-unavailable', !allowed);
                 btnMic.classList.toggle('mic-on', voiceEnabled && !micMuted);
                 btnMic.classList.toggle('mic-off', !voiceEnabled || micMuted);
                 btnMic.innerHTML = voiceEnabled && !micMuted
@@ -3040,13 +3035,6 @@
                 try {
                   _updateVoiceUi();
                   if (!_voiceAllowed()) { showToast('Voice chat is unavailable because this browser does not allow microphone access.', 'info', 3000); return; }
-                  if (_getVoiceSettingEnabled() === false) {
-                    try {
-                      const saved = JSON.parse(localStorage.getItem('bloxverse_settings') || '{}');
-                      saved.voiceEnabled = true;
-                      localStorage.setItem('bloxverse_settings', JSON.stringify(saved));
-                    } catch (_) {}
-                  }
                   await _ensureVoiceAudioReady();
                   const deviceId = localStorage.getItem('bloxverse_voice_mic') || '';
                   localMicStream = await navigator.mediaDevices.getUserMedia({
@@ -3057,13 +3045,12 @@
                       deviceId: deviceId ? { exact: deviceId } : undefined
                     }
                   });
-                  voiceEnabled = true; micMuted = false;
-                  localMicStream.getAudioTracks().forEach(t => t.enabled = true);
+                  voiceEnabled = true; micMuted = true;
+                  localMicStream.getAudioTracks().forEach(t => t.enabled = false);
                   _updateVoiceUi();
                   await _enumerateDevices();
                   _updateSpeakerOutput();
                   _maybeCreatePeers();
-                  showToast('Voice chat connected. Click mic icon to talk.', 'info', 3000);
                 } catch (e) { console.error('[Voice] Init failed:', e); showToast('Voice chat unavailable: ' + e.message, 'info', 3000); }
               }
 
@@ -3333,9 +3320,9 @@
 
               _updateVoiceUi();
               if (_voiceAllowed()) _enumerateDevices();
-              if (_getVoiceSettingEnabled()) {
+              {
                 const iv = setInterval(() => {
-                  if (window._bloxverse && localMicStream === null) { clearInterval(iv); initVoice(); }
+                  if (window._bloxverse) { clearInterval(iv); initVoice(); }
                 }, 500);
               }
 

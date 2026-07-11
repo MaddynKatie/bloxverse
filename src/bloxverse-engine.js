@@ -3450,7 +3450,7 @@ function updateCamera(fpDt) {
         if (headAttachment?.object) {
             headPos = new THREE.Vector3();
             headAttachment.object.getWorldPosition(headPos);
-            headPos.y += 0.3;
+            headPos.y += 0.7;
         }
     }
 

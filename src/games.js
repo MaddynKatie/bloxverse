@@ -193,6 +193,23 @@ export const games = [
     visits: 0,
     createdAt: '2026/06/18',
   },
+  {
+    id: 'beachtown',
+    name: 'Beach Town',
+    official: false,
+    creator: 4,
+    icon: './assets/icons/beachtown.png',
+    mapPath: './assets/models/beachtown.json',
+    scriptsPath: './assets/games/beachtown',
+    description: `🏖️ Welcome to Beach Town! 🏖️
+This is a relaxing and fun game where you can explore the beach, interact with other players, and enjoy various activities. Play soccer, or just chill by the ocean. Perfect for a sunny day in the virtual world!`,
+    category: 'Sandbox',
+    worldFloor: false,
+    respawnY: -200,
+    activePlayers: 0,
+    visits: 0,
+    createdAt: '2026/07/11',
+  },
 ];
 
 export async function loadGameStats() {

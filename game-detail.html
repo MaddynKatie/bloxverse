@@ -402,7 +402,23 @@
       detailDescription.textContent = game.description || 'No description available.';
       metaCategory.textContent = game.category || '—';
       metaCreated.textContent = game.createdAt ? formatDate(game.createdAt) : '—';
-      if (game.authorName) {
+      if (game.creator) {
+        metaAuthor.textContent = 'Loading...';
+        (async () => {
+          try {
+            const { lookupUserByNum } = await import('./src/firebase.js');
+            const user = await lookupUserByNum(game.creator);
+            if (user) {
+              metaAuthor.textContent = user.username;
+              metaAuthor.style.cursor = 'pointer';
+              metaAuthor.onclick = () => { window.location.href = '/bloxverse/profile?user=' + game.creator; };
+            } else {
+              metaAuthor.textContent = 'Unknown';
+              metaAuthor.style.cursor = '';
+            }
+          } catch { metaAuthor.textContent = 'Unknown'; }
+        })();
+      } else if (game.authorName) {
         metaAuthor.textContent = game.authorName;
         metaAuthor.style.color = '#00b06f';
         metaAuthor.style.cursor = 'pointer';
@@ -606,9 +622,11 @@
         const ownPreview = userDocData.avatarPreview || null;
         const _cb = Date.now();
         const initial = username.charAt(0).toUpperCase();
+        const ownNum = userDocData.userIdNum || null;
+        const ownProfileLink = ownNum ? '/bloxverse/profile?user=' + ownNum : '/bloxverse/profile';
         navRight.innerHTML = `
           <div class="user-info">
-            ${ownPreview ? `<img src="${ownPreview}?_cb=${_cb}" alt="" class="avatar-circle-img" data-initial="${initial}" onerror="window.__handleBrokenAvatar(this, '${user.uid}')"/>` : `<div class="avatar-circle">${initial}</div>`}
+            ${ownPreview ? `<img src="${ownPreview}?_cb=${_cb}" alt="" class="avatar-circle-img" onclick="window.location.href='${ownProfileLink}'" data-initial="${initial}" onerror="window.__handleBrokenAvatar(this, '${user.uid}')"/>` : `<div class="avatar-circle" onclick="window.location.href='${ownProfileLink}'">${initial}</div>`}
           </div>
         `;
         if (_gameAuthorId && user.uid === _gameAuthorId) {
