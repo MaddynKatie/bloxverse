@@ -9,6 +9,9 @@ body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
   min-height: 100vh;
+}
+
+.auth-page {
   display: flex;
   align-items: center;
   justify-content: center;

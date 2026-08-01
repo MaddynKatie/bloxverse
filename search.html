@@ -55,6 +55,7 @@
 
   <link rel="stylesheet" href="src/theme.css" />
   <script type="module" src="src/theme.js"></script>
+  <script src="js/sw-register.js" defer></script>
 </head>
 <body>
   <nav class="navbar">
@@ -68,7 +69,6 @@
       </div>
       <div class="nav-links" id="navLinks">
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
-        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/create'">Create</button>
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
       </div>
     </div>
@@ -125,7 +125,7 @@
           if (d.exists()) userDocData = d.data();
         } catch {}
         const username = userDocData.username || 'Player';
-        const ownPreview = userDocData.avatarPreview || null;
+        const ownPreview = userDocData.avatarPreviewHead || userDocData.avatarPreview || null;
         const ownNum = userDocData.userIdNum;
         const ownProfileLink = ownNum ? `/bloxverse/profile?user=${ownNum}` : '/bloxverse/profile';
         const ownInitial = username.charAt(0).toUpperCase();
@@ -261,7 +261,7 @@
         <div class="player-grid">
           ${users.map(u => `
             <div class="player-card" onclick="window.location.href='/bloxverse/profile?user=${u.userIdNum}'">
-              <div class="player-avatar">${u.avatarPreview ? `<img src="${u.avatarPreview}?_cb=${Date.now()}" alt="" class="player-avatar-img" onerror="this.outerHTML='<div class=player-avatar-letter>${(u.username||'?').charAt(0).toUpperCase()}</div>'"/>` : `<div class="player-avatar-letter">${(u.username || '?').charAt(0).toUpperCase()}</div>`}</div>
+              <div class="player-avatar">${u.avatarPreviewHead || u.avatarPreview ? `<img src="${(u.avatarPreviewHead || u.avatarPreview)}?_cb=${Date.now()}" alt="" class="player-avatar-img" onerror="this.outerHTML='<div class=player-avatar-letter>${(u.username||'?').charAt(0).toUpperCase()}</div>'"/>` : `<div class="player-avatar-letter">${(u.username || '?').charAt(0).toUpperCase()}</div>`}</div>
               <div class="player-info">
                 <div class="player-name">${u.username}</div>
                 <div class="player-join-date">Joined ${new Date(u.createdAt || Date.now()).toLocaleDateString()}</div>
@@ -316,11 +316,24 @@
         try {
           if (auth && auth.currentUser && auth.currentUser.uid === uid) {
             const { setDoc, doc } = await import('https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js');
-            await setDoc(doc(db, 'users', uid), { avatarPreview: null }, { merge: true });
+            await setDoc(doc(db, 'users', uid), { avatarPreview: null, avatarPreviewHead: null }, { merge: true });
           }
         } catch (e) { console.warn('Could not clear avatarPreview:', e); }
       } catch (e) { console.warn('Broken avatar handler error:', e); }
     };
   </script>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="logo" onclick="window.location.href='/bloxverse/'">
+        <img src="assets/icons/bloxverseLogo.png" alt="" class="footer-logo-img" />
+        <span class="logo-text">BloxVerse</span>
+      </div>
+      <div class="footer-links">
+        <a href="/bloxverse/terms">Terms of Service</a>
+        <a href="/bloxverse/privacy">Privacy Policy</a>
+      </div>
+    </div>
+  </footer>
 </body>
 </html>

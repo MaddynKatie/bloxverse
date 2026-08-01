@@ -17,27 +17,27 @@ const STUDS_PER_TILE = 4;
 const G_LEVEL = 0; // world ground Y (top of baseplate)
 const DEG2RAD = Math.PI / 180;
 
-let WALK_SPEED         = 16;
-const JUMP_POWER       = 50;
-const GRAVITY          = -196.2;
-const ROT_SPEED        = 14;
-const STEP_HEIGHT      = 1.1;
+let WALK_SPEED = 16;
+const JUMP_POWER = 50;
+const GRAVITY = -196.2;
+const ROT_SPEED = 14;
+const STEP_HEIGHT = 1.1;
 const STEP_CLIMB_SPEED = 16;
-const COYOTE_TIME      = 0.12;
-const JUMP_BUFFER_T    = 0.15;
+const COYOTE_TIME = 0.12;
+const JUMP_BUFFER_T = 0.15;
 const CAM_KEY_ZOOM_SPEED = 32;
-const CAM_PIVOT_Y        = 2.56;
-const SHIFT_LOCK_OFFSET  = 1.75;
+const CAM_PIVOT_Y = 2.56;
+const SHIFT_LOCK_OFFSET = 1.75;
 const FIRST_PERSON_RANGE = 3.0;
 
-const CLIMB_RISE_SPEED  = 11.2;
-const CLIMB_REACH       = 0.1;
+const CLIMB_RISE_SPEED = 11.2;
+const CLIMB_REACH = 0.1;
 const CLIMB_FALL_CUTOFF = -200;
-const CLIMB_MAX_PART_H  = 1.5;
-const CLIMB_WINDOW      = 2.2;
-const CLIMB_JUMP_UP     = 38;
+const CLIMB_MAX_PART_H = 1.5;
+const CLIMB_WINDOW = 2.2;
+const CLIMB_JUMP_UP = 38;
 const CLIMB_JUMP_BACK_V = 14;
-const HANG_DEPTH        = 1.2;
+const HANG_DEPTH = 1.2;
 
 let currentUserId = null;
 const CHUNK_SIZE = 4;
@@ -65,18 +65,18 @@ let _targetFps = 0;
 let _nextRenderTime = performance.now();
 
 // ─── Chat Bubble Config ────────────────────────────────────────────────
-const BUBBLE_WORLD_W  = 4.0;
+const BUBBLE_WORLD_W = 4.0;
 const BUBBLE_CANVAS_W = 500;
-const BUBBLE_SCALE    = BUBBLE_WORLD_W / BUBBLE_CANVAS_W;
+const BUBBLE_SCALE = BUBBLE_WORLD_W / BUBBLE_CANVAS_W;
 const BUBBLE_DURATION = 15000;
-const MAX_BUBBLES     = 3;
+const MAX_BUBBLES = 3;
 
-const B_PAD  = 24;
-const B_R    = 16;
+const B_PAD = 24;
+const B_R = 16;
 const B_FONT = '38px system-ui,sans-serif';
 const B_LINE = 48;
-const B_TRI  = 14;
-const B_GAP  = 8;
+const B_TRI = 14;
+const B_GAP = 8;
 
 const _bubbles = new Map();
 const _measureCtx = document.createElement('canvas').getContext('2d');
@@ -130,7 +130,7 @@ function _redrawBubble(id) {
     );
     const CW = Math.max(...msgW);
     const msgBodyH = msgLines.map(ls => ls.length * B_LINE + B_PAD * 2);
-    const totalH   = msgBodyH.reduce((a,h)=>a+h,0) + B_GAP*(b.msgs.length-1) + B_TRI;
+    const totalH = msgBodyH.reduce((a, h) => a + h, 0) + B_GAP * (b.msgs.length - 1) + B_TRI;
     const canvas = document.createElement('canvas');
     canvas.width = CW;
     canvas.height = totalH;
@@ -141,8 +141,8 @@ function _redrawBubble(id) {
         const isBottom = i === b.msgs.length - 1;
         const bodyH = msgBodyH[i];
         const lines = msgLines[i];
-        const bw    = msgW[i];
-        const bx    = (CW - bw) / 2;
+        const bw = msgW[i];
+        const bx = (CW - bw) / 2;
         ctx.fillStyle = 'rgba(255,255,255,0.95)';
         ctx.beginPath();
         ctx.moveTo(bx + B_R, y);
@@ -151,9 +151,9 @@ function _redrawBubble(id) {
         ctx.lineTo(bx + bw, y + bodyH - B_R);
         ctx.arcTo(bx + bw, y + bodyH, bx + bw - B_R, y + bodyH, B_R);
         if (isBottom) {
-            ctx.lineTo(CW/2 + B_TRI, y + bodyH);
-            ctx.lineTo(CW/2,         y + bodyH + B_TRI);
-            ctx.lineTo(CW/2 - B_TRI, y + bodyH);
+            ctx.lineTo(CW / 2 + B_TRI, y + bodyH);
+            ctx.lineTo(CW / 2, y + bodyH + B_TRI);
+            ctx.lineTo(CW / 2 - B_TRI, y + bodyH);
         }
         ctx.lineTo(bx + B_R, y + bodyH);
         ctx.arcTo(bx, y + bodyH, bx, y + bodyH - B_R, B_R);
@@ -165,7 +165,7 @@ function _redrawBubble(id) {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         for (let j = 0; j < lines.length; j++) {
-            ctx.fillText(lines[j], CW/2, y + B_PAD + j*B_LINE);
+            ctx.fillText(lines[j], CW / 2, y + B_PAD + j * B_LINE);
         }
         y += bodyH + (isBottom ? B_TRI : B_GAP);
     }
@@ -243,34 +243,34 @@ function _createNameSprite(username, color) {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     ctx.font = USERNAME_FONT;
-    
+
     // Measure text
     const metrics = ctx.measureText(username);
     const textWidth = metrics.width;
     const textHeight = 64;
     const padding = 8;
-    
+
     canvas.width = textWidth + padding * 2;
     canvas.height = textHeight + padding * 2;
-    
+
     // Draw text with stroke for outline (no background)
     ctx.font = USERNAME_FONT;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    
+
     // Draw black outline/stroke
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
     ctx.lineWidth = 4;
     ctx.strokeText(username, canvas.width / 2, canvas.height / 2);
-    
+
     // Draw text on top (default white, or team color)
     ctx.fillStyle = color || '#ffffff';
     ctx.fillText(username, canvas.width / 2, canvas.height / 2);
-    
+
     const labelTexture = new THREE.CanvasTexture(canvas);
     labelTexture.needsUpdate = true;
     const sprite = new THREE.Sprite(
-        new THREE.SpriteMaterial({ 
+        new THREE.SpriteMaterial({
             map: labelTexture,
             transparent: true,
             depthTest: true,
@@ -282,7 +282,7 @@ function _createNameSprite(username, color) {
     const scale = 0.008;
     sprite.scale.set(canvas.width * scale, canvas.height * scale, 1);
     scene.add(sprite);
-    
+
     return sprite;
 }
 
@@ -415,10 +415,10 @@ function _updateHealthBarSprite(bar, health, maxHealth) {
 function _updateNameLabelPositions() {
     if (!character) return;
     const userIds = new Set([..._playerNames.keys(), ..._playerHealthBars.keys(), ..._playerStreaks.keys()]);
-    
+
     for (const userId of userIds) {
         let avatarObj = null;
-        
+
         if (userId === currentUserId && character) {
             avatarObj = character;
         } else {
@@ -427,7 +427,7 @@ function _updateNameLabelPositions() {
                 avatarObj = p.mesh;
             }
         }
-        
+
         if (!avatarObj) continue;
 
         const headTop = _getHeadTopWorldPosition(avatarObj, userId);
@@ -456,6 +456,7 @@ function _updateNameLabelPositions() {
 
 // ─── Scene ───────────────────────────────────────────────────────────────────
 const scene = new THREE.Scene();
+window.scene = scene;
 scene.fog = new THREE.Fog(0x87CEEB, 140, 350);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 3200);
@@ -504,7 +505,7 @@ physicsWorld.defaultContactMaterial.friction = 0.4;
 
 // Patch solver to use body._bounciness for restitution (bypasses broken material system)
 const origAddEq = physicsWorld.solver.addEquation.bind(physicsWorld.solver);
-physicsWorld.solver.addEquation = function(eq) {
+physicsWorld.solver.addEquation = function (eq) {
     if (eq.restitution !== undefined && eq.bi && eq.bj) {
         const br = eq.bi._bounciness;
         eq.restitution = typeof br === 'number' ? br : eq.restitution;
@@ -689,7 +690,7 @@ function applyMeshTransparency(mesh, transparency) {
 
 // ─── Collision spatial grid ───────────────────────────────────────────────────
 const colliders = [];
-const chunkMap  = new Map();
+const chunkMap = new Map();
 
 function chunkKey(cx, cy, cz) { return `${cx},${cy},${cz}`; }
 function worldToChunk(x) { return Math.floor(x / CHUNK_SIZE); }
@@ -717,7 +718,7 @@ function getNearbyColliders(px, py, pz) {
                 const bucket = chunkMap.get(chunkKey(cx + dx, cy + dy, cz + dz));
                 if (bucket) bucket.forEach(b => _nearbySet.add(b));
             }
-    
+
     // Add dynamic physics body colliders
     physicsBodies.forEach(({ body, anchored, mesh }) => {
         if (!anchored && body && body._obb && mesh.userData.canCollide !== false) {
@@ -728,14 +729,14 @@ function getNearbyColliders(px, py, pz) {
             const ex = body._obb.maxX - body._obb.cx;
             const ey = body._obb.maxY - body._obb.cy;
             const ez = body._obb.maxZ - body._obb.cz;
-            
+
             // Simple AABB proximity check
             if (dx < ex + CHAR_HALF_W + 16 && dy < ey + CHAR_HEIGHT + 16 && dz < ez + CHAR_HALF_D + 16) {
                 _nearbySet.add(body._obb);
             }
         }
     });
-    
+
     return _nearbySet;
 }
 
@@ -746,12 +747,14 @@ function buildOBB(sw, sh, sd, cx, cy, cz, rx, ry, rz) {
     const ux = e[0], uy = e[1], uz = e[2];
     const vx = e[4], vy = e[5], vz = e[6];
     const wx = e[8], wy = e[9], wz = e[10];
-    const hx = sw/2, hy = sh/2, hz = sd/2;
-    const ex = hx*Math.abs(ux)+hy*Math.abs(vx)+hz*Math.abs(wx);
-    const ey = hx*Math.abs(uy)+hy*Math.abs(vy)+hz*Math.abs(wy);
-    const ez = hx*Math.abs(uz)+hy*Math.abs(vz)+hz*Math.abs(wz);
-    return { isOBB:true, cx,cy,cz, hx,hy,hz, ux,uy,uz, vx,vy,vz, wx,wy,wz,
-        minX:cx-ex, maxX:cx+ex, minY:cy-ey, maxY:cy+ey, minZ:cz-ez, maxZ:cz+ez };
+    const hx = sw / 2, hy = sh / 2, hz = sd / 2;
+    const ex = hx * Math.abs(ux) + hy * Math.abs(vx) + hz * Math.abs(wx);
+    const ey = hx * Math.abs(uy) + hy * Math.abs(vy) + hz * Math.abs(wy);
+    const ez = hx * Math.abs(uz) + hy * Math.abs(vz) + hz * Math.abs(wz);
+    return {
+        isOBB: true, cx, cy, cz, hx, hy, hz, ux, uy, uz, vx, vy, vz, wx, wy, wz,
+        minX: cx - ex, maxX: cx + ex, minY: cy - ey, maxY: cy + ey, minZ: cz - ez, maxZ: cz + ez
+    };
 }
 
 // ─── Ray-vs-collider helpers (for camera collision) ──────────────────────────
@@ -894,13 +897,13 @@ function addStud(sw, sh, sd, color, x, y, z, rx = 0, ry = 0, rz = 0, anchored = 
     const cannonMass = anchored ? 0 : bodyMass;
     const body = new CANNON.Body({ mass: cannonMass, shape: cannonShape });
     body.position.set(x, cy, z);
-    
+
     if (rx !== 0 || ry !== 0 || rz !== 0) {
         const quat = new CANNON.Quaternion();
         quat.setFromEuler(rx, ry, rz);
         body.quaternion = quat;
     }
-    
+
     if (canCollide) {
         physicsWorld.addBody(body);
     }
@@ -915,7 +918,7 @@ function addStud(sw, sh, sd, color, x, y, z, rx = 0, ry = 0, rz = 0, anchored = 
     if (anchored && canCollide) {
         let b;
         if (rx === 0 && ry === 0 && rz === 0) {
-            b = { minX: x-sw/2, maxX: x+sw/2, minY: y, maxY: y+sh, minZ: z-sd/2, maxZ: z+sd/2 };
+            b = { minX: x - sw / 2, maxX: x + sw / 2, minY: y, maxY: y + sh, minZ: z - sd / 2, maxZ: z + sd / 2 };
         } else {
             b = buildOBB(sw, sh, sd, x, cy, z, rx, ry, rz);
         }
@@ -926,29 +929,153 @@ function addStud(sw, sh, sd, color, x, y, z, rx = 0, ry = 0, rz = 0, anchored = 
     return mesh;
 }
 
+// ─── Static geometry merging ──────────────────────────────────────────────────
+
+function getMergedMats(color) {
+    const key = `_merged:${color}`;
+    if (matCache.has(key)) return matCache.get(key);
+    const mats = [
+        new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0 }),
+        new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0 }),
+        new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0, map: studTex(1, 1) }),
+        new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0, map: inletTex(1, 1) }),
+        new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0 }),
+        new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0 }),
+    ];
+    matCache.set(key, mats);
+    return mats;
+}
+
+function _mergeGeometries(geos) {
+    if (!geos || geos.length === 0) return null;
+    if (geos.length === 1) return geos[0];
+    const result = new THREE.BufferGeometry();
+    for (const key of ['position', 'normal', 'uv']) {
+        const allParts = []; let totalVerts = 0;
+        for (const g of geos) {
+            const attr = g.getAttribute(key);
+            if (!attr) continue;
+            const arr = new Float32Array(attr.array.length);
+            arr.set(attr.array); allParts.push(arr); totalVerts += attr.count;
+        }
+        if (allParts.length === 0) continue;
+        const itemSize = geos[0].getAttribute(key).itemSize;
+        const merged = new Float32Array(totalVerts * itemSize);
+        let off = 0;
+        for (const arr of allParts) { merged.set(arr, off); off += arr.length; }
+        result.setAttribute(key, new THREE.BufferAttribute(merged, itemSize));
+    }
+    const matBuckets = new Map();
+    let vertOffset = 0;
+    for (const g of geos) {
+        const idx = g.getIndex(); if (!idx) continue;
+        const vCount = g.getAttribute('position').count;
+        const sortedGroups = [...g.groups].sort((a, b) => a.start - b.start);
+        for (const grp of sortedGroups) {
+            const sub = new Uint32Array(grp.count);
+            for (let i = 0; i < grp.count; i++) sub[i] = idx.getX(grp.start + i) + vertOffset;
+            const mi = grp.materialIndex;
+            if (!matBuckets.has(mi)) matBuckets.set(mi, []);
+            matBuckets.get(mi).push(sub);
+        }
+        vertOffset += vCount;
+    }
+    if (matBuckets.size === 0) return null;
+    const sortedMats = [...matBuckets.keys()].sort((a, b) => a - b);
+    const finalIdxParts = [];
+    result.groups.length = 0; let idxOffset = 0;
+    for (const mi of sortedMats) {
+        const parts = matBuckets.get(mi); let total = 0;
+        for (const p of parts) total += p.length;
+        const merged = new Uint32Array(total); let off = 0;
+        for (const p of parts) { merged.set(p, off); off += p.length; }
+        finalIdxParts.push(merged);
+        result.addGroup(idxOffset, merged.length, mi); idxOffset += merged.length;
+    }
+    let totalIdxLen = 0;
+    for (const p of finalIdxParts) totalIdxLen += p.length;
+    const finalIdx = new Uint32Array(totalIdxLen); let off = 0;
+    for (const p of finalIdxParts) { finalIdx.set(p, off); off += p.length; }
+    result.setIndex(new THREE.BufferAttribute(finalIdx, 1));
+    return result;
+}
+
+function _fixWorldUVs(geo) {
+    const pos = geo.getAttribute('position');
+    const norm = geo.getAttribute('normal');
+    const uv = geo.getAttribute('uv');
+    if (!pos || !norm || !uv) return;
+    const arr = uv.array;
+    for (let i = 0; i < pos.count; i++) {
+        if (Math.abs(norm.getY(i)) > 0.99) {
+            arr[i * 2] = pos.getX(i) / STUDS_PER_TILE;
+            arr[i * 2 + 1] = pos.getZ(i) / STUDS_PER_TILE;
+        }
+    }
+    uv.needsUpdate = true;
+}
+
+const MERGE_CELL = 64;
+
+function _optimizeScene() {
+    scene.updateMatrixWorld(true);
+    const groups = new Map();
+    for (const child of scene.children) {
+        if (!child.isMesh || !child.userData.halfSize) continue;
+        if ((child.userData.transparency || 0) >= 0.25) continue;
+        const entry = physicsBodies.get(child);
+        if (!entry || !entry.anchored) continue;
+        const mat = child.material;
+        if (!Array.isArray(mat)) continue;
+        const hs = child.userData.halfSize;
+        const cx = Math.floor(child.position.x / MERGE_CELL);
+        const cz = Math.floor(child.position.z / MERGE_CELL);
+        const key = [hs.sw, hs.sh, hs.sd].map(v => v.toFixed(4)).join(',') + '|' + mat[0].color.getHex() + '|' + cx + '_' + cz;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(child);
+    }
+    for (const [, meshes] of groups) {
+        if (meshes.length < 2) continue;
+        const geos = meshes.map(m => {
+            const g = m.geometry.clone();
+            g.applyMatrix4(m.matrixWorld);
+            return g;
+        });
+        const merged = _mergeGeometries(geos);
+        if (!merged) continue;
+        const mergedMesh = new THREE.Mesh(merged, meshes[0].material);
+        mergedMesh.castShadow = true;
+        mergedMesh.receiveShadow = true;
+        scene.add(mergedMesh);
+        if (!window._mergedMapMeshes) window._mergedMapMeshes = [];
+        window._mergedMapMeshes.push(mergedMesh);
+        for (const m of meshes) scene.remove(m);
+    }
+}
+
 // Baseplate (top surface at y=0)
 addStud(320, 3.2, 320, 0x4db84b, 0, -3.2, 0);
 
 // ─── Character / Physics state ───────────────────────────────────────────────
-let CHAR_STAND_Y   = 3.68;  // updated after model loads
+let CHAR_STAND_Y = 3.68;  // updated after model loads
 let CHAR_FOOT_OFFSET = 2.08;
-let CHAR_HEIGHT      = 5;
-let CHAR_HALF_W      = 1;
-let CHAR_HALF_D      = 0.5;
+let CHAR_HEIGHT = 5;
+let CHAR_HALF_W = 1;
+let CHAR_HALF_D = 0.5;
 
-let velY       = 0;
-let grounded   = true;
+let velY = 0;
+let grounded = true;
 let stepUpTarget = -Infinity;
 const pushedBlocks = new Set();
-let shiftLock  = false;
-let locked     = false;
+let shiftLock = false;
+let locked = false;
 let coyoteTimer = 0;
-let jumpBuffer  = 0;
+let jumpBuffer = 0;
 
-let climbState    = 'none';
-let climbLedgeY   = 0;
-let climbFwdX     = 0, climbFwdZ = 0;
-let climbBlock    = null;
+let climbState = 'none';
+let climbLedgeY = 0;
+let climbFwdX = 0, climbFwdZ = 0;
+let climbBlock = null;
 let climbCooldown = 0;
 
 let extraVelX = 0, extraVelZ = 0;
@@ -956,8 +1083,10 @@ let _charMoving = false;
 let _fakeMoving = false;
 
 // ─── Camera state ─────────────────────────────────────────────────────────────
-const cam = { yaw: 0, pitch: 0.35, distance: 25.6, targetDistance: 25.6,
-    minPitch: -0.5, maxPitch: 1.35, minDist: 0.5, maxDist: 128 };
+const cam = {
+    yaw: 0, pitch: 0.35, distance: 25.6, targetDistance: 25.6,
+    minPitch: -1.45, maxPitch: 1.35, minDist: 0.5, maxDist: 128
+};
 let _firstPerson = false;
 let _firstPersonBlend = 0;
 const FP_BLEND_SPEED = 8;
@@ -972,21 +1101,21 @@ let charDebugMesh = null;
 let chunkZoneMesh = null;
 
 function makeWireBox(minX, minY, minZ, maxX, maxY, maxZ, color) {
-    const geo = new THREE.EdgesGeometry(new THREE.BoxGeometry(maxX-minX, maxY-minY, maxZ-minZ));
+    const geo = new THREE.EdgesGeometry(new THREE.BoxGeometry(maxX - minX, maxY - minY, maxZ - minZ));
     const mat = new THREE.LineBasicMaterial({ color, depthTest: false });
     const m = new THREE.LineSegments(geo, mat);
-    m.position.set((minX+maxX)/2, (minY+maxY)/2, (minZ+maxZ)/2);
+    m.position.set((minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2);
     m.renderOrder = 999;
     return m;
 }
 
 function makeWireOBB(b, color) {
-    const geo = new THREE.EdgesGeometry(new THREE.BoxGeometry(b.hx*2, b.hy*2, b.hz*2));
+    const geo = new THREE.EdgesGeometry(new THREE.BoxGeometry(b.hx * 2, b.hy * 2, b.hz * 2));
     const mat = new THREE.LineBasicMaterial({ color: color || 0xff8800, depthTest: false });
     const m = new THREE.LineSegments(geo, mat);
     m.position.set(b.cx, b.cy, b.cz);
     const mat4 = new THREE.Matrix4();
-    mat4.set(b.ux,b.vx,b.wx,0, b.uy,b.vy,b.wy,0, b.uz,b.vz,b.wz,0, 0,0,0,1);
+    mat4.set(b.ux, b.vx, b.wx, 0, b.uy, b.vy, b.wy, 0, b.uz, b.vz, b.wz, 0, 0, 0, 0, 1);
     m.setRotationFromMatrix(mat4);
     m.renderOrder = 999;
     return m;
@@ -1022,8 +1151,8 @@ function updateDebugMeshes() {
     }
 
     const cx = worldToChunk(character.position.x), cz = worldToChunk(character.position.z);
-    const zoneMinX = (cx-1)*CHUNK_SIZE, zoneMaxX = (cx+2)*CHUNK_SIZE;
-    const zoneMinZ = (cz-1)*CHUNK_SIZE, zoneMaxZ = (cz+2)*CHUNK_SIZE;
+    const zoneMinX = (cx - 1) * CHUNK_SIZE, zoneMaxX = (cx + 2) * CHUNK_SIZE;
+    const zoneMinZ = (cz - 1) * CHUNK_SIZE, zoneMaxZ = (cz + 2) * CHUNK_SIZE;
     chunkZoneMesh = makeWireBox(zoneMinX, -256, zoneMinZ, zoneMaxX, 256, zoneMaxZ, 0x00ccff);
     scene.add(chunkZoneMesh);
 }
@@ -1090,15 +1219,15 @@ window.addEventListener('touchstart', (e) => {
     let joyRect = null;
     const updateJoy = (touch) => {
         joystickActive = true;
-        const centerX = joyRect.left + joyRect.width/2;
-        const centerY = joyRect.top + joyRect.height/2;
+        const centerX = joyRect.left + joyRect.width / 2;
+        const centerY = joyRect.top + joyRect.height / 2;
         let dx = touch.clientX - centerX;
         let dy = touch.clientY - centerY;
-        const maxDist = joyRect.width/2;
-        const dist = Math.sqrt(dx*dx + dy*dy);
-        if (dist > maxDist) { dx = (dx/dist)*maxDist; dy = (dy/dist)*maxDist; }
+        const maxDist = joyRect.width / 2;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > maxDist) { dx = (dx / dist) * maxDist; dy = (dy / dist) * maxDist; }
         joyThumb.style.transform = `translate(${dx}px, ${dy}px)`;
-        joystickVector = { x: dx/maxDist, y: dy/maxDist };
+        joystickVector = { x: dx / maxDist, y: dy / maxDist };
     };
 
     joyBase.addEventListener('touchstart', (e) => {
@@ -1106,20 +1235,20 @@ window.addEventListener('touchstart', (e) => {
         joyRect = joyBase.getBoundingClientRect();
         joyTouchId = e.changedTouches[0].identifier;
         updateJoy(e.changedTouches[0]);
-    }, {passive: false});
+    }, { passive: false });
 
     joyBase.addEventListener('touchmove', (e) => {
         e.preventDefault(); e.stopPropagation();
-        for(let i=0; i<e.changedTouches.length; i++) {
-            if(e.changedTouches[i].identifier === joyTouchId) updateJoy(e.changedTouches[i]);
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === joyTouchId) updateJoy(e.changedTouches[i]);
         }
-    }, {passive: false});
+    }, { passive: false });
 
     const endJoy = (e) => {
         e.preventDefault(); e.stopPropagation();
-        for(let i=0; i<e.changedTouches.length; i++) {
-            if(e.changedTouches[i].identifier === joyTouchId) {
-                joyTouchId = null; joystickActive = false; joystickVector = {x: 0, y: 0};
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === joyTouchId) {
+                joyTouchId = null; joystickActive = false; joystickVector = { x: 0, y: 0 };
                 joyThumb.style.transform = 'translate(0px, 0px)';
             }
         }
@@ -1238,12 +1367,12 @@ window.addEventListener('touchstart', (e) => {
         camTouchId = e.changedTouches[0].identifier;
         lastCamX = e.changedTouches[0].clientX;
         lastCamY = e.changedTouches[0].clientY;
-    }, {passive: false});
+    }, { passive: false });
 
     document.addEventListener('touchmove', (e) => {
         if (camTouchId === null) return;
-        for(let i=0; i<e.changedTouches.length; i++) {
-            if(e.changedTouches[i].identifier === camTouchId) {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === camTouchId) {
                 const t = e.changedTouches[i];
                 const dx = t.clientX - lastCamX;
                 const dy = t.clientY - lastCamY;
@@ -1251,16 +1380,16 @@ window.addEventListener('touchstart', (e) => {
                 lastCamY = t.clientY;
                 cam.yaw -= dx * CAM_H_SENS * 1.5;
                 cam.pitch += dy * CAM_V_SENS * 1.5;
-                cam.pitch = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, cam.pitch));
+                cam.pitch = Math.max(cam.minPitch, Math.min(cam.maxPitch, cam.pitch));
                 e.preventDefault();
             }
         }
-    }, {passive: false});
+    }, { passive: false });
 
     const endCam = (e) => {
         if (camTouchId === null) return;
-        for(let i=0; i<e.changedTouches.length; i++) {
-            if(e.changedTouches[i].identifier === camTouchId) camTouchId = null;
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === camTouchId) camTouchId = null;
         }
     };
     document.addEventListener('touchend', endCam);
@@ -1322,20 +1451,20 @@ document.addEventListener('keydown', e => {
     if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && window._bloxverse?.shiftLockEnabled !== false) {
         shiftLock = !shiftLock;
         shiftLockIndicator.classList.toggle('visible', shiftLock);
-        cursorEl.style.display  = shiftLock ? 'none'  : 'block';
+        cursorEl.style.display = shiftLock ? 'none' : 'block';
         if (!shiftLock) {
             cursorX = window.innerWidth / 2;
             cursorY = window.innerHeight / 2;
             updateCursorPos();
             if (character) {
-                character.rotation.y = ((character.rotation.y % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
-                if (character.rotation.y > Math.PI) character.rotation.y -= 2*Math.PI;
+                character.rotation.y = ((character.rotation.y % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+                if (character.rotation.y > Math.PI) character.rotation.y -= 2 * Math.PI;
             }
         }
     }
-    if (e.code === 'Comma')    cam.yaw = Math.round((cam.yaw + Math.PI/4)/(Math.PI/4))*(Math.PI/4);
-    if (e.code === 'Period')   cam.yaw = Math.round((cam.yaw - Math.PI/4)/(Math.PI/4))*(Math.PI/4);
-    if (e.code === 'Space')    jumpBuffer = JUMP_BUFFER_T;
+    if (e.code === 'Comma') cam.yaw = Math.round((cam.yaw + Math.PI / 4) / (Math.PI / 4)) * (Math.PI / 4);
+    if (e.code === 'Period') cam.yaw = Math.round((cam.yaw - Math.PI / 4) / (Math.PI / 4)) * (Math.PI / 4);
+    if (e.code === 'Space') jumpBuffer = JUMP_BUFFER_T;
     if (e.code === 'Backquote') toggleDebug();
 });
 document.addEventListener('keyup', e => { keys[e.code] = false; });
@@ -1433,10 +1562,10 @@ document.addEventListener('mouseup', e => { if (e.button === 2) rmb = false; });
 document.addEventListener('mousemove', e => {
     if (!locked) return;
     if (shiftLock || rmb || _firstPerson) {
-        cam.yaw   -= e.movementX * CAM_H_SENS;
-        cam.pitch  = Math.max(cam.minPitch, Math.min(cam.maxPitch, cam.pitch + e.movementY * CAM_V_SENS));
+        cam.yaw -= e.movementX * CAM_H_SENS;
+        cam.pitch = Math.max(cam.minPitch, Math.min(cam.maxPitch, cam.pitch + e.movementY * CAM_V_SENS));
     } else {
-        cursorX = Math.max(0, Math.min(window.innerWidth,  cursorX + e.movementX));
+        cursorX = Math.max(0, Math.min(window.innerWidth, cursorX + e.movementX));
         cursorY = Math.max(0, Math.min(window.innerHeight, cursorY + e.movementY));
         updateCursorPos();
     }
@@ -1620,56 +1749,56 @@ function updateEmote(dt) {
 function updateClimbAnimation(dt, moving) {
     anim.time += dt;
     const t = anim.time, sp = 10;
-    const lLeg = anim.bones['Left_Leg'],  rLeg = anim.bones['Right_Leg'];
-    const lArm = anim.bones['Left_Arm'],  rArm = anim.bones['Right_Arm'];
+    const lLeg = anim.bones['Left_Leg'], rLeg = anim.bones['Right_Leg'];
+    const lArm = anim.bones['Left_Arm'], rArm = anim.bones['Right_Arm'];
     const torso = anim.bones['Torso'];
     const grip = moving ? Math.sin(t * 6) * 0.15 : 0;
-    setRot(lArm, 'x', -Math.PI*0.75 + grip, sp, dt);
-    setRot(rArm, 'x', -Math.PI*0.75 - grip, sp, dt);
-    setRot(lArm, 'z',  0.35, sp, dt);
+    setRot(lArm, 'x', -Math.PI * 0.75 + grip, sp, dt);
+    setRot(rArm, 'x', -Math.PI * 0.75 - grip, sp, dt);
+    setRot(lArm, 'z', 0.35, sp, dt);
     setRot(rArm, 'z', -0.35, sp, dt);
     const kick = moving ? Math.sin(t * 6) * 0.3 : 0;
-    setRot(lLeg, 'x',  0.3 + kick, sp, dt);
-    setRot(rLeg, 'x',  0.3 - kick, sp, dt);
+    setRot(lLeg, 'x', 0.3 + kick, sp, dt);
+    setRot(rLeg, 'x', 0.3 - kick, sp, dt);
     setRot(torso, 'x', -0.15, sp, dt);
-    setRot(torso, 'z',  0,    sp, dt);
+    setRot(torso, 'z', 0, sp, dt);
 }
 
 function updateAnimations(dt, moving) {
     anim.time += dt;
     const t = anim.time, sp = 12;
-    const lLeg = anim.bones['Left_Leg'],  rLeg = anim.bones['Right_Leg'];
-    const lArm = anim.bones['Left_Arm'],  rArm = anim.bones['Right_Arm'];
+    const lLeg = anim.bones['Left_Leg'], rLeg = anim.bones['Right_Leg'];
+    const lArm = anim.bones['Left_Arm'], rArm = anim.bones['Right_Arm'];
     const torso = anim.bones['Torso'];
 
     if (!grounded) {
-        setRot(lLeg,  'x',  0,       sp, dt);
-        setRot(rLeg,  'x',  0,       sp, dt);
-        setRot(lArm,  'x', -Math.PI, sp, dt);
-        setRot(rArm,  'x', -Math.PI, sp, dt);
-        setRot(lArm,  'z',  0,       sp, dt);
-        setRot(rArm,  'z',  0,       sp, dt);
-        setRot(torso, 'x',  0,       sp, dt);
+        setRot(lLeg, 'x', 0, sp, dt);
+        setRot(rLeg, 'x', 0, sp, dt);
+        setRot(lArm, 'x', -Math.PI, sp, dt);
+        setRot(rArm, 'x', -Math.PI, sp, dt);
+        setRot(lArm, 'z', 0, sp, dt);
+        setRot(rArm, 'z', 0, sp, dt);
+        setRot(torso, 'x', 0, sp, dt);
     } else if (moving) {
         const swing = Math.sin(t * 2.8 * Math.PI);
-        setRot(lLeg,  'x',  swing * 1.0,  sp, dt);
-        setRot(rLeg,  'x', -swing * 1.0,  sp, dt);
-        setRot(lArm,  'x', -swing * 0.8,  sp, dt);
-        setRot(rArm,  'x',  swing * 0.8,  sp, dt);
-        setRot(lArm,  'z',  0.05,         sp, dt);
-        setRot(rArm,  'z', -0.05,         sp, dt);
-        setRot(torso, 'x',  0.03,         sp, dt);
-        setRot(torso, 'z',  0,            sp, dt);
+        setRot(lLeg, 'x', swing * 1.0, sp, dt);
+        setRot(rLeg, 'x', -swing * 1.0, sp, dt);
+        setRot(lArm, 'x', -swing * 0.8, sp, dt);
+        setRot(rArm, 'x', swing * 0.8, sp, dt);
+        setRot(lArm, 'z', 0.05, sp, dt);
+        setRot(rArm, 'z', -0.05, sp, dt);
+        setRot(torso, 'x', 0.03, sp, dt);
+        setRot(torso, 'z', 0, sp, dt);
     } else {
         const breathe = Math.sin(t * 1.2) * 0.015;
-        setRot(lLeg,  'x',  0,             sp, dt);
-        setRot(rLeg,  'x',  0,             sp, dt);
-        setRot(lArm,  'x',  0,             sp, dt);
-        setRot(rArm,  'x',  0,             sp, dt);
-        setRot(lArm,  'z',  0.1 + breathe, sp, dt);
-        setRot(rArm,  'z', -0.1 - breathe, sp, dt);
-        setRot(torso, 'x',  breathe,       sp, dt);
-        setRot(torso, 'z',  0,             sp, dt);
+        setRot(lLeg, 'x', 0, sp, dt);
+        setRot(rLeg, 'x', 0, sp, dt);
+        setRot(lArm, 'x', 0, sp, dt);
+        setRot(rArm, 'x', 0, sp, dt);
+        setRot(lArm, 'z', 0.1 + breathe, sp, dt);
+        setRot(rArm, 'z', -0.1 - breathe, sp, dt);
+        setRot(torso, 'x', breathe, sp, dt);
+        setRot(torso, 'z', 0, sp, dt);
     }
 }
 
@@ -1683,49 +1812,49 @@ function updateOtherPlayers(dt) {
 
         p.animTime = (p.animTime || 0) + dt;
         const t = p.animTime, sp = 12;
-        const lLeg = p.bones['Left_Leg'],  rLeg = p.bones['Right_Leg'];
-        const lArm = p.bones['Left_Arm'],  rArm = p.bones['Right_Arm'];
+        const lLeg = p.bones['Left_Leg'], rLeg = p.bones['Right_Leg'];
+        const lArm = p.bones['Left_Arm'], rArm = p.bones['Right_Arm'];
         const torso = p.bones['Torso'];
 
         if (p.climbState > 0) {
             const grip = p.moving ? Math.sin(p.animTime * 6) * 0.15 : 0;
-            if (lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x || 0) - Math.PI*0.75 + grip, Math.min(1, sp*dt));
-            if (rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x || 0) - Math.PI*0.75 - grip, Math.min(1, sp*dt));
-            if (lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z || 0) + 0.35, Math.min(1, sp*dt));
-            if (rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z || 0) - 0.35, Math.min(1, sp*dt));
+            if (lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x || 0) - Math.PI * 0.75 + grip, Math.min(1, sp * dt));
+            if (rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x || 0) - Math.PI * 0.75 - grip, Math.min(1, sp * dt));
+            if (lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z || 0) + 0.35, Math.min(1, sp * dt));
+            if (rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z || 0) - 0.35, Math.min(1, sp * dt));
             const kick = p.moving ? Math.sin(p.animTime * 6) * 0.3 : 0;
-            if (lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x || 0) + 0.3 + kick, Math.min(1, sp*dt));
-            if (rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x || 0) + 0.3 - kick, Math.min(1, sp*dt));
-            if (torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x || 0) - 0.15, Math.min(1, sp*dt));
-            if (torso) torso.rotation.z = THREE.MathUtils.lerp(torso.rotation.z, (p.rest['Torso']?.z || 0), Math.min(1, sp*dt));
+            if (lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x || 0) + 0.3 + kick, Math.min(1, sp * dt));
+            if (rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x || 0) + 0.3 - kick, Math.min(1, sp * dt));
+            if (torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x || 0) - 0.15, Math.min(1, sp * dt));
+            if (torso) torso.rotation.z = THREE.MathUtils.lerp(torso.rotation.z, (p.rest['Torso']?.z || 0), Math.min(1, sp * dt));
         } else if (p.grounded === false) {
-            if (lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x || 0), Math.min(1, sp*dt));
-            if (rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x || 0), Math.min(1, sp*dt));
-            if (lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x || 0) - Math.PI, Math.min(1, sp*dt));
-            if (rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x || 0) - Math.PI, Math.min(1, sp*dt));
-            if (lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z || 0), Math.min(1, sp*dt));
-            if (rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z || 0), Math.min(1, sp*dt));
-            if (torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x || 0), Math.min(1, sp*dt));
+            if (lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x || 0), Math.min(1, sp * dt));
+            if (rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x || 0), Math.min(1, sp * dt));
+            if (lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x || 0) - Math.PI, Math.min(1, sp * dt));
+            if (rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x || 0) - Math.PI, Math.min(1, sp * dt));
+            if (lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z || 0), Math.min(1, sp * dt));
+            if (rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z || 0), Math.min(1, sp * dt));
+            if (torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x || 0), Math.min(1, sp * dt));
         } else if (p.moving) {
             const swing = Math.sin(t * 2.8 * Math.PI);
-            if (lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x || 0) + swing * 1.0, Math.min(1, sp*dt));
-            if (rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x || 0) - swing * 1.0, Math.min(1, sp*dt));
-            if (lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x || 0) - swing * 0.8, Math.min(1, sp*dt));
-            if (rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x || 0) + swing * 0.8, Math.min(1, sp*dt));
-            if (lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z || 0) + 0.05, Math.min(1, sp*dt));
-            if (rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z || 0) - 0.05, Math.min(1, sp*dt));
-            if (torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x || 0) + 0.03, Math.min(1, sp*dt));
-            if (torso) torso.rotation.z = THREE.MathUtils.lerp(torso.rotation.z, (p.rest['Torso']?.z || 0), Math.min(1, sp*dt));
+            if (lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x || 0) + swing * 1.0, Math.min(1, sp * dt));
+            if (rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x || 0) - swing * 1.0, Math.min(1, sp * dt));
+            if (lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x || 0) - swing * 0.8, Math.min(1, sp * dt));
+            if (rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x || 0) + swing * 0.8, Math.min(1, sp * dt));
+            if (lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z || 0) + 0.05, Math.min(1, sp * dt));
+            if (rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z || 0) - 0.05, Math.min(1, sp * dt));
+            if (torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x || 0) + 0.03, Math.min(1, sp * dt));
+            if (torso) torso.rotation.z = THREE.MathUtils.lerp(torso.rotation.z, (p.rest['Torso']?.z || 0), Math.min(1, sp * dt));
         } else {
             const breathe = Math.sin(t * 1.2) * 0.015;
-            if (lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x || 0), Math.min(1, sp*dt));
-            if (rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x || 0), Math.min(1, sp*dt));
-            if (lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x || 0), Math.min(1, sp*dt));
-            if (rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x || 0), Math.min(1, sp*dt));
-            if (lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z || 0) + 0.1 + breathe, Math.min(1, sp*dt));
-            if (rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z || 0) - 0.1 - breathe, Math.min(1, sp*dt));
-            if (torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x || 0) + breathe, Math.min(1, sp*dt));
-            if (torso) torso.rotation.z = THREE.MathUtils.lerp(torso.rotation.z, (p.rest['Torso']?.z || 0), Math.min(1, sp*dt));
+            if (lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x || 0), Math.min(1, sp * dt));
+            if (rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x || 0), Math.min(1, sp * dt));
+            if (lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x || 0), Math.min(1, sp * dt));
+            if (rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x || 0), Math.min(1, sp * dt));
+            if (lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z || 0) + 0.1 + breathe, Math.min(1, sp * dt));
+            if (rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z || 0) - 0.1 - breathe, Math.min(1, sp * dt));
+            if (torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x || 0) + breathe, Math.min(1, sp * dt));
+            if (torso) torso.rotation.z = THREE.MathUtils.lerp(torso.rotation.z, (p.rest['Torso']?.z || 0), Math.min(1, sp * dt));
         }
     });
 }
@@ -1742,6 +1871,10 @@ let _masterVolume = 1;
 let _sfxVolume = 1;
 let _prevGrounded = true;
 let _sfxRunning = null;
+let _sfxRunningCtx = null;
+let _sfxRunningBuf = null;
+let _sfxRunningNode = null;
+let _sfxRunningGain = null;
 let _sfxSwoosh = null;
 let _sfxThud = null;
 let _spawnPoint = { x: 0, y: null, z: 0, ry: Math.PI };
@@ -2071,10 +2204,10 @@ function _loadAccessoryForUser(userId, accessoryId, avatarObj) {
 
     if (isGLB) {
         const loader = new GLTFLoader();
-        loader.load(path, (gltf) => onLoad(gltf.scene), undefined, () => {});
+        loader.load(path, (gltf) => onLoad(gltf.scene), undefined, () => { });
     } else {
         const loader = new FBXLoader();
-        loader.load(path, onLoad, undefined, () => {});
+        loader.load(path, onLoad, undefined, () => { });
     }
 }
 
@@ -2243,7 +2376,7 @@ function _renderGuiElement(inst, parentEl) {
         }
         const el = inst._sgEngineRef;
         el.style.display = (inst.Visible !== false) ? 'block' : 'none';
-        
+
         const bgAlpha = 1 - (inst.BackgroundTransparency || 0);
         if (bgAlpha <= 0) {
             el.style.backgroundColor = 'transparent';
@@ -2257,7 +2390,7 @@ function _renderGuiElement(inst, parentEl) {
                 el.style.backgroundColor = 'transparent';
             }
         }
-        
+
         if (inst.ClassName !== 'Frame') {
             el.textContent = inst.Text || '';
             const tc = inst.TextColor;
@@ -2274,7 +2407,7 @@ function _renderGuiElement(inst, parentEl) {
             el.style.alignItems = 'center';
             el.style.justifyContent = 'center';
         }
-        
+
         const px = inst.Position ? inst.Position[0] : 0;
         const py = inst.Position ? inst.Position[1] : 0;
         const sx = inst.Size ? inst.Size[0] : 100;
@@ -2292,7 +2425,7 @@ function _updateSurfaceGuiProjections() {
     if (!_gameRef) return;
     // Clean up orphaned _engineRef divs from previous code versions
     document.querySelectorAll('div[id^="sg-orphan-"]').forEach(el => el.remove());
-    
+
     if (!window._surfaceGuis) window._surfaceGuis = new Map();
     function _scanSurface(node) {
         if (node.ClassName === 'SurfaceGui') {
@@ -2306,7 +2439,7 @@ function _updateSurfaceGuiProjections() {
         node.Children.forEach(_scanSurface);
     }
     _gameRef.Children.forEach(_scanSurface);
-    
+
     const w = window.innerWidth;
     const h = window.innerHeight;
     window._surfaceGuis.forEach((sg) => {
@@ -2315,7 +2448,7 @@ function _updateSurfaceGuiProjections() {
             if (sg._sgContainer) { sg._sgContainer.style.display = 'none'; }
             return;
         }
-        
+
         if (!sg._sgContainer) {
             const container = document.createElement('div');
             container.style.cssText = 'position:fixed;pointer-events:auto;overflow:hidden;transform:translate(-50%,-50%);z-index:999;display:none;';
@@ -2323,44 +2456,44 @@ function _updateSurfaceGuiProjections() {
             sg._sgContainer = container;
         }
         const container = sg._sgContainer;
-        
+
         if (sg.SizingMode === 'FixedSize' || !sg.SizingMode) {
             container.style.width = (sg.CanvasSize?.[0] || 200) + 'px';
             container.style.height = (sg.CanvasSize?.[1] || 200) + 'px';
         }
-        
+
         // Render children into the container
         _renderGuiElement(sg, container);
-        
+
         // Position via 3D projection
         const size = part.Size || [4, 4, 4];
         const face = sg.Face || 'Front';
         const pos = part.mesh.position;
-        
+
         let lx = 0, ly = 0, lz = 0;
         const hw = size[0] / 2, hh = size[1] / 2, hd = size[2] / 2;
         switch (face) {
-            case 'Right':  lx = hw; break;
-            case 'Left':   lx = -hw; break;
-            case 'Top':    ly = hh; break;
+            case 'Right': lx = hw; break;
+            case 'Left': lx = -hw; break;
+            case 'Top': ly = hh; break;
             case 'Bottom': ly = -hh; break;
-            case 'Back':   lz = -hd; break;
+            case 'Back': lz = -hd; break;
             case 'Front': default: lz = hd; break;
         }
-        
+
         const worldPos = new THREE.Vector3(lx, ly, lz);
         worldPos.applyQuaternion(part.mesh.quaternion);
         worldPos.add(pos);
-        
+
         const projected = worldPos.clone().project(camera);
         const sx = (projected.x * 0.5 + 0.5) * w;
         const sy = (-projected.y * 0.5 + 0.5) * h;
-        
+
         if (projected.z > 1) {
             container.style.display = 'none';
             return;
         }
-        
+
         container.style.left = sx + 'px';
         container.style.top = sy + 'px';
         container.style.display = (sg.Enabled !== false) ? 'block' : 'none';
@@ -2375,7 +2508,7 @@ function _updateLeaderstats(game) {
     if (!game) return;
     const playersService = game.Children.find(c => c.ClassName === 'Players');
     if (!playersService) return;
-    
+
     const entries = [];
     for (const player of playersService.Children) {
         if (player.ClassName !== 'Player') continue;
@@ -2388,20 +2521,20 @@ function _updateLeaderstats(game) {
         if (stats.length === 0) continue;
         entries.push({ name: player.Name, stats: stats.map(s => ({ name: s.Name, value: s.Value, type: s.ClassName })) });
     }
-    
+
     if (entries.length === 0) {
         if (_leaderboardEl) { _leaderboardEl.style.display = 'none'; }
         _lastLeaderstatsHash = '';
         return;
     }
-    
+
     const hash = JSON.stringify(entries);
     if (hash === _lastLeaderstatsHash && _leaderboardEl) {
         _leaderboardEl.style.display = 'block';
         return;
     }
     _lastLeaderstatsHash = hash;
-    
+
     if (!_leaderboardEl) {
         _leaderboardEl = document.createElement('div');
         _leaderboardEl.id = 'leaderstats-board';
@@ -2409,9 +2542,9 @@ function _updateLeaderstats(game) {
         document.body.appendChild(_leaderboardEl);
     }
     _leaderboardEl.style.display = 'block';
-    
+
     const statNames = entries[0].stats.map(s => s.name);
-    
+
     let html = '<div style="font-weight:600;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid rgba(255,255,255,0.1);">Leaderboard</div>';
     html += '<table style="width:100%;border-collapse:collapse;">';
     html += '<thead><tr>';
@@ -2555,8 +2688,8 @@ fbxLoader.load(playerModelUrl, (fbx) => {
 
     const box = new THREE.Box3().setFromObject(fbx);
     CHAR_FOOT_OFFSET = -box.min.y;
-    CHAR_HEIGHT      = box.max.y - box.min.y;
-    CHAR_STAND_Y     = G_LEVEL + CHAR_FOOT_OFFSET;
+    CHAR_HEIGHT = box.max.y - box.min.y;
+    CHAR_STAND_Y = G_LEVEL + CHAR_FOOT_OFFSET;
 
     console.log('char foot offset:', CHAR_FOOT_OFFSET.toFixed(3), '| height:', CHAR_HEIGHT.toFixed(3));
 
@@ -2580,7 +2713,7 @@ fbxLoader.load(playerModelUrl, (fbx) => {
         if (child.isMesh) {
             child.castShadow = true;
             child.receiveShadow = true;
-            
+
             if (child.geometry) {
                 for (const key of Object.keys(child.geometry.attributes)) {
                     if (key.toLowerCase().includes('color')) {
@@ -2614,13 +2747,13 @@ fbxLoader.load(playerModelUrl, (fbx) => {
                     roughness: 0.8,
                     metalness: 0.1,
                 });
-                
+
                 // Copy name and userData so that applyColors can find it
                 newMat.name = mat.name;
                 if (mat.userData) {
                     newMat.userData = JSON.parse(JSON.stringify(mat.userData));
                 }
-                
+
                 mats[i] = newMat;
                 mat = newMat;
 
@@ -2639,9 +2772,9 @@ fbxLoader.load(playerModelUrl, (fbx) => {
                 }
 
                 // Nuke every texture slot FBXLoader may have populated
-                for (const key of ['map','normalMap','roughnessMap','metalnessMap',
-                    'emissiveMap','bumpMap','alphaMap','aoMap','displacementMap',
-                    'specularMap','envMap','lightMap']) {
+                for (const key of ['map', 'normalMap', 'roughnessMap', 'metalnessMap',
+                    'emissiveMap', 'bumpMap', 'alphaMap', 'aoMap', 'displacementMap',
+                    'specularMap', 'envMap', 'lightMap']) {
                     if (mat[key]) { mat[key].dispose(); mat[key] = null; }
                 }
                 mat.needsUpdate = true;
@@ -2665,16 +2798,54 @@ fbxLoader.load(playerModelUrl, (fbx) => {
         _applyAccessoriesToModel(currentUserId, character, storedData.accessories);
         _applyFaceToModel(character, storedData.face);
     }
-    
+
     // Set initial visual top for local player
     _recalcVisualTop(currentUserId);
 
     _prevGrounded = true;
-    if (!_sfxRunning) {
+    if (!_sfxRunningBuf) {
         _sfxRunning = new Audio('assets/sounds/running.mp3');
         _sfxRunning.loop = true;
         _sfxSwoosh = new Audio('assets/sounds/swoosh.mp3');
         _sfxThud = new Audio('assets/sounds/thud.mp3');
+        fetch('assets/sounds/running.mp3')
+            .then(res => res.arrayBuffer())
+            .then(ab => {
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                if (!Ctx) return;
+                _sfxRunningCtx = _sfxRunningCtx || new Ctx();
+                return _sfxRunningCtx.decodeAudioData(ab);
+            })
+            .then(buf => {
+                // Trim silent MP3 encoder padding by copying only the non-silent region
+                const THRESHOLD = 0.001;
+                const sr = buf.sampleRate;
+                const numCh = buf.numberOfChannels;
+                const ch0 = buf.getChannelData(0);
+                const scanWin = Math.floor(ch0.length * 0.25);
+                let startSample = 0;
+                let endSample = ch0.length - 1;
+                for (let i = 0; i < scanWin; i++) {
+                    if (Math.abs(ch0[i]) > THRESHOLD) { startSample = Math.max(0, i - 4); break; }
+                }
+                for (let i = ch0.length - 1; i >= ch0.length - scanWin; i--) {
+                    if (Math.abs(ch0[i]) > THRESHOLD) { endSample = Math.min(ch0.length - 1, i + 4); break; }
+                }
+                const length = endSample - startSample + 1;
+                if (length > 0 && (startSample > 0 || endSample < ch0.length - 1)) {
+                    // Build trimmed buffer
+                    const trimmed = _sfxRunningCtx.createBuffer(numCh, length, sr);
+                    for (let c = 0; c < numCh; c++) {
+                        const src = buf.getChannelData(c);
+                        const dst = trimmed.getChannelData(c);
+                        for (let i = 0; i < length; i++) dst[i] = src[startSample + i];
+                    }
+                    _sfxRunningBuf = trimmed;
+                } else {
+                    _sfxRunningBuf = buf;
+                }
+            })
+            .catch(() => { });
     }
 
     renderer.shadowMap.needsUpdate = true;
@@ -2683,70 +2854,70 @@ fbxLoader.load(playerModelUrl, (fbx) => {
 // ─── Collision resolution helpers ─────────────────────────────────────────────
 function obbOverlap(cx, cz, co, si, b) {
     const aco = Math.abs(co), asi = Math.abs(si);
-    const bcx = (b.minX+b.maxX)*0.5, bcz = (b.minZ+b.maxZ)*0.5;
-    const bhx = (b.maxX-b.minX)*0.5, bhz = (b.maxZ-b.minZ)*0.5;
+    const bcx = (b.minX + b.maxX) * 0.5, bcz = (b.minZ + b.maxZ) * 0.5;
+    const bhx = (b.maxX - b.minX) * 0.5, bhz = (b.maxZ - b.minZ) * 0.5;
     const dx = bcx - cx, dz = bcz - cz;
-    const ov0 = (CHAR_HALF_W*aco + CHAR_HALF_D*asi) + bhx - Math.abs(dx);
+    const ov0 = (CHAR_HALF_W * aco + CHAR_HALF_D * asi) + bhx - Math.abs(dx);
     if (ov0 <= 0) return null;
-    const ov1 = (CHAR_HALF_W*asi + CHAR_HALF_D*aco) + bhz - Math.abs(dz);
+    const ov1 = (CHAR_HALF_W * asi + CHAR_HALF_D * aco) + bhz - Math.abs(dz);
     if (ov1 <= 0) return null;
-    const dp2 = dx*co - dz*si;
-    const ov2 = CHAR_HALF_W + (bhx*aco + bhz*asi) - Math.abs(dp2);
+    const dp2 = dx * co - dz * si;
+    const ov2 = CHAR_HALF_W + (bhx * aco + bhz * asi) - Math.abs(dp2);
     if (ov2 <= 0) return null;
-    const dp3 = dx*si + dz*co;
-    const ov3 = CHAR_HALF_D + (bhx*asi + bhz*aco) - Math.abs(dp3);
+    const dp3 = dx * si + dz * co;
+    const ov3 = CHAR_HALF_D + (bhx * asi + bhz * aco) - Math.abs(dp3);
     if (ov3 <= 0) return null;
     return { ov0, ov1, ov2, ov3, dx, dz, dp2, dp3, co, si };
 }
 
 function mtvOBBvsChar(obb) {
     const px = character.position.x;
-    const py = character.position.y - CHAR_FOOT_OFFSET + CHAR_HEIGHT/2;
+    const py = character.position.y - CHAR_FOOT_OFFSET + CHAR_HEIGHT / 2;
     const pz = character.position.z;
-    const phx = CHAR_HALF_W, phy = CHAR_HEIGHT/2, phz = CHAR_HALF_D;
+    const phx = CHAR_HALF_W, phy = CHAR_HEIGHT / 2, phz = CHAR_HALF_D;
     const dx = px - obb.cx, dy = py - obb.cy, dz = pz - obb.cz;
     let minOv = Infinity, nx = 0, ny = 0, nz = 0;
 
     function testAxis(ax, ay, az) {
-        const len = Math.sqrt(ax*ax+ay*ay+az*az);
+        const len = Math.sqrt(ax * ax + ay * ay + az * az);
         if (len < 1e-6) return true;
-        ax/=len; ay/=len; az/=len;
-        const charR = phx*Math.abs(ax)+phy*Math.abs(ay)+phz*Math.abs(az);
-        const obbR  = obb.hx*Math.abs(ax*obb.ux+ay*obb.uy+az*obb.uz)
-                    + obb.hy*Math.abs(ax*obb.vx+ay*obb.vy+az*obb.vz)
-                    + obb.hz*Math.abs(ax*obb.wx+ay*obb.wy+az*obb.wz);
-        const sep = Math.abs(dx*ax+dy*ay+dz*az);
-        const ov = charR+obbR-sep;
+        ax /= len; ay /= len; az /= len;
+        const charR = phx * Math.abs(ax) + phy * Math.abs(ay) + phz * Math.abs(az);
+        const obbR = obb.hx * Math.abs(ax * obb.ux + ay * obb.uy + az * obb.uz)
+            + obb.hy * Math.abs(ax * obb.vx + ay * obb.vy + az * obb.vz)
+            + obb.hz * Math.abs(ax * obb.wx + ay * obb.wy + az * obb.wz);
+        const sep = Math.abs(dx * ax + dy * ay + dz * az);
+        const ov = charR + obbR - sep;
         if (ov <= 0) return false;
-        if (ov < minOv) { minOv=ov; nx=ax; ny=ay; nz=az; }
+        if (ov < minOv) { minOv = ov; nx = ax; ny = ay; nz = az; }
         return true;
     }
 
-    if (!testAxis(1,0,0)) return null;
-    if (!testAxis(0,1,0)) return null;
-    if (!testAxis(0,0,1)) return null;
-    if (!testAxis(obb.ux,obb.uy,obb.uz)) return null;
-    if (!testAxis(obb.vx,obb.vy,obb.vz)) return null;
-    if (!testAxis(obb.wx,obb.wy,obb.wz)) return null;
+    if (!testAxis(1, 0, 0)) return null;
+    if (!testAxis(0, 1, 0)) return null;
+    if (!testAxis(0, 0, 1)) return null;
+    if (!testAxis(obb.ux, obb.uy, obb.uz)) return null;
+    if (!testAxis(obb.vx, obb.vy, obb.vz)) return null;
+    if (!testAxis(obb.wx, obb.wy, obb.wz)) return null;
 
-    const wa = [[1,0,0],[0,1,0],[0,0,1]];
-    const ob = [[obb.ux,obb.uy,obb.uz],[obb.vx,obb.vy,obb.vz],[obb.wx,obb.wy,obb.wz]];
-    for (const [ax,ay,az] of wa) for (const [bx,by,bz] of ob) {
-        if (!testAxis(ay*bz-az*by, az*bx-ax*bz, ax*by-ay*bx)) return null;
+    const wa = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+    const ob = [[obb.ux, obb.uy, obb.uz], [obb.vx, obb.vy, obb.vz], [obb.wx, obb.wy, obb.wz]];
+    for (const [ax, ay, az] of wa) for (const [bx, by, bz] of ob) {
+        if (!testAxis(ay * bz - az * by, az * bx - ax * bz, ax * by - ay * bx)) return null;
     }
 
-    if (dx*nx+dy*ny+dz*nz < 0) { nx=-nx; ny=-ny; nz=-nz; }
+    if (dx * nx + dy * ny + dz * nz < 0) { nx = -nx; ny = -ny; nz = -nz; }
     return { nx, ny, nz, depth: minOv };
 }
 
-function resolveOBBH(nearby, pushVx = 0, pushVz = 0, dt = 1/60) {
+function resolveOBBH(nearby, pushVx = 0, pushVz = 0, dt = 1 / 60) {
     for (const b of nearby) {
         if (!b.isOBB) continue;
         const r = mtvOBBvsChar(b);
         if (!r) continue;
         const { nx, ny, nz, depth } = r;
         const absY = Math.abs(ny);
-        const horzLen = Math.sqrt(nx*nx+nz*nz);
+        const horzLen = Math.sqrt(nx * nx + nz * nz);
         if (horzLen <= absY) continue;
         const fy = character.position.y - CHAR_FOOT_OFFSET;
         const stepNeeded = b.maxY - fy;
@@ -2754,7 +2925,7 @@ function resolveOBBH(nearby, pushVx = 0, pushVz = 0, dt = 1/60) {
             if (b.maxY + CHAR_FOOT_OFFSET > stepUpTarget) stepUpTarget = b.maxY + CHAR_FOOT_OFFSET;
             // continue; // Don't skip Touched even if stepping up
         }
-        
+
         // FIRE TOUCHED EVENT
         if (window._bloxverse._charInstance) {
             const _ti = b._instRef || b._meshRef?._instRef;
@@ -2790,9 +2961,9 @@ function resolveOBBV(nearby) {
         if (!r) continue;
         const { nx, ny, nz, depth } = r;
         const absY = Math.abs(ny);
-        const horzLen = Math.sqrt(nx*nx+nz*nz);
+        const horzLen = Math.sqrt(nx * nx + nz * nz);
         if (horzLen > absY) continue;
-        const pushY = absY > 0.001 ? depth/absY : depth;
+        const pushY = absY > 0.001 ? depth / absY : depth;
         if (ny > 0) {
             character.position.y += pushY;
             if (velY < 0) { velY = 0; grounded = true; extraVelX = 0; extraVelZ = 0; }
@@ -2860,7 +3031,7 @@ function resolveBlocksH(nearby) {
         // teleport them to the block's edge — skip and let resolveBlocksV snap them up.
         if (ov0 > CHAR_HALF_W * 2 && ov1 > CHAR_HALF_D * 2) continue;
         if (ov0 <= ov1) character.position.x -= Math.sign(dx) * ov0;
-        else            character.position.z -= Math.sign(dz) * ov1;
+        else character.position.z -= Math.sign(dz) * ov1;
         pushedBlocks.add(b);
 
         // FIRE TOUCHED EVENT (Horizontal Block)
@@ -2915,8 +3086,8 @@ function findClimbableBlock(px, pz, footY, fwdX, fwdZ) {
             b.minY <= footY + CHAR_HEIGHT) {
             const cpx = Math.max(b.minX, Math.min(px, b.maxX));
             const cpz = Math.max(b.minZ, Math.min(pz, b.maxZ));
-            const dx = cpx-px, dz = cpz-pz;
-            if (Math.sqrt(dx*dx+dz*dz) <= CHAR_HALF_W + CLIMB_REACH + 0.4) return b;
+            const dx = cpx - px, dz = cpz - pz;
+            if (Math.sqrt(dx * dx + dz * dz) <= CHAR_HALF_W + CLIMB_REACH + 0.4) return b;
         }
     }
     const nearby = getNearbyColliders(px, footY + CHAR_FOOT_OFFSET, pz);
@@ -2927,10 +3098,10 @@ function findClimbableBlock(px, pz, footY, fwdX, fwdZ) {
         if (b.minY > footY + CHAR_HEIGHT) continue;
         const cpx = Math.max(b.minX, Math.min(px, b.maxX));
         const cpz = Math.max(b.minZ, Math.min(pz, b.maxZ));
-        const dx = cpx-px, dz = cpz-pz;
-        const dlen = Math.sqrt(dx*dx+dz*dz);
+        const dx = cpx - px, dz = cpz - pz;
+        const dlen = Math.sqrt(dx * dx + dz * dz);
         if (dlen > CHAR_HALF_W + CLIMB_REACH + 0.4) continue;
-        if (dlen >= 0.01 && (dx/dlen)*fwdX + (dz/dlen)*fwdZ < -0.5) continue;
+        if (dlen >= 0.01 && (dx / dlen) * fwdX + (dz / dlen) * fwdZ < -0.5) continue;
         const score = dlen + Math.abs(b.maxY - footY) * 0.1;
         if (score < bestScore) { bestScore = score; best = b; }
     }
@@ -2945,8 +3116,8 @@ function findChainBlockBelow(px, pz, ledgeY) {
         if (cb.maxY >= ledgeY - 0.01 || cb.maxY < ledgeY - CLIMB_WINDOW) continue;
         const cpx = Math.max(cb.minX, Math.min(px, cb.maxX));
         const cpz = Math.max(cb.minZ, Math.min(pz, cb.maxZ));
-        const dx = cpx-px, dz = cpz-pz;
-        if (Math.sqrt(dx*dx+dz*dz) > CHAR_HALF_W + CLIMB_REACH + 0.4) continue;
+        const dx = cpx - px, dz = cpz - pz;
+        if (Math.sqrt(dx * dx + dz * dz) > CHAR_HALF_W + CLIMB_REACH + 0.4) continue;
         if (cb.maxY > bestY) { best = cb; bestY = cb.maxY; }
     }
     return best;
@@ -2957,10 +3128,10 @@ function findChainBlockAbove(px, pz, ledgeY) {
     for (const cb of nearby) {
         if (cb.maxY - cb.minY > CLIMB_MAX_PART_H) continue;
         if (cb.maxY <= ledgeY + 0.01 || cb.maxY > ledgeY + CLIMB_WINDOW) continue;
-        const cbcx = (cb.minX+cb.maxX)*0.5 - px;
-        const cbcz = (cb.minZ+cb.maxZ)*0.5 - pz;
-        const cbcd = Math.sqrt(cbcx*cbcx+cbcz*cbcz);
-        if (cbcd > 0.01 && (cbcx/cbcd)*climbFwdX + (cbcz/cbcd)*climbFwdZ < 0.4) continue;
+        const cbcx = (cb.minX + cb.maxX) * 0.5 - px;
+        const cbcz = (cb.minZ + cb.maxZ) * 0.5 - pz;
+        const cbcd = Math.sqrt(cbcx * cbcx + cbcz * cbcz);
+        if (cbcd > 0.01 && (cbcx / cbcd) * climbFwdX + (cbcz / cbcd) * climbFwdZ < 0.4) continue;
         return cb;
     }
     return null;
@@ -2982,34 +3153,34 @@ function tryLedgeGrab(nearby) {
         const below = b.maxY - footY;
         if (below < 0.3 || below > CLIMB_WINDOW) continue;
         if (b.minY > footY + CHAR_HEIGHT) continue;
-        const ox = Math.min(px+CHAR_HALF_W+CLIMB_REACH, b.maxX) - Math.max(px-CHAR_HALF_W-CLIMB_REACH, b.minX);
-        const oz = Math.min(pz+CHAR_HALF_D+CLIMB_REACH, b.maxZ) - Math.max(pz-CHAR_HALF_D-CLIMB_REACH, b.minZ);
+        const ox = Math.min(px + CHAR_HALF_W + CLIMB_REACH, b.maxX) - Math.max(px - CHAR_HALF_W - CLIMB_REACH, b.minX);
+        const oz = Math.min(pz + CHAR_HALF_D + CLIMB_REACH, b.maxZ) - Math.max(pz - CHAR_HALF_D - CLIMB_REACH, b.minZ);
         if (ox <= 0 || oz <= 0) continue;
         const cpx = Math.max(b.minX, Math.min(px, b.maxX));
         const cpz = Math.max(b.minZ, Math.min(pz, b.maxZ));
-        let apX = cpx-px, apZ = cpz-pz;
-        const apLen = Math.sqrt(apX*apX+apZ*apZ);
+        let apX = cpx - px, apZ = cpz - pz;
+        const apLen = Math.sqrt(apX * apX + apZ * apZ);
         if (apLen < 0.01) { apX = fwdX; apZ = fwdZ; }
         else {
-            apX/=apLen; apZ/=apLen;
-            if (apX*fwdX + apZ*fwdZ < -0.9) continue;
+            apX /= apLen; apZ /= apLen;
+            if (apX * fwdX + apZ * fwdZ < -0.9) continue;
         }
         if (apLen < bestDist) { bestDist = apLen; bestBlock = b; bestApX = apX; bestApZ = apZ; }
     }
 
     if (!bestBlock) return;
     climbLedgeY = bestBlock.maxY;
-    climbBlock  = bestBlock;
-    climbFwdX   = bestApX;
-    climbFwdZ   = bestApZ;
-    climbState  = 'hanging';
-    velY        = 0;
+    climbBlock = bestBlock;
+    climbFwdX = bestApX;
+    climbFwdZ = bestApZ;
+    climbState = 'hanging';
+    velY = 0;
 }
 
 // ─── Main physics update ──────────────────────────────────────────────────────
 function lerpAngle(current, target, t) {
     let diff = target - current;
-    diff = ((diff + Math.PI) % (2*Math.PI)) - Math.PI;
+    diff = ((diff + Math.PI) % (2 * Math.PI)) - Math.PI;
     return current + diff * t;
 }
 
@@ -3017,7 +3188,7 @@ function lerpAngle(current, target, t) {
 function updatePhysics(dt) {
     // Step the physics world
     physicsWorld.step(1 / 60, dt, 3); // Fixed 60Hz timestep with max 3 iterations
-    
+
     // Sync mesh positions and rotations with physics bodies
     physicsBodies.forEach(({ body, anchored, mesh }) => {
         if (!anchored && body) {
@@ -3032,28 +3203,28 @@ function updatePhysics(dt) {
             }
             mesh.position.copy(body.position);
             mesh.quaternion.copy(body.quaternion);
-            
+
             // Use stored half-size from addStud
             const hs = mesh.userData.halfSize || { sw: 1, sh: 1, sd: 1 };
             const sw = hs.sw, sh = hs.sh, sd = hs.sd;
-            
+
             // Recompute the OBB for this dynamic part
             const cx = mesh.position.x, cy = mesh.position.y, cz = mesh.position.z;
-            
+
             // Build full OBB for collision detection
             const m = new THREE.Matrix4().makeRotationFromQuaternion(mesh.quaternion);
             const e = m.elements;
             const ux = e[0], uy = e[1], uz = e[2];
             const vx = e[4], vy = e[5], vz = e[6];
             const wx = e[8], wy = e[9], wz = e[10];
-            const hx = sw/2, hy = sh/2, hz = sd/2;
-            const exx = hx*Math.abs(ux)+hy*Math.abs(vx)+hz*Math.abs(wx);
-            const eyy = hx*Math.abs(uy)+hy*Math.abs(vy)+hz*Math.abs(wy);
-            const ezz = hx*Math.abs(uz)+hy*Math.abs(vz)+hz*Math.abs(wz);
-            
+            const hx = sw / 2, hy = sh / 2, hz = sd / 2;
+            const exx = hx * Math.abs(ux) + hy * Math.abs(vx) + hz * Math.abs(wx);
+            const eyy = hx * Math.abs(uy) + hy * Math.abs(vy) + hz * Math.abs(wy);
+            const ezz = hx * Math.abs(uz) + hy * Math.abs(vz) + hz * Math.abs(wz);
+
             body._obb = {
-                isOBB:true, cx,cy,cz, hx,hy,hz, ux,uy,uz, vx,vy,vz, wx,wy,wz,
-                minX:cx-exx, maxX:cx+exx, minY:cy-eyy, maxY:cy+eyy, minZ:cz-ezz, maxZ:cz+ezz,
+                isOBB: true, cx, cy, cz, hx, hy, hz, ux, uy, uz, vx, vy, vz, wx, wy, wz,
+                minX: cx - exx, maxX: cx + exx, minY: cy - eyy, maxY: cy + eyy, minZ: cz - ezz, maxZ: cz + ezz,
                 _bodyRef: body,
                 _meshRef: mesh
             };
@@ -3098,14 +3269,14 @@ function update(dt) {
 
         const stillValid = findClimbableBlock(px0, pz0, footY, climbFwdX, climbFwdZ);
         if (!stillValid) { climbState = 'none'; climbCooldown = 0.25; if (finishClimbUpdate(dt)) return; }
-        climbBlock  = stillValid;
+        climbBlock = stillValid;
         climbLedgeY = stillValid.maxY;
 
         if (shiftLock) {
             const grabAngle = Math.atan2(climbFwdX, climbFwdZ);
-            const camAngle  = cam.yaw + Math.PI;
-            const diff = ((camAngle - grabAngle) % (2*Math.PI) + 3*Math.PI) % (2*Math.PI) - Math.PI;
-            if (Math.abs(diff) > Math.PI/4) { climbState = 'none'; climbCooldown = 0.25; velY = 0; if (finishClimbUpdate(dt)) return; }
+            const camAngle = cam.yaw + Math.PI;
+            const diff = ((camAngle - grabAngle) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
+            if (Math.abs(diff) > Math.PI / 4) { climbState = 'none'; climbCooldown = 0.25; velY = 0; if (finishClimbUpdate(dt)) return; }
             character.rotation.y = cam.yaw + Math.PI;
         } else {
             const faceAngle = Math.atan2(climbFwdX, climbFwdZ);
@@ -3175,13 +3346,13 @@ function update(dt) {
 
     // ── Normal movement ─────────────────────────────────────────────────────
     const moveInput = new THREE.Vector3();
-    if (keys['KeyW'] || keys['ArrowUp'])    moveInput.z -= 1;
-    if (keys['KeyS'] || keys['ArrowDown'])  moveInput.z += 1;
-    if (keys['KeyA'])  moveInput.x -= 1;
+    if (keys['KeyW'] || keys['ArrowUp']) moveInput.z -= 1;
+    if (keys['KeyS'] || keys['ArrowDown']) moveInput.z += 1;
+    if (keys['KeyA']) moveInput.x -= 1;
     if (keys['KeyD']) moveInput.x += 1;
 
     // ── Arrow key camera rotation ──────────────────────────────────────────
-    if (keys['ArrowLeft'])  cam.yaw += 0.05;
+    if (keys['ArrowLeft']) cam.yaw += 0.05;
     if (keys['ArrowRight']) cam.yaw -= 0.05;
 
     if (joystickActive) {
@@ -3194,7 +3365,7 @@ function update(dt) {
 
     if (_charMoving) {
         moveInput.normalize();
-        const yawQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0), cam.yaw);
+        const yawQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), cam.yaw);
         moveInput.applyQuaternion(yawQuat);
         velX = moveInput.x * WALK_SPEED;
         velZ = moveInput.z * WALK_SPEED;
@@ -3207,8 +3378,8 @@ function update(dt) {
     velX += extraVelX;
     velZ += extraVelZ;
 
-    const sp2 = velX*velX + velZ*velZ;
-    if (sp2 > WALK_SPEED*WALK_SPEED) {
+    const sp2 = velX * velX + velZ * velZ;
+    if (sp2 > WALK_SPEED * WALK_SPEED) {
         const sc = WALK_SPEED / Math.sqrt(sp2);
         velX *= sc; velZ *= sc;
     }
@@ -3225,8 +3396,8 @@ function update(dt) {
         const fy0 = character.position.y - CHAR_FOOT_OFFSET;
         const acos = Math.abs(Math.cos(character.rotation.y));
         const asin = Math.abs(Math.sin(character.rotation.y));
-        const halfX = CHAR_HALF_W*acos + CHAR_HALF_D*asin;
-        const halfZ = CHAR_HALF_W*asin + CHAR_HALF_D*acos;
+        const halfX = CHAR_HALF_W * acos + CHAR_HALF_D * asin;
+        const halfZ = CHAR_HALF_W * asin + CHAR_HALF_D * acos;
         const swNearby = getNearbyColliders(character.position.x, character.position.y, character.position.z);
 
         const _sweepTouch = (b) => {
@@ -3238,11 +3409,11 @@ function update(dt) {
 
         let dx = velX * dt;
         for (const b of swNearby) {
-            if (b.maxY <= fy0+0.05 || b.minY >= fy0+CHAR_HEIGHT) continue;
+            if (b.maxY <= fy0 + 0.05 || b.minY >= fy0 + CHAR_HEIGHT) continue;
             const stepNeeded = b.maxY - fy0;
             if (stepNeeded > 0 && stepNeeded <= STEP_HEIGHT && grounded && velY <= 0) continue;
             // Shrink cross-axis check by SWEEP_MARGIN to avoid corner-graze sticking
-            if (character.position.z+halfZ <= b.minZ+SWEEP_MARGIN || character.position.z-halfZ >= b.maxZ-SWEEP_MARGIN) continue;
+            if (character.position.z + halfZ <= b.minZ + SWEEP_MARGIN || character.position.z - halfZ >= b.maxZ - SWEEP_MARGIN) continue;
             if (dx > 0) {
                 const edge = character.position.x + halfX;
                 if (edge > b.minX) continue;
@@ -3259,11 +3430,11 @@ function update(dt) {
 
         let dz = velZ * dt;
         for (const b of swNearby) {
-            if (b.maxY <= fy0+0.05 || b.minY >= fy0+CHAR_HEIGHT) continue;
+            if (b.maxY <= fy0 + 0.05 || b.minY >= fy0 + CHAR_HEIGHT) continue;
             const stepNeeded = b.maxY - fy0;
             if (stepNeeded > 0 && stepNeeded <= STEP_HEIGHT && grounded && velY <= 0) continue;
             // Shrink cross-axis check by SWEEP_MARGIN to avoid corner-graze sticking
-            if (character.position.x+halfX <= b.minX+SWEEP_MARGIN || character.position.x-halfX >= b.maxX-SWEEP_MARGIN) continue;
+            if (character.position.x + halfX <= b.minX + SWEEP_MARGIN || character.position.x - halfX >= b.maxX - SWEEP_MARGIN) continue;
             if (dz > 0) {
                 const edge = character.position.z + halfZ;
                 if (edge > b.minZ) continue;
@@ -3304,7 +3475,7 @@ function update(dt) {
     }
 
     if (grounded) coyoteTimer = COYOTE_TIME;
-    else          coyoteTimer = Math.max(0, coyoteTimer - dt);
+    else coyoteTimer = Math.max(0, coyoteTimer - dt);
 
     if (keys['Space']) jumpBuffer = JUMP_BUFFER_T;
     jumpBuffer = Math.max(0, jumpBuffer - dt);
@@ -3330,11 +3501,11 @@ function update(dt) {
         velY = JUMP_POWER;
         grounded = false;
         coyoteTimer = 0;
-        jumpBuffer  = 0;
+        jumpBuffer = 0;
         if (_sfxSwoosh) {
-            _sfxSwoosh.volume = _sfxVolume;
+            _sfxSwoosh.volume = _sfxVolume * 0.7;
             _sfxSwoosh.currentTime = 0;
-            _sfxSwoosh.play().catch(() => {});
+            _sfxSwoosh.play().catch(() => { });
         }
     }
 
@@ -3343,18 +3514,36 @@ function update(dt) {
         if (_justLanded) {
             _sfxThud.volume = Math.min(1, _sfxVolume * 2.5);
             _sfxThud.currentTime = 0;
-            _sfxThud.play().catch(() => {});
+            _sfxThud.play().catch(() => { });
         }
     }
     _prevGrounded = grounded;
 
     if (_charMoving && grounded) {
-        if (_sfxRunning && _sfxRunning.paused) {
-            _sfxRunning.volume = _sfxVolume;
-            _sfxRunning.play().catch(() => {});
+        if (_sfxRunningBuf) {
+            if (!_sfxRunningNode) {
+                if (_sfxRunningCtx.state === 'suspended') _sfxRunningCtx.resume().catch(() => { });
+                _sfxRunningGain = _sfxRunningCtx.createGain();
+                _sfxRunningGain.gain.value = _sfxVolume * 0.6;
+                _sfxRunningGain.connect(_sfxRunningCtx.destination);
+                _sfxRunningNode = _sfxRunningCtx.createBufferSource();
+                _sfxRunningNode.buffer = _sfxRunningBuf;
+                _sfxRunningNode.loop = true;
+                _sfxRunningNode.connect(_sfxRunningGain);
+                _sfxRunningNode.start(0);
+            }
+        } else if (_sfxRunning && _sfxRunning.paused) {
+            _sfxRunning.volume = _sfxVolume * 0.8;
+            _sfxRunning.play().catch(() => { });
         }
     } else {
-        if (_sfxRunning && !_sfxRunning.paused) {
+        if (_sfxRunningNode) {
+            try { _sfxRunningNode.stop(); } catch { }
+            try { _sfxRunningNode.disconnect(); } catch { }
+            try { _sfxRunningGain.disconnect(); } catch { }
+            _sfxRunningNode = null;
+            _sfxRunningGain = null;
+        } else if (_sfxRunning && !_sfxRunning.paused) {
             _sfxRunning.pause();
             _sfxRunning.currentTime = 0;
         }
@@ -3394,8 +3583,8 @@ function update(dt) {
 function updateCamera(fpDt) {
     if (!character) return;
 
-    const sinYaw   = Math.sin(cam.yaw);
-    const cosYaw   = Math.cos(cam.yaw);
+    const sinYaw = Math.sin(cam.yaw);
+    const cosYaw = Math.cos(cam.yaw);
     const sinPitch = Math.sin(cam.pitch);
     const cosPitch = Math.cos(cam.pitch);
 
@@ -3571,7 +3760,7 @@ window._mapParts = [];
 
 window._bloxverse = {
     scene,
-    getCharacter:  () => character,
+    getCharacter: () => character,
     cloneCharacter(name, x, y, z) {
         if (!character) return null;
         const clone = SkeletonUtils.clone(character);
@@ -3656,8 +3845,8 @@ window._bloxverse = {
         return false;
     },
     getCameraYaw() { return cam.yaw; },
-    getGrounded:   () => grounded,
-    getVelY:       () => velY,
+    getGrounded: () => grounded,
+    getVelY: () => velY,
     getClimbState: () => climbState,
     playEmote(id) {
         const def = findEmote(id);
@@ -3720,68 +3909,68 @@ window._bloxverse = {
     getWalkSpeed() { return WALK_SPEED; },
     requestLock() { renderer.domElement.requestPointerLock(); },
     async _renderThumbnail() {
-      if (!character) return null;
-      const clone = SkeletonUtils.clone(character);
-      const tempScene = new THREE.Scene();
-      tempScene.background = new THREE.Color(0x000000);
-      const ambient = new THREE.AmbientLight(0xffffff, 0.8);
-      tempScene.add(ambient);
-      const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
-      dirLight.position.set(4, 6, 8);
-      tempScene.add(dirLight);
-      const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
-      fillLight.position.set(-3, 2, -4);
-      tempScene.add(fillLight);
-      clone.position.set(0, 0, 0);
-      tempScene.add(clone);
-      clone.updateMatrixWorld(true);
+        if (!character) return null;
+        const clone = SkeletonUtils.clone(character);
+        const tempScene = new THREE.Scene();
+        tempScene.background = new THREE.Color(0x000000);
+        const ambient = new THREE.AmbientLight(0xffffff, 0.8);
+        tempScene.add(ambient);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+        dirLight.position.set(4, 6, 8);
+        tempScene.add(dirLight);
+        const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
+        fillLight.position.set(-3, 2, -4);
+        tempScene.add(fillLight);
+        clone.position.set(0, 0, 0);
+        tempScene.add(clone);
+        clone.updateMatrixWorld(true);
 
-      const target = new THREE.WebGLRenderTarget(256, 256, {
-        minFilter: THREE.LinearFilter,
-        magFilter: THREE.LinearFilter,
-      });
+        const target = new THREE.WebGLRenderTarget(256, 256, {
+            minFilter: THREE.LinearFilter,
+            magFilter: THREE.LinearFilter,
+        });
 
-      const thumbCam = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
-      thumbCam.position.set(5, 5, 11);
-      thumbCam.lookAt(0, 2.8, 0);
+        const thumbCam = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
+        thumbCam.position.set(5, 5, 11);
+        thumbCam.lookAt(0, 2.8, 0);
 
-      const prevTarget = renderer.getRenderTarget();
-      renderer.setRenderTarget(target);
-      renderer.clear();
-      renderer.render(tempScene, thumbCam);
+        const prevTarget = renderer.getRenderTarget();
+        renderer.setRenderTarget(target);
+        renderer.clear();
+        renderer.render(tempScene, thumbCam);
 
-      const pixels = new Uint8Array(256 * 256 * 4);
-      renderer.readRenderTargetPixels(target, 0, 0, 256, 256, pixels);
-      renderer.setRenderTarget(prevTarget);
+        const pixels = new Uint8Array(256 * 256 * 4);
+        renderer.readRenderTargetPixels(target, 0, 0, 256, 256, pixels);
+        renderer.setRenderTarget(prevTarget);
 
-      const canvas = document.createElement('canvas');
-      canvas.width = 256;
-      canvas.height = 256;
-      const ctx = canvas.getContext('2d');
-      const imageData = ctx.createImageData(256, 256);
-      for (let y = 0; y < 256; y++) {
-        for (let x = 0; x < 256; x++) {
-          const srcIdx = (y * 256 + x) * 4;
-          const dstIdx = ((255 - y) * 256 + x) * 4;
-          imageData.data[dstIdx]     = pixels[srcIdx];
-          imageData.data[dstIdx + 1] = pixels[srcIdx + 1];
-          imageData.data[dstIdx + 2] = pixels[srcIdx + 2];
-          imageData.data[dstIdx + 3] = pixels[srcIdx + 3];
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+        const imageData = ctx.createImageData(256, 256);
+        for (let y = 0; y < 256; y++) {
+            for (let x = 0; x < 256; x++) {
+                const srcIdx = (y * 256 + x) * 4;
+                const dstIdx = ((255 - y) * 256 + x) * 4;
+                imageData.data[dstIdx] = pixels[srcIdx];
+                imageData.data[dstIdx + 1] = pixels[srcIdx + 1];
+                imageData.data[dstIdx + 2] = pixels[srcIdx + 2];
+                imageData.data[dstIdx + 3] = pixels[srcIdx + 3];
+            }
         }
-      }
-      ctx.putImageData(imageData, 0, 0);
+        ctx.putImageData(imageData, 0, 0);
 
-      target.dispose();
-      tempScene.remove(clone);
-      clone.traverse(child => {
-        if (child.isMesh) {
-          child.geometry?.dispose();
-          if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
-          else child.material?.dispose();
-        }
-      });
+        target.dispose();
+        tempScene.remove(clone);
+        clone.traverse(child => {
+            if (child.isMesh) {
+                child.geometry?.dispose();
+                if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+                else child.material?.dispose();
+            }
+        });
 
-      return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
     },
     _disableShiftLock() {
         if (shiftLock) {
@@ -3792,8 +3981,8 @@ window._bloxverse = {
             cursorY = window.innerHeight / 2;
             updateCursorPos();
             if (character) {
-                character.rotation.y = ((character.rotation.y % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
-                if (character.rotation.y > Math.PI) character.rotation.y -= 2*Math.PI;
+                character.rotation.y = ((character.rotation.y % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+                if (character.rotation.y > Math.PI) character.rotation.y -= 2 * Math.PI;
             }
         }
     },
@@ -3844,18 +4033,18 @@ window._bloxverse = {
         // Handle both old format (array) and new format (object with parts/scripts)
         const parts = Array.isArray(data) ? data : (data.parts || []);
         const scripts = (!Array.isArray(data) && data.scripts) ? data.scripts : [];
-        
+
         const valid = parts.filter(p => p.Type === 'Part' && (p.Shape === 'Block' || p.Shape === 'Ball' || p.Shape === 'Cylinder'));
         if (!valid.length) return;
-        let minX=Infinity,minY=Infinity,minZ=Infinity,maxX=-Infinity,maxY=-Infinity,maxZ=-Infinity;
+        let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
         for (const p of valid) {
-            const [px,py,pz] = p.Position, [sw,sh,sd] = p.Size;
-            minX=Math.min(minX,px-sw/2); maxX=Math.max(maxX,px+sw/2);
-            minY=Math.min(minY,py-sh/2); maxY=Math.max(maxY,py+sh/2);
-            minZ=Math.min(minZ,pz-sd/2); maxZ=Math.max(maxZ,pz+sd/2);
+            const [px, py, pz] = p.Position, [sw, sh, sd] = p.Size;
+            minX = Math.min(minX, px - sw / 2); maxX = Math.max(maxX, px + sw / 2);
+            minY = Math.min(minY, py - sh / 2); maxY = Math.max(maxY, py + sh / 2);
+            minZ = Math.min(minZ, pz - sd / 2); maxZ = Math.max(maxZ, pz + sd / 2);
         }
-        const ox=tx-(minX+maxX)/2, oy=G_LEVEL-minY, oz=tz-(minZ+maxZ)/2;
-        
+        const ox = tx - (minX + maxX) / 2, oy = G_LEVEL - minY, oz = tz - (minZ + maxZ) / 2;
+
         // Remove previously loaded parts' colliders from chunkMap and colliders
         const oldMeshes = new Set((window._mapParts || []).map(e => e.mesh).filter(Boolean));
         if (oldMeshes.size > 0) {
@@ -3896,6 +4085,16 @@ window._bloxverse = {
                 entry.mesh.geometry?.dispose();
             }
         }
+        // Remove merged meshes from previous load
+        if (window._mergedMapMeshes) {
+            for (const m of window._mergedMapMeshes) {
+                scene.remove(m);
+                m.geometry?.dispose();
+                if (Array.isArray(m.material)) m.material.forEach(mat => mat.dispose());
+                else m.material?.dispose();
+            }
+            window._mergedMapMeshes = null;
+        }
         // Clear caches so disposed materials/geometries aren't reused
         matCache.clear();
         geoCache.clear();
@@ -3903,15 +4102,15 @@ window._bloxverse = {
         // Store part info for later physics reference
         const partMap = new Map();
         window._mapParts = [];
-        
+
         for (const p of valid) {
-            const [sw,sh,sd]=p.Size, [px,py,pz]=p.Position, [rx,ry,rz]=p.Rotation;
+            const [sw, sh, sd] = p.Size, [px, py, pz] = p.Position, [rx, ry, rz] = p.Rotation;
             const color = resolvePartColor(p.Color);
             const anchored = p.Anchored !== false;
             const shape = p.Shape || 'Block';
             const canCollide = p.CanCollide !== false;
             const partMass = p.Mass != null ? p.Mass : computeMass(sw, sh, sd, shape);
-            const mesh = addStud(sw,sh,sd,color,px+ox,(py-sh/2)+oy,pz+oz,rx*DEG2RAD,ry*DEG2RAD,rz*DEG2RAD,anchored,shape,partMass,canCollide);
+            const mesh = addStud(sw, sh, sd, color, px + ox, (py - sh / 2) + oy, pz + oz, rx * DEG2RAD, ry * DEG2RAD, rz * DEG2RAD, anchored, shape, partMass, canCollide);
             const partName = p.Name || `Part_${px}_${py}_${pz}`;
             mesh.userData.physicsId = partName;
             mesh.name = partName;
@@ -3932,7 +4131,7 @@ window._bloxverse = {
             }
 
             applyMeshTransparency(mesh, p.Transparency || 0);
-            partMap.set(partName, { mesh, anchored, canCollide, size: [sw,sh,sd], worldPos: [px+ox,py+oy,pz+oz], rotation: [rx,ry,rz] });
+            partMap.set(partName, { mesh, anchored, canCollide, size: [sw, sh, sd], worldPos: [px + ox, py + oy, pz + oz], rotation: [rx, ry, rz] });
         }
 
         // Create PointLights attached to parts (capped to avoid shader uniform overflow)
@@ -3988,7 +4187,7 @@ window._bloxverse = {
             // Store scripts in a map for potential future use
             window._mapScripts = scripts;
         }
-        
+
         // Prefer explicit spawn metadata exported at the top of the JSON.
         const spawnData = !Array.isArray(data) ? (data.SpawnLocation || data.spawnLocation || data.spawn) : null;
         let spawnFound = false;
@@ -4023,6 +4222,7 @@ window._bloxverse = {
             character.position.set(_spawnPoint.x, _spawnPoint.y + CHAR_FOOT_OFFSET, _spawnPoint.z);
             character.rotation.y = _spawnPoint.ry;
         }
+        _optimizeScene();
     },
     async loadJSMap(path) {
         const resp = await fetch(path);
@@ -4044,9 +4244,10 @@ window._bloxverse = {
         if (config.worldFloor !== true) this.setWorldFloorEnabled(config.worldFloor);
         if (config.respawnY != null) this.setRespawnY(config.respawnY);
         window._mapConfig = config;
+        _optimizeScene();
     },
     getCamera: () => camera,
-    getCharHeight:     () => CHAR_HEIGHT,
+    getCharHeight: () => CHAR_HEIGHT,
     getCharFootOffset: () => CHAR_FOOT_OFFSET,
     getCharBubbleBase: () => CHAR_HEIGHT - CHAR_FOOT_OFFSET + 0.4,
     showBubble: (id, text) => _showBubble(id, text),
@@ -4074,7 +4275,7 @@ window._bloxverse = {
     setSfxVolume(v) { _sfxVolume = v; },
     _charInstance: null,
     setCharInstance: (inst) => { window._bloxverse._charInstance = inst; },
-    
+
     _updateNonMeshInstances: (game) => {
         const audioListener = camera.children.find(c => c instanceof THREE.AudioListener) || new THREE.AudioListener();
         if (!audioListener.parent) camera.add(audioListener);
@@ -4105,7 +4306,7 @@ window._bloxverse = {
                     const sound = new THREE.PositionalAudio(audioListener);
                     inst._engineRef = sound;
                     scene.add(sound);
-                    
+
                     // Hook into instance methods
                     inst.onPlay = () => {
                         if (inst.SoundId) {
@@ -4190,7 +4391,7 @@ window._bloxverse = {
                 if (inst._engineRef) {
                     const el = inst._engineRef;
                     el.style.display = (inst.Visible !== false) ? 'block' : 'none';
-                    
+
                     const bgAlpha = 1 - (inst.BackgroundTransparency || 0);
                     if (bgAlpha <= 0) {
                         el.style.backgroundColor = 'transparent';
@@ -4204,7 +4405,7 @@ window._bloxverse = {
                             el.style.backgroundColor = 'transparent';
                         }
                     }
-                    
+
                     if (inst.ClassName !== 'Frame') {
                         el.textContent = inst.Text || '';
                         const tc = inst.TextColor;
@@ -4359,7 +4560,7 @@ window._bloxverse = {
                 entry.body.shapes[0]?.type === CANNON.Shape.types.SPHERE ? 'Ball' : 'Block'
             );
             entry.body.updateMassProperties();
-    if (anchored && mesh.userData.canCollide !== false) {
+            if (anchored && mesh.userData.canCollide !== false) {
                 this._activatePartCollider(mesh);
             }
         }
@@ -4375,7 +4576,7 @@ window._bloxverse = {
                     mesh.userData.halfSize.sh,
                     mesh.userData.halfSize.sd,
                     shape
-                  )
+                )
                 : Number(mass);
             entry.body.mass = m;
             entry.body.updateMassProperties();
@@ -4410,7 +4611,7 @@ window._bloxverse = {
                 const r = Math.max(sw, sd) / 2;
                 body.addShape(new CANNON.Cylinder(r, r, sh, 24));
             } else {
-                body.addShape(new CANNON.Box(new CANNON.Vec3(sw/2, sh/2, sd/2)));
+                body.addShape(new CANNON.Box(new CANNON.Vec3(sw / 2, sh / 2, sd / 2)));
             }
             if (!entry.anchored) {
                 body.mass = computeMass(sw, sh, sd, shape);
@@ -4502,13 +4703,13 @@ window._bloxverse = {
                     mesh.userData.physicsOwnerId = userId;
                     mesh.userData.physicsOwnerUntil = now + PHYSICS_OWNER_LEASE_MS;
                     mesh.userData.physicsOwnerClaimId = s.ownerClaimId || 0;
-                    
+
                     // Smooth corrective velocity instead of teleporting
                     const correctionFactor = 10;
                     body.velocity.x = s.vx + (s.x - body.position.x) * correctionFactor;
                     body.velocity.y = s.vy + (s.y - body.position.y) * correctionFactor;
                     body.velocity.z = s.vz + (s.z - body.position.z) * correctionFactor;
-                    
+
                     // Sync rotations if provided
                     if (s.qx !== undefined && s.wx !== undefined) {
                         const targetQuat = new CANNON.Quaternion(s.qx, s.qy, s.qz, s.qw);
@@ -4576,89 +4777,89 @@ window._bloxverse = {
         }
     },
     getLocalTransform: () => {
-    if (!character) return null;
-    let isMoving = !_dead && (!!(keys['KeyW'] || keys['KeyS'] || keys['KeyA'] || keys['KeyD'] || keys['ArrowUp'] || keys['ArrowDown'] || joystickActive));
-    const sendGrounded = _dead ? false : grounded;
-    const sendClimb = _dead ? 0 : (typeof climbState === 'number' && climbState > 0 ? climbState : (climbState === 'hanging' ? 1 : 0));
-    let ry = character.rotation.y % (2 * Math.PI);
-    if (ry > Math.PI)  ry -= 2 * Math.PI;
-    if (ry < -Math.PI) ry += 2 * Math.PI;
-    return { x: character.position.x, y: character.position.y, z: character.position.z, ry, moving: isMoving, grounded: sendGrounded, climbState: sendClimb, dead: _dead, deathType: _deathType, qx: character.quaternion.x, qy: character.quaternion.y, qz: character.quaternion.z, qw: character.quaternion.w };
+        if (!character) return null;
+        let isMoving = !_dead && (!!(keys['KeyW'] || keys['KeyS'] || keys['KeyA'] || keys['KeyD'] || keys['ArrowUp'] || keys['ArrowDown'] || joystickActive));
+        const sendGrounded = _dead ? false : grounded;
+        const sendClimb = _dead ? 0 : (typeof climbState === 'number' && climbState > 0 ? climbState : (climbState === 'hanging' ? 1 : 0));
+        let ry = character.rotation.y % (2 * Math.PI);
+        if (ry > Math.PI) ry -= 2 * Math.PI;
+        if (ry < -Math.PI) ry += 2 * Math.PI;
+        return { x: character.position.x, y: character.position.y, z: character.position.z, ry, moving: isMoving, grounded: sendGrounded, climbState: sendClimb, dead: _dead, deathType: _deathType, qx: character.quaternion.x, qy: character.quaternion.y, qz: character.quaternion.z, qw: character.quaternion.w };
     },
     updateOtherPlayer: (userId, x, y, z, ry, moving, grounded, climbState, username = null, qx, qy, qz, qw, dead, health, deathType) => {
-    if (!character) return; // Not fully loaded yet
-    // Don't create/update a clone for the local player (same-account multi-device scenario)
-    if (userId === currentUserId) return;
-    // Normalize received angle to [-π, π] so lerpAngle never takes the long way around
-    // and so a freshly spawned clone never starts 180° wrong.
-    let correctedRy = ry % (2 * Math.PI);
-    if (correctedRy > Math.PI)  correctedRy -= 2 * Math.PI;
-    if (correctedRy < -Math.PI) correctedRy += 2 * Math.PI;
+        if (!character) return; // Not fully loaded yet
+        // Don't create/update a clone for the local player (same-account multi-device scenario)
+        if (userId === currentUserId) return;
+        // Normalize received angle to [-π, π] so lerpAngle never takes the long way around
+        // and so a freshly spawned clone never starts 180° wrong.
+        let correctedRy = ry % (2 * Math.PI);
+        if (correctedRy > Math.PI) correctedRy -= 2 * Math.PI;
+        if (correctedRy < -Math.PI) correctedRy += 2 * Math.PI;
 
-    let p = otherPlayers.get(userId);
-    if (!p) {
-        // Clone character
-        const clone = SkeletonUtils.clone(character);
-        const bones = {};
-        const rest = {};
-        // Reset bones to rest pose before capturing, so each remote
-        // player's animation starts from the clean bind pose, not the
-        // local character's current animated pose.
-        clone.traverse(child => {
-            if ((child.isBone || child.type === 'Bone') && anim.rest[child.name]) {
-                const r = anim.rest[child.name];
-                child.rotation.set(r.x, r.y, r.z);
-                child.position.set(r.px, r.py, r.pz);
-            }
-        });
-        clone.traverse(child => {
-            if (child.isBone || child.type === 'Bone') {
-                bones[child.name] = child;
-                rest[child.name] = {
-                    x: child.rotation.x, y: child.rotation.y, z: child.rotation.z,
-                    px: child.position.x, py: child.position.y, pz: child.position.z
-                };
-            }
-            if (child.isMesh) {
-                child.castShadow = true;
-                child.receiveShadow = true;
-                // Clone materials so each player has unique instances
-                if (Array.isArray(child.material)) {
-                    for (let i = 0; i < child.material.length; i++) {
-                        child.material[i] = child.material[i].clone();
-                    }
-                } else if (child.material) {
-                    child.material = child.material.clone();
+        let p = otherPlayers.get(userId);
+        if (!p) {
+            // Clone character
+            const clone = SkeletonUtils.clone(character);
+            const bones = {};
+            const rest = {};
+            // Reset bones to rest pose before capturing, so each remote
+            // player's animation starts from the clean bind pose, not the
+            // local character's current animated pose.
+            clone.traverse(child => {
+                if ((child.isBone || child.type === 'Bone') && anim.rest[child.name]) {
+                    const r = anim.rest[child.name];
+                    child.rotation.set(r.x, r.y, r.z);
+                    child.position.set(r.px, r.py, r.pz);
                 }
+            });
+            clone.traverse(child => {
+                if (child.isBone || child.type === 'Bone') {
+                    bones[child.name] = child;
+                    rest[child.name] = {
+                        x: child.rotation.x, y: child.rotation.y, z: child.rotation.z,
+                        px: child.position.x, py: child.position.y, pz: child.position.z
+                    };
+                }
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                    // Clone materials so each player has unique instances
+                    if (Array.isArray(child.material)) {
+                        for (let i = 0; i < child.material.length; i++) {
+                            child.material[i] = child.material[i].clone();
+                        }
+                    } else if (child.material) {
+                        child.material = child.material.clone();
+                    }
+                }
+            });
+            // Strip any clothing overlays cloned from the local character
+            const toRemove = [];
+            clone.traverse(child => {
+                if (child.userData?.isClothingOverlay) toRemove.push(child);
+                if (child.userData?.isFaceOverlay) toRemove.push(child);
+            });
+            for (const overlay of toRemove) {
+                overlay.removeFromParent();
+                overlay.geometry?.dispose?.();
+                const mats = Array.isArray(overlay.material) ? overlay.material : [overlay.material];
+                for (const mat of mats) mat?.dispose?.();
             }
-        });
-        // Strip any clothing overlays cloned from the local character
-        const toRemove = [];
-        clone.traverse(child => {
-            if (child.userData?.isClothingOverlay) toRemove.push(child);
-            if (child.userData?.isFaceOverlay) toRemove.push(child);
-        });
-        for (const overlay of toRemove) {
-            overlay.removeFromParent();
-            overlay.geometry?.dispose?.();
-            const mats = Array.isArray(overlay.material) ? overlay.material : [overlay.material];
-            for (const mat of mats) mat?.dispose?.();
-        }
 
-        clone.position.set(x, y, z);
-        // Always set rotation directly from the normalized received value —
-        // never inherit from the local character's current pose, which would
-        // cause the clone to start facing the wrong direction.
-        if (qw !== undefined) {
-            clone.quaternion.set(qx, qy, qz, qw);
-        } else {
-            clone.rotation.set(0, correctedRy, 0);
-        }
-        scene.add(clone);
-        clone.visible = !(dead && deathType === 1);
-        const targetQ = new THREE.Quaternion(qx||0, qy||0, qz||0, qw||1);
-        p = { mesh: clone, bones, rest, targetX: x, targetY: y, targetZ: z, targetRy: correctedRy, targetQ, moving, grounded, climbState, dead: !!dead, deathType: deathType || 0, animTime: 0 };
-        otherPlayers.set(userId, p);
+            clone.position.set(x, y, z);
+            // Always set rotation directly from the normalized received value —
+            // never inherit from the local character's current pose, which would
+            // cause the clone to start facing the wrong direction.
+            if (qw !== undefined) {
+                clone.quaternion.set(qx, qy, qz, qw);
+            } else {
+                clone.rotation.set(0, correctedRy, 0);
+            }
+            scene.add(clone);
+            clone.visible = !(dead && deathType === 1);
+            const targetQ = new THREE.Quaternion(qx || 0, qy || 0, qz || 0, qw || 1);
+            p = { mesh: clone, bones, rest, targetX: x, targetY: y, targetZ: z, targetRy: correctedRy, targetQ, moving, grounded, climbState, dead: !!dead, deathType: deathType || 0, animTime: 0 };
+            otherPlayers.set(userId, p);
 
             // Apply stored avatar data if available, otherwise neutral defaults
             const storedData = _playerAvatarData.get(userId);
@@ -4674,7 +4875,7 @@ window._bloxverse = {
             } else {
                 _applyColorsToModel(clone, { Body: '#2d8a4e', Legs: '#2a6bb0', Arms: '#d4a017', Head: '#c4a882' });
             }
-            
+
             // Set initial visual top (accessories may update it later)
             _recalcVisualTop(userId);
 
@@ -4713,13 +4914,13 @@ window._bloxverse = {
             if (qw !== undefined) {
                 p.targetQ.set(qx, qy, qz, qw);
             }
-            
+
             // Update username label if provided and not already set
             if (username && !_playerNames.has(userId)) {
                 const sprite = _createNameSprite(username);
                 _playerNames.set(userId, { username, sprite });
             }
-            
+
             // Update health bar if health data available
             if (health !== undefined && !isNaN(health)) {
                 let bar = _playerHealthBars.get(userId);
@@ -4787,7 +4988,7 @@ window._bloxverse = {
         otherPlayers.delete(userId);
         _playerAvatarData.delete(userId);
         _clearPlayerAccessories(userId);
-        
+
         // Remove username label
         const nameData = _playerNames.get(userId);
         if (nameData && nameData.sprite) {
@@ -4796,7 +4997,7 @@ window._bloxverse = {
             nameData.sprite.material.dispose();
         }
         _playerNames.delete(userId);
-        
+
         // Remove health bar
         const bar = _playerHealthBars.get(userId);
         if (bar && bar.sprite) {
@@ -4923,7 +5124,7 @@ function _applyGraphicsLevel() {
         renderer.shadowMap.type = THREE.PCFShadowMap;
     }
 
-    const fogTables = { near: [48,72,96,120,140,160,176,184,190,192], far: [120,180,240,300,350,400,440,460,475,480] };
+    const fogTables = { near: [48, 72, 96, 120, 140, 160, 176, 184, 190, 192], far: [120, 180, 240, 300, 350, 400, 440, 460, 475, 480] };
     scene.fog.near = fogTables.near[level - 1];
     scene.fog.far = fogTables.far[level - 1];
 
@@ -4974,7 +5175,7 @@ function loop(now) {
 
     if (charDebugMesh && character) {
         const fy = character.position.y - CHAR_FOOT_OFFSET;
-        charDebugMesh.position.set(character.position.x, fy + CHAR_HEIGHT/2, character.position.z);
+        charDebugMesh.position.set(character.position.x, fy + CHAR_HEIGHT / 2, character.position.z);
         charDebugMesh.rotation.y = character.rotation.y;
     }
     updateDebugMeshes();
@@ -4995,57 +5196,57 @@ function loop(now) {
         p.animTime = (p.animTime || 0) + frameDt;
         if (p.dead) return;
         const t = p.animTime, sp = 12;
-        const lLeg = p.bones['Left_Leg'],  rLeg = p.bones['Right_Leg'];
-        const lArm = p.bones['Left_Arm'],  rArm = p.bones['Right_Arm'];
+        const lLeg = p.bones['Left_Leg'], rLeg = p.bones['Right_Leg'];
+        const lArm = p.bones['Left_Arm'], rArm = p.bones['Right_Arm'];
         const torso = p.bones['Torso'];
         const lArmRestY = p.rest['Left_Arm']?.py ?? 0;
         const rArmRestY = p.rest['Right_Arm']?.py ?? 0;
 
         if (p.climbState > 0) {
             const grip = p.moving ? Math.sin(p.animTime * 6) * 0.15 : 0;
-            if(lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x||0) + (p.offset?.['Left_Arm']?.x||0) - Math.PI*0.75 + grip, Math.min(1, sp*frameDt));
-            if(rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x||0) + (p.offset?.['Right_Arm']?.x||0) - Math.PI*0.75 - grip, Math.min(1, sp*frameDt));
-            if(lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z||0) + (p.offset?.['Left_Arm']?.z||0) + 0.35, Math.min(1, sp*frameDt));
-            if(rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z||0) + (p.offset?.['Right_Arm']?.z||0) - 0.35, Math.min(1, sp*frameDt));
+            if (lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x || 0) + (p.offset?.['Left_Arm']?.x || 0) - Math.PI * 0.75 + grip, Math.min(1, sp * frameDt));
+            if (rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x || 0) + (p.offset?.['Right_Arm']?.x || 0) - Math.PI * 0.75 - grip, Math.min(1, sp * frameDt));
+            if (lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z || 0) + (p.offset?.['Left_Arm']?.z || 0) + 0.35, Math.min(1, sp * frameDt));
+            if (rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z || 0) + (p.offset?.['Right_Arm']?.z || 0) - 0.35, Math.min(1, sp * frameDt));
             const kick = p.moving ? Math.sin(p.animTime * 6) * 0.3 : 0;
-            if(lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x||0) + 0.3 + kick, Math.min(1, sp*frameDt));
-            if(rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x||0) + 0.3 - kick, Math.min(1, sp*frameDt));
-            if(torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x||0) - 0.15, Math.min(1, sp*frameDt));
-            if(torso) torso.rotation.z = THREE.MathUtils.lerp(torso.rotation.z, (p.rest['Torso']?.z||0), Math.min(1, sp*frameDt));
-            if(lArm) lArm.position.y = THREE.MathUtils.lerp(lArm.position.y, lArmRestY + 0.5, Math.min(1, sp*frameDt));
-            if(rArm) rArm.position.y = THREE.MathUtils.lerp(rArm.position.y, rArmRestY + 0.5, Math.min(1, sp*frameDt));
+            if (lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x || 0) + 0.3 + kick, Math.min(1, sp * frameDt));
+            if (rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x || 0) + 0.3 - kick, Math.min(1, sp * frameDt));
+            if (torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x || 0) - 0.15, Math.min(1, sp * frameDt));
+            if (torso) torso.rotation.z = THREE.MathUtils.lerp(torso.rotation.z, (p.rest['Torso']?.z || 0), Math.min(1, sp * frameDt));
+            if (lArm) lArm.position.y = THREE.MathUtils.lerp(lArm.position.y, lArmRestY + 0.5, Math.min(1, sp * frameDt));
+            if (rArm) rArm.position.y = THREE.MathUtils.lerp(rArm.position.y, rArmRestY + 0.5, Math.min(1, sp * frameDt));
         } else if (p.grounded === false) {
-            if(lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x||0), Math.min(1, sp*frameDt));
-            if(rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x||0), Math.min(1, sp*frameDt));
-            if(lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x||0) + (p.offset?.['Left_Arm']?.x||0) - Math.PI, Math.min(1, sp*frameDt));
-            if(rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x||0) + (p.offset?.['Right_Arm']?.x||0) - Math.PI, Math.min(1, sp*frameDt));
-            if(lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z||0) + (p.offset?.['Left_Arm']?.z||0), Math.min(1, sp*frameDt));
-            if(rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z||0) + (p.offset?.['Right_Arm']?.z||0), Math.min(1, sp*frameDt));
-            if(torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x||0), Math.min(1, sp*frameDt));
-            if(lArm) lArm.position.y = THREE.MathUtils.lerp(lArm.position.y, lArmRestY, Math.min(1, sp*frameDt));
-            if(rArm) rArm.position.y = THREE.MathUtils.lerp(rArm.position.y, rArmRestY, Math.min(1, sp*frameDt));
+            if (lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x || 0), Math.min(1, sp * frameDt));
+            if (rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x || 0), Math.min(1, sp * frameDt));
+            if (lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x || 0) + (p.offset?.['Left_Arm']?.x || 0) - Math.PI, Math.min(1, sp * frameDt));
+            if (rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x || 0) + (p.offset?.['Right_Arm']?.x || 0) - Math.PI, Math.min(1, sp * frameDt));
+            if (lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z || 0) + (p.offset?.['Left_Arm']?.z || 0), Math.min(1, sp * frameDt));
+            if (rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z || 0) + (p.offset?.['Right_Arm']?.z || 0), Math.min(1, sp * frameDt));
+            if (torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x || 0), Math.min(1, sp * frameDt));
+            if (lArm) lArm.position.y = THREE.MathUtils.lerp(lArm.position.y, lArmRestY, Math.min(1, sp * frameDt));
+            if (rArm) rArm.position.y = THREE.MathUtils.lerp(rArm.position.y, rArmRestY, Math.min(1, sp * frameDt));
         } else if (p.moving) {
             const swing = Math.sin(t * 2.8 * Math.PI);
-            if(lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x||0) + swing * 1.0, Math.min(1, sp*frameDt));
-            if(rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x||0) - swing * 1.0, Math.min(1, sp*frameDt));
-            if(lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x||0) + (p.offset?.['Left_Arm']?.x||0) - swing * 0.8, Math.min(1, sp*frameDt));
-            if(rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x||0) + (p.offset?.['Right_Arm']?.x||0) + swing * 0.8, Math.min(1, sp*frameDt));
-            if(lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z||0) + (p.offset?.['Left_Arm']?.z||0) + 0.05, Math.min(1, sp*frameDt));
-            if(rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z||0) + (p.offset?.['Right_Arm']?.z||0) - 0.05, Math.min(1, sp*frameDt));
-            if(torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x||0) + 0.03, Math.min(1, sp*frameDt));
-            if(lArm) lArm.position.y = THREE.MathUtils.lerp(lArm.position.y, lArmRestY, Math.min(1, sp*frameDt));
-            if(rArm) rArm.position.y = THREE.MathUtils.lerp(rArm.position.y, rArmRestY, Math.min(1, sp*frameDt));
+            if (lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x || 0) + swing * 1.0, Math.min(1, sp * frameDt));
+            if (rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x || 0) - swing * 1.0, Math.min(1, sp * frameDt));
+            if (lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x || 0) + (p.offset?.['Left_Arm']?.x || 0) - swing * 0.8, Math.min(1, sp * frameDt));
+            if (rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x || 0) + (p.offset?.['Right_Arm']?.x || 0) + swing * 0.8, Math.min(1, sp * frameDt));
+            if (lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z || 0) + (p.offset?.['Left_Arm']?.z || 0) + 0.05, Math.min(1, sp * frameDt));
+            if (rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z || 0) + (p.offset?.['Right_Arm']?.z || 0) - 0.05, Math.min(1, sp * frameDt));
+            if (torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x || 0) + 0.03, Math.min(1, sp * frameDt));
+            if (lArm) lArm.position.y = THREE.MathUtils.lerp(lArm.position.y, lArmRestY, Math.min(1, sp * frameDt));
+            if (rArm) rArm.position.y = THREE.MathUtils.lerp(rArm.position.y, rArmRestY, Math.min(1, sp * frameDt));
         } else {
             const breathe = Math.sin(t * 1.2) * 0.015;
-            if(lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x||0), Math.min(1, sp*frameDt));
-            if(rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x||0), Math.min(1, sp*frameDt));
-            if(lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x||0) + (p.offset?.['Left_Arm']?.x||0), Math.min(1, sp*frameDt));
-            if(rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x||0) + (p.offset?.['Right_Arm']?.x||0), Math.min(1, sp*frameDt));
-            if(lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z||0) + (p.offset?.['Left_Arm']?.z||0) + 0.1 + breathe, Math.min(1, sp*frameDt));
-            if(rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z||0) + (p.offset?.['Right_Arm']?.z||0) - 0.1 - breathe, Math.min(1, sp*frameDt));
-            if(torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x||0) + breathe, Math.min(1, sp*frameDt));
-            if(lArm) lArm.position.y = THREE.MathUtils.lerp(lArm.position.y, lArmRestY, Math.min(1, sp*frameDt));
-            if(rArm) rArm.position.y = THREE.MathUtils.lerp(rArm.position.y, rArmRestY, Math.min(1, sp*frameDt));
+            if (lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x || 0), Math.min(1, sp * frameDt));
+            if (rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x || 0), Math.min(1, sp * frameDt));
+            if (lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x || 0) + (p.offset?.['Left_Arm']?.x || 0), Math.min(1, sp * frameDt));
+            if (rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x || 0) + (p.offset?.['Right_Arm']?.x || 0), Math.min(1, sp * frameDt));
+            if (lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z || 0) + (p.offset?.['Left_Arm']?.z || 0) + 0.1 + breathe, Math.min(1, sp * frameDt));
+            if (rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z || 0) + (p.offset?.['Right_Arm']?.z || 0) - 0.1 - breathe, Math.min(1, sp * frameDt));
+            if (torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x || 0) + breathe, Math.min(1, sp * frameDt));
+            if (lArm) lArm.position.y = THREE.MathUtils.lerp(lArm.position.y, lArmRestY, Math.min(1, sp * frameDt));
+            if (rArm) rArm.position.y = THREE.MathUtils.lerp(rArm.position.y, rArmRestY, Math.min(1, sp * frameDt));
         }
     });
 

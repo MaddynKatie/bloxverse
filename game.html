@@ -26,6 +26,7 @@
 
   <link rel="stylesheet" href="src/theme.css" />
   <script type="module" src="src/theme.js"></script>
+  <script src="js/sw-register.js" defer></script>
 </head>
 
 <body>
@@ -38,6 +39,7 @@
         <div class="loading-bar-fill" id="loadingBarFill"></div>
       </div>
     </div>
+    <div class="loading-queue" id="loadingQueueText"></div>
   </div>
 
   <!-- Top Left Tools -->
@@ -83,10 +85,10 @@
         <i class="fa-solid fa-wifi"></i>
       </div>
       <h2 style="color:#fff;font-size:22px;font-weight:700;margin-bottom:6px;">Connection Lost</h2>
-      <div style="color:#888;font-size:12px;font-family:monospace;margin-bottom:16px;" id="disconnectErrorCode">
-        ERR_CONNECTION_LOST</div>
-      <p style="color:#a0a0a0;font-size:14px;margin-bottom:24px;line-height:1.5;">Your connection to the game server has
+      <p style="color:#a0a0a0;font-size:14px;margin-bottom:10px;line-height:1.5;">Your connection to the game server has
         been interrupted. Please check your internet connection and try again.</p>
+      <div style="color:#6b6b6e;font-size:12px;margin-bottom:24px;" id="disconnectErrorCode">
+        (Error Code: 268)</div>
       <div style="display:flex;flex-direction:column;gap:10px;">
         <button id="disconnectReconnectBtn"
           style="background:#5865f2;color:#fff;border:none;padding:12px 24px;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;transition:opacity 0.15s;">Reconnect</button>
@@ -303,7 +305,8 @@
     import * as THREE from 'three';
     import { games } from './src/games.js';
     import { auth, db, getDoc, doc, setDoc, incrementGameVisits, rewardUniqueVisit, getFollowing, followUser, unfollowUser, getUserProfile, calculateAge, addTrustedFriend, removeTrustedFriend, checkBan, getRoles, banGuard, trackPresence, onSnapshot, collection, assignUserIdNum, submitReport, logTransaction } from './src/firebase.js';
-    import { connectMultiplayer, sendLocalTransform, sendPhysicsState, disconnectMultiplayer, sendChat, setOnVoiceSignal, sendVoiceSignal } from './src/multiplayer.js';
+    import { connectMultiplayer, sendLocalTransform, sendPhysicsState, disconnectMultiplayer, sendChat, setOnVoiceSignal, setOnQueueStatus, sendVoiceSignal, getServerHttpUrl } from './src/multiplayer.js';
+    import { joinServer, findOrCreateServer, enqueueForServer, dequeueFromServer, leaveServer, watchServer, watchQueue, getServerMaxPlayers } from './src/servers.js';
     import { onFriendRequests, sendFriendRequest as dbSendFriendRequest, acceptFriendRequest as dbAcceptFriendRequest, declineFriendRequest as dbDeclineFriendRequest, removeFriend } from './src/friends.js';
     import { executeScript, loadScriptsFromStorage, createInstanceProxy } from './src/scriptRuntime.js';
     import { Instance, PartInstance, ScriptInstance, initGameHierarchy } from './src/instances.js';
@@ -320,14 +323,12 @@
       detectLeetspeak: true,
       leetspeakLevel: 'moderate',
       normalizeUnicode: true,
-      allLanguages: true,
+      languages: ['english'],
       wordBoundaries: true,
       allowObfuscatedMatch: true,
       fuzzyToleranceLevel: 0.8
     });
-    let _profanityCheckRelaxed = null;
-
-    // Safe words that should never be censored despite appearing in non-English profanity lists
+    // Safe words that should never be censored despite appearing in profanity lists
     const _safeWords = new Set(['top', 'xx', 'xxx', 'kk', 'kkk', 'wt']);
 
     function filterProfanity(text) {
@@ -336,34 +337,9 @@
       // Strip separators and convert leet pipe to 'i' for detection
       const normalized = text.replace(/[._\-*]+/g, '').replace(/[|]/g, 'i');
       const result = _profanityCheck.checkProfanity(normalized);
-      let hasProfanity = result.containsProfanity;
+      if (!result.containsProfanity) return text;
 
-      // Secondary check for concatenated profanity (e.g. "bitchshutthefuckup")
-      if (!_profanityCheckRelaxed) {
-        _profanityCheckRelaxed = new ProfanityFilter({
-          detectLeetspeak: true,
-          leetspeakLevel: 'moderate',
-          normalizeUnicode: true,
-          allLanguages: true,
-          wordBoundaries: false,
-          allowObfuscatedMatch: true,
-          fuzzyToleranceLevel: 0.8
-        });
-      }
-      const relaxed = _profanityCheckRelaxed.checkProfanity(normalized);
-      if (relaxed.containsProfanity) {
-        hasProfanity = true;
-        for (const word of relaxed.profaneWords) {
-          // >= 4 length to catch "fuck"/"shit" in concatenated strings
-          if (word.length >= 4 && !result.profaneWords.includes(word)) {
-            result.profaneWords.push(word);
-          }
-        }
-      }
-
-      if (!hasProfanity) return text;
-
-      // Remove safe words that falsely match due to allLanguages
+      // Remove safe words
       const filteredWords = result.profaneWords.filter(w => !_safeWords.has(w.toLowerCase()));
       if (filteredWords.length === 0) return text;
 
@@ -392,8 +368,9 @@
           const l = c.toLowerCase();
           return (leetMap[l] || l) + '[\\s._\\-*|]*';
         }).join('');
-        const regex = new RegExp(pattern, "gi");
-        cleaned = cleaned.replace(regex, (m) => '*'.repeat(m.length));
+        // Letter boundaries so "butt" never cuts into real words like "button"
+        const regex = new RegExp('(?<![A-Za-z0-9])' + pattern + '(?![A-Za-z0-9])', "gi");
+        cleaned = cleaned.replace(regex, (m) => '#'.repeat(m.length));
       });
       return cleaned;
     }
@@ -412,7 +389,120 @@
 
     const params = new URLSearchParams(window.location.search);
     const gameId = params.get('game');
+    const requestedServerId = params.get('server');
     let game = games.find(g => g.id === gameId);
+
+    let _serverQueueUnsubs = [];
+
+    async function leaveCurrentServer() {
+      const sid = window._currentServerId;
+      const uid = auth && auth.currentUser ? auth.currentUser.uid : null;
+      if (sid && uid) {
+        window._currentServerId = null;
+        await leaveServer(sid, uid).catch(() => {});
+      }
+    }
+
+    function leaveCurrentServerFireAndForget() {
+      const sid = window._currentServerId;
+      const uid = auth && auth.currentUser ? auth.currentUser.uid : null;
+      if (!sid || !uid) return;
+      window._currentServerId = null;
+      dequeueFromServer(sid, uid).catch(() => {});
+      leaveServer(sid, uid).catch(() => {});
+      try {
+        const beacon = new Blob([JSON.stringify({ serverId: sid, userId: uid })], { type: 'application/json' });
+        navigator.sendBeacon(getServerHttpUrl() + '/api/leave-server', beacon);
+      } catch (e) {}
+    }
+
+    // Fires on browser back, refresh, and tab close — unlike beforeunload alone,
+    // which isn't always dispatched on back/forward navigation.
+    window.addEventListener('pagehide', leaveCurrentServerFireAndForget);
+    window.addEventListener('beforeunload', leaveCurrentServerFireAndForget);
+
+    async function waitForServerSlot(serverId, uid, maxPlayers) {
+      return new Promise((resolve) => {
+        let finished = false;
+        let joining = false;
+        let myPosition = null;
+        const cleanup = () => {
+          for (const u of _serverQueueUnsubs) { try { u(); } catch (_) {} }
+          _serverQueueUnsubs = [];
+        };
+        const finish = (ok) => {
+          if (finished) return;
+          finished = true;
+          cleanup();
+          resolve(ok);
+        };
+
+        const tryJoin = async () => {
+          if (joining || finished) return;
+          joining = true;
+          const res = await joinServer(serverId, uid, maxPlayers);
+          joining = false;
+          if (res.status === 'joined') {
+            await dequeueFromServer(serverId, uid).catch(() => {});
+            finish(true);
+          } else if (res.status === 'notfound') {
+            finish(false);
+          }
+        };
+
+        const loadingQueueEl = document.getElementById('loadingQueueText');
+        _serverQueueUnsubs.push(watchQueue(serverId, uid, (q) => {
+          if (finished) return;
+          myPosition = q.position;
+          if (loadingQueueEl) {
+            if (q.position === null) loadingQueueEl.textContent = 'Requested server is full. Position in queue is ...';
+            else loadingQueueEl.textContent = `Requested server is full. Position in queue is ${q.position}.`;
+          }
+          if (q.position === 1) tryJoin();
+        }));
+
+        _serverQueueUnsubs.push(watchServer(serverId, (s) => {
+          if (finished) return;
+          if (!s) { finish(false); return; }
+          if (myPosition === 1 && (s.players || []).length < (s.maxPlayers || maxPlayers)) tryJoin();
+        }));
+
+        const retryTimer = setInterval(() => {
+          if (!finished && myPosition === 1) tryJoin();
+        }, 5000);
+        _serverQueueUnsubs.push(() => clearInterval(retryTimer));
+      });
+    }
+
+    async function joinServerFlow(uid, username, maxPlayers) {
+      const loadingQueueEl = document.getElementById('loadingQueueText');
+      try {
+        if (requestedServerId) {
+          const res = await joinServer(requestedServerId, uid, maxPlayers);
+          if (res.status === 'joined') {
+            window._currentServerId = requestedServerId;
+            return;
+          }
+          if (res.status === 'notfound') {
+            // Server was deleted; fall through to auto-create below
+          } else if (res.status === 'full') {
+            await enqueueForServer(requestedServerId, uid, username);
+            if (loadingQueueEl) loadingQueueEl.textContent = 'Requested server is full. Position in queue is ...';
+            const ok = await waitForServerSlot(requestedServerId, uid, maxPlayers);
+            if (ok) {
+              window._currentServerId = requestedServerId;
+              return;
+            }
+          }
+        }
+        const auto = await findOrCreateServer(gameId, uid, maxPlayers);
+        window._currentServerId = auto.serverId || null;
+      } catch (e) {
+        console.warn('[Servers] Could not join a server, connecting without one:', e);
+        window._currentServerId = null;
+      }
+    }
+
 
     // Fallback: load user-published game from Firestore
     if (!game && gameId) {
@@ -686,6 +776,8 @@
     const _playerUsernames = new Map(); // userId -> username
     const _playerUserIds = new Map(); // userId -> userIdNum
     const _fetchedAvatarPlayers = new Set(); // userIds whose avatar data we've fetched
+    const _avatarUnsubs = new Map(); // per-user onSnapshot unsubscribe functions
+    const _pendingRemoteAvatarData = new Map(); // per-user pending avatar data (applied on respawn)
     const _playerTrustedFriends = new Map(); // userId -> Set of trusted userIds
     const _playerRoles = new Map();     // userId -> role
     let _currentPlayerList = []; // current remote players from server
@@ -713,9 +805,9 @@
       if (rolePromises.length > 0) await Promise.all(rolePromises);
 
       const ROLE_ICONS = {
-        developer: `<i class="fa-solid fa-code" style="color: #44d9e6; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
-        admin: `<i class="fa-solid fa-shield-halved" style="color: #ff4444; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
-        mod: `<i class="fa-solid fa-gavel" style="color: #facc15; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
+        developer: `<i class="fa-solid fa-code" title="Developer" style="color: #44d9e6; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
+        admin: `<i class="fa-solid fa-shield-halved" title="Admin" style="color: #ff4444; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
+        mod: `<i class="fa-solid fa-gavel" title="Moderator" style="color: #facc15; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
       };
 
       // Default stats per game.
@@ -1074,7 +1166,8 @@
 
     document.getElementById('btnResume').addEventListener('click', closeSettings);
 
-    document.getElementById('btnLeaveGame').addEventListener('click', () => {
+    document.getElementById('btnLeaveGame').addEventListener('click', async () => {
+      await leaveCurrentServer();
       disconnectMultiplayer();
       window.location.href = '/bloxverse/';
     });
@@ -1154,9 +1247,9 @@
 
     function buildPlayerRow(userId, username, label, roles, isFriend, isSelf) {
       const ROLE_ICONS = {
-        developer: `<i class="fa-solid fa-code" style="color: #44d9e6; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
-        admin: `<i class="fa-solid fa-shield-halved" style="color: #ff4444; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
-        mod: `<i class="fa-solid fa-gavel" style="color: #facc15; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
+        developer: `<i class="fa-solid fa-code" title="Developer" style="color: #44d9e6; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
+        admin: `<i class="fa-solid fa-shield-halved" title="Admin" style="color: #ff4444; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
+        mod: `<i class="fa-solid fa-gavel" title="Moderator" style="color: #facc15; font-size: 14px; margin-right: 6px; opacity: 0.85;"></i>`,
       };
       const badges = roles.map(r => ROLE_ICONS[r] || '').join('');
       const labelHtml = label ? `<span class="people-label">${label}</span>` : '';
@@ -1692,9 +1785,9 @@
             `<span style="margin-left:8px;color:#babbbe;font-size:11px;">${stats[col] ?? ''}</span>`
           ).join('');
           const roleIcons = (_playerRoles.get(uid) || []).map(r => ({
-            developer: `<i class="fa-solid fa-code" style="color:#44d9e6;font-size:14px;margin-right:6px;opacity:0.85;"></i>`,
-            admin: `<i class="fa-solid fa-shield-halved" style="color:#ff4444;font-size:14px;margin-right:6px;opacity:0.85;"></i>`,
-            mod: `<i class="fa-solid fa-gavel" style="color:#facc15;font-size:14px;margin-right:6px;opacity:0.85;"></i>`,
+            developer: `<i class="fa-solid fa-code" title="Developer" style="color:#44d9e6;font-size:14px;margin-right:6px;opacity:0.85;"></i>`,
+            admin: `<i class="fa-solid fa-shield-halved" title="Admin" style="color:#ff4444;font-size:14px;margin-right:6px;opacity:0.85;"></i>`,
+            mod: `<i class="fa-solid fa-gavel" title="Moderator" style="color:#facc15;font-size:14px;margin-right:6px;opacity:0.85;"></i>`,
           }[r] || '')).join('');
           return `<div class="leaderboard-item" data-user-id="${uid}" style="justify-content:space-between;">
             <div style="display:flex;align-items:center;">${roleIcons}<span class="lb-name">${p.username ?? p.name ?? uid}</span></div>
@@ -2338,9 +2431,13 @@
             }
           }
           setLoad(100, 'Ready!');
-          setTimeout(() => {
-            loadingScreen.style.display = 'none';
-          }, 400);
+          // Loading screen stays visible while queuing for a server; it is hidden
+          // once the multiplayer connection opens (with a fallback so solo play is never blocked).
+          if (!gameId) {
+            setTimeout(() => {
+              loadingScreen.style.display = 'none';
+            }, 400);
+          }
 
           // Connect Multiplayer
           auth.onAuthStateChanged(async (user) => {
@@ -2361,6 +2458,19 @@
                 window._bloxverse.onRespawn(() => {
                   _localPlayerHealth = _localPlayerMaxHealth;
                   updateHealthBar();
+                  getDoc(doc(db, 'users', user.uid)).then(avatarSnap => {
+                    if (!avatarSnap.exists()) return;
+                    const avatarData = avatarSnap.data();
+                    if (window._bloxverse) {
+                      window._bloxverse._setPlayerAvatarData(user.uid, {
+                        colors: avatarData.avatarColors || {},
+                        clothing: avatarData.avatarClothing || null,
+                        pants: avatarData.avatarPants || null,
+                        accessories: avatarData.avatarAccessories || [],
+                        face: avatarData.avatarFace || null,
+                      });
+                    }
+                  }).catch(e => console.error('Error re-fetching avatar data on respawn:', e));
                 });
                 window._bloxverse.onDeath(() => {
                   _localPlayerHealth = 0;
@@ -2531,7 +2641,27 @@
                 document.getElementById('mapCashLabel').style.display = '';
               }
 
-              connectMultiplayer(gameId, user.uid, username,
+              // ─── Server Queue / Retry Status ─────────────────────────────
+              const loadingQueueEl = document.getElementById('loadingQueueText');
+              setOnQueueStatus((s) => {
+                if (!loadingQueueEl) return;
+                if (s.connected) {
+                  loadingQueueEl.textContent = '';
+                  if (loadingScreen) loadingScreen.style.display = 'none';
+                } else if (s.retry) {
+                  loadingQueueEl.textContent = `Waiting for an available server. Retrying...(${s.retry})`;
+                } else if (s.disconnected) {
+                  loadingQueueEl.textContent = 'Connection lost. Reconnecting...';
+                } else {
+                  loadingQueueEl.textContent = 'Waiting for an available server.';
+                }
+              });
+
+              // ─── Join / Queue for a logical server ──────────────────────
+              window._currentServerId = null;
+              await joinServerFlow(user.uid, username, getServerMaxPlayers(game));
+
+              connectMultiplayer(gameId, window._currentServerId || null, user.uid, username,
                 (id, x, y, z, ry, moving, grounded, climbState, qx, qy, qz, qw, dead, health, deathType) => {
                   if (!_knownPlayerIds.has(id)) return;
                   if (window._bloxverse) {
@@ -2539,13 +2669,30 @@
                     window._bloxverse.updateOtherPlayer(id, x, y, z, ry, moving, grounded, climbState, playerUsername, qx, qy, qz, qw, dead, health, deathType);
                   }
                   _playerPositions.set(id, { x, y, z, ry });
+                  // Detect respawn: dead transitions from true to false
+                  const wasDead = _playerDead.get(id) || false;
                   _playerDead.set(id, !!dead);
+                  if (wasDead && !dead) {
+                    const pending = _pendingRemoteAvatarData.get(id);
+                    if (pending && window._bloxverse) {
+                      window._bloxverse._setPlayerAvatarData(id, {
+                        colors: pending.avatarColors || {},
+                        clothing: pending.avatarClothing || null,
+                        pants: pending.avatarPants || null,
+                        accessories: pending.avatarAccessories || [],
+                        face: pending.avatarFace || null,
+                      });
+                    }
+                  }
                   if (health !== undefined && !isNaN(health)) _playerHealth.set(id, health);
                 },
                 (id) => {
                   if (window._bloxverse) window._bloxverse.removeOtherPlayer(id);
                   _knownPlayerIds.delete(id);
                   _fetchedAvatarPlayers.delete(id);
+                  _avatarUnsubs.get(id)?.();
+                  _avatarUnsubs.delete(id);
+                  _pendingRemoteAvatarData.delete(id);
                   _playerTrustedFriends.delete(id);
                   _playerDead.delete(id);
                   const playerObj = getCurrentPlayers().find(p => p.id === id) || makePlayerObj(id, _playerUsernames.get(id) || 'Player');
@@ -2568,7 +2715,7 @@
                         try { ex.onPlayerJoin?.(playerObj); } catch (e) { console.error('[Script] onPlayerJoin error:', e); }
                       }
                     }
-                    // Fetch avatar data for remote players once
+                    // Fetch avatar data for remote players
                     if (p.userId !== user.uid && !_fetchedAvatarPlayers.has(p.userId)) {
                       _fetchedAvatarPlayers.add(p.userId);
                       // Set defaults immediately to prevent flash of local player's colors/accessories
@@ -2578,24 +2725,26 @@
                         accessories: [],
                         face: 'smile',
                       });
+                      // Initial fetch — apply immediately so new arrivals see the avatar
                       getDoc(doc(db, 'users', p.userId)).then(snap => {
                         if (snap.exists() && window._bloxverse) {
                           const ad = snap.data();
-                          if (ad.avatarColors || ad.avatarClothing || ad.avatarPants || ad.avatarAccessories || ad.avatarFace) {
-                            window._bloxverse._setPlayerAvatarData(p.userId, {
-                              colors: ad.avatarColors || { Body: '#2d8a4e', Legs: '#2a6bb0', Arms: '#d4a017', Head: '#c4a882' },
-                              clothing: ad.avatarClothing || null,
-                              pants: ad.avatarPants || null,
-                              accessories: ad.avatarAccessories || [],
-                              face: ad.avatarFace,
-                            });
-                          }
-                          // Cache this player's trusted friends for mutual trust check
-                          if (ad.trustedFriends) {
-                            _playerTrustedFriends.set(p.userId, new Set(ad.trustedFriends));
-                          }
+                          window._bloxverse._setPlayerAvatarData(p.userId, {
+                            colors: ad.avatarColors || {},
+                            clothing: ad.avatarClothing || null,
+                            pants: ad.avatarPants || null,
+                            accessories: ad.avatarAccessories || [],
+                            face: ad.avatarFace || null,
+                          });
+                          if (ad.trustedFriends) _playerTrustedFriends.set(p.userId, new Set(ad.trustedFriends));
                         }
-                      }).catch(() => { });
+                      }).catch(() => {});
+                      // Realtime listener — only store; apply on next respawn
+                      const unsub = onSnapshot(doc(db, 'users', p.userId), snap => {
+                        if (!snap.exists() || !window._bloxverse) return;
+                        _pendingRemoteAvatarData.set(p.userId, snap.data());
+                      }, () => {});
+                      _avatarUnsubs.set(p.userId, unsub);
                     }
                   }
                   renderLeaderboard(players);
@@ -3388,12 +3537,13 @@
                 _banUnsub = onSnapshot(doc(db, 'bans', user.uid), (snap) => {
                   if (snap.exists() && snap.data().banned) {
                     const data = snap.data();
+                    leaveCurrentServer();
                     disconnectMultiplayer();
                     presence.goOffline();
                     window._bloxverse?.clearLocalAccessories?.();
                     window._bloxverse?.setWalkSpeed?.(0);
                     showOverlay(
-                      'fa-solid fa-gavel', 'You Have Been Banned', 'ERR_BANNED',
+                      'fa-solid fa-gavel', 'You Have Been Banned', 610,
                       `Reason: "${data.reason || 'Terms of Service Violation'}"`,
                       { text: 'Go to Ban Page', action: () => { window.location.href = '/bloxverse/ban'; } }
                     );
@@ -3413,7 +3563,7 @@
               function showOverlay(icon, title, code, desc, btn1, btn2) {
                 _overlayIcon.className = icon;
                 _overlayTitle.textContent = title;
-                _overlayCode.textContent = code;
+                _overlayCode.textContent = `(Error Code: ${code})`;
                 _overlayDesc.textContent = desc;
                 if (btn1) {
                   _rBtn.style.display = '';
@@ -3436,6 +3586,36 @@
                 _overlay.style.display = 'none';
               }
 
+              // ─── Idle Kick (20 minutes) ────────────────────────────────────
+              let _lastActivity = Date.now();
+              let _idleKicked = false;
+              const _markActivity = () => { _lastActivity = Date.now(); };
+              const _idleEvents = ['keydown', 'keyup', 'mousedown', 'mousemove', 'wheel', 'touchstart', 'touchmove', 'contextmenu'];
+              for (const evt of _idleEvents) {
+                window.addEventListener(evt, _markActivity, { passive: true });
+              }
+              const _idleCheck = setInterval(() => {
+                if (_idleKicked) return;
+                if (Date.now() - _lastActivity >= 20 * 60 * 1000) {
+                  _idleKicked = true;
+                  clearInterval(_idleCheck);
+                  for (const evt of _idleEvents) {
+                    window.removeEventListener(evt, _markActivity);
+                  }
+                  leaveCurrentServer();
+                  disconnectMultiplayer();
+                  presence.goOffline();
+                  window._bloxverse?.clearLocalAccessories?.();
+                  window._bloxverse?.setWalkSpeed?.(0);
+                  showOverlay(
+                    'fa-solid fa-clock', 'You Were Disconnected', 277,
+                    'You were disconnected for being idle 20 minutes.',
+                    { text: 'Reconnect', action: () => { window.location.reload(); } },
+                    { text: 'Leave', action: () => { window.location.href = '/bloxverse/'; } }
+                  );
+                }
+              }, 15000);
+
               // ─── Game Deletion/Recovery Listener (instant) ────────────────
               let _gameDelUnsub;
               if (gameId) {
@@ -3443,16 +3623,17 @@
                   if (!snap.exists()) return;
                   const data = snap.data();
                   if (data.deleted) {
+                    leaveCurrentServer();
                     disconnectMultiplayer();
                     presence.goOffline();
                     window._bloxverse?.clearLocalAccessories?.();
                     window._bloxverse?.setWalkSpeed?.(0);
                     showOverlay(
-                      'fa-solid fa-trash', 'Game Removed', 'GAME_REMOVED',
+                      'fa-solid fa-trash', 'Game Removed', 277,
                       'This game has been removed by an administrator.',
                       { text: 'Back to Games', action: () => { window.location.href = '/bloxverse/'; } }
                     );
-                  } else if (_overlay.style.display === 'flex' && _overlayCode.textContent === 'GAME_REMOVED') {
+                  } else if (_overlay.style.display === 'flex' && _overlayTitle.textContent === 'Game Removed') {
                     // Game was recovered
                     hideOverlay();
                     showToast('Game has been restored.', 'info', 3000);
@@ -3476,11 +3657,12 @@
                   if (!snap.exists()) return;
                   const data = snap.data();
                   if (data._sessionId && data._sessionId !== window._bloxverseSessionId) {
+                    leaveCurrentServer();
                     disconnectMultiplayer();
                     presence.goOffline();
                     window._bloxverse?.clearLocalAccessories?.();
                     showOverlay(
-                      'fa-solid fa-users', 'Account Conflict', 'ERR_MULTI_DEVICE',
+                      'fa-solid fa-users', 'Account Conflict', 272,
                       'Same account launched game from a different device. Reconnect if you prefer to use this device.',
                       {
                         text: 'Reconnect',
@@ -3508,7 +3690,7 @@
                 _wasOffline = true;
                 window._bloxverse?.clearLocalAccessories?.();
                 showOverlay(
-                  'fa-solid fa-wifi', 'Connection Lost', 'ERR_CONNECTION_LOST',
+                  'fa-solid fa-wifi', 'Connection Lost', 268,
                   'Your connection to the game server has been interrupted. Please check your internet connection and try again.',
                   { text: 'Reconnect', action: () => { window.location.reload(); } },
                   { text: 'Return to Home', action: () => { window.location.href = '/bloxverse/'; } }

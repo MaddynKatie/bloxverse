@@ -61,6 +61,16 @@ export const emoteItems = [
         icon: '😇',
         file: 'bibilicallyaccurateemote.json',
     },
+    {
+        id: 'bigjump',
+        name: 'Big Jump',
+        description: "A big leap forward!",
+        price: 20,
+        author: 'BloxVerse',
+        looping: false,
+        icon: '🦘',
+        file: 'bigjump.json',
+    },
 ];
 
 async function loadAnimData(entry) {

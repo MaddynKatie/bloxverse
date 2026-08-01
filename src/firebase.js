@@ -8,10 +8,11 @@ const _filter = new ProfanityFilter({
   detectLeetspeak: true,
   leetspeakLevel: 'moderate',
   normalizeUnicode: true,
-  allLanguages: true,
+  languages: ['english'],
   wordBoundaries: true,
   allowObfuscatedMatch: true,
-  fuzzyToleranceLevel: 0.8
+  fuzzyToleranceLevel: 0.8,
+  replaceWith: '#'
 });
 
 export function isProfane(text) {
@@ -47,8 +48,8 @@ export function maskProfanity(text) {
       const l = c.toLowerCase();
       return (leetMap[l] || l) + '[\\s._\\-*]*';
     }).join('');
-    const regex = new RegExp(pattern, "gi");
-    cleaned = cleaned.replace(regex, (m) => '*'.repeat(m.length));
+    const regex = new RegExp('(?<![A-Za-z0-9])' + pattern + '(?![A-Za-z0-9])', "gi");
+    cleaned = cleaned.replace(regex, (m) => '#'.repeat(m.length));
   });
   return cleaned;
 }
@@ -66,7 +67,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = initializeFirestore(app, { experimentalForceLongPolling: true });
-export { getDoc, doc, setDoc, deleteDoc, onSnapshot, collection } from 'firebase/firestore';
+export { getDoc, doc, setDoc, deleteDoc, onSnapshot, collection, query, where, orderBy, updateDoc } from 'firebase/firestore';
 
 /**
  * Get a user's roles. Returns an array e.g. ['admin', 'developer'] or [].
@@ -677,7 +678,7 @@ export async function lookupUserByNum(userIdNum) {
     const snap = await getDocs(query(collection(db, 'users'), where('userIdNum', '==', userIdNum)));
     if (!snap.empty) {
       const u = snap.docs[0].data();
-      return { uid: snap.docs[0].id, username: u.username || 'Unknown', avatarPreview: u.avatarPreview || null };
+      return { uid: snap.docs[0].id, username: u.username || 'Unknown', avatarPreview: u.avatarPreview || null, avatarPreviewHead: u.avatarPreviewHead || null };
     }
   } catch (e) {
     console.warn('Error looking up user by num:', e);

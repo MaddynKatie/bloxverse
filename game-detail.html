@@ -190,6 +190,112 @@
       color: var(--text-primary);
     }
 
+    .server-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 14px;
+    }
+
+    .server-card {
+      background: var(--bg-tertiary);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .server-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .server-card-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .server-card-avatars {
+      display: flex;
+      align-items: center;
+      min-height: 36px;
+    }
+
+    .server-avatar-wrap {
+      display: flex;
+      margin-left: -8px;
+    }
+
+    .server-avatar-wrap:first-child {
+      margin-left: 0;
+    }
+
+    .server-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      object-fit: cover;
+      display: block;
+      background: #e0e0e0;
+      border: 2px solid var(--bg-tertiary);
+    }
+
+    .server-avatar-letter {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      color: #555;
+    }
+
+    .server-avatar-more {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      background: var(--bg-primary);
+      margin-left: -8px;
+      border-color: var(--bg-tertiary);
+    }
+
+    .server-card-players {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .server-card-join {
+      width: 100%;
+      padding: 9px 12px;
+      background: var(--accent);
+      border: none;
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.15s ease;
+    }
+
+    .server-card-join:hover {
+      opacity: 0.9;
+    }
+
+    .server-cards-empty {
+      padding: 20px;
+      text-align: center;
+      border: 1px dashed rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
     .author-badge {
       display: inline-flex;
       align-items: center;
@@ -229,6 +335,7 @@
 
   <link rel="stylesheet" href="src/theme.css" />
   <script type="module" src="src/theme.js"></script>
+  <script src="js/sw-register.js" defer></script>
 </head>
 <body>
   <nav class="navbar">
@@ -242,7 +349,6 @@
       </div>
       <div class="nav-links" id="navLinks">
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
-        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/create'">Create</button>
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
       </div>
     </div>
@@ -303,6 +409,13 @@
         <button class="detail-delete-btn" id="detailDeleteBtn" style="background:rgba(244,67,54,0.8);color:var(--text-primary);border:none;padding:8px 20px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:14px;">Delete Game</button>
       </div>
     </div>
+
+    <div class="detail-section">
+      <h2>Servers</h2>
+      <p class="detail-meta-label" style="margin:0 0 14px 0;text-transform:none;letter-spacing:0;">Live instances of this place. Join one or start a new one.</p>
+      <div class="server-cards" id="serversGrid"></div>
+      <div class="server-cards-empty" id="serversEmpty">No servers running right now. Click Play to start one.</div>
+    </div>
   </div>
 
   <!-- Edit Modal -->
@@ -358,7 +471,7 @@
   <script src="https://upload-widget.cloudinary.com/global/all.js" type="text/javascript"></script>
   <script type="module">
     import { games, findGameAsync } from './src/games.js';
-    import { auth, trackPresence, deleteGame, updateGame, banGuard, db, doc, getDoc, onSnapshot, assignUserIdNum } from './src/firebase.js';
+    import { auth, trackPresence, deleteGame, updateGame, banGuard, db, doc, getDoc, onSnapshot, assignUserIdNum, collection, query, where } from './src/firebase.js';
     import { onAuthStateChanged } from 'firebase/auth';
 
     const params = new URLSearchParams(window.location.search);
@@ -575,6 +688,103 @@
 
     init();
 
+    // ─── Servers section ──────────────────────────────────────────────────
+    const serversGrid = document.getElementById('serversGrid');
+    const serversEmpty = document.getElementById('serversEmpty');
+    const _avatarCache = new Map();
+
+    function avatarElFor(uid) {
+      const wrap = document.createElement('div');
+      wrap.className = 'server-avatar-wrap';
+      const img = document.createElement('img');
+      img.className = 'server-avatar';
+      img.alt = '';
+      img.style.opacity = '0';
+      wrap.appendChild(img);
+      if (_avatarCache.has(uid)) {
+        const cached = _avatarCache.get(uid);
+        if (cached && cached.url) { img.src = cached.url; img.style.opacity = ''; }
+        else {
+          const l = document.createElement('div');
+          l.className = 'server-avatar server-avatar-letter';
+          l.textContent = cached ? cached.initial : '?';
+          wrap.replaceChildren(l);
+        }
+        return wrap;
+      }
+      getDoc(doc(db, 'users', uid)).then(snap => {
+        const d = snap.exists() ? snap.data() : {};
+        const url = d.avatarPreviewHead || d.avatarPreview || null;
+        const initial = ((d.username || '?')[0] || '?').toUpperCase();
+        _avatarCache.set(uid, { url, initial });
+        if (url) { img.src = url; img.style.opacity = ''; }
+        else {
+          const l = document.createElement('div');
+          l.className = 'server-avatar server-avatar-letter';
+          l.textContent = initial;
+          wrap.replaceChildren(l);
+        }
+      }).catch(() => {
+        const l = document.createElement('div');
+        l.className = 'server-avatar server-avatar-letter';
+        l.textContent = '?';
+        wrap.replaceChildren(l);
+      });
+      return wrap;
+    }
+
+    function buildServerCard(s, index) {
+      const players = s.players || [];
+      const max = s.maxPlayers || 10;
+      const full = players.length >= max;
+
+      const card = document.createElement('div');
+      card.className = 'server-card';
+
+      const header = document.createElement('div');
+      header.className = 'server-card-header';
+      const name = document.createElement('div');
+      name.className = 'server-card-name';
+      name.textContent = 'Server ' + (index + 1);
+      header.appendChild(name);
+
+      const avatars = document.createElement('div');
+      avatars.className = 'server-card-avatars';
+      const shown = players.slice(0, 5);
+      for (const uid of shown) avatars.appendChild(avatarElFor(uid));
+      if (players.length > 5) {
+        const more = document.createElement('div');
+        more.className = 'server-avatar server-avatar-more';
+        more.textContent = '+' + (players.length - 5);
+        avatars.appendChild(more);
+      }
+
+      const count = document.createElement('div');
+      count.className = 'server-card-players';
+      count.textContent = players.length + ' / ' + max + ' players';
+
+      const join = document.createElement('button');
+      join.className = 'server-card-join';
+      join.textContent = full ? 'Join (Queue)' : 'Join';
+      join.addEventListener('click', () => {
+        window.location.href = '/bloxverse/game?game=' + encodeURIComponent(s.gameId) + '&server=' + encodeURIComponent(s.id);
+      });
+
+      card.append(header, avatars, count, join);
+      return card;
+    }
+
+    if (gameId) {
+      const q = query(collection(db, 'servers'), where('gameId', '==', gameId));
+      onSnapshot(q, (snap) => {
+        const servers = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0));
+        serversEmpty.style.display = servers.length ? 'none' : '';
+        serversGrid.innerHTML = '';
+        servers.forEach((s, i) => serversGrid.appendChild(buildServerCard(s, i)));
+      }, (err) => console.warn('servers listener error:', err));
+    }
+
     // Real-time listener for game delete/recover
     if (gameId) {
       onSnapshot(doc(db, 'publishedGames', gameId), (snap) => {
@@ -619,7 +829,7 @@
           if (d.exists()) userDocData = d.data();
         } catch {}
         const username = userDocData.username || 'Player';
-        const ownPreview = userDocData.avatarPreview || null;
+        const ownPreview = userDocData.avatarPreviewHead || userDocData.avatarPreview || null;
         const _cb = Date.now();
         const initial = username.charAt(0).toUpperCase();
         const ownNum = userDocData.userIdNum || null;
@@ -660,11 +870,24 @@
         try {
           if (auth && auth.currentUser && auth.currentUser.uid === uid) {
             const { setDoc, doc } = await import('https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js');
-            await setDoc(doc(db, 'users', uid), { avatarPreview: null }, { merge: true });
+            await setDoc(doc(db, 'users', uid), { avatarPreview: null, avatarPreviewHead: null }, { merge: true });
           }
         } catch (e) { console.warn('Could not clear avatarPreview:', e); }
       } catch (e) { console.warn('Broken avatar handler error:', e); }
     };
   </script>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="logo" onclick="window.location.href='/bloxverse/'">
+        <img src="assets/icons/bloxverseLogo.png" alt="" class="footer-logo-img" />
+        <span class="logo-text">BloxVerse</span>
+      </div>
+      <div class="footer-links">
+        <a href="/bloxverse/terms">Terms of Service</a>
+        <a href="/bloxverse/privacy">Privacy Policy</a>
+      </div>
+    </div>
+  </footer>
 </body>
 </html>

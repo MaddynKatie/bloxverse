@@ -5,18 +5,48 @@ import {
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
   updateProfile,
-  onAuthStateChanged
+  onAuthStateChanged,
+  signOut
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, runTransaction, collection } from 'firebase/firestore';
 import { ProfanityFilter } from 'glin-profanity';
 
-const _filter = new ProfanityFilter({ leetspeakLevel: 'aggressive', normalizeUnicode: true });
+const _filter = new ProfanityFilter({ leetspeakLevel: 'aggressive', normalizeUnicode: true, languages: ['english'], replaceWith: '#' });
 
 const ALLOWED_EMAIL_DOMAINS = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com', 'protonmail.com', 'proton.me'];
 
 function isAllowedEmail(email) {
   const domain = email.split('@')[1]?.toLowerCase();
   return domain && ALLOWED_EMAIL_DOMAINS.includes(domain);
+}
+
+async function cancelPendingAccountDeletion(uid) {
+  try {
+    const snap = await getDoc(doc(db, 'users', uid));
+    if (!snap.exists()) return 'none';
+    const data = snap.data();
+    if (data?.accountDeletionRequested !== true) return 'none';
+
+    const scheduledFor = data.accountDeletionScheduledFor ? new Date(data.accountDeletionScheduledFor) : null;
+    if (scheduledFor && scheduledFor.getTime() <= Date.now()) {
+      sessionStorage.setItem('_accountDeletionBlocked', 'true');
+      await signOut(auth);
+      window.location.href = sitePath('auth.html');
+      return 'past-due';
+    }
+
+    await setDoc(doc(db, 'users', uid), {
+      accountDeletionRequested: false,
+      accountDeletionRequestedAt: null,
+      accountDeletionScheduledFor: null,
+      accountDeletionStatus: 'cancelled',
+      accountDeletionCancelledAt: new Date().toISOString(),
+    }, { merge: true });
+    return 'cancelled';
+  } catch (e) {
+    console.warn('Could not cancel pending account deletion:', e);
+    return 'error';
+  }
 }
 
 // Tab switching
@@ -45,6 +75,17 @@ window.showForgotPassword = function() {
   document.getElementById('forgotError').classList.remove('visible');
   document.getElementById('forgotSuccess').style.display = 'none';
   document.getElementById('forgotEmail').value = '';
+};
+
+window.showTotp = function() {
+  document.querySelectorAll('.auth-tabs').forEach(t => t.style.display = 'none');
+  document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+  document.getElementById('authSuccess').classList.remove('visible');
+  document.getElementById('totpForm').classList.add('active');
+  document.getElementById('authSubtitle').textContent = 'Two-Factor Authentication';
+  document.getElementById('totpError').classList.remove('visible');
+  document.getElementById('totpCode').value = '';
+  document.getElementById('totpCode').focus();
 };
 
 window.showLogin = function() {
@@ -169,6 +210,26 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
 
     const cred = await signInWithEmailAndPassword(auth, email, password);
     if (await banGuard(cred.user.uid)) return;
+
+    // Check if 2FA is enabled for this user
+    try {
+      const userDoc = await getDoc(doc(db, 'users', cred.user.uid));
+      const userData = userDoc.data();
+      if (userData?.totpEnabled && userData?.totpSecret) {
+        btn.disabled = false;
+        btn.textContent = 'Login';
+        window._tfaCred = cred;
+        window._tfaSecret = userData.totpSecret;
+        window._tfaEmail = email;
+        window._tfaRecoveryCodes = Array.isArray(userData.recoveryCodes) ? userData.recoveryCodes : [];
+        window._tfaRecoveryUsed = Number(userData.recoveryCodesUsed) || 0;
+        sessionStorage.setItem('_pendingTotp', 'true');
+        showTotp();
+        return;
+      }
+    } catch (_) {}
+
+    if (await cancelPendingAccountDeletion(cred.user.uid) === 'past-due') return;
     await backfillUsernameEntry(cred.user.uid);
     window.location.href = sitePath('index.html');
   } catch (err) {
@@ -371,10 +432,134 @@ function getAuthErrorMessage(code) {
   return messages[code] || 'An error occurred. Please try again.';
 }
 
+// ─── Two-Factor Authentication (TOTP) ─────────────────────────────────────
+
+function _getServerBase() {
+  return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:8080' : 'https://bloxverse.onrender.com';
+}
+
+function _cancelTfa() {
+  signOut(auth);
+  sessionStorage.removeItem('_pendingTotp');
+  showLogin();
+}
+
+document.getElementById('totpBackBtn')?.addEventListener('click', (e) => {
+  e.preventDefault();
+  _cancelTfa();
+});
+
+document.getElementById('totpForgotBtn')?.addEventListener('click', (e) => {
+  e.preventDefault();
+  _cancelTfa();
+  showForgotPassword();
+});
+
+document.getElementById('totpVerifyBtn')?.addEventListener('click', async () => {
+  const rawCode = document.getElementById('totpCode').value.trim();
+  const code = rawCode.toUpperCase();
+  const errorEl = document.getElementById('totpError');
+  const btn = document.getElementById('totpVerifyBtn');
+
+  errorEl.classList.remove('visible');
+
+  const isTotp = /^\d{6}$/.test(code);
+  const isRecovery = /^[A-Z0-9]{5}-[A-Z0-9]{5}$/.test(code);
+  if (!isTotp && !isRecovery) {
+    errorEl.textContent = 'Please enter a valid verification or recovery code';
+    errorEl.classList.add('visible');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Verifying...';
+
+  try {
+    let success = false;
+    let usedIndex = -1;
+
+    if (isRecovery) {
+      const res = await fetch(_getServerBase() + '/api/2fa/recover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: window._tfaEmail, code, recoveryCodes: window._tfaRecoveryCodes })
+      });
+      const data = await res.json();
+      if (data.success) {
+        success = true;
+        usedIndex = data.usedIndex;
+      } else {
+        errorEl.textContent = data.error || 'Invalid recovery code. Try again.';
+        errorEl.classList.add('visible');
+        btn.disabled = false;
+        btn.textContent = 'Verify';
+        return;
+      }
+    } else {
+      const res = await fetch(_getServerBase() + '/api/2fa/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: window._tfaEmail, code, secret: window._tfaSecret })
+      });
+      const data = await res.json();
+      if (data.success) {
+        success = true;
+      } else {
+        errorEl.textContent = data.error || 'Invalid code. Try again.';
+        errorEl.classList.add('visible');
+        btn.disabled = false;
+        btn.textContent = 'Verify';
+        return;
+      }
+    }
+
+    if (success) {
+      // Mark the used recovery code as consumed
+      if (isRecovery && window._tfaCred?.user?.uid) {
+        try {
+          const remaining = (window._tfaRecoveryCodes || []).slice();
+          if (usedIndex >= 0 && usedIndex < remaining.length) remaining.splice(usedIndex, 1);
+          await setDoc(doc(db, 'users', window._tfaCred.user.uid), {
+            recoveryCodes: remaining,
+            recoveryCodesUsed: (window._tfaRecoveryUsed || 0) + 1,
+          }, { merge: true });
+        } catch (_) {}
+      }
+      sessionStorage.removeItem('_pendingTotp');
+      if (await cancelPendingAccountDeletion(window._tfaCred.user.uid) === 'past-due') return;
+      await backfillUsernameEntry(window._tfaCred.user.uid);
+      window.location.href = sitePath('index.html');
+    }
+  } catch (err) {
+    errorEl.textContent = 'Verification failed. Please try again.';
+    errorEl.classList.add('visible');
+    btn.disabled = false;
+    btn.textContent = 'Verify';
+  }
+});
+
+// Allow pressing Enter in the code input
+document.getElementById('totpCode')?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('totpVerifyBtn').click();
+});
+
 // Redirect if already logged in
 onAuthStateChanged(auth, async (user) => {
   if (user && window.location.pathname.includes('auth.html')) {
+    if (sessionStorage.getItem('_pendingTotp') === 'true') return;
+    if (await cancelPendingAccountDeletion(user.uid) === 'past-due') return;
     await backfillUsernameEntry(user.uid);
     window.location.href = sitePath('index.html');
   }
 });
+
+// Show a notice when a sign-in was blocked because the 7-day deletion window already passed
+if (sessionStorage.getItem('_accountDeletionBlocked') === 'true') {
+  sessionStorage.removeItem('_accountDeletionBlocked');
+  const noticeEl = document.getElementById('authSuccess');
+  if (noticeEl) {
+    noticeEl.textContent = 'Your deletion window has passed and your account is being removed. It can no longer be recovered.';
+    noticeEl.classList.add('visible');
+  }
+}

@@ -34,7 +34,7 @@
       color: var(--text-primary);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
-
+    
     .profile-page {
       max-width: 780px;
       width: 100%;
@@ -43,27 +43,18 @@
       margin: 0 auto;
     }
 
-    .profile-back {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      color: var(--text-muted);
-      text-decoration: none;
-      font-size: 13px;
-      padding: 12px 16px;
-      display: block;
-    }
-    .profile-back:hover { color: var(--text-primary); }
     /* ── Banner + avatar ─────────────────────────── */
     .profile-banner {
       position: relative;
-      width: 100%;
+      width: auto;
       height: 260px;
+      margin: 0 16px;
       background: var(--bg-banner);
       display: flex;
       align-items: center;
       justify-content: center;
       overflow: hidden;
+      border-radius: 24px;
     }
 
     /* Centered avatar preview image */
@@ -82,6 +73,8 @@
       font-weight: 700;
       flex-shrink: 0;
       color: var(--text-primary);
+      border-radius: 24px;
+      overflow: hidden;
     }
     .profile-avatar-centered .profile-avatar-img {
       width: 100%;
@@ -89,105 +82,107 @@
       object-fit: contain;
     }
 
-    /* ── Header info below banner ─────────────────── */
+    /* ── Header ─────────────────── */
     .profile-header {
-      background: var(--bg-secondary);
-      padding: 16px 24px;
+      padding: 24px 16px;
       display: flex;
       align-items: center;
-      gap: 14px;
-      border-bottom: var(--border);
+      gap: 20px;
+      border: none;
+      background: transparent;
       margin-bottom: 0;
+    }
+
+    .avatar-with-status {
       position: relative;
     }
 
-    /* Circular profile picture next to username */
-    .profile-header .profile-header-avatar {
-      width: 56px;
-      height: 56px;
+    .profile-header-avatar {
+      width: 120px;
+      height: 120px;
       border-radius: 50%;
-      background: #e0e0e0;
-      border: 3px solid rgba(0,0,0,0.08);
+      background: var(--bg-tertiary);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 22px;
+      font-size: 48px;
       font-weight: 700;
       flex-shrink: 0;
-      color: var(--text-secondary);
+      color: var(--text-primary);
       overflow: hidden;
     }
-    .profile-header .profile-header-avatar img {
+    .profile-header-avatar img {
       width: 100%;
       height: 100%;
-      object-fit: contain;
+      object-fit: cover;
       border-radius: 50%;
-      display: block;
+      background: transparent;
+    }
+
+    .status-dot-blue {
+      position: absolute;
+      bottom: 4px;
+      right: 4px;
+      width: 20px;
+      height: 20px;
+      background: #1d72f2; /* Kept standard blue for online, or rely on .status-dot classes */
+      border-radius: 50%;
+      border: 4px solid var(--bg-primary);
     }
 
     .profile-header-info { min-width: 0; flex: 1; }
     .profile-header-info h1 {
-      font-size: 22px;
+      font-size: 24px;
       font-weight: 700;
-      margin: 0 0 2px 0;
+      margin: 0 0 8px 0;
       color: var(--text-primary);
       display: flex;
       align-items: center;
       flex-wrap: wrap;
       gap: 4px;
     }
-    .profile-tagline {
-      color: var(--text-muted);
-      font-size: 13px;
-    }
 
-    /* ── Stats row ─────────────────────────────── */
-    .profile-stats {
+    .inline-stats {
       display: flex;
-      background: var(--bg-secondary);
-      border-bottom: var(--border);
-      margin-bottom: 16px;
+      gap: 16px;
+      font-size: 14px;
     }
-    .profile-stat-card {
-      flex: 1;
-      padding: 14px 12px;
-      text-align: center;
-      border-right: var(--border);
-      cursor: default;
-    }
-    .profile-stat-card:last-child { border-right: none; }
-    .profile-stat-card .stat-value {
-      font-size: 18px;
+    .inline-stats .stat-value {
       font-weight: 700;
       color: var(--text-primary);
     }
-    .profile-stat-card .stat-label {
-      font-size: 11px;
+    .inline-stats .stat-label {
       color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-top: 2px;
     }
-    .profile-stat-card.bux .stat-value { color: #f2cd37; }
-    .profile-stat-card.joined .stat-value { font-size: 12px; }
+    .profile-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    .profile-btn {
+      padding: 8px 18px;
+      border-radius: 8px;
+      border: var(--border);
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+    }
+    .profile-btn:hover { background: var(--bg-secondary); }
+    .profile-btn:disabled { opacity: 0.55; cursor: default; }
+    .profile-btn-primary { background: var(--accent); border: none; }
+    .profile-btn-primary:hover { background: var(--accent-hover); }
+    .profile-btn-danger { background: rgba(255,68,68,0.15); color: #ff6666; }
+    .profile-btn-danger:hover { background: rgba(255,68,68,0.25); }
 
     @media (max-width: 768px) {
       .profile-page { padding-top: 48px; }
-      .profile-banner { height: 180px; }
-      .profile-avatar-centered .profile-avatar-large { width: 120px; height: 120px; font-size: 42px; }
       .profile-header { padding: 12px 16px; flex-wrap: wrap; }
-      .profile-header-info h1 { font-size: 18px; }
-      .profile-stats { flex-wrap: wrap; }
-      .profile-stat-card { flex: 1 1 33%; min-width: 60px; padding: 10px 6px; }
-      .profile-stat-card .stat-value { font-size: 15px; }
-      .profile-stat-card .stat-label { font-size: 10px; }
-      .profile-section { padding: 12px; }
-    }
-    @media (max-width: 480px) {
-      .profile-banner { height: 140px; }
-      .profile-avatar-centered .profile-avatar-large { width: 90px; height: 90px; font-size: 32px; }
-      .profile-header-info h1 { font-size: 16px; }
-      .profile-stat-card { flex: 1 1 50%; }
+      .profile-header-info h1 { font-size: 20px; }
+      .profile-header-avatar { width: 90px; height: 90px; }
     }
 
     .settings-nav-btn {
@@ -242,151 +237,150 @@
     /* ── Sections ──────────────────────────────── */
     .profile-section {
       background: var(--bg-secondary);
-      border-radius: 8px;
+      border-radius: 12px;
       border: var(--border);
-      padding: 16px;
-      margin-bottom: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
     }
     .profile-section-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 14px;
-      padding-bottom: 10px;
-      border-bottom: var(--border);
+      margin-bottom: 16px;
+      border-bottom: none;
+      padding-bottom: 0;
     }
     .profile-section-header h2 {
-      font-size: 15px;
+      font-size: 12px;
       font-weight: 700;
       margin: 0;
-      color: var(--text-primary);
-    }
-    .profile-section-header .section-count {
-      font-size: 12px;
       color: var(--text-muted);
-      background: var(--bg-tertiary);
-      padding: 2px 10px;
-      border-radius: 10px;
-    }
-    .profile-section .empty {
-      color: var(--text-muted);
-      font-size: 13px;
-      text-align: center;
-      padding: 20px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
     }
 
-    /* ── Thumb grid ────────────────────────────── */
-    .profile-thumb-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
-      gap: 4px;
+    /* Friends Section */
+    .friends-header-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
     }
-    .profile-thumb {
+    .friends-header-row h2 {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin: 0;
+    }
+    .friends-pagination {
+      display: flex;
+      gap: 6px;
+    }
+    .friends-pagination button {
+      background: var(--bg-tertiary);
+      border: var(--border);
+      border-radius: 6px;
+      color: var(--text-muted);
+      width: 24px;
+      height: 24px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .friends-pagination button:hover { background: var(--bg-secondary); color: var(--text-primary); }
+    .friends-list {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .friend-card {
+      width: 80px;
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 4px;
-      padding: 8px 4px;
-      border-radius: 8px;
-      transition: background 0.15s;
-      cursor: pointer;
-      text-align: center;
+      background: none;
+      padding: 0;
+      border-radius: 0;
+      transition: none;
     }
-    .profile-thumb:hover { background: var(--bg-tertiary); }
-
-    .profile-thumb-img {
-      width: 56px;
-      height: 56px;
-      border-radius: 50%;
-      object-fit: cover;
-      display: block;
-      background: #e0e0e0;
-      border: 2px solid rgba(0,0,0,0.08);
-      flex-shrink: 0;
+    .friend-card:hover {
+      background: none;
     }
-    .profile-thumb-letter {
-      width: 56px;
-      height: 56px;
+    .friend-avatar-wrapper {
+      width: 80px;
+      height: 80px;
       border-radius: 50%;
-      background: #e0e0e0;
+      background: #fff;
+      overflow: hidden;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 20px;
-      font-weight: 700;
-      flex-shrink: 0;
-      color: var(--text-secondary);
     }
-    .avatar-circle-img {
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
+    .friend-avatar-wrapper img {
+      width: 100%;
+      height: 100%;
       object-fit: cover;
-      display: block;
-      border: 2px solid rgba(255,255,255,0.15);
-      cursor: pointer;
-      transition: border-color 0.15s ease;
     }
-    .avatar-circle-img:hover { border-color: rgba(255,255,255,0.3); }
-
-    .profile-thumb-name {
-      font-size: 11px;
-      font-weight: 500;
-      color: var(--text-secondary);
+    .friend-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-primary);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 68px;
+      margin-top: 4px;
+      text-align: center;
+      width: 100%;
     }
-    .profile-thumb .trust-btn {
-      margin-top: 2px;
-      font-size: 10px;
-      padding: 2px 8px;
-    }
-
-    /* ── Trusted friends ───────────────────────── */
-    .trust-hint { color: var(--text-muted); font-size: 12px; font-weight: 400; }
-    .trust-btn {
-      border: none;
-      border-radius: 6px;
-      padding: 3px 10px;
-      cursor: pointer;
+    .friend-status {
       font-size: 11px;
-      font-weight: 600;
-      transition: opacity 0.15s;
-      flex-shrink: 0;
+      color: var(--text-muted);
     }
-    .trust-btn.add { background: #14532d; color: #4ade80; }
-    .trust-btn.add:hover { opacity: 0.8; }
-    .trust-btn.remove { background: #450a0a; color: #f87171; }
-    .trust-btn.remove:hover { opacity: 0.8; }
-    details.add-trusted summary { cursor: pointer; color: #4a9eff; font-size: 12px; padding: 4px 0; }
-    details.add-trusted summary:hover { opacity: 0.8; }
+    .friend-status.online { color: #0d69ac; }
+    .friend-status.in-game { color: var(--accent); }
 
-    /* ── Role badges ───────────────────────────── */
-    .role-badge {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 15px;
-      margin-left: 2px;
+    /* Footer Stats Grid */
+    .footer-stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 40px;
     }
-    .role-badge.developer { color: #0891b2; }
-    .role-badge.admin     { color: #dc2626; }
-    .role-badge.mod       { color: #ca8a04; }
+    .footer-stat-card {
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      border: var(--border);
+    }
+    .footer-stat-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+    }
+    .footer-stat-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
 
     /* ── Bio ───────────────────────────────────── */
-    .profile-bio { color: var(--text-secondary); font-size: 14px; line-height: 1.5; margin-top: 6px; word-wrap: break-word; }
-    .profile-bio-empty { color: var(--text-muted); font-style: italic; }
+    .profile-bio { color: var(--text-secondary); font-size: 15px; line-height: 1.5; word-wrap: break-word; }
+    .profile-bio-empty { color: var(--text-muted); }
     .bio-edit-btn {
       background: var(--bg-tertiary);
       border: var(--border-strong);
       color: var(--text-secondary);
-      padding: 5px 14px;
+      padding: 6px 14px;
       border-radius: 6px;
       font-size: 12px;
       cursor: pointer;
-      margin-top: 8px;
       transition: all 0.15s;
     }
     .bio-edit-btn:hover { background: var(--bg-secondary); color: var(--text-primary); }
@@ -411,7 +405,43 @@
     .bio-btn-cancel:hover { background: var(--bg-secondary); }
     .bio-btn-save { background: var(--accent); color: var(--text-primary); }
     .bio-btn-save:hover { background: var(--accent-hover); }
+
+    /* ── Role badges ─────────────────────────────── */
+    .role-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      margin-left: 2px;
+      vertical-align: middle;
+      position: relative;
+      cursor: default;
+    }
+    .role-badge.developer { color: #44d9e6; }
+    .role-badge.admin     { color: #ff4444; }
+    .role-badge.mod       { color: #facc15; }
+    .role-badge::after {
+      content: attr(data-label);
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg-tertiary);
+      border: var(--border);
+      color: var(--text-primary);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 6px;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+      z-index: 50;
+    }
+    .role-badge:hover::after { opacity: 1; }
   </style>
+  <script src="js/sw-register.js" defer></script>
 </head>
 
 <body>
@@ -426,7 +456,6 @@
       </div>
       <div class="nav-links" id="navLinks">
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
-        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/create'">Create</button>
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
       </div>
     </div>
@@ -435,8 +464,22 @@
 
   <div class="profile-page" id="profilePage"></div>
 
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="logo" onclick="window.location.href='/bloxverse/'">
+        <img src="assets/icons/bloxverseLogo.png" alt="" class="footer-logo-img" />
+        <span class="logo-text">BloxVerse</span>
+      </div>
+      <div class="footer-links">
+        <a href="/bloxverse/terms">Terms of Service</a>
+        <a href="/bloxverse/privacy">Privacy Policy</a>
+      </div>
+    </div>
+  </footer>
+
   <script type="module">
-    import { auth, db, calculateAge, addTrustedFriend, removeTrustedFriend, getRoles, banGuard, resolveProfileUser, assignUserIdNum, logTransaction, trackPresence } from './src/firebase.js';
+    import { auth, db, calculateAge, addTrustedFriend, removeTrustedFriend, getRoles, banGuard, resolveProfileUser, assignUserIdNum, logTransaction, trackPresence, followUser, unfollowUser, getGameStats } from './src/firebase.js';
+    import { sendFriendRequest, removeFriend } from './src/friends.js';
     import { onAuthStateChanged, signOut } from 'firebase/auth';
     import { doc, getDoc, setDoc, onSnapshot, updateDoc, increment, collection, getDocs, query, where, limit } from 'firebase/firestore';
 
@@ -491,6 +534,30 @@
       const userIdNum = userData.userIdNum;
       const hasUserIdNum = !!userIdNum;
 
+      // Kick off the visits total immediately so it's ready by first paint
+      const visitTotalPromise = (async () => {
+        const [pubSnap, statsSnap] = await Promise.all([
+          getDocs(collection(db, 'publishedGames')),
+          getDocs(collection(db, 'gameStats')),
+        ]);
+        const stats = {};
+        statsSnap.forEach(d => { stats[d.id] = d.data().visits || 0; });
+        let total = 0;
+        pubSnap.forEach(d => {
+          const data = d.data();
+          if (data.deleted === true) return;
+          if (data.authorId === viewingUserId) total += stats[d.id] || data.visits || 0;
+        });
+        if (userIdNum) {
+          const { getAllGames } = await import('./src/games.js');
+          const sums = await Promise.all(getAllGames()
+            .filter(g => g.creator === userIdNum)
+            .map(g => getGameStats(g.id).then(s => s.visits || 0)));
+          total += sums.reduce((a, b) => a + b, 0);
+        }
+        return total;
+      })().catch(() => 0);
+
       if (!isOwnProfile && userData.profilePrivacy === 'friends' && !friendIds.includes(user.uid)) {
         profilePage.innerHTML = '<div style="text-align:center;padding:64px 24px;"><div style="font-size:48px;margin-bottom:16px;">🔒</div><h2 style="margin:0 0 8px;font-size:20px;color:var(--text-primary);">Friends Only</h2><p style="margin:0;color:var(--text-muted);font-size:14px;">This profile is only visible to friends.</p></div>';
         renderNav();
@@ -503,7 +570,7 @@
       const ownNum = ownUserData.userIdNum;
       const ownProfileLink = ownNum ? `/bloxverse/profile?user=${ownNum}` : '/bloxverse/profile';
       const ownInitial = (ownUserData.username || 'P').charAt(0).toUpperCase();
-      const ownPreview = ownUserData.avatarPreview || null;
+      const ownPreview = ownUserData.avatarPreviewHead || ownUserData.avatarPreview || null;
 
       const _cb = Date.now();
 
@@ -588,7 +655,7 @@
           // If the broken avatar belongs to the currently signed-in user, clear avatarPreview so it can regenerate later
           try {
             if (window.auth && window.auth.currentUser && window.auth.currentUser.uid === uid) {
-              await setDoc(doc(db, 'users', uid), { avatarPreview: null }, { merge: true });
+              await setDoc(doc(db, 'users', uid), { avatarPreview: null, avatarPreviewHead: null }, { merge: true });
               console.log('[Avatar] Cleared stale avatarPreview for current user to trigger regeneration');
             }
           } catch (e) {
@@ -601,9 +668,9 @@
 
       const renderAvatarThumb = (preview, initial, uid) => {
         if (preview) {
-          return `<img src="${preview}?_cb=${_cb}" alt="" class="profile-thumb-img" loading="lazy" data-initial="${initial}" onerror="window.__handleBrokenAvatar(this, '${uid}')"/>`;
+          return `<img src="${preview}?_cb=${_cb}" alt="" loading="lazy" data-initial="${initial}" onerror="window.__handleBrokenAvatar(this, '${uid}')"/>`;
         }
-        return `<div class="profile-thumb-letter">${initial}</div>`;
+        return `<div style="font-size: 32px; color: var(--text-secondary); font-weight: bold; line-height: 80px; text-align: center; background: #fff; width: 100%; height: 100%;">${initial}</div>`;
       };
 
       const _escapeHtml = (str) => {
@@ -631,18 +698,22 @@
           getDoc(doc(db, 'users', fid)).then(fDoc => {
             if (!fDoc.exists()) return null;
             const fData = fDoc.data();
-            return { id: fid, num: fData.userIdNum, username: fData.username || 'Unknown', avatarColors: fData.avatarColors || null, avatarFace: fData.avatarFace || null, avatarPreview: fData.avatarPreview || null };
+            return { id: fid, num: fData.userIdNum, username: fData.username || 'Unknown', avatarColors: fData.avatarColors || null, avatarFace: fData.avatarFace || null, avatarPreview: fData.avatarPreview || null, avatarPreviewHead: fData.avatarPreviewHead || null };
           }).catch(() => null)
         ));
         return results.filter(Boolean);
       };
 
-      const [trustedFriendsList, friendsList, followersList, viewingRoles] = await Promise.all([
+      let [trustedFriendsList, friendsList, followersList, viewingRoles, hasOutgoingRequest] = await Promise.all([
         fetchUsers(trustedFriendIds),
         fetchUsers(friendIds),
         fetchUsers(followerIds),
         getRoles(viewingUserId),
+        getDocs(query(collection(db, 'friendRequests'), where('from', '==', user.uid))).then(snap =>
+          snap.docs.some(d => d.data().status === 'pending' && d.data().to === viewingUserId)),
       ]);
+      let areFriends = !isOwnProfile && (ownUserData.friends || []).includes(viewingUserId);
+      let isFollowing = !isOwnProfile && (ownUserData.following || []).includes(viewingUserId);
 
       const ROLE_BADGE_CONFIG = {
         developer: { icon: 'fa-solid fa-code', color: '#44d9e6', label: 'Developer' },
@@ -652,18 +723,11 @@
       const roleBadgeHtml = (r) => {
         const cfg = ROLE_BADGE_CONFIG[r];
         if (!cfg) return '';
-        return `<span class="role-badge ${r}" title="${cfg.label}"><i class="${cfg.icon}"></i></span>`;
+        return `<span class="role-badge ${r}" data-label="${cfg.label}"><i class="${cfg.icon}"></i></span>`;
       };
       const badgeHtml = viewingRoles.map(roleBadgeHtml).join(' ');
 
       profilePage.innerHTML = `
-        <a href="/bloxverse/" class="profile-back">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M19 12H5M12 19l-7-7 7-7" />
-          </svg>
-          ${isOwnProfile ? 'Back to Home' : 'Back'}
-        </a>
-
         <!-- Banner with centered avatar preview -->
         <div class="profile-banner">
           <div class="profile-avatar-centered">
@@ -673,56 +737,38 @@
           </div>
         </div>
 
-        <!-- Username + info row with circular profile pic -->
         <div class="profile-header">
           <div class="avatar-with-status">
             <div class="profile-header-avatar">
-              ${userData.avatarPreview
-                ? `<img src="${userData.avatarPreview}?_cb=${_cb}" alt="" class="profile-avatar-img" data-initial="${initial}" onerror="window.__handleBrokenAvatar(this,'${viewingUserId}')"/>`
+              ${userData.avatarPreviewHead || userData.avatarPreview
+                ? `<img src="${(userData.avatarPreviewHead || userData.avatarPreview)}?_cb=${_cb}" alt="" data-initial="${initial}" onerror="window.__handleBrokenAvatar(this,'${viewingUserId}')"/>`
                 : `<span>${initial}</span>`}
             </div>
-            <div class="status-dot offline" id="profileStatusDotHeader"></div>
+            <div class="status-dot-blue" id="profileStatusDotHeader"></div>
           </div>
           <div class="profile-header-info">
             <h1>${username}${badgeHtml}</h1>
-            <div class="profile-tagline">${email && isOwnProfile ? email : '&nbsp;'}</div>
+            <div class="inline-stats">
+              <div><span class="stat-value">${friendIds.length}</span> <span class="stat-label">Friends</span></div>
+              <div><span class="stat-value" id="profileFollowerCount">${followerIds.length}</span> <span class="stat-label">Followers</span></div>
+              <div><span class="stat-value">${followingIds.length}</span> <span class="stat-label">Following</span></div>
+            </div>
+            ${!isOwnProfile ? `
+              <div class="profile-actions">
+                <button class="profile-btn ${areFriends ? 'profile-btn-danger' : 'profile-btn-primary'}" id="btnFriendAction" ${hasOutgoingRequest ? 'disabled' : ''}>${areFriends ? 'Remove Friend' : hasOutgoingRequest ? 'Request Sent' : 'Add Friend'}</button>
+                <button class="profile-btn" id="btnFollowAction">${isFollowing ? 'Following' : 'Follow'}</button>
+              </div>
+            ` : ''}
           </div>
         </div>
 
-        <!-- Stats strip -->
-        <div class="profile-stats">
-          <div class="profile-stat-card bux">
-            <div class="stat-value">${bux.toLocaleString()}</div>
-            <div class="stat-label">Bux</div>
-          </div>
-          <div class="profile-stat-card">
-            <div class="stat-value">${friendIds.length}</div>
-            <div class="stat-label">Friends</div>
-          </div>
-          <div class="profile-stat-card">
-            <div class="stat-value">${followerIds.length}</div>
-            <div class="stat-label">Followers</div>
-          </div>
-          <div class="profile-stat-card">
-            <div class="stat-value">${followingIds.length}</div>
-            <div class="stat-label">Following</div>
-          </div>
-          <div class="profile-stat-card joined">
-            <div class="stat-value">${createdAt}</div>
-            <div class="stat-label">Joined</div>
-          </div>
-        </div>
-
-        <!-- Scrollable content -->
         <div class="profile-content">
-
-          <!-- Bio section -->
           <div class="profile-section">
             <div class="profile-section-header">
-              <h2>About</h2>
-              ${isOwnProfile ? `<button class="bio-edit-btn" onclick="document.getElementById('bioEditor').style.display='block';this.style.display='none'"><i class="fa-solid fa-pen"></i> Edit</button>` : ''}
+              <h2>ABOUT</h2>
+              ${isOwnProfile ? `<button class="bio-edit-btn" onclick="document.getElementById('bioEditor').style.display='block';this.style.display='none'">Edit</button>` : ''}
             </div>
-            ${bio ? `<div class="profile-bio">${_escapeHtml(bio)}</div>` : `<div class="profile-bio profile-bio-empty">${isOwnProfile ? 'Add a bio to tell people about yourself.' : 'No bio yet.'}</div>`}
+            ${bio ? `<div class="profile-bio">${_escapeHtml(bio)}</div>` : `<div class="profile-bio profile-bio-empty">${isOwnProfile ? 'Tell people about yourself...' : 'No bio yet.'}</div>`}
             ${isOwnProfile ? `
               <div id="bioEditor" class="bio-editor" style="display:none">
                 <textarea id="bioTextarea" maxlength="500" rows="3" class="bio-textarea">${_escapeHtml(bio)}</textarea>
@@ -737,76 +783,46 @@
             ` : ''}
           </div>
 
-          <div class="profile-section">
-            <div class="profile-section-header">
-              <h2>Friends</h2>
-              <span class="section-count">${friendIds.length}</span>
+          <div class="friends-header-row">
+            <h2>Friends (${friendIds.length})</h2>
+            <div class="friends-pagination">
+              <button>&lt;</button>
+              <button>&gt;</button>
             </div>
-            ${friendsList.length === 0 ? '<div class="empty">No friends yet</div>' : `
-              <div class="profile-thumb-grid">
-                ${friendsList.map(f => `
-                  <div class="profile-thumb" onclick="window.location.href='/bloxverse/profile?user=${f.num}'">
-                    ${renderAvatarThumb(f.avatarPreview, (f.username || 'U').charAt(0).toUpperCase(), f.id)}
-                    <span class="profile-thumb-name">${f.username}</span>
-                  </div>
-                `).join('')}
-              </div>
-            `}
           </div>
-
-          <div class="profile-section">
-            <div class="profile-section-header">
-              <h2>Followers</h2>
-              <span class="section-count">${followerIds.length}</span>
-            </div>
-            ${followersList.length === 0 ? '<div class="empty">No followers yet</div>' : `
-              <div class="profile-thumb-grid">
-                ${followersList.map(f => `
-                  <div class="profile-thumb" onclick="window.location.href='/bloxverse/profile?user=${f.num}'">
-                    ${renderAvatarThumb(f.avatarPreview, (f.username || 'U').charAt(0).toUpperCase(), f.id)}
-                    <span class="profile-thumb-name">${f.username}</span>
+          <div class="friends-list" style="margin-bottom: 24px;">
+            ${friendsList.length === 0 ? '<div style="color: #888; font-size: 13px;">No friends yet</div>' : 
+              friendsList.map(f => `
+                <div class="friend-card" onclick="window.location.href='/bloxverse/profile?user=${f.num}'" style="cursor:pointer;">
+                  <div class="friend-avatar-wrapper">
+                    ${renderAvatarThumb(f.avatarPreviewHead || f.avatarPreview, (f.username || 'U').charAt(0).toUpperCase(), f.id)}
                   </div>
-                `).join('')}
-              </div>
-            `}
-          </div>
-
-          ${isOwnProfile && isThirteenPlus ? `
-          <div class="profile-section" id="trustedFriendsSection">
-            <div class="profile-section-header">
-              <h2>Trusted Friends <span class="trust-hint">(unfiltered chat)</span></h2>
-              <span class="section-count">${trustedFriendsList.length}</span>
-            </div>
-            ${trustedFriendsList.length === 0 ? '<div class="empty">No trusted friends yet.</div>' : `
-              <div class="profile-thumb-grid">
-                ${trustedFriendsList.map(f => `
-                  <div class="profile-thumb">
-                    ${renderAvatarThumb(f.avatarPreview, (f.username || 'U').charAt(0).toUpperCase(), f.id)}
-                    <span class="profile-thumb-name">${f.username}</span>
-                    <button class="trust-btn remove" data-id="${f.id}" data-username="${f.username}">Remove</button>
-                  </div>
-                `).join('')}
-              </div>
-            `}
-            ${friendsList.filter(f => !trustedFriendIds.includes(f.id)).length > 0 ? `
-              <details class="add-trusted" style="margin-top:10px;">
-                <summary>Add from friends list</summary>
-                <div style="margin-top:8px;" class="profile-thumb-grid">
-                  ${friendsList.filter(f => !trustedFriendIds.includes(f.id)).map(f => `
-                    <div class="profile-thumb">
-                      ${renderAvatarThumb(f.avatarPreview, (f.username || 'U').charAt(0).toUpperCase(), f.id)}
-                      <span class="profile-thumb-name">${f.username}</span>
-                      <button class="trust-btn add" data-id="${f.id}" data-username="${f.username}">Trust</button>
-                    </div>
-                  `).join('')}
+                  <div class="friend-name">${f.username}</div>
+                  <div class="friend-status" data-uid="${f.id}">Offline</div>
                 </div>
-              </details>
-            ` : ''}
+              `).join('')
+            }
           </div>
-          ` : ''}
+
+          <div class="footer-stats-grid">
+            <div class="footer-stat-card">
+              <div class="footer-stat-label">VISITS</div>
+              <div class="footer-stat-value" id="profileVisitCount">0</div>
+            </div>
+            <div class="footer-stat-card">
+              <div class="footer-stat-label">JOINED</div>
+              <div class="footer-stat-value">${createdAt}</div>
+            </div>
+          </div>
 
         </div>
       `;
+
+      // Apply the visits total (computed in parallel above) once the panel exists
+      visitTotalPromise.then(total => {
+        const el = document.getElementById('profileVisitCount');
+        if (el) el.textContent = total.toLocaleString();
+      });
 
       // Trusted Friends button handlers
       if (isOwnProfile) {
@@ -840,6 +856,49 @@
         });
       }
 
+      // Profile actions for other users
+      const btnFriendAction = document.getElementById('btnFriendAction');
+      const btnFollowAction = document.getElementById('btnFollowAction');
+      const followerCountEl = document.getElementById('profileFollowerCount');
+
+      if (btnFriendAction) {
+        btnFriendAction.addEventListener('click', async () => {
+          if (areFriends) {
+            await removeFriend(user.uid, viewingUserId);
+            areFriends = false;
+            btnFriendAction.textContent = 'Add Friend';
+            btnFriendAction.classList.remove('profile-btn-danger');
+          } else if (!hasOutgoingRequest) {
+            btnFriendAction.disabled = true;
+            btnFriendAction.textContent = 'Request Sent';
+            try {
+              await sendFriendRequest(user.uid, viewingUserId, username);
+              hasOutgoingRequest = true;
+            } catch (e) {
+              console.error('Failed to send friend request:', e);
+              btnFriendAction.disabled = false;
+              btnFriendAction.textContent = 'Add Friend';
+            }
+          }
+        });
+      }
+
+      if (btnFollowAction) {
+        btnFollowAction.addEventListener('click', async () => {
+          if (isFollowing) {
+            await unfollowUser(user.uid, viewingUserId);
+            isFollowing = false;
+            btnFollowAction.textContent = 'Follow';
+            if (followerCountEl) followerCountEl.textContent = String(Math.max(0, (parseInt(followerCountEl.textContent, 10) || 0) - 1));
+          } else {
+            await followUser(user.uid, viewingUserId);
+            isFollowing = true;
+            btnFollowAction.textContent = 'Following';
+            if (followerCountEl) followerCountEl.textContent = String((parseInt(followerCountEl.textContent, 10) || 0) + 1);
+          }
+        });
+      }
+
       // Bio textarea character counter
       const bioTextarea = document.getElementById('bioTextarea');
       if (bioTextarea) {
@@ -868,6 +927,34 @@
         updateStatus(status);
       }, () => updateStatus('offline'));
       window.addEventListener('beforeunload', () => presenceUnsub?.());
+
+      // Live friend presence
+      const friendStatusEls = {};
+      document.querySelectorAll('.friend-status[data-uid]').forEach(el => {
+        friendStatusEls[el.dataset.uid] = el;
+      });
+      const friendPresenceUnsubs = [];
+      Object.keys(friendStatusEls).forEach(fid => {
+        const el = friendStatusEls[fid];
+        const unsub = onSnapshot(doc(db, 'presence', fid), (snap) => {
+          let text = 'Offline';
+          if (snap.exists()) {
+            const p = snap.data();
+            const lastSeen = p.lastSeen?.toMillis?.() ?? p.lastSeen;
+            const twoMinAgo = Date.now() - 120000;
+            if (lastSeen && lastSeen < twoMinAgo) text = 'Offline';
+            else if (p.inGame) text = 'In Game';
+            else if (p.online) text = 'Online';
+          }
+          el.textContent = text;
+          el.className = 'friend-status ' + (text === 'Online' ? 'online' : text === 'In Game' ? 'in-game' : 'offline');
+        }, () => {
+          el.textContent = 'Offline';
+          el.className = 'friend-status offline';
+        });
+        friendPresenceUnsubs.push(unsub);
+      });
+      window.addEventListener('beforeunload', () => friendPresenceUnsubs.forEach(u => u?.()));
 
       // Bux dropdown toggle
       const buxWrapper = document.getElementById('buxWrapper');
@@ -1044,8 +1131,8 @@
               resultsEl.innerHTML = '<div class="empty-state">No users found</div>';
             } else {
               resultsEl.innerHTML = matches.map(f => `
-                <div class="search-item" data-uid="${f.id}" data-name="${f.data().username}" data-avatar="${f.data().avatarPreview || ''}">
-                  ${f.data().avatarPreview ? `<img src="${f.data().avatarPreview}" alt="" />` : `<div class="init-circle">${f.data().username.charAt(0).toUpperCase()}</div>`}
+                <div class="search-item" data-uid="${f.id}" data-name="${f.data().username}" data-avatar="${f.data().avatarPreviewHead || f.data().avatarPreview || ''}">
+                  ${f.data().avatarPreviewHead || f.data().avatarPreview ? `<img src="${f.data().avatarPreviewHead || f.data().avatarPreview}" alt="" />` : `<div class="init-circle">${f.data().username.charAt(0).toUpperCase()}</div>`}
                   <span>${f.data().username}</span>
                 </div>`).join('');
               resultsEl.querySelectorAll('.search-item').forEach(el => {

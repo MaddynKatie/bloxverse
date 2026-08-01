@@ -57,6 +57,7 @@
 
   <link rel="stylesheet" href="src/theme.css" />
   <script type="module" src="src/theme.js"></script>
+  <script src="js/sw-register.js" defer></script>
 </head>
 
 <body>
@@ -72,7 +73,6 @@
       </div>
       <div class="nav-links" id="navLinks">
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
-        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/create'">Create</button>
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
       </div>
     </div>
@@ -87,7 +87,6 @@
     <!-- Friends Section (only when logged in) -->
     <section class="game-section" id="friendsSection" style="display:none;">
       <h2>Friends</h2>
-      <div id="friendRequests"></div>
       <div class="friends-grid" id="friendsGrid"></div>
     </section>
 
@@ -122,14 +121,13 @@
 
     import { onAuthStateChanged, signOut } from 'firebase/auth';
     import { doc, getDoc, setDoc, updateDoc, collection, getDocs, query, where, onSnapshot, increment, limit } from 'firebase/firestore';
-    import { searchUsers, sendFriendRequest, acceptFriendRequest, declineFriendRequest, removeFriend, getFriendRequests, getFriends } from './src/friends.js';
+    import { searchUsers, sendFriendRequest, removeFriend, getFriends } from './src/friends.js';
 
     const navCenter = document.getElementById('navCenter');
     const navRight = document.getElementById('navRight');
     const grid = document.getElementById('gameGrid');
     const friendsSection = document.getElementById('friendsSection');
     const friendsGrid = document.getElementById('friendsGrid');
-    const friendRequestsEl = document.getElementById('friendRequests');
 
     function createGameCard(game) {
       const card = document.createElement('div');
@@ -289,8 +287,8 @@
         resultsEl.innerHTML = users.map(u => `
           <div class="search-result-item" data-uid="${u.id}">
             <div class="search-user-info">
-              ${u.avatarPreview
-                ? `<img src="${u.avatarPreview}?_cb=${Date.now()}" alt="" class="search-avatar search-avatar-img" onerror="this.outerHTML='<div class=search-avatar>${u.username.charAt(0).toUpperCase()}</div>'"/>`
+              ${u.avatarPreviewHead || u.avatarPreview
+                ? `<img src="${(u.avatarPreviewHead || u.avatarPreview)}?_cb=${Date.now()}" alt="" class="search-avatar search-avatar-img" onerror="this.outerHTML='<div class=search-avatar>${u.username.charAt(0).toUpperCase()}</div>'"/>`
                 : `<div class="search-avatar">${u.username.charAt(0).toUpperCase()}</div>`}
               <span class="search-username">${u.username}</span>
             </div>
@@ -387,7 +385,7 @@
         // If broken avatar belongs to current user, clear so it can regenerate later
         try {
           if (auth && auth.currentUser && auth.currentUser.uid === uid) {
-            await setDoc(doc(db, 'users', uid), { avatarPreview: null }, { merge: true });
+            await setDoc(doc(db, 'users', uid), { avatarPreview: null, avatarPreviewHead: null }, { merge: true });
             console.log('[Avatar] Cleared stale avatarPreview for current user to trigger regeneration');
           }
         } catch (e) { console.warn('Could not clear avatarPreview:', e); }
@@ -411,41 +409,13 @@
       friendsGrid.innerHTML = addBtn + friendsWithStatus.map(f => `
         <div class="friend-thumb" onclick="window.location.href='${getProfileLink(f)}'" style="cursor:pointer;">
           <div class="avatar-with-status">
-            ${f.avatarPreview ? `<div style="width:56px;height:56px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2px solid rgba(255,255,255,0.1);background:var(--bg-surface);"><img src="${f.avatarPreview}?_cb=${_cb}" alt="" data-initial="${(f.username || 'U').charAt(0).toUpperCase()}" onerror="window.__handleBrokenAvatar(this, '${f.id}')" style="width:100%;height:100%;object-fit:cover;display:block;"/></div>` : `<div class="friend-thumb-avatar">${(f.username || 'U').charAt(0).toUpperCase()}</div>`}
+            ${f.avatarPreviewHead || f.avatarPreview ? `<div style="width:56px;height:56px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2px solid rgba(255,255,255,0.1);background:var(--bg-surface);"><img src="${f.avatarPreviewHead || f.avatarPreview}?_cb=${_cb}" alt="" data-initial="${(f.username || 'U').charAt(0).toUpperCase()}" onerror="window.__handleBrokenAvatar(this, '${f.id}')" style="width:100%;height:100%;object-fit:cover;display:block;"/></div>` : `<div class="friend-thumb-avatar">${(f.username || 'U').charAt(0).toUpperCase()}</div>`}
             <div class="status-dot ${f.status}"></div>
           </div>
           <span class="friend-thumb-name">${f.username}</span>
         </div>
       `).join('');
     }
-
-    async function renderFriendRequestsList(requests) {
-      if (requests.length === 0) {
-        friendRequestsEl.innerHTML = '';
-        return;
-      }
-      friendRequestsEl.innerHTML = '<div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">Friend Requests</div><div class="friend-requests">' +
-        requests.map(r => `
-          <div class="friend-request-card">
-            <div class="search-avatar">${r.fromUsername?.charAt(0).toUpperCase() || '?'}</div>
-            <span class="search-username">${r.fromUsername || 'Unknown'}</span>
-            <div class="request-actions">
-              <button class="request-accept-btn" onclick="window._acceptRequest('${r.id}','${r.from}','${r.to}')">Accept</button>
-              <button class="request-decline-btn" onclick="window._declineRequest('${r.id}')">Decline</button>
-            </div>
-          </div>
-        `).join('') + '</div>';
-    }
-
-    window._acceptRequest = async (reqId, fromId, toId) => {
-      await acceptFriendRequest(reqId, fromId, toId);
-      refreshFriends();
-    };
-
-    window._declineRequest = async (reqId) => {
-      await declineFriendRequest(reqId);
-      refreshFriends();
-    };
 
     window._removeFriend = async (friendId) => {
       if (confirm('Remove this friend?')) {
@@ -462,23 +432,12 @@
       for (const unsub of friendStatusUnsubs.values()) unsub();
       friendStatusUnsubs.clear();
 
-      const [friends, requests] = await Promise.all([
-        getFriends(currentUserId),
-        getFriendRequests(currentUserId),
-      ]);
+      const friends = await getFriends(currentUserId);
 
       const friendsWithStatus = await getFriendsWithStatus(friends);
       _friendsWithStatus = friendsWithStatus;
 
-      for (const r of requests) {
-        try {
-          const fromDoc = await getDoc(doc(db, 'users', r.from));
-          r.fromUsername = fromDoc.exists() ? fromDoc.data().username : 'Unknown';
-        } catch { r.fromUsername = 'Unknown'; }
-      }
-
       renderFriends(friendsWithStatus);
-      renderFriendRequestsList(requests);
 
       for (const friend of friendsWithStatus) {
         listenFriendStatus(friend);
@@ -524,7 +483,7 @@
             username = data.username || username;
             bux = data.bux || 0;
             userNum = data.userIdNum;
-            var ownPreview = data.avatarPreview || null;
+            var ownPreview = data.avatarPreviewHead || data.avatarPreview || null;
           }
         } catch {}
         if (typeof ownPreview === 'undefined') var ownPreview = null;
@@ -820,8 +779,8 @@ onclick="window.location.href='/bloxverse/auth'">Login / Sign Up</button>`;
                 resultsEl.innerHTML = '<div class="empty-state">No users found</div>';
               } else {
                 resultsEl.innerHTML = matches.slice(0, 50).map(f => `
-                  <div class="search-item" data-uid="${f.id}" data-name="${f.username || 'Unknown'}" data-avatar="${f.avatarPreview || ''}">
-                    ${f.avatarPreview ? `<img src="${f.avatarPreview}" alt="" />` : `<div class="init-circle">${(f.username || 'U').charAt(0).toUpperCase()}</div>`}
+                  <div class="search-item" data-uid="${f.id}" data-name="${f.username || 'Unknown'}" data-avatar="${f.avatarPreviewHead || f.avatarPreview || ''}">
+                    ${f.avatarPreviewHead || f.avatarPreview ? `<img src="${f.avatarPreviewHead || f.avatarPreview}" alt="" />` : `<div class="init-circle">${(f.username || 'U').charAt(0).toUpperCase()}</div>`}
                     <span>${f.username || 'Unknown'}</span>
                   </div>`).join('');
                 resultsEl.querySelectorAll('.search-item').forEach(el => {
@@ -852,6 +811,19 @@ onclick="window.location.href='/bloxverse/auth'">Login / Sign Up</button>`;
         }, { once: true });
       };
     </script>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="logo" onclick="window.location.href='/bloxverse/'">
+        <img src="assets/icons/bloxverseLogo.png" alt="" class="footer-logo-img" />
+        <span class="logo-text">BloxVerse</span>
+      </div>
+      <div class="footer-links">
+        <a href="/bloxverse/terms">Terms of Service</a>
+        <a href="/bloxverse/privacy">Privacy Policy</a>
+      </div>
+    </div>
+  </footer>
 </body>
 
 </html>
