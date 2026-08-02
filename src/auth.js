@@ -541,7 +541,18 @@ document.getElementById('totpVerifyBtn')?.addEventListener('click', async () => 
 
 // Allow pressing Enter in the code input
 document.getElementById('totpCode')?.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') document.getElementById('totpVerifyBtn').click();
+  if (e.key === 'Enter') {
+    // Prevent the implicit form submission (form reloads auth.html and loses the
+    // 2FA flow for both correct and incorrect codes).
+    e.preventDefault();
+    document.getElementById('totpVerifyBtn').click();
+  }
+});
+
+// Guard against any other form submission path reloading the page mid-2FA.
+document.getElementById('totpForm')?.addEventListener('submit', (e) => {
+  e.preventDefault();
+  document.getElementById('totpVerifyBtn').click();
 });
 
 // Redirect if already logged in

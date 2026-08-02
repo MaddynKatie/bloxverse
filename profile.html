@@ -289,13 +289,28 @@
       justify-content: center;
     }
     .friends-pagination button:hover { background: var(--bg-secondary); color: var(--text-primary); }
+    .friends-pagination button:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+    .friends-pagination button:disabled:hover { background: var(--bg-tertiary); color: var(--text-muted); }
+    .friends-carousel {
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
     .friends-list {
       display: flex;
       gap: 16px;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      scrollbar-width: none;
     }
+    .friends-list::-webkit-scrollbar { display: none; }
     .friend-card {
       width: 80px;
+      flex-shrink: 0;
+      scroll-snap-align: start;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -785,23 +800,25 @@
 
           <div class="friends-header-row">
             <h2>Friends (${friendIds.length})</h2>
-            <div class="friends-pagination">
-              <button>&lt;</button>
-              <button>&gt;</button>
+            <div class="friends-pagination" id="friendsPagination">
+              <button id="friendsPrev">&lt;</button>
+              <button id="friendsNext">&gt;</button>
             </div>
           </div>
-          <div class="friends-list" style="margin-bottom: 24px;">
-            ${friendsList.length === 0 ? '<div style="color: #888; font-size: 13px;">No friends yet</div>' : 
-              friendsList.map(f => `
-                <div class="friend-card" onclick="window.location.href='/bloxverse/profile?user=${f.num}'" style="cursor:pointer;">
-                  <div class="friend-avatar-wrapper">
-                    ${renderAvatarThumb(f.avatarPreviewHead || f.avatarPreview, (f.username || 'U').charAt(0).toUpperCase(), f.id)}
+          <div class="friends-carousel">
+            <div class="friends-list" id="friendsList">
+              ${friendsList.length === 0 ? '<div style="color: #888; font-size: 13px;">No friends yet</div>' : 
+                friendsList.map(f => `
+                  <div class="friend-card" onclick="window.location.href='/bloxverse/profile?user=${f.num}'" style="cursor:pointer;">
+                    <div class="friend-avatar-wrapper">
+                      ${renderAvatarThumb(f.avatarPreviewHead || f.avatarPreview, (f.username || 'U').charAt(0).toUpperCase(), f.id)}
+                    </div>
+                    <div class="friend-name">${f.username}</div>
+                    <div class="friend-status" data-uid="${f.id}">Offline</div>
                   </div>
-                  <div class="friend-name">${f.username}</div>
-                  <div class="friend-status" data-uid="${f.id}">Offline</div>
-                </div>
-              `).join('')
-            }
+                `).join('')
+              }
+            </div>
           </div>
 
           <div class="footer-stats-grid">
@@ -823,6 +840,31 @@
         const el = document.getElementById('profileVisitCount');
         if (el) el.textContent = total.toLocaleString();
       });
+
+      // Friends carousel: arrows reveal the next/previous set of friends.
+      const friendsTrack = document.getElementById('friendsList');
+      const friendsPrev = document.getElementById('friendsPrev');
+      const friendsNext = document.getElementById('friendsNext');
+      const friendsPagination = document.getElementById('friendsPagination');
+      if (friendsTrack && friendsPrev && friendsNext && friendsPagination) {
+        const updateFriendsArrows = () => {
+          const viewport = friendsTrack.parentElement;
+          const maxScroll = friendsTrack.scrollWidth - viewport.clientWidth;
+          const canScroll = maxScroll > 1;
+          friendsPagination.style.visibility = canScroll ? 'visible' : 'hidden';
+          friendsPrev.disabled = !canScroll || friendsTrack.scrollLeft <= 1;
+          friendsNext.disabled = !canScroll || friendsTrack.scrollLeft >= maxScroll - 1;
+        };
+        friendsPrev.addEventListener('click', () => {
+          friendsTrack.scrollBy({ left: -friendsTrack.parentElement.clientWidth, behavior: 'smooth' });
+        });
+        friendsNext.addEventListener('click', () => {
+          friendsTrack.scrollBy({ left: friendsTrack.parentElement.clientWidth, behavior: 'smooth' });
+        });
+        friendsTrack.addEventListener('scroll', updateFriendsArrows, { passive: true });
+        window.addEventListener('resize', updateFriendsArrows);
+        updateFriendsArrows();
+      }
 
       // Trusted Friends button handlers
       if (isOwnProfile) {
