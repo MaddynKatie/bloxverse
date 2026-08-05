@@ -661,10 +661,47 @@ const server = http.createServer(async (req, res) => {
   res.end('BloxVerse WebSocket Server Running');
 });
 
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({ server, perMessageDeflate: false, maxPayload: 256 * 1024 });
 
 // gameId[:serverId] -> set of client sockets
 const games = new Map();
+
+// Batched position/physics relay. High-frequency 'update' and 'physicsState'
+// messages are bucketed per room and flushed on a tick instead of being
+// re-broadcast individually, turning O(N²) per-room relay into O(N) per tick.
+const UPDATE_TICK_MS = 50;
+const pendingUpdates = new Map(); // roomKey -> Map<userId, rawMessageString>
+const pendingPhysics = new Map(); // roomKey -> Map<userId, rawMessageString>
+
+function flushRoom(roomKey) {
+  const uBucket = pendingUpdates.get(roomKey);
+  if (uBucket && uBucket.size) {
+    const payload = '{"type":"updates","players":[' + Array.from(uBucket.values()).join(',') + ']}';
+    const room = games.get(roomKey);
+    if (room) {
+      for (const client of room) {
+        if (client.readyState === 1) client.send(payload);
+      }
+    }
+    uBucket.clear();
+  }
+  const pBucket = pendingPhysics.get(roomKey);
+  if (pBucket && pBucket.size) {
+    const payload = '{"type":"physicsStates","states":[' + Array.from(pBucket.values()).join(',') + ']}';
+    const room = games.get(roomKey);
+    if (room) {
+      for (const client of room) {
+        if (client.readyState === 1) client.send(payload);
+      }
+    }
+    pBucket.clear();
+  }
+}
+
+setInterval(() => {
+  for (const roomKey of pendingUpdates.keys()) flushRoom(roomKey);
+  for (const roomKey of pendingPhysics.keys()) flushRoom(roomKey);
+}, UPDATE_TICK_MS);
 
 /**
  * Remove a user from the Firestore "servers" doc (and their queue entry).
@@ -838,6 +875,23 @@ wss.on('connection', (ws, req) => {
     const currentRoom = games.get(ws.roomKey);
     if (!currentRoom) return;
 
+    const str = message.toString();
+
+    // High-frequency position/physics messages are batched and flushed on a
+    // tick instead of being individually re-broadcast to the whole room.
+    if (str.startsWith('{"type":"update"')) {
+      let bucket = pendingUpdates.get(ws.roomKey);
+      if (!bucket) { bucket = new Map(); pendingUpdates.set(ws.roomKey, bucket); }
+      bucket.set(userId, str);
+      return;
+    }
+    if (str.startsWith('{"type":"physicsState"')) {
+      let bucket = pendingPhysics.get(ws.roomKey);
+      if (!bucket) { bucket = new Map(); pendingPhysics.set(ws.roomKey, bucket); }
+      bucket.set(userId, str);
+      return;
+    }
+
     let data;
     let isChat = false;
     let isVoice = false;
@@ -873,9 +927,13 @@ wss.on('connection', (ws, req) => {
     const currentRoom = games.get(ws.roomKey);
     if (currentRoom) {
       currentRoom.delete(ws);
+      pendingUpdates.get(ws.roomKey)?.delete(userId);
+      pendingPhysics.get(ws.roomKey)?.delete(userId);
       gs.handlePlayerLeave(userId, ws.username);
       if (currentRoom.size === 0) {
         games.delete(ws.roomKey);
+        pendingUpdates.delete(ws.roomKey);
+        pendingPhysics.delete(ws.roomKey);
         const oldGs = gameServers.get(ws.roomKey);
         if (oldGs) {
           oldGs.destroy();
