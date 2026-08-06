@@ -54,6 +54,26 @@ try {
 const RECOVERY_CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const RECOVERY_CODE_RE = /^[A-Z0-9]{5}-[A-Z0-9]{5}$/;
 
+// ─── Multi-instance node identity ─────────────────────────────────────────────
+// Each Render service is a "node". Nodes advertise themselves in Firestore so
+// clients can discover which node hosts a given logical server, and a node
+// claims a logical server when it accepts its first connection. Render sets
+// RENDER_EXTERNAL_URL automatically; SERVER_WS_URL is an override for custom
+// domains / local testing.
+const RENDER_EXTERNAL_URL = (process.env.RENDER_EXTERNAL_URL || process.env.SERVER_PUBLIC_URL || '').trim();
+const NODE_URL = (process.env.SERVER_WS_URL || (
+  RENDER_EXTERNAL_URL ? 'wss://' + RENDER_EXTERNAL_URL.replace(/^https?:\/\//i, '').replace(/\/+$/, '') : ''
+)).trim() || null;
+const NODE_ID = NODE_URL ? 'node_' + crypto.createHash('sha1').update(NODE_URL).digest('hex').slice(0, 12) : null;
+const NODE_HEARTBEAT_MS = 30 * 1000;
+const NODE_HEARTBEAT_STALE_MS = 120 * 1000;
+
+function hbAgeMs(hb) {
+  if (!hb) return Infinity;
+  const t = typeof hb.toMillis === 'function' ? hb.toMillis() : (typeof hb === 'number' ? hb : Date.parse(String(hb)));
+  return Number.isFinite(t) && t > 0 ? Date.now() - t : Infinity;
+}
+
 function generateRecoveryCodes(count) {
   const codes = [];
   const bytes = crypto.randomBytes(count * 10);
@@ -758,6 +778,64 @@ const serverSeenAt = new Map(); // `${serverId}:${uid}` -> Date.now()
 const RECONCILE_GRACE_MS = 90 * 1000;
 
 /**
+ * Transactionally claim (or verify) which node hosts a logical server.
+ * Returns {} when this node hosts it (or is now claiming it), or
+ * { redirectTo } when another live node already owns it and the connecting
+ * client should reconnect to that node's URL.
+ */
+async function claimServerHost(serverId, gameId) {
+  if (!admin || !NODE_URL || !NODE_ID) return {};
+  const db = admin.firestore();
+  const ref = db.collection('servers').doc(serverId);
+
+  // Fast path: another live node already owns this server -> redirect early.
+  try {
+    const pre = await ref.get();
+    const pd = pre.exists ? pre.data() : null;
+    if (pd && pd.hostNode && pd.hostNode !== NODE_ID) {
+      const preHost = await db.collection('renderNodes').doc(pd.hostNode).get();
+      if (preHost.exists && hbAgeMs(preHost.data().lastHeartbeat) < NODE_HEARTBEAT_STALE_MS) {
+        return { redirectTo: pd.hostUrl || null };
+      }
+    }
+  } catch (_) {}
+
+  // Serialize concurrent claims from different nodes: exactly one wins, the
+  // rest redirect the client to the winner. A stale/absent host can be re-claimed.
+  try {
+    const claim = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists) {
+        tx.set(ref, {
+          gameId,
+          players: [],
+          playerCount: 0,
+          maxPlayers: 10,
+          status: 'open',
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          lastActive: admin.firestore.FieldValue.serverTimestamp(),
+          hostNode: NODE_ID,
+          hostUrl: NODE_URL,
+        });
+        return { claimed: true };
+      }
+      const d = snap.data();
+      if (d.hostNode && d.hostNode !== NODE_ID) {
+        const hostSnap = await tx.get(db.collection('renderNodes').doc(d.hostNode));
+        const fresh = hostSnap.exists && hbAgeMs(hostSnap.data().lastHeartbeat) < NODE_HEARTBEAT_STALE_MS;
+        if (fresh) return { redirectTo: d.hostUrl || null };
+      }
+      tx.update(ref, { hostNode: NODE_ID, hostUrl: NODE_URL });
+      return { claimed: true };
+    });
+    if (claim && claim.redirectTo) return { redirectTo: claim.redirectTo };
+  } catch (e) {
+    console.warn(`[Server ${serverId}] Host claim failed:`, e.message);
+  }
+  return {};
+}
+
+/**
  * Periodically reconcile the Firestore "servers" docs against live WebSocket
  * connections. Any player whose socket is gone for longer than the grace
  * period is pruned, and servers left with zero players are shut down
@@ -767,6 +845,16 @@ const RECONCILE_GRACE_MS = 90 * 1000;
 async function reconcileServers() {
   if (!admin) return;
   try {
+    // Drop heartbeats from nodes that are gone (Render restarts/kills).
+    try {
+      const nodes = await admin.firestore().collection('renderNodes').get();
+      for (const nd of nodes.docs) {
+        if (hbAgeMs(nd.data().lastHeartbeat) > NODE_HEARTBEAT_STALE_MS * 2) {
+          await nd.ref.delete();
+        }
+      }
+    } catch (_) {}
+
     const snap = await admin.firestore().collection('servers').get();
     const now = Date.now();
     for (const docSnap of snap.docs) {
@@ -821,7 +909,7 @@ async function reconcileServers() {
   }
 }
 
-wss.on('connection', (ws, req) => {
+wss.on('connection', async (ws, req) => {
   const parsedUrl = url.parse(req.url, true);
   const { gameId, userId, username, serverId } = parsedUrl.query;
 
@@ -838,6 +926,20 @@ wss.on('connection', (ws, req) => {
   // servers of the same game never see each other.
   const roomKey = serverId ? `${gameId}:${serverId}` : gameId;
   ws.roomKey = roomKey;
+
+  // Multi-node routing: claim this logical server on this node, or bounce the
+  // client to whichever node already hosts it (so everyone in the same logical
+  // server ends up connected to the same Render instance).
+  if (serverId && admin && NODE_URL) {
+    const claim = await claimServerHost(serverId, gameId);
+    if (claim.redirectTo) {
+      try {
+        ws.send(JSON.stringify({ type: 'redirect', url: claim.redirectTo }));
+        ws.close(4000, 'redirect');
+      } catch (_) {}
+      return;
+    }
+  }
 
   if (!games.has(roomKey)) {
     games.set(roomKey, new Set());
@@ -961,6 +1063,17 @@ const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => {
   console.log(`WebSocket server running on port ${PORT}`);
   if (admin) {
+    if (NODE_URL && NODE_ID) {
+      const nodeRef = admin.firestore().collection('renderNodes').doc(NODE_ID);
+      const beat = () => nodeRef.set({
+        url: NODE_URL,
+        region: process.env.RENDER_REGION || '',
+        lastHeartbeat: admin.firestore.FieldValue.serverTimestamp(),
+      }).catch(e => console.warn('[Nodes] heartbeat failed:', e.message));
+      beat();
+      setInterval(beat, NODE_HEARTBEAT_MS);
+      process.on('SIGTERM', () => nodeRef.delete().catch(() => {}));
+    }
     purgeDueAccounts().catch(e => console.warn('[AccountDeletion] Initial purge failed:', e.message));
     setInterval(() => {
       purgeDueAccounts().catch(e => console.warn('[AccountDeletion] Scheduled purge failed:', e.message));
