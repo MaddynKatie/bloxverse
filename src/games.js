@@ -1,6 +1,46 @@
 import { collection, getDocs, doc, getDoc, query, where } from 'firebase/firestore';
 import { db, getGameStats } from './firebase.js';
 
+// Memoize the two heavy reads (gameStats + presence) for a short window so the
+// home/search pages don't re-fetch the same collections several times in a row.
+const CACHE_TTL = 30000;
+let _statsCache = null;
+let _statsCacheAt = 0;
+let _presenceCache = null;
+let _presenceCacheAt = 0;
+
+async function getStatsMap() {
+  const now = Date.now();
+  if (_statsCache && now - _statsCacheAt < CACHE_TTL) return _statsCache;
+  const statsSnap = await getDocs(collection(db, 'gameStats'));
+  const stats = {};
+  statsSnap.forEach((d) => { stats[d.id] = d.data(); });
+  _statsCache = stats;
+  _statsCacheAt = now;
+  return stats;
+}
+
+async function getPresenceCounts() {
+  const now = Date.now();
+  if (_presenceCache && now - _presenceCacheAt < CACHE_TTL) return _presenceCache;
+  const presenceQuery = query(collection(db, 'presence'), where('inGame', '==', true));
+  const presenceSnap = await getDocs(presenceQuery);
+  const playerCounts = {};
+  const twoMinAgo = Date.now() - 120000;
+  presenceSnap.forEach((docSnap) => {
+    const data = docSnap.data();
+    const gid = data.gameId;
+    const lastSeen = data.lastSeen?.toMillis?.() ?? data.lastSeen;
+    if (lastSeen && lastSeen < twoMinAgo) return;
+    if (gid) {
+      playerCounts[gid] = (playerCounts[gid] || 0) + 1;
+    }
+  });
+  _presenceCache = playerCounts;
+  _presenceCacheAt = now;
+  return playerCounts;
+}
+
 export const games = [
   {
     id: 'demo',
@@ -9,7 +49,7 @@ export const games = [
     creator: 1,
     icon: './assets/icons/demo.png',
     mapPath: './js/parts.js',
-    description: 'A blank canvas to explore the BloxVerse engine. Run around and test the physics, climbing, and building tools!',
+    description: 'A blank canvas to explore the BloxVerse engine. Run around and test the physics, climbing, and other features!',
     category: 'Sandbox',
     maxPlayers: 6,
     worldFloor: false,
@@ -26,7 +66,7 @@ export const games = [
     icon: './assets/icons/demo.png',
     mapPath: './assets/models/bvBaseplate.json',
     scriptsPath: './assets/games/bvbaseplate',
-    description: 'A simple baseplate with structures to explore. Great for testing your scripts and learning the engine.',
+    description: '',
     category: 'Sandbox',
     maxPlayers: 6,
     worldFloor: false,
@@ -89,23 +129,6 @@ export const games = [
     activePlayers: 0,
     visits: 0,
     createdAt: '2026/05/11',
-  },
-  {
-    id: 'crossbridges',
-    name: 'The Crossbridges',
-    official: true,
-    creator: 1,
-    icon: './assets/icons/crossbridges.png',
-    mapPath: './js/crossbridges.js',
-    scriptsPath: './assets/games/crossbridges',
-    description: 'A game featuring towering bridges crossing over each other and several environments to explore.',
-    category: 'Exploration',
-    maxPlayers: 6,
-    worldFloor: false,
-    respawnY: -60,
-    activePlayers: 0,
-    visits: 0,
-    createdAt: '2026/05/20',
   },
   {
     id: 'timetag',
@@ -222,31 +245,11 @@ This is a relaxing and fun game where you can explore the beach, interact with o
 
 export async function loadGameStats() {
   try {
-    const statsSnap = await getDocs(collection(db, 'gameStats'));
-    const stats = {};
-    statsSnap.forEach(docSnap => {
-      stats[docSnap.id] = docSnap.data();
-    });
+    const [stats, playerCounts] = await Promise.all([getStatsMap(), getPresenceCounts()]);
     for (const g of games) {
       if (stats[g.id]) {
         g.visits = stats[g.id].visits || 0;
       }
-    }
-    // Count active players per game (client-side filter to avoid composite index)
-    const presenceQuery = query(collection(db, 'presence'), where('inGame', '==', true));
-    const presenceSnap = await getDocs(presenceQuery);
-    const playerCounts = {};
-    const twoMinAgo = Date.now() - 120000;
-    presenceSnap.forEach(docSnap => {
-      const data = docSnap.data();
-      const gid = data.gameId;
-      const lastSeen = data.lastSeen?.toMillis?.() ?? data.lastSeen;
-      if (lastSeen && lastSeen < twoMinAgo) return;
-      if (gid) {
-        playerCounts[gid] = (playerCounts[gid] || 0) + 1;
-      }
-    });
-    for (const g of games) {
       g.activePlayers = playerCounts[g.id] || 0;
     }
   } catch (e) {
@@ -256,24 +259,18 @@ export async function loadGameStats() {
 
 export async function getActivePlayerCount(gameId) {
   try {
-    const presenceQuery = query(collection(db, 'presence'), where('inGame', '==', true));
-    const snap = await getDocs(presenceQuery);
-    const twoMinAgo = Date.now() - 120000;
-    let count = 0;
-    snap.forEach(d => {
-      const data = d.data();
-      if (data.gameId !== gameId) return;
-      const lastSeen = data.lastSeen?.toMillis?.() ?? data.lastSeen;
-      if (lastSeen && lastSeen < twoMinAgo) return;
-      count++;
-    });
-    return count;
+    const counts = await getPresenceCounts();
+    return counts[gameId] || 0;
   } catch { return 0; }
 }
 
 export async function getPublishedGames() {
   try {
-    const snap = await getDocs(collection(db, 'publishedGames'));
+    const [snap, playerCounts, stats] = await Promise.all([
+      getDocs(collection(db, 'publishedGames')),
+      getPresenceCounts(),
+      getStatsMap(),
+    ]);
     const results = [];
     snap.forEach(docSnap => {
       const data = docSnap.data();
@@ -294,37 +291,12 @@ export async function getPublishedGames() {
         deleted: data.deleted === true,
       });
     });
-    // Also count active players for published games (client-side filter)
-    const presenceQuery = query(collection(db, 'presence'), where('inGame', '==', true));
-    const presenceSnap = await getDocs(presenceQuery);
-    const playerCounts = {};
-    const twoMinAgo = Date.now() - 120000;
-    presenceSnap.forEach(docSnap => {
-      const data = docSnap.data();
-      const gid = data.gameId;
-      const lastSeen = data.lastSeen?.toMillis?.() ?? data.lastSeen;
-      if (lastSeen && lastSeen < twoMinAgo) return;
-      if (gid) {
-        playerCounts[gid] = (playerCounts[gid] || 0) + 1;
-      }
-    });
     for (const g of results) {
       g.activePlayers = playerCounts[g.id] || 0;
-    }
-    // Merge visit counts from gameStats (the authoritative counter, since
-    // publishedGames rules don't allow non-owners to write)
-    try {
-      const statsSnap = await getDocs(collection(db, 'gameStats'));
-      const stats = {};
-      statsSnap.forEach(docSnap => {
-        stats[docSnap.id] = docSnap.data();
-      });
-      for (const g of results) {
-        if (stats[g.id]) {
-          g.visits = stats[g.id].visits || 0;
-        }
+      if (stats[g.id]) {
+        g.visits = stats[g.id].visits || 0;
       }
-    } catch {}
+    }
     return results;
   } catch (e) {
     console.warn('Could not load published games:', e);

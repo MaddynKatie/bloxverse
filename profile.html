@@ -16,6 +16,8 @@
   }
   </script>
   <base href="/bloxverse/">
+  <link rel="preconnect" href="https://esm.sh" crossorigin>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 
     <meta charset="UTF-8" />
   <link rel="icon" type="image/png" href="assets/icons/bloxverseLogo.png" />
@@ -471,7 +473,7 @@
       </div>
       <div class="nav-links" id="navLinks">
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
-        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
+        <button class="nav-link-btn" data-needs-auth onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
       </div>
     </div>
     <div class="nav-right" id="navRight"></div>
@@ -493,7 +495,7 @@
   </footer>
 
   <script type="module">
-    import { auth, db, calculateAge, addTrustedFriend, removeTrustedFriend, getRoles, banGuard, resolveProfileUser, assignUserIdNum, logTransaction, trackPresence, followUser, unfollowUser, getGameStats } from './src/firebase.js';
+    import { auth, db, calculateAge, addTrustedFriend, removeTrustedFriend, getRoles, resolveProfileUser, assignUserIdNum, logTransaction, trackPresence, followUser, unfollowUser, getGameStats } from './src/firebase.js';
     import { sendFriendRequest, removeFriend } from './src/friends.js';
     import { onAuthStateChanged, signOut } from 'firebase/auth';
     import { doc, getDoc, setDoc, onSnapshot, updateDoc, increment, collection, getDocs, query, where, limit } from 'firebase/firestore';
@@ -502,41 +504,219 @@
     const profilePage = document.getElementById('profilePage');
     const urlParams = new URLSearchParams(window.location.search);
 
-    onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        window.location.href = '/bloxverse/auth';
-        return;
+    // Short-TTL cache (memory + localStorage) so repeat visits paint instantly
+    // without waiting on the userIds lookup, user doc, or friend batches.
+    const PROFILE_CACHE_TTL = 45000;
+    const PROFILE_CACHE_PREFIX = 'bv:pc:';
+    const profileCache = new Map();
+    const _cacheSafe = (val) => {
+      if (val === null || typeof val !== 'object') return val;
+      if (typeof val.toDate === 'function' && typeof val.toMillis === 'function') return val.toMillis();
+      if (Array.isArray(val)) return val.map(_cacheSafe);
+      const out = {};
+      for (const k in val) out[k] = _cacheSafe(val[k]);
+      return out;
+    };
+    const profileCacheGet = (key) => {
+      const mem = profileCache.get(key);
+      if (mem) {
+        if (Date.now() - mem.at > PROFILE_CACHE_TTL) profileCache.delete(key);
+        else return mem.data;
       }
-      
-      if (await banGuard(user.uid)) return;
-
-      trackPresence(user.uid, null, 'profile');
-
-      // ── Real-time ban listener ────────────────────────────────────
-      onSnapshot(doc(db, 'bans', user.uid), (snap) => {
-        if (snap.exists() && snap.data().banned) {
-          window.location.href = '/bloxverse/ban';
+      try {
+        const raw = localStorage.getItem(PROFILE_CACHE_PREFIX + key);
+        if (!raw) return null;
+        const entry = JSON.parse(raw);
+        if (Date.now() - entry.at > PROFILE_CACHE_TTL) {
+          localStorage.removeItem(PROFILE_CACHE_PREFIX + key);
+          return null;
         }
-      });
-      // ──────────────────────────────────────────────────────────────
+        profileCache.set(key, { at: entry.at, data: entry.data });
+        return entry.data;
+      } catch { return null; }
+    };
+    const profileCacheSet = (key, data) => {
+      profileCache.set(key, { at: Date.now(), data });
+      try {
+        const serialized = JSON.stringify({ at: Date.now(), data });
+        if (serialized.length > 400000) return;
+        localStorage.setItem(PROFILE_CACHE_PREFIX + key, serialized);
+      } catch {}
+    };
 
-      // Resolve profile view target: handle numeric userIdNum or UID
+    const _escapeHtml = (str) => {
+      const div = document.createElement('div');
+      div.appendChild(document.createTextNode(str));
+      return div.innerHTML;
+    };
+
+    const ROLE_BADGE_CONFIG = {
+      developer: { icon: 'fa-solid fa-code', color: '#44d9e6', label: 'Developer' },
+      admin:     { icon: 'fa-solid fa-shield-halved', color: '#ff4444', label: 'Admin' },
+      mod:       { icon: 'fa-solid fa-gavel', color: '#facc15', label: 'Moderator' },
+    };
+    const roleBadgeHtml = (r) => {
+      const cfg = ROLE_BADGE_CONFIG[r];
+      if (!cfg) return '';
+      return `<span class="role-badge ${r}" data-label="${cfg.label}"><i class="${cfg.icon}"></i></span>`;
+    };
+
+    // Paint the profile page content straight from cache before auth resolves,
+    // so the page is visible instantly on repeat visits. The onAuthStateChanged
+    // render below replaces it with the full, fresh version (actions, privacy).
+    function _paintFromCache() {
       const rawTarget = urlParams.get('user');
-      const resolvedUid = await resolveProfileUser(rawTarget);
+      let uid = null;
+      if (rawTarget) {
+        if (/^\d+$/.test(rawTarget)) {
+          uid = profileCacheGet('num:' + rawTarget);
+        } else {
+          uid = rawTarget;
+        }
+      } else {
+        uid = profileCacheGet('me');
+      }
+      if (!uid) return false;
+      const page = profileCacheGet('page:' + uid);
+      if (!page || !page.userData) return false;
+      const userData = page.userData;
+      const username = userData.username || 'Unknown';
+      const bio = userData.bio || '';
+      const friendIds = userData.friends || [];
+      const followerIds = userData.followers || [];
+      const followingIds = userData.following || [];
+      const createdAt = userData.createdAt ? new Date(userData.createdAt).toLocaleDateString() : 'Unknown';
+      const initial = username.charAt(0).toUpperCase();
+      const _cb = Date.now();
+      const friendsList = page.friendsList || [];
+      const badgeHtml = (page.viewingRoles || []).map(roleBadgeHtml).join('');
+      const renderAvatarThumb = (preview, initial) => preview
+        ? `<img src="${preview}?_cb=${_cb}" alt="" loading="lazy" />`
+        : `<div style="font-size: 32px; color: var(--text-secondary); font-weight: bold; line-height: 80px; text-align: center; background: #fff; width: 100%; height: 100%;">${initial}</div>`;
+
+      profilePage.innerHTML = `
+        <div class="profile-banner">
+          <div class="profile-avatar-centered">
+            ${userData.avatarPreview
+              ? `<div class="profile-avatar-large"><img src="${userData.avatarPreview}?_cb=${_cb}" alt="" class="profile-avatar-img" /></div>`
+              : `<div class="profile-avatar-large">${initial}</div>`}
+          </div>
+        </div>
+
+        <div class="profile-header">
+          <div class="avatar-with-status">
+            <div class="profile-header-avatar">
+              ${userData.avatarPreviewHead || userData.avatarPreview
+                ? `<img src="${(userData.avatarPreviewHead || userData.avatarPreview)}?_cb=${_cb}" alt="" />`
+                : `<span>${initial}</span>`}
+            </div>
+            <div class="status-dot-blue" id="profileStatusDotHeader"></div>
+          </div>
+          <div class="profile-header-info">
+            <h1>${username}${badgeHtml}</h1>
+            <div class="inline-stats">
+              <div><span class="stat-value">${friendIds.length}</span> <span class="stat-label">Friends</span></div>
+              <div><span class="stat-value" id="profileFollowerCount">${followerIds.length}</span> <span class="stat-label">Followers</span></div>
+              <div><span class="stat-value">${followingIds.length}</span> <span class="stat-label">Following</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="profile-content">
+          <div class="profile-section">
+            <div class="profile-section-header"><h2>ABOUT</h2></div>
+            ${bio ? `<div class="profile-bio">${_escapeHtml(bio)}</div>` : `<div class="profile-bio profile-bio-empty">No bio yet.</div>`}
+          </div>
+
+          <div class="friends-header-row">
+            <h2>Friends (${friendIds.length})</h2>
+            <div class="friends-pagination" id="friendsPagination" style="visibility:hidden;"><button id="friendsPrev">&lt;</button><button id="friendsNext">&gt;</button></div>
+          </div>
+          <div class="friends-carousel">
+            <div class="friends-list" id="friendsList">
+              ${friendsList.length === 0 ? '<div style="color: #888; font-size: 13px;">No friends yet</div>' :
+                friendsList.map(f => `
+                  <div class="friend-card" onclick="window.location.href='/bloxverse/profile?user=${f.num}'" style="cursor:pointer;">
+                    <div class="friend-avatar-wrapper">
+                      ${renderAvatarThumb(f.avatarPreviewHead || f.avatarPreview, (f.username || 'U').charAt(0).toUpperCase())}
+                    </div>
+                    <div class="friend-name">${f.username}</div>
+                    <div class="friend-status">Offline</div>
+                  </div>
+                `).join('')
+              }
+            </div>
+          </div>
+
+          <div class="footer-stats-grid">
+            <div class="footer-stat-card"><div class="footer-stat-label">VISITS</div><div class="footer-stat-value" id="profileVisitCount">0</div></div>
+            <div class="footer-stat-card"><div class="footer-stat-label">JOINED</div><div class="footer-stat-value">${createdAt}</div></div>
+          </div>
+        </div>
+      `;
+
+      if (page.visitTotal != null) {
+        const el = document.getElementById('profileVisitCount');
+        if (el) el.textContent = Number(page.visitTotal).toLocaleString();
+      }
+      return true;
+    }
+
+    _paintFromCache();
+
+    onAuthStateChanged(auth, async (user) => {
+      document.querySelectorAll('[data-needs-auth]').forEach(el => { el.style.display = user ? '' : 'none'; });
+
+      if (user) {
+        profileCacheSet('me', user.uid);
+
+        trackPresence(user.uid, null, 'profile');
+
+        // ── Real-time ban listener ────────────────────────────────────
+        onSnapshot(doc(db, 'bans', user.uid), (snap) => {
+          if (snap.exists() && snap.data().banned) {
+            window.location.href = '/bloxverse/ban';
+          }
+        });
+        // ──────────────────────────────────────────────────────────────
+      }
+
+      // Resolve profile view target: handle numeric userIdNum or UID.
+      // Fire the resolve and the viewer's own doc read in parallel so the
+      // profile paints as soon as the slowest of the two returns.
+      const rawTarget = urlParams.get('user');
+      const numKey = rawTarget && /^\d+$/.test(rawTarget) ? ('num:' + rawTarget) : null;
+      const cachedUid = numKey ? profileCacheGet(numKey) : null;
+      const resolvePromise = (rawTarget && !cachedUid)
+        ? resolveProfileUser(rawTarget).then(uid => { if (uid && numKey) profileCacheSet(numKey, uid); return uid; })
+        : Promise.resolve(cachedUid);
+      const ownDocPromise = (user && rawTarget)
+        ? Promise.resolve(profileCacheGet('user:' + user.uid) || getDoc(doc(db, 'users', user.uid)).then(d => d.exists() ? _cacheSafe(d.data()) : {}).catch(() => ({})))
+        : Promise.resolve({});
+
+      const [resolvedUid, readOwnUserData] = await Promise.all([resolvePromise, ownDocPromise]);
       if (rawTarget && !resolvedUid) {
         profilePage.innerHTML = '<p style="text-align:center;color:#8a8c8e;padding:48px;">User not found</p>';
         return;
       }
-      const viewingUserId = resolvedUid || user.uid;
-      const isOwnProfile = viewingUserId === user.uid;
-
-      const userDoc = await getDoc(doc(db, 'users', viewingUserId));
-      if (!userDoc.exists()) {
-        profilePage.innerHTML = '<p style="text-align:center;color:#8a8c8e;padding:48px;">User not found</p>';
+      const viewingUserId = resolvedUid || (user ? user.uid : null);
+      if (!viewingUserId) {
+        navRight.innerHTML = `<button class="login-btn" onclick="window.location.href='/bloxverse/auth'">Login / Sign Up</button>`;
+        profilePage.innerHTML = '<div style="text-align:center;padding:64px 24px;"><h2 style="margin:0 0 8px;font-size:20px;color:var(--text-primary);">Welcome to BloxVerse</h2><p style="margin:0;color:var(--text-muted);font-size:14px;">Log in to view your profile.</p><button class="profile-btn profile-btn-primary" style="margin-top:20px;" onclick="window.location.href=\'/bloxverse/auth\'">Login / Sign Up</button></div>';
         return;
       }
+      const isOwnProfile = user ? viewingUserId === user.uid : false;
 
-      const userData = userDoc.data();
+      let userData = profileCacheGet('user:' + viewingUserId);
+      if (!userData) {
+        const userDoc = await getDoc(doc(db, 'users', viewingUserId));
+        if (!userDoc.exists()) {
+          profilePage.innerHTML = '<p style="text-align:center;color:#8a8c8e;padding:48px;">User not found</p>';
+          return;
+        }
+        userData = _cacheSafe(userDoc.data());
+        profileCacheSet('user:' + viewingUserId, userData);
+      }
       const username = userData.username || 'Unknown';
       const email = userData.email || '';
       const bio = userData.bio || '';
@@ -549,38 +729,38 @@
       const userIdNum = userData.userIdNum;
       const hasUserIdNum = !!userIdNum;
 
-      // Kick off the visits total immediately so it's ready by first paint
+      // Kick off the visits total immediately so it's ready by first paint.
+      // Uses the memoized published+stats readers from games.js (shared with
+      // the home page, cached 30s) instead of re-fetching full collections.
       const visitTotalPromise = (async () => {
-        const [pubSnap, statsSnap] = await Promise.all([
-          getDocs(collection(db, 'publishedGames')),
-          getDocs(collection(db, 'gameStats')),
-        ]);
-        const stats = {};
-        statsSnap.forEach(d => { stats[d.id] = d.data().visits || 0; });
+        const cachedVisits = profileCacheGet('visits:' + viewingUserId);
+        if (cachedVisits != null) return cachedVisits;
+        const { getPublishedGames, getAllGames } = await import('./src/games.js');
+        const published = await getPublishedGames();
         let total = 0;
-        pubSnap.forEach(d => {
-          const data = d.data();
-          if (data.deleted === true) return;
-          if (data.authorId === viewingUserId) total += stats[d.id] || data.visits || 0;
-        });
+        for (const g of published) {
+          if (g.deleted) continue;
+          if (g.authorId === viewingUserId) total += g.visits || 0;
+        }
         if (userIdNum) {
-          const { getAllGames } = await import('./src/games.js');
           const sums = await Promise.all(getAllGames()
             .filter(g => g.creator === userIdNum)
             .map(g => getGameStats(g.id).then(s => s.visits || 0)));
           total += sums.reduce((a, b) => a + b, 0);
         }
+        profileCacheSet('visits:' + viewingUserId, total);
         return total;
       })().catch(() => 0);
 
-      if (!isOwnProfile && userData.profilePrivacy === 'friends' && !friendIds.includes(user.uid)) {
-        profilePage.innerHTML = '<div style="text-align:center;padding:64px 24px;"><div style="font-size:48px;margin-bottom:16px;">🔒</div><h2 style="margin:0 0 8px;font-size:20px;color:var(--text-primary);">Friends Only</h2><p style="margin:0;color:var(--text-muted);font-size:14px;">This profile is only visible to friends.</p></div>';
-        renderNav();
-        return;
-      }
-
       // ── Privacy check: friends-only profiles ──────────────────────────
-      const ownUserData = isOwnProfile ? userData : await getDoc(doc(db, 'users', user.uid)).then(d => d.exists() ? d.data() : {});
+      let ownUserData = isOwnProfile ? userData : {};
+      if (!isOwnProfile && user) {
+        ownUserData = profileCacheGet('user:' + user.uid);
+        if (!ownUserData) {
+          ownUserData = _cacheSafe(readOwnUserData);
+          if (ownUserData && Object.keys(ownUserData).length) profileCacheSet('user:' + user.uid, ownUserData);
+        }
+      }
       const ownBux = ownUserData.bux || 0;
       const ownNum = ownUserData.userIdNum;
       const ownProfileLink = ownNum ? `/bloxverse/profile?user=${ownNum}` : '/bloxverse/profile';
@@ -589,7 +769,8 @@
 
       const _cb = Date.now();
 
-      navRight.innerHTML = `
+      if (user) {
+        navRight.innerHTML = `
         <div class="user-info">
           <div class="bux-wrapper" id="buxWrapper">
             <button class="bux-btn" id="buxBtn">
@@ -631,8 +812,11 @@
             : `<div class="avatar-circle" onclick="window.location.href='${ownProfileLink}'">${ownInitial}</div>`}
         </div>
       `;
+      } else {
+        navRight.innerHTML = `<button class="login-btn" onclick="window.location.href='/bloxverse/auth'">Login / Sign Up</button>`;
+      }
 
-      if (!isOwnProfile && userData.profilePrivacy === 'friends' && !friendIds.includes(user.uid)) {
+      if (!isOwnProfile && userData.profilePrivacy === 'friends' && !(user && friendIds.includes(user.uid))) {
         profilePage.innerHTML = '<div style="text-align:center;padding:64px 24px;"><div style="font-size:48px;margin-bottom:16px;">🔒</div><h2 style="margin:0 0 8px;font-size:20px;color:var(--text-primary);">Friends Only</h2><p style="margin:0;color:var(--text-muted);font-size:14px;">This profile is only visible to friends.</p></div>';
         return;
       }
@@ -719,27 +903,31 @@
         return results.filter(Boolean);
       };
 
-      let [trustedFriendsList, friendsList, followersList, viewingRoles, hasOutgoingRequest] = await Promise.all([
-        fetchUsers(trustedFriendIds),
-        fetchUsers(friendIds),
-        fetchUsers(followerIds),
-        getRoles(viewingUserId),
-        getDocs(query(collection(db, 'friendRequests'), where('from', '==', user.uid))).then(snap =>
-          snap.docs.some(d => d.data().status === 'pending' && d.data().to === viewingUserId)),
-      ]);
+      const batchKey = 'batch:' + (user ? user.uid : 'anon') + ':' + viewingUserId;
+      let batch = profileCacheGet(batchKey);
+      if (!batch) {
+        const [tf, fl, fol, roles, req] = await Promise.all([
+          fetchUsers(trustedFriendIds),
+          fetchUsers(friendIds),
+          fetchUsers(followerIds),
+          getRoles(viewingUserId),
+          user ? getDocs(query(collection(db, 'friendRequests'), where('from', '==', user.uid))).then(snap =>
+            snap.docs.some(d => d.data().status === 'pending' && d.data().to === viewingUserId)) : Promise.resolve(false),
+        ]);
+        batch = { trustedFriendsList: tf, friendsList: fl, followersList: fol, viewingRoles: roles, hasOutgoingRequest: req };
+        profileCacheSet(batchKey, batch);
+      }
+      let trustedFriendsList = batch.trustedFriendsList;
+      let friendsList = batch.friendsList;
+      let followersList = batch.followersList;
+      let viewingRoles = batch.viewingRoles;
+      let hasOutgoingRequest = batch.hasOutgoingRequest;
       let areFriends = !isOwnProfile && (ownUserData.friends || []).includes(viewingUserId);
       let isFollowing = !isOwnProfile && (ownUserData.following || []).includes(viewingUserId);
 
-      const ROLE_BADGE_CONFIG = {
-        developer: { icon: 'fa-solid fa-code', color: '#44d9e6', label: 'Developer' },
-        admin:     { icon: 'fa-solid fa-shield-halved', color: '#ff4444', label: 'Admin' },
-        mod:       { icon: 'fa-solid fa-gavel', color: '#facc15', label: 'Moderator' },
-      };
-      const roleBadgeHtml = (r) => {
-        const cfg = ROLE_BADGE_CONFIG[r];
-        if (!cfg) return '';
-        return `<span class="role-badge ${r}" data-label="${cfg.label}"><i class="${cfg.icon}"></i></span>`;
-      };
+      // Cache the viewer-agnostic page payload for the instant paint on the next visit.
+      profileCacheSet('page:' + viewingUserId, { userData, friendsList, viewingRoles });
+
       const badgeHtml = viewingRoles.map(roleBadgeHtml).join(' ');
 
       profilePage.innerHTML = `
@@ -768,7 +956,7 @@
               <div><span class="stat-value" id="profileFollowerCount">${followerIds.length}</span> <span class="stat-label">Followers</span></div>
               <div><span class="stat-value">${followingIds.length}</span> <span class="stat-label">Following</span></div>
             </div>
-            ${!isOwnProfile ? `
+            ${!isOwnProfile && user ? `
               <div class="profile-actions">
                 <button class="profile-btn ${areFriends ? 'profile-btn-danger' : 'profile-btn-primary'}" id="btnFriendAction" ${hasOutgoingRequest ? 'disabled' : ''}>${areFriends ? 'Remove Friend' : hasOutgoingRequest ? 'Request Sent' : 'Add Friend'}</button>
                 <button class="profile-btn" id="btnFollowAction">${isFollowing ? 'Following' : 'Follow'}</button>
@@ -839,6 +1027,8 @@
       visitTotalPromise.then(total => {
         const el = document.getElementById('profileVisitCount');
         if (el) el.textContent = total.toLocaleString();
+        const prev = profileCacheGet('page:' + viewingUserId) || {};
+        profileCacheSet('page:' + viewingUserId, { ...prev, visitTotal: total });
       });
 
       // Friends carousel: arrows reveal the next/previous set of friends.
@@ -1001,10 +1191,12 @@
       // Bux dropdown toggle
       const buxWrapper = document.getElementById('buxWrapper');
       const buxBtn = document.getElementById('buxBtn');
-      buxBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        buxWrapper.classList.toggle('open');
-      });
+      if (buxWrapper && buxBtn) {
+        buxBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          buxWrapper.classList.toggle('open');
+        });
+      }
 
       // Settings dropdown toggles
       const closeSettings = () => {

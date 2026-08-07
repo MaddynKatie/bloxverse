@@ -16,6 +16,8 @@
   }
   </script>
   <base href="/bloxverse/">
+  <link rel="preconnect" href="https://esm.sh" crossorigin>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 
     <meta charset="UTF-8" />
   <link rel="icon" type="image/png" href="assets/icons/bloxverseLogo.png" />
@@ -73,7 +75,7 @@
       </div>
       <div class="nav-links" id="navLinks">
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
-        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
+        <button class="nav-link-btn" data-needs-auth onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
       </div>
     </div>
     <div class="nav-center" id="navCenter"></div>
@@ -126,6 +128,8 @@
     const navCenter = document.getElementById('navCenter');
     const navRight = document.getElementById('navRight');
     const grid = document.getElementById('gameGrid');
+    const trendingGrid = document.getElementById('trendingGrid');
+    const officialGrid = document.getElementById('officialGrid');
     const friendsSection = document.getElementById('friendsSection');
     const friendsGrid = document.getElementById('friendsGrid');
 
@@ -166,44 +170,92 @@
       return copy.slice(0, n);
     }
 
-    async function loadGames() {
-      const { loadGameStats, getPublishedGames } = await import('./src/games.js');
-      await loadGameStats();
-      const published = await getPublishedGames();
-      const all = [...games, ...published.filter(g => !g.deleted)];
-      const official = games.filter(g => g.official);
+    function updateCard(game) {
+      document.querySelectorAll('.game-card').forEach(card => {
+        if (card.dataset.gameId !== game.id) return;
+        const visits = card.querySelector('[style*="font-size:11px"]');
+        if (visits) visits.textContent = (game.visits || 0).toLocaleString() + ' visits';
+        const badge = card.querySelector('.active-players-badge span');
+        if (badge) badge.textContent = game.activePlayers || 0;
+      });
+    }
 
-      const trendingGrid = document.getElementById('trendingGrid');
-      const topGames = all.slice().sort((a, b) => (b.visits || 0) - (a.visits || 0));
-      for (const g of shuffleAndTake(topGames, Math.min(6, all.length))) {
+    // ── Catalog snapshot cache (instant paint on repeat visits) ─────────
+    const GAMES_CACHE_KEY = 'bvHomeCatalog';
+    const GAMES_CACHE_TTL = 60000;
+    function readGamesCache(ttlMs) {
+      try {
+        const raw = localStorage.getItem(GAMES_CACHE_KEY);
+        if (!raw) return null;
+        const data = JSON.parse(raw);
+        if (!data || Date.now() - data.at > (ttlMs ?? GAMES_CACHE_TTL)) return null;
+        return data;
+      } catch { return null; }
+    }
+    function writeGamesCache(stats, published) {
+      try {
+        localStorage.setItem(GAMES_CACHE_KEY, JSON.stringify({ at: Date.now(), stats, published }));
+      } catch {}
+    }
+
+    // Paints the catalog instantly from the bundled list — no Firestore wait.
+    function paintCatalog() {
+      const topGames = games.slice().sort((a, b) => (b.visits || 0) - (a.visits || 0));
+      for (const g of shuffleAndTake(topGames, Math.min(6, games.length))) {
         trendingGrid.appendChild(createGameCard(g));
       }
-
-      const officialGrid = document.getElementById('officialGrid');
-      for (const g of official) {
+      for (const g of games.filter(g => g.official)) {
         officialGrid.appendChild(createGameCard(g));
       }
-
-      // Games: all games combined
-      for (const g of all) {
+      for (const g of games) {
         grid.appendChild(createGameCard(g));
       }
-
-      // Also fetch authoritative visit counts from gameStats and update cards
-      getDocs(collection(db, 'gameStats')).then(snap => {
-        const stats = {};
-        snap.forEach(d => { stats[d.id] = d.data(); });
-        document.querySelectorAll('.game-card').forEach(card => {
-          const gid = card.dataset.gameId;
-          if (stats[gid]) {
-            const el = card.querySelector('[style*="font-size:11px"]');
-            if (el) el.textContent = (stats[gid].visits || 0).toLocaleString() + ' visits';
-          }
-        });
-      }).catch(() => {});
     }
-    loadGames().then(() => {
-      onSnapshot(collection(db, 'publishedGames'), (snap) => {
+
+    // Fills in live stats in the background, then patches cards in place.
+    async function loadGames() {
+      const { loadGameStats, getPublishedGames } = await import('./src/games.js');
+      const [, published] = await Promise.all([loadGameStats(), getPublishedGames()]);
+
+      const stats = {};
+      for (const g of games) stats[g.id] = { visits: g.visits || 0, activePlayers: g.activePlayers || 0 };
+      writeGamesCache(stats, published.filter(g => !g.deleted));
+
+      for (const g of [...games, ...published]) {
+        updateCard(g);
+      }
+      const existingIds = new Set([...document.querySelectorAll('.game-card')].map(c => c.dataset.gameId));
+      for (const g of published.filter(g => !g.deleted && !existingIds.has(g.id))) {
+        grid.appendChild(createGameCard(g));
+        trendingGrid.appendChild(createGameCard(g));
+      }
+    }
+
+    // Apply cached live stats + published games instantly, then refresh.
+    {
+      const cachedStats = readGamesCache(10 * 60 * 1000);
+      if (cachedStats && cachedStats.stats) {
+        for (const g of games) {
+          const s = cachedStats.stats[g.id];
+          if (s) {
+            if (s.visits != null) g.visits = s.visits;
+            if (s.activePlayers != null) g.activePlayers = s.activePlayers;
+          }
+        }
+      }
+      const cachedPublished = readGamesCache();
+      if (cachedPublished && Array.isArray(cachedPublished.published)) {
+        for (const g of cachedPublished.published) {
+          if (games.some(h => h.id === g.id)) continue;
+          grid.appendChild(createGameCard(g));
+          trendingGrid.appendChild(createGameCard(g));
+        }
+      }
+      paintCatalog();
+      loadGames();
+    }
+
+    onSnapshot(collection(db, 'publishedGames'), (snap) => {
         snap.docChanges().forEach(change => {
           const data = change.doc.data();
           const gameId = change.doc.id;
@@ -239,7 +291,6 @@
           });
         });
       });
-    });
 
     let currentUserId = null;
     let sentRequests = new Set();
@@ -300,6 +351,10 @@
     }
 
     async function _addFriend(targetId, targetUsername, btn) {
+      if (!currentUserId) {
+        window.location.href = '/bloxverse/auth';
+        return;
+      }
       try {
         await sendFriendRequest(currentUserId, targetId, targetUsername);
         sentRequests.add(targetId);
@@ -426,18 +481,51 @@
 
     let _friendsWithStatus = [];
 
+    const FRIENDS_CACHE_KEY = 'bvHomeFriends';
+    function readFriendsCache() {
+      try {
+        const raw = localStorage.getItem(FRIENDS_CACHE_KEY);
+        if (!raw) return null;
+        const data = JSON.parse(raw);
+        if (!data || !Array.isArray(data.friends)) return null;
+        if (Date.now() - data.at > 60000) return null;
+        return data.friends;
+      } catch { return null; }
+    }
+    function writeFriendsCache(friendsWithStatus) {
+      try {
+        const slim = friendsWithStatus.map(f => ({
+          id: f.id,
+          userIdNum: f.userIdNum || null,
+          username: f.username || 'Unknown',
+          avatarPreview: f.avatarPreview || null,
+          avatarPreviewHead: f.avatarPreviewHead || null,
+          status: f.status || 'offline',
+        }));
+        localStorage.setItem(FRIENDS_CACHE_KEY, JSON.stringify({ at: Date.now(), friends: slim }));
+      } catch {}
+    }
+
     async function refreshFriends() {
       if (!currentUserId) return;
 
       for (const unsub of friendStatusUnsubs.values()) unsub();
       friendStatusUnsubs.clear();
 
-      const friends = await getFriends(currentUserId);
+      // Paint last-known friends instantly so the section isn't blank, then
+      // refresh from Firestore and patch in live statuses.
+      const cached = readFriendsCache();
+      if (cached && cached.length > 0) {
+        _friendsWithStatus = cached;
+        renderFriends(cached);
+      }
 
+      const friends = await getFriends(currentUserId);
       const friendsWithStatus = await getFriendsWithStatus(friends);
       _friendsWithStatus = friendsWithStatus;
 
       renderFriends(friendsWithStatus);
+      writeFriendsCache(friendsWithStatus);
 
       for (const friend of friendsWithStatus) {
         listenFriendStatus(friend);
@@ -453,16 +541,11 @@
     }
 
     onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        window.location.href = sitePath('auth.html');
-        return;
-      }
       if (buxUnsub) { buxUnsub(); buxUnsub = null; }
       if (presence) { presence.goOffline(); presence = null; }
+      document.querySelectorAll('[data-needs-auth]').forEach(el => { el.style.display = user ? '' : 'none'; });
 
       if (user) {
-        // ── Ban guard ────────────────────────────────────────────────────────
-        if (await banGuard(user.uid)) return;
         // ── Real-time ban listener ────────────────────────────────────────
         onSnapshot(doc(db, 'bans', user.uid), (snap) => {
           if (snap.exists() && snap.data().banned) {
@@ -472,21 +555,33 @@
         // ────────────────────────────────────────────────────────────────────
 
         currentUserId = user.uid;
+
+        // Show the friend search bar + friends section immediately.
+        navCenter.innerHTML = renderFriendSearch();
+        document.getElementById('friendSearchInput').addEventListener('input', onFriendSearch);
+        friendsSection.style.display = 'block';
+
+        // ── Ban guard + user profile read run in parallel ────────────────
+        const [banData, userSnap] = await Promise.all([
+          checkBan(user.uid),
+          getDoc(doc(db, 'users', user.uid)),
+        ]);
+        if (banData) {
+          window.location.href = sitePath('ban.html');
+          return;
+        }
+
         let username = 'Player';
         let bux = 0;
         let userNum = null;
-
-        try {
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
-          if (userDoc.exists()) {
-            const data = userDoc.data();
-            username = data.username || username;
-            bux = data.bux || 0;
-            userNum = data.userIdNum;
-            var ownPreview = data.avatarPreviewHead || data.avatarPreview || null;
-          }
-        } catch {}
-        if (typeof ownPreview === 'undefined') var ownPreview = null;
+        let ownPreview = null;
+        if (userSnap.exists()) {
+          const data = userSnap.data();
+          username = data.username || username;
+          bux = data.bux || 0;
+          userNum = data.userIdNum;
+          ownPreview = data.avatarPreviewHead || data.avatarPreview || null;
+        }
 
         // Ensure existing users get a sequential userIdNum
         assignUserIdNum(user.uid).catch(() => {});
@@ -506,9 +601,6 @@
 
         const initial = username.charAt(0).toUpperCase();
         const ownProfileLink = userNum ? `/bloxverse/profile?user=${userNum}` : '/bloxverse/profile';
-
-        navCenter.innerHTML = renderFriendSearch();
-        document.getElementById('friendSearchInput').addEventListener('input', onFriendSearch);
 
         const buxElId = 'buxValue';
         navRight.innerHTML = `
@@ -593,11 +685,12 @@
           if (balEl) balEl.textContent = buxAmount.toLocaleString();
         }, username, user.email);
 
-        friendsSection.style.display = 'block';
         refreshFriends();
       } else {
         currentUserId = null;
-        navCenter.innerHTML = '';
+        // Guests still get the player search bar (Add redirects to auth).
+        navCenter.innerHTML = renderFriendSearch();
+        document.getElementById('friendSearchInput').addEventListener('input', onFriendSearch);
         navRight.innerHTML = `<button class="login-btn" 
 onclick="window.location.href='/bloxverse/auth'">Login / Sign Up</button>`;
         friendsSection.style.display = 'none';

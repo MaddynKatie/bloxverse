@@ -15,6 +15,8 @@
   }
   </script>
   <base href="/bloxverse/">
+  <link rel="preconnect" href="https://esm.sh" crossorigin>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 
     <meta charset="UTF-8" />
   <link rel="icon" type="image/png" href="assets/icons/bloxverseLogo.png" />
@@ -220,23 +222,18 @@
     }
 
     .server-card-avatars {
-      display: flex;
-      align-items: center;
-      min-height: 36px;
+      display: grid;
+      grid-template-columns: repeat(3, 48px);
+      gap: 8px;
     }
 
     .server-avatar-wrap {
       display: flex;
-      margin-left: -8px;
-    }
-
-    .server-avatar-wrap:first-child {
-      margin-left: 0;
     }
 
     .server-avatar {
-      width: 34px;
-      height: 34px;
+      width: 48px;
+      height: 48px;
       border-radius: 50%;
       object-fit: cover;
       display: block;
@@ -248,21 +245,9 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 13px;
+      font-size: 18px;
       font-weight: 700;
       color: #555;
-    }
-
-    .server-avatar-more {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--text-muted);
-      background: var(--bg-primary);
-      margin-left: -8px;
-      border-color: var(--bg-tertiary);
     }
 
     .server-card-players {
@@ -349,7 +334,7 @@
       </div>
       <div class="nav-links" id="navLinks">
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
-        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
+        <button class="nav-link-btn" data-needs-auth onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
       </div>
     </div>
     <div class="nav-center"></div>
@@ -470,8 +455,8 @@
 
   <script src="https://upload-widget.cloudinary.com/global/all.js" type="text/javascript"></script>
   <script type="module">
-    import { games, findGameAsync } from './src/games.js';
-    import { auth, trackPresence, deleteGame, updateGame, banGuard, db, doc, getDoc, onSnapshot, assignUserIdNum, collection, query, where } from './src/firebase.js';
+    import { findGame, findGameAsync } from './src/games.js';
+    import { auth, trackPresence, deleteGame, updateGame, db, doc, getDoc, onSnapshot, assignUserIdNum, collection, query, where } from './src/firebase.js';
     import { onAuthStateChanged } from 'firebase/auth';
 
     const params = new URLSearchParams(window.location.search);
@@ -488,119 +473,205 @@
     const metaCreated = document.getElementById('metaCreated');
     const metaAuthor = document.getElementById('metaAuthor');
     const navRight = document.getElementById('navRight');
+    const detailActions = document.getElementById('detailActions');
+    const serversGrid = document.getElementById('serversGrid');
+    const serversEmpty = document.getElementById('serversEmpty');
 
-    async function init() {
-      try {
-      if (!gameId) {
-        detailTitle.textContent = 'Game not found';
-        return;
-      }
-
-      const game = await findGameAsync(gameId);
-      if (!game) {
-        detailTitle.textContent = 'Game not found';
-        return;
-      }
-
-      function formatDate(dateStr) {
-        if (!dateStr) return '\u2014';
-        if (/^\d{4}\/\d{2}\/\d{2}$/.test(dateStr)) return dateStr;
-        try { return new Date(dateStr).toLocaleDateString(); } catch { return dateStr; }
-      }
-
-      detailTitle.textContent = game.name;
-      detailThumb.src = game.icon;
-      detailThumb.alt = game.name;
-      detailCategory.textContent = game.category || 'Game';
-      detailDescription.textContent = game.description || 'No description available.';
-      metaCategory.textContent = game.category || '—';
-      metaCreated.textContent = game.createdAt ? formatDate(game.createdAt) : '—';
-      if (game.creator) {
-        metaAuthor.textContent = 'Loading...';
-        (async () => {
-          try {
-            const { lookupUserByNum } = await import('./src/firebase.js');
-            const user = await lookupUserByNum(game.creator);
-            if (user) {
-              metaAuthor.textContent = user.username;
-              metaAuthor.style.cursor = 'pointer';
-              metaAuthor.onclick = () => { window.location.href = '/bloxverse/profile?user=' + game.creator; };
-            } else {
-              metaAuthor.textContent = 'Unknown';
-              metaAuthor.style.cursor = '';
-            }
-          } catch { metaAuthor.textContent = 'Unknown'; }
-        })();
-      } else if (game.authorName) {
-        metaAuthor.textContent = game.authorName;
-        metaAuthor.style.color = '#00b06f';
-        metaAuthor.style.cursor = 'pointer';
-        // Look up author's userIdNum for profile link
-        (async () => {
-          try {
-            if (game.authorId) {
-              const uDoc = await getDoc(doc(db, 'users', game.authorId));
-              if (uDoc.exists()) {
-                const authorNum = uDoc.data().userIdNum;
-                if (authorNum) {
-                  metaAuthor.onclick = () => { window.location.href = '/bloxverse/profile?user=' + authorNum; };
-                  return;
-                }
-              }
-            }
-          } catch {}
-          // Fallback: attempt to assign a userIdNum
-          try {
-            const { assignUserIdNum } = await import('./src/firebase.js');
-            const num = await assignUserIdNum(game.authorId);
-            if (num) {
-              metaAuthor.onclick = () => { window.location.href = '/bloxverse/profile?user=' + num; };
-            }
-          } catch {}
-        })();
-      }
-
-      _gameAuthorId = game.authorId || null;
-      _gameData = game;
-      if (_gameAuthorId && auth.currentUser && auth.currentUser.uid === _gameAuthorId) {
-        detailActions.style.display = 'flex';
-      }
-
-      detailActivePlayers.textContent = game.activePlayers || 0;
-      detailVisits.textContent = (game.visits || 0).toLocaleString();
-
-      if (game.deleted) {
-        detailPlayBtn.style.display = 'none';
-        const reviewMsg = document.createElement('div');
-        reviewMsg.id = 'reviewMsg';
-        reviewMsg.style.cssText = 'width:100%;text-align:center;padding:20px 16px;background:rgba(244,67,54,0.1);border:1px solid rgba(244,67,54,0.3);border-radius:8px;color:#e74c3c;font-size:14px;font-weight:500;';
-        reviewMsg.textContent = 'Sorry, this place is currently under review. Try again later.';
-        detailPlayBtn.parentNode.insertBefore(reviewMsg, detailPlayBtn);
-      } else {
-        detailPlayBtn.addEventListener('click', () => {
-          window.location.href = '/bloxverse/game?game=' + gameId;
-        });
-      }
-
-      // Update active players every 10 seconds
-      setInterval(async () => {
-        try {
-          const fresh = await findGameAsync(gameId);
-          if (fresh) {
-            detailActivePlayers.textContent = fresh.activePlayers || 0;
-          }
-        } catch (_) {}
-      }, 10000);
-      } catch (e) {
-        detailTitle.textContent = 'Game not found';
-        console.warn('Could not load game:', e);
-      }
+    function formatNumber(n) {
+      n = Number(n) || 0;
+      if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+      if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+      return String(n);
     }
+    function formatDate(dateStr) {
+      if (!dateStr) return '\u2014';
+      if (/^\d{4}\/\d{2}\/\d{2}$/.test(dateStr)) return dateStr;
+      if (typeof dateStr === 'number') return new Date(dateStr).toLocaleDateString();
+      try { return new Date(dateStr).toLocaleDateString(); } catch { return dateStr; }
+    }
+
+    // ── Detail cache (instant paint on repeat visits, like the base site) ──
+    const GAME_CACHE_TTL = 45000;
+    const GAME_CACHE_PREFIX = 'bv:gd:';
+    const gameCache = new Map();
+    const _cacheSafe = (val) => {
+      if (val === null || typeof val !== 'object') return val;
+      if (typeof val.toDate === 'function' && typeof val.toMillis === 'function') return val.toMillis();
+      if (Array.isArray(val)) return val.map(_cacheSafe);
+      const out = {};
+      for (const k in val) out[k] = _cacheSafe(val[k]);
+      return out;
+    };
+    const gameCacheGet = (key) => {
+      const mem = gameCache.get(key);
+      if (mem) {
+        if (Date.now() - mem.at > GAME_CACHE_TTL) gameCache.delete(key);
+        else return mem.data;
+      }
+      try {
+        const raw = localStorage.getItem(GAME_CACHE_PREFIX + key);
+        if (!raw) return null;
+        const entry = JSON.parse(raw);
+        if (Date.now() - entry.at > GAME_CACHE_TTL) {
+          localStorage.removeItem(GAME_CACHE_PREFIX + key);
+          return null;
+        }
+        gameCache.set(key, { at: entry.at, data: entry.data });
+        return entry.data;
+      } catch { return null; }
+    };
+    const gameCacheSet = (key, data) => {
+      gameCache.set(key, { at: Date.now(), data });
+      try {
+        const serialized = JSON.stringify({ at: Date.now(), data });
+        if (serialized.length > 400000) return;
+        localStorage.setItem(GAME_CACHE_PREFIX + key, serialized);
+      } catch {}
+    };
 
     let _gameAuthorId = null;
     let _gameData = null;
     let _uploadedIcon = null;
-    const detailActions = document.getElementById('detailActions');
+    const _avatarCache = new Map();
+
+    function paintDetail(game) {
+      if (!game) return false;
+      _gameData = game;
+      _gameAuthorId = game.authorId || null;
+      document.title = `${game.name} - BloxVerse`;
+      detailTitle.textContent = game.name;
+      detailThumb.src = game.icon || './assets/icons/demo.png';
+      detailThumb.alt = game.name;
+      detailCategory.textContent = game.category || 'Game';
+      detailDescription.textContent = game.description || 'No description available.';
+      metaCategory.textContent = game.category || '—';
+      metaCreated.textContent = formatDate(game.createdAt);
+      detailActivePlayers.textContent = formatNumber(game.activePlayers || 0);
+      detailVisits.textContent = formatNumber(game.visits || 0);
+      if (game.deleted) {
+        detailPlayBtn.style.display = 'none';
+        let reviewMsg = document.getElementById('reviewMsg');
+        if (!reviewMsg) {
+          reviewMsg = document.createElement('div');
+          reviewMsg.id = 'reviewMsg';
+          reviewMsg.style.cssText = 'width:100%;text-align:center;padding:20px 16px;background:rgba(244,67,54,0.1);border:1px solid rgba(244,67,54,0.3);border-radius:8px;color:#e74c3c;font-size:14px;font-weight:500;';
+          reviewMsg.textContent = 'Sorry, this place is currently under review. Try again later.';
+          detailPlayBtn.parentNode.insertBefore(reviewMsg, detailPlayBtn);
+        }
+      } else {
+        detailPlayBtn.style.display = '';
+        const reviewMsg = document.getElementById('reviewMsg');
+        if (reviewMsg) reviewMsg.remove();
+        detailPlayBtn.onclick = () => { window.location.href = '/bloxverse/game?game=' + encodeURIComponent(gameId); };
+      }
+      return true;
+    }
+
+    // Instant paint: bundled official data + cached snapshot, before any fetch.
+    let _painted = false;
+    (function paintFromCache() {
+      if (!gameId) return;
+      const staticGame = findGame(gameId);
+      const cached = gameCacheGet('page:' + gameId);
+      const game = cached?.game || staticGame;
+      if (game) {
+        _painted = paintDetail(game);
+        if (cached?.authorName) metaAuthor.textContent = cached.authorName;
+        else if (game.authorName) metaAuthor.textContent = game.authorName;
+        paintServersFromCache();
+      }
+    })();
+
+    async function loadDetail() {
+      try {
+        if (!gameId) {
+          detailTitle.textContent = 'Game not found';
+          return;
+        }
+        const game = await findGameAsync(gameId);
+        if (!game) {
+          if (!_painted) detailTitle.textContent = 'Game not found';
+          return;
+        }
+        _painted = paintDetail(game);
+
+        if (game.creator) {
+          const num = game.creator;
+          const cachedAuthor = gameCacheGet('author:' + num);
+          if (cachedAuthor?.username) {
+            metaAuthor.textContent = cachedAuthor.username;
+            metaAuthor.style.cursor = 'pointer';
+            metaAuthor.onclick = () => { window.location.href = '/bloxverse/profile?user=' + num; };
+          } else {
+            metaAuthor.textContent = 'Loading...';
+            try {
+              const { lookupUserByNum } = await import('./src/firebase.js');
+              const user = await lookupUserByNum(num);
+              if (user) {
+                metaAuthor.textContent = user.username;
+                metaAuthor.style.cursor = 'pointer';
+                metaAuthor.onclick = () => { window.location.href = '/bloxverse/profile?user=' + num; };
+                gameCacheSet('author:' + num, { username: user.username, userIdNum: num });
+              } else {
+                metaAuthor.textContent = 'Unknown';
+                metaAuthor.style.cursor = '';
+              }
+            } catch {
+              metaAuthor.textContent = 'Unknown';
+              metaAuthor.style.cursor = '';
+            }
+          }
+        } else if (game.authorName) {
+          metaAuthor.textContent = game.authorName;
+          metaAuthor.style.color = '#00b06f';
+          metaAuthor.style.cursor = 'pointer';
+          (async () => {
+            try {
+              if (game.authorId) {
+                const uDoc = await getDoc(doc(db, 'users', game.authorId));
+                if (uDoc.exists()) {
+                  const authorNum = uDoc.data().userIdNum;
+                  if (authorNum) {
+                    metaAuthor.onclick = () => { window.location.href = '/bloxverse/profile?user=' + authorNum; };
+                    return;
+                  }
+                }
+              }
+            } catch {}
+            try {
+              const { assignUserIdNum } = await import('./src/firebase.js');
+              const num = await assignUserIdNum(game.authorId);
+              if (num) metaAuthor.onclick = () => { window.location.href = '/bloxverse/profile?user=' + num; };
+            } catch {}
+          })();
+        }
+
+        if (_gameAuthorId && auth.currentUser && auth.currentUser.uid === _gameAuthorId) {
+          detailActions.style.display = 'flex';
+        }
+
+        gameCacheSet('page:' + gameId, _cacheSafe({
+          game,
+          authorName: metaAuthor.textContent === 'Loading...' ? null : metaAuthor.textContent,
+        }));
+
+        setInterval(async () => {
+          try {
+            const fresh = await findGameAsync(gameId);
+            if (fresh) {
+              detailActivePlayers.textContent = formatNumber(fresh.activePlayers || 0);
+              gameCacheSet('page:' + gameId, _cacheSafe({ game: fresh, authorName: metaAuthor.textContent }));
+            }
+          } catch (_) {}
+        }, 10000);
+      } catch (e) {
+        if (!_painted) detailTitle.textContent = 'Game not found';
+        console.warn('Could not load game:', e);
+      }
+    }
+    loadDetail();
+
+    // ─── Servers section ──────────────────────────────────────────────────
     const detailDeleteBtn = document.getElementById('detailDeleteBtn');
     const detailEditBtn = document.getElementById('detailEditBtn');
     const editModal = document.getElementById('editModal');
@@ -686,12 +757,32 @@
       }
     });
 
-    init();
-
     // ─── Servers section ──────────────────────────────────────────────────
-    const serversGrid = document.getElementById('serversGrid');
-    const serversEmpty = document.getElementById('serversEmpty');
-    const _avatarCache = new Map();
+    function cachedAvatarUrl(uid) {
+      try {
+        const raw = localStorage.getItem(GAME_CACHE_PREFIX + 'av:' + uid);
+        if (!raw) return null;
+        const entry = JSON.parse(raw);
+        if (Date.now() - entry.at > 86400000) return null;
+        return entry.url;
+      } catch { return null; }
+    }
+    function storeAvatarUrl(uid, url) {
+      if (!url) return;
+      try { localStorage.setItem(GAME_CACHE_PREFIX + 'av:' + uid, JSON.stringify({ at: Date.now(), url })); } catch {}
+    }
+
+    // Paints the last-known server list instantly, before the realtime
+    // listener delivers fresh data.
+    function paintServersFromCache() {
+      if (!gameId) return;
+      const cached = gameCacheGet('servers:' + gameId);
+      if (!cached || !Array.isArray(cached)) return;
+      const servers = cached.slice().sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+      serversEmpty.style.display = servers.length ? 'none' : '';
+      serversGrid.innerHTML = '';
+      for (let i = 0; i < servers.length; i++) serversGrid.appendChild(buildServerCard(servers[i], i));
+    }
 
     function avatarElFor(uid) {
       const wrap = document.createElement('div');
@@ -712,11 +803,19 @@
         }
         return wrap;
       }
+      const cachedUrl = cachedAvatarUrl(uid);
+      if (cachedUrl) {
+        _avatarCache.set(uid, { url: cachedUrl, initial: '' });
+        img.src = cachedUrl;
+        img.style.opacity = '';
+        return wrap;
+      }
       getDoc(doc(db, 'users', uid)).then(snap => {
         const d = snap.exists() ? snap.data() : {};
         const url = d.avatarPreviewHead || d.avatarPreview || null;
         const initial = ((d.username || '?')[0] || '?').toUpperCase();
         _avatarCache.set(uid, { url, initial });
+        storeAvatarUrl(uid, url);
         if (url) { img.src = url; img.style.opacity = ''; }
         else {
           const l = document.createElement('div');
@@ -750,14 +849,7 @@
 
       const avatars = document.createElement('div');
       avatars.className = 'server-card-avatars';
-      const shown = players.slice(0, 5);
-      for (const uid of shown) avatars.appendChild(avatarElFor(uid));
-      if (players.length > 5) {
-        const more = document.createElement('div');
-        more.className = 'server-avatar server-avatar-more';
-        more.textContent = '+' + (players.length - 5);
-        avatars.appendChild(more);
-      }
+      for (const uid of players) avatars.appendChild(avatarElFor(uid));
 
       const count = document.createElement('div');
       count.className = 'server-card-players';
@@ -778,7 +870,8 @@
       const q = query(collection(db, 'servers'), where('gameId', '==', gameId));
       onSnapshot(q, (snap) => {
         const servers = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0));
+          .sort((a, b) => (a.createdAt?.toMillis?.() ?? a.createdAt) - (b.createdAt?.toMillis?.() ?? b.createdAt));
+        gameCacheSet('servers:' + gameId, _cacheSafe(servers));
         serversEmpty.style.display = servers.length ? 'none' : '';
         serversGrid.innerHTML = '';
         servers.forEach((s, i) => serversGrid.appendChild(buildServerCard(s, i)));
@@ -813,8 +906,8 @@
     detailEditBtn.addEventListener('click', openEditModal);
 
     onAuthStateChanged(auth, async (user) => {
+      document.querySelectorAll('[data-needs-auth]').forEach(el => { el.style.display = user ? '' : 'none'; });
       if (user) {
-        if (await banGuard(user.uid)) return;
         trackPresence(user.uid, null, 'game-detail');
         // ── Real-time ban listener ────────────────────────────────────
         onSnapshot(doc(db, 'bans', user.uid), (snap) => {

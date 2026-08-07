@@ -1,10 +1,57 @@
 import { db } from './firebase.js';
 import {
-  collection, doc, setDoc, deleteDoc, getDocs, query, where, orderBy,
+  collection, doc, setDoc, deleteDoc, getDoc, getDocs, query, where, orderBy,
   runTransaction, serverTimestamp, arrayUnion, onSnapshot,
 } from 'firebase/firestore';
 
 export const DEFAULT_MAX_PLAYERS = 10;
+
+// Per-page-session cache of which node URL hosts a logical server.
+const _serverHostCache = new Map();
+
+function normalizeWsUrl(u) {
+  if (!u) return null;
+  let s = String(u).trim();
+  if (!/^wss?:\/\//i.test(s)) s = s.replace(/^https?:\/\//i, 'wss://');
+  return s.replace(/\/+$/, '');
+}
+
+export function cacheServerHost(serverId, url) {
+  if (serverId && url) _serverHostCache.set(serverId, normalizeWsUrl(url));
+}
+
+/**
+ * Pick the starting node URL for a logical server.
+ *  - If the server doc has a hostUrl (a node claimed it), connect there
+ *    directly (one Firestore read, avoids a redirect round-trip).
+ *  - Otherwise pick a random node from the known Render instances; whichever
+ *    node receives the first connection claims it.
+ *  - No serverId (solo) -> the first node.
+ * Liveness is handled by the connection layer: an unreachable node is skipped
+ * on the next attempt, so no node registry or heartbeat is written to
+ * Firestore.
+ */
+export async function resolveServerUrl(serverId, nodeUrls) {
+  const list = Array.isArray(nodeUrls) && nodeUrls.length ? nodeUrls : [nodeUrls].filter(Boolean);
+  if (!serverId) return list[0];
+  const cached = _serverHostCache.get(serverId);
+  if (cached) return cached;
+  if (list.length > 1) {
+    try {
+      const snap = await getDoc(doc(db, 'servers', serverId));
+      if (snap.exists()) {
+        const d = snap.data();
+        if (d.hostUrl) {
+          const u = normalizeWsUrl(d.hostUrl);
+          if (u) { _serverHostCache.set(serverId, u); return u; }
+        }
+      }
+    } catch (e) {
+      console.warn('[Servers] resolve host error:', e);
+    }
+  }
+  return list[Math.floor(Math.random() * list.length)];
+}
 
 export function getServerMaxPlayers(game) {
   return (game && typeof game.maxPlayers === 'number' && game.maxPlayers > 0)

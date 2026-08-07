@@ -1,7 +1,7 @@
 import { sitePath } from './paths.js';
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { initializeFirestore, doc, setDoc, updateDoc, getDoc, deleteDoc, onSnapshot, serverTimestamp, arrayUnion, arrayRemove, increment, collection, getDocs, query, where, runTransaction } from 'firebase/firestore';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, setDoc, updateDoc, getDoc, deleteDoc, onSnapshot, serverTimestamp, arrayUnion, arrayRemove, increment, collection, getDocs, query, where, runTransaction } from 'firebase/firestore';
 import { ProfanityFilter } from 'glin-profanity';
 
 const _filter = new ProfanityFilter({
@@ -66,7 +66,13 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = initializeFirestore(app, { experimentalForceLongPolling: true });
+// Default transport (WebSockets) is much lower-latency than the forced HTTP
+// long-polling used before, and persistentLocalCache serves unchanged reads
+// from IndexedDB so repeat page loads are near-instant. Fresh data still syncs
+// in the background. Multi-tab sync lets several open tabs share one cache
+// instead of warning "Failed to obtain exclusive access to the persistence
+// layer" and silently falling back to memory cache.
+export const db = initializeFirestore(app, { localCache: persistentLocalCache({ tabSettings: persistentMultipleTabManager() }) });
 export { getDoc, doc, setDoc, deleteDoc, onSnapshot, collection, query, where, orderBy, updateDoc } from 'firebase/firestore';
 
 /**

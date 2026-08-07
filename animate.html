@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://esm.sh/three@0.184.0",
+      "three/": "https://esm.sh/three@0.184.0/",
+      "firebase/app": "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js",
+      "firebase/auth": "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js",
+      "firebase/firestore": "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js",
+      "cannon-es": "https://esm.sh/cannon-es@0.20.0",
+      "glin-profanity": "https://esm.sh/glin-profanity@3.3.0"
+    }
+  }
+  </script>
+  <base href="/bloxverse/">
+
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" href="assets/icons/bloxverseLogo.png" />
+  <title>BloxVerse - Animation Editor</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #111; color: #ccc; font-family: 'Segoe UI', system-ui, sans-serif; font-size: 13px; }
+    #app { display: flex; flex-direction: column; height: 100%; }
+
+    #top-bar { display: flex; align-items: center; gap: 16px; padding: 8px 16px; background: #1c1c1e; border-bottom: 1px solid #2a2a2c; flex-shrink: 0; }
+    #top-bar h2 { font-size: 16px; color: #fff; margin-right: 16px; }
+    #top-bar label { color: #999; }
+    #top-bar input { background: #2a2a2c; border: 1px solid #3a3a3c; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+    #top-bar input[type=number] { width: 60px; }
+    .field { display: flex; align-items: center; gap: 6px; }
+    #emote-id { width: 140px; }
+    #emote-name { width: 140px; }
+
+    #main-area { display: flex; flex: 1; overflow: hidden; }
+    #viewport-container { flex: 1; position: relative; background: #222; }
+    #viewport-container canvas { display: block; width: 100% !important; height: 100% !important; }
+    #loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #666; font-size: 18px; z-index: 10; background: #222; }
+
+    #side-panel { width: 260px; background: #1c1c1e; border-left: 1px solid #2a2a2c; display: flex; flex-direction: column; flex-shrink: 0; overflow-y: auto; }
+    #side-panel h3 { font-size: 12px; text-transform: uppercase; color: #888; padding: 10px 12px 6px; letter-spacing: 0.5px; }
+    #bone-items { list-style: none; padding: 0 8px; }
+    #bone-items li { padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 13px; transition: background 0.1s; }
+    #bone-items li:hover { background: #2a2a2c; }
+    #bone-items li.selected { background: #3a5a9f; color: #fff; }
+    #bone-items li .badge { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 8px; vertical-align: middle; }
+    #bone-items li .badge.posed { background: #4caf50; }
+    #bone-items li .badge.idle { background: #555; }
+
+    #rotation-controls { padding: 0 12px 12px; border-top: 1px solid #2a2a2c; margin-top: 4px; }
+    #selected-bone-label { color: #4a8af4; font-weight: 600; }
+    .slider-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+    .slider-row label { width: 16px; font-weight: 700; color: #888; }
+    .slider-row input[type=range] { flex: 1; accent-color: #4a8af4; background: #2a2a2c; height: 4px; border-radius: 2px; -webkit-appearance: none; }
+    .slider-row input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #4a8af4; cursor: pointer; }
+    .slider-row .val { width: 48px; text-align: right; font-family: monospace; color: #aaa; font-size: 12px; }
+    .slider-row .deg { width: 36px; text-align: right; font-family: monospace; color: #666; font-size: 11px; }
+    #rotation-controls button { background: #2a2a2c; border: none; color: #ccc; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-top: 4px; }
+    #rotation-controls button:hover { background: #3a3a3c; }
+    #tool-selector { position: absolute; top: 10px; right: 10px; display: flex; gap: 4px; z-index: 20; background: rgba(28,28,30,0.85); border: 1px solid #3a3a3c; border-radius: 6px; padding: 4px; }
+    #tool-selector .tool-btn { background: transparent; border: none; color: #888; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 16px; line-height: 1; transition: all 0.12s; }
+    #tool-selector .tool-btn:hover { color: #ccc; background: #2a2a2c; }
+    #tool-selector .tool-btn.active { background: #3a5a9f; color: #fff; }
+    #controls-info { padding: 8px 12px 12px; border-top: 1px solid #2a2a2c; margin-top: 4px; }
+    #controls-info h3 { font-size: 12px; text-transform: uppercase; color: #888; padding: 6px 0; letter-spacing: 0.5px; }
+    .shortcut { font-size: 12px; color: #999; padding: 3px 0; }
+    .shortcut kbd { display: inline-block; background: #2a2a2c; border: 1px solid #3a3a3c; border-radius: 3px; padding: 1px 6px; font-size: 11px; font-family: inherit; color: #ccc; }
+
+    #timeline-bar { flex-shrink: 0; border-top: 1px solid #2a2a2c; background: #1c1c1e; padding: 8px 16px; }
+    #timeline-controls { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    #timeline-controls button { background: #2a2a2c; border: none; color: #ccc; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+    #timeline-controls button:hover { background: #3a3a3c; }
+    #timeline-controls button.primary { background: #3a5a9f; color: #fff; }
+    #timeline-controls button.primary:hover { background: #4a6aaf; }
+    #timeline-controls button.danger { background: #8a2a2a; color: #fff; }
+    #timeline-controls button.danger:hover { background: #aa3a3a; }
+    #timeline-controls button.success { background: #2a6a3a; color: #fff; }
+    #timeline-controls button.success:hover { background: #3a7a4a; }
+    #timeline-controls span { color: #888; font-size: 12px; margin-left: auto; }
+
+    #timeline-track { position: relative; height: 32px; background: #2a2a2c; border-radius: 4px; cursor: pointer; overflow: visible; }
+    #playhead { position: absolute; top: -4px; width: 2px; height: 40px; background: #f44; pointer-events: none; z-index: 5; border-radius: 1px; }
+    #playhead::after { content: ''; position: absolute; top: -4px; left: -5px; width: 12px; height: 8px; background: #f44; clip-path: polygon(0 0, 100% 0, 50% 100%); }
+    .kf-marker { position: absolute; top: 4px; width: 12px; height: 12px; background: #ffd700; border: 2px solid #1c1c1e; border-radius: 2px; transform: translateX(-50%) rotate(45deg); cursor: pointer; z-index: 4; }
+    .kf-marker:hover { background: #ffe44d; }
+    .kf-marker.selected { background: #ff6b6b; border-color: #ff6b6b; }
+    #kf-info { font-size: 11px; color: #666; margin-top: 4px; min-height: 18px; }
+
+    #time-display { display: flex; justify-content: space-between; font-family: monospace; color: #666; font-size: 11px; margin-top: 4px; }
+  </style>
+
+  <link rel="stylesheet" href="src/theme.css" />
+  <script type="module" src="src/theme.js"></script>
+</head>
+
+<body>
+  <div id="app">
+    <div id="top-bar">
+      <h2>Animation Editor</h2>
+      <div class="field"><label>ID</label><input id="emote-id" value="custom_emote" placeholder="emote_id"></div>
+      <div class="field"><label>Name</label><input id="emote-name" value="Custom Emote" placeholder="Display Name"></div>
+      <div class="field"><label>Duration</label><input id="emote-duration" type="number" value="3" min="0.1" step="0.1"><label>s</label></div>
+    </div>
+
+    <div id="main-area">
+      <div id="viewport-container">
+        <div id="loading">Loading model…</div>
+        <div id="tool-selector">
+          <button class="tool-btn active" data-tool="rotate" title="Rotate (Q)">⟲</button>
+          <button class="tool-btn" data-tool="translate" title="Move (W)">⟷</button>
+        </div>
+      </div>
+      <div id="side-panel">
+        <div>
+          <h3>Bones</h3>
+          <ul id="bone-items"></ul>
+        </div>
+        <div id="rotation-controls">
+          <h3>Rotation — <span id="selected-bone-label">none</span></h3>
+          <div class="slider-row"><label>X</label><input type="range" min="-6.28" max="6.28" step="0.01" id="rot-x"><span class="val" id="rot-x-val">0.00</span><span class="deg" id="rot-x-deg">0°</span></div>
+          <div class="slider-row"><label>Y</label><input type="range" min="-6.28" max="6.28" step="0.01" id="rot-y"><span class="val" id="rot-y-val">0.00</span><span class="deg" id="rot-y-deg">0°</span></div>
+          <div class="slider-row"><label>Z</label><input type="range" min="-6.28" max="6.28" step="0.01" id="rot-z"><span class="val" id="rot-z-val">0.00</span><span class="deg" id="rot-z-deg">0°</span></div>
+          <button id="btn-reset-bone">Reset Bone</button>
+          <h3 style="margin-top: 10px;">Position — <span id="selected-bone-label-pos">none</span></h3>
+          <div class="slider-row"><label>X</label><input type="range" min="-20" max="20" step="0.01" id="pos-x"><span class="val" id="pos-x-val">0.00</span></div>
+          <div class="slider-row"><label>Y</label><input type="range" min="-20" max="20" step="0.01" id="pos-y"><span class="val" id="pos-y-val">0.00</span></div>
+          <div class="slider-row"><label>Z</label><input type="range" min="-20" max="20" step="0.01" id="pos-z"><span class="val" id="pos-z-val">0.00</span></div>
+          <button id="btn-reset-pos">Reset Position</button>
+        </div>
+        <div id="controls-info">
+          <h3>Shortcuts</h3>
+          <div class="shortcut"><kbd>Space</kbd> Play / Pause</div>
+          <div class="shortcut"><kbd>K</kbd> Add Keyframe</div>
+          <div class="shortcut"><kbd>Del</kbd> Delete Keyframe</div>
+          <div class="shortcut"><kbd>←</kbd> <kbd>→</kbd> Step 0.1s</div>
+          <div class="shortcut"><kbd>Ctrl+C</kbd> Copy Keyframe</div>
+          <div class="shortcut"><kbd>Ctrl+V</kbd> Paste Keyframe</div>
+          <div class="shortcut">Drag keyframe diamonds</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="timeline-bar">
+      <div id="timeline-controls">
+        <button id="btn-play" class="primary">▶ Play</button>
+        <button id="btn-add-kf" class="success">+ Keyframe</button>
+        <button id="btn-del-kf" class="danger">− Keyframe</button>
+        <button id="btn-import">📂 Import JSON</button>
+        <button id="btn-export">⬇ Export</button>
+        <span id="kf-count">0 keyframes</span>
+        <input type="file" id="file-input" accept=".json" style="display:none">
+      </div>
+      <div id="timeline-track">
+        <div id="playhead" style="left:0"></div>
+      </div>
+      <div id="kf-info"></div>
+      <div id="time-display">
+        <span id="time-current">0.00s</span>
+        <span id="time-total">3.00s</span>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="src/animate.js"></script>
+</body>
+</html>

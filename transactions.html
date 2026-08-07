@@ -16,6 +16,8 @@
   }
   </script>
   <base href="/bloxverse/">
+  <link rel="preconnect" href="https://esm.sh" crossorigin>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 
     <meta charset="UTF-8" />
   <link rel="icon" type="image/png" href="assets/icons/bloxverseLogo.png" />
@@ -187,7 +189,7 @@
       </div>
       <div class="nav-links" id="navLinks">
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
-        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
+        <button class="nav-link-btn" data-needs-auth onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
       </div>
     </div>
     <div class="nav-center" id="navCenter"></div>
@@ -243,6 +245,7 @@
 
     onAuthStateChanged(auth, async (user) => {
       if (buxUnsub) { buxUnsub(); buxUnsub = null; }
+      document.querySelectorAll('[data-needs-auth]').forEach(el => { el.style.display = user ? '' : 'none'; });
 
       if (user) {
         if (await banGuard(user.uid)) return;

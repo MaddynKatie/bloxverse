@@ -70,11 +70,12 @@ export async function getFriends(userId) {
   const friendIds = userDoc.data().friends || [];
   if (friendIds.length === 0) return [];
 
+  // Fetch all friends concurrently instead of one round-trip each.
+  const snapshots = await Promise.all(friendIds.map((fid) => getDoc(doc(db, 'users', fid))));
   const friends = [];
-  for (const fid of friendIds) {
-    const fDoc = await getDoc(doc(db, 'users', fid));
+  for (const fDoc of snapshots) {
     if (fDoc.exists()) {
-      friends.push({ id: fid, ...fDoc.data() });
+      friends.push({ id: fDoc.id, ...fDoc.data() });
     }
   }
   return friends;

@@ -2,6 +2,11 @@ import * as THREE from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { FXAAPass } from 'three/examples/jsm/postprocessing/FXAAPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import * as CANNON from 'cannon-es';
 const playerModelUrl = new URL('../assets/models/player.fbx', import.meta.url).href;
 const studTextureUrl = new URL('../assets/textures/stud.jpeg', import.meta.url).href;
@@ -457,11 +462,69 @@ function _updateNameLabelPositions() {
 // ─── Scene ───────────────────────────────────────────────────────────────────
 const scene = new THREE.Scene();
 window.scene = scene;
-scene.fog = new THREE.Fog(0x87CEEB, 140, 350);
+scene.fog = new THREE.Fog(0xAAC9E8, 140, 350);
+scene.background = new THREE.Color(0xAAC9E8);
+
+// ─── Sky dome (skybox) ──────────────────────────────────────────────────────
+// A huge inward-facing gradient dome behind everything. Because it's regular
+// geometry it is tone-mapped/color-managed exactly like the rest of the scene,
+// so the sky can never shift color when post-processing is toggled.
+let _skyMat = null;
+let _skyMesh = null;
+
+function _makeSkyTexture() {
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    // Canvas top = zenith, bottom = below the horizon. Blue sky down to the
+    // horizon line (the middle of the canvas), a warm orange sunset glow right
+    // at the horizon, and the whole lower half (below the horizon) gray like a
+    // classic Roblox skybox.
+    const g = ctx.createLinearGradient(0, 0, 0, size);
+    g.addColorStop(0.0, 'rgb(54,102,192)');   // deeper zenith blue
+    g.addColorStop(0.25, 'rgb(82,140,224)');  // blue
+    g.addColorStop(0.42, 'rgb(122,176,238)'); // light blue
+    g.addColorStop(0.52, 'rgb(170,205,240)'); // pale blue, pushed lower so blue owns the center
+    g.addColorStop(0.58, 'rgb(222,197,165)'); // warm transition into the glow
+    g.addColorStop(0.6, 'rgb(255,200,120)');  // orange glow, narrower band, lower on the horizon
+    g.addColorStop(0.62, 'rgb(210,165,140)'); // orange fading into gray
+    g.addColorStop(0.65, 'rgb(150,150,156)'); // light gray right under the orange
+    g.addColorStop(0.8, 'rgb(128,128,134)');  // gray, easing down
+    g.addColorStop(1.0, 'rgb(106,106,112)');  // darker gray at the bottom, but not too dark
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 1, size);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+}
+
+_skyMat = new THREE.MeshBasicMaterial({
+    map: _makeSkyTexture(),
+    color: new THREE.Color(0xffffff),
+    side: THREE.BackSide,
+    fog: false,
+    depthWrite: false,
+    depthTest: false,
+    toneMapped: true,
+});
+_skyMesh = new THREE.Mesh(new THREE.SphereGeometry(1500, 24, 16), _skyMat);
+_skyMesh.renderOrder = -10;
+_skyMesh.frustumCulled = false;
+scene.add(_skyMesh);
+
+function _applySkyColor(color) {
+    if (_skyMat) _skyMat.color.copy(color);
+}
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 3200);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
+// Skip THREE's shader "Program Info Log" surfacing — the FXAA pass emits
+// harmless D3D compiler warnings (X3595 gradient-in-loop, X4000 f_ApplyFXAA)
+// on every program link, which are just console noise.
+renderer.debug.checkShaderErrors = false;
 renderer.setClearColor(0x87CEEB);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(1.0);
@@ -473,11 +536,63 @@ window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+    if (_composer) _composer.setSize(window.innerWidth, window.innerHeight);
 });
 
+// ─── Bloom post-processing (configurable) ───────────────────────────────────
+let _bloomEnabled = true;
+let _bloomStrength = 0.5;
+let _bloomRadius = 0.4;
+// Above pure white (1.0) so only genuinely HDR-bright things bloom — the sun,
+// emissive stacking — while world-space UI (usernames, chat bubbles)
+// stays crisp instead of glowing.
+let _bloomThreshold = 1.05;
+let _composer = null;
+let _bloomPass = null;
+
+function _ensureBloomComposer() {
+    if (_composer) return;
+    _composer = new EffectComposer(renderer);
+    _composer.addPass(new RenderPass(scene, camera));
+    _bloomPass = new UnrealBloomPass(
+        new THREE.Vector2(window.innerWidth, window.innerHeight),
+        _bloomStrength, _bloomRadius, _bloomThreshold
+    );
+    _composer.addPass(_bloomPass);
+    _composer.addPass(new OutputPass());
+    _composer.addPass(new FXAAPass());
+    _applyBloomConfig();
+}
+
+function _refreshBloomEnabled() {
+    // Bloom only runs at a reasonable quality level — auto-off on weak machines
+    if (_bloomPass) _bloomPass.enabled = _bloomEnabled && _graphicsLevel >= 4;
+}
+
+function _applyBloomConfig() {
+    if (!_composer) _ensureBloomComposer();
+    if (!_bloomPass) return;
+    _refreshBloomEnabled();
+    _bloomPass.strength = _bloomStrength;
+    _bloomPass.radius = _bloomRadius;
+    _bloomPass.threshold = _bloomThreshold;
+}
+
+function _renderFrame() {
+    if (_bloomPass && _bloomPass.enabled) _composer.render();
+    else renderer.render(scene, camera);
+}
+
+_applyBloomConfig();
+
 // ─── Lights ──────────────────────────────────────────────────────────────────
-const ambient = new THREE.AmbientLight(0xffffff, 0.65);
+const ambient = new THREE.AmbientLight(0xffffff, 0.45);
 scene.add(ambient);
+
+// Soft sky/ground fill so shadows aren't pitch black and lit surfaces pick up a
+// natural cool-to-warm daylight gradient (blue sky above, earthy bounce below).
+const hemi = new THREE.HemisphereLight(0xbfd9ff, 0x8a7a55, 0.55);
+scene.add(hemi);
 
 const sun = new THREE.DirectionalLight(0xffffff, 1.2);
 sun.position.set(160, 320, 160);
@@ -495,6 +610,115 @@ sun.shadow.camera.bottom = -200;
 sun.shadow.autoUpdate = true;
 sun.shadow.camera.updateProjectionMatrix();
 scene.add(sun);
+
+// ─── Sun (warm yellow disc + soft glow, no rays) ────────────────────────────
+// A single procedural texture combining a hot yellow solar disc and a soft
+// atmospheric glow around it.
+
+function _makeSunTexture() {
+    const size = 512;
+    const c = size / 2;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+
+    // Golden solar disc that fades out to a soft corona in a single smooth
+    // radial gradient. Kept low-saturation so it reads warm-white, never pink,
+    // even when additively blended over a blue or warm-horizon sky.
+    const grad = ctx.createRadialGradient(c, c, 0, c, c, c);
+    grad.addColorStop(0.0, 'rgba(255,242,196,1)');
+    grad.addColorStop(0.1, 'rgba(255,230,160,1)');
+    grad.addColorStop(0.22, 'rgba(255,220,128,0.96)');
+    grad.addColorStop(0.38, 'rgba(255,212,120,0.55)');
+    grad.addColorStop(0.55, 'rgba(255,204,124,0.32)');
+    grad.addColorStop(0.7, 'rgba(255,198,128,0.16)');
+    grad.addColorStop(0.85, 'rgba(255,193,132,0.06)');
+    grad.addColorStop(1.0, 'rgba(255,190,136,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, size, size);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+}
+
+const _sunTex = _makeSunTexture();
+
+const SUN_SIZE = 150;
+const SUN_HALO_SIZE = 250;
+
+// Main billboard: warm-yellow disc (additive glow). Occlusion-aware so
+// buildings/trees/terrain hide it instead of the sun shining through them.
+const sunSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: _sunTex, color: 0xffffff, transparent: true,
+    depthWrite: false, depthTest: true, fog: false,
+    blending: THREE.AdditiveBlending,
+}));
+sunSprite.scale.set(SUN_SIZE, SUN_SIZE, 1);
+
+// Wide faint halo for a bigger atmospheric glow behind the disc. Neutral-warm
+// so it can never tint the sky area around the sun toward magenta.
+const sunHalo = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: _sunTex, color: 0xfff0d0, transparent: true, opacity: 0.22,
+    depthWrite: false, depthTest: true, fog: false,
+    blending: THREE.AdditiveBlending,
+}));
+sunHalo.scale.set(SUN_HALO_SIZE, SUN_HALO_SIZE, 1);
+
+// Anchor the sun visual where the shadows come from (the sun light direction).
+const sunVisual = new THREE.Group();
+sunVisual.position.copy(sun.position.clone().normalize().multiplyScalar(900));
+sunVisual.add(sunSprite, sunHalo);
+scene.add(sunVisual);
+
+// ─── Clouds ──────────────────────────────────────────────────────────────────
+// A soft drifting cloud layer wrapped around the sky dome, centered on the
+// camera each frame just like the sky. Cheap sprite billboards.
+
+function _makeCloudTex() {
+    const size = 256;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    const blobs = [[0.5, 0.5, 0.32], [0.34, 0.4, 0.2], [0.66, 0.38, 0.22], [0.44, 0.62, 0.18], [0.63, 0.6, 0.16]];
+    for (const [bx, by, br] of blobs) {
+        const g = ctx.createRadialGradient(bx * size, by * size, 0, bx * size, by * size, br * size);
+        g.addColorStop(0, 'rgba(255,255,255,0.85)');
+        g.addColorStop(0.6, 'rgba(255,255,255,0.45)');
+        g.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, size, size);
+    }
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+}
+
+const _cloudTex = _makeCloudTex();
+const _cloudGroup = new THREE.Group();
+scene.add(_cloudGroup);
+
+const CLOUD_COUNT = 8;
+const _clouds = [];
+for (let i = 0; i < CLOUD_COUNT; i++) {
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: _cloudTex, color: 0xffffff, transparent: true, opacity: 0.7,
+        depthWrite: false, depthTest: true, fog: false,
+    }));
+    const ang = (i / CLOUD_COUNT) * Math.PI * 2 + i * 0.7;
+    const rad = 1350 + (i % 3) * 60;
+    const elev = 0.25 + ((i * 37) % 10) / 20;
+    sp.position.set(Math.cos(ang) * rad, elev * rad, Math.sin(ang) * rad);
+    const s = 240 + (i % 4) * 70;
+    sp.scale.set(s * 2.4, s, 1);
+    sp.userData.speed = 0.4 + (i % 5) * 0.18;
+    sp.userData.radius = Math.hypot(sp.position.x, sp.position.z);
+    sp.visible = false;
+    _clouds.push(sp);
+    _cloudGroup.add(sp);
+}
 
 _applyGraphicsLevel();
 
@@ -1752,15 +1976,17 @@ function updateClimbAnimation(dt, moving) {
     const lLeg = anim.bones['Left_Leg'], rLeg = anim.bones['Right_Leg'];
     const lArm = anim.bones['Left_Arm'], rArm = anim.bones['Right_Arm'];
     const torso = anim.bones['Torso'];
-    const grip = moving ? Math.sin(t * 6) * 0.15 : 0;
-    setRot(lArm, 'x', -Math.PI * 0.75 + grip, sp, dt);
-    setRot(rArm, 'x', -Math.PI * 0.75 - grip, sp, dt);
-    setRot(lArm, 'z', 0.35, sp, dt);
-    setRot(rArm, 'z', -0.35, sp, dt);
-    const kick = moving ? Math.sin(t * 6) * 0.3 : 0;
-    setRot(lLeg, 'x', 0.3 + kick, sp, dt);
-    setRot(rLeg, 'x', 0.3 - kick, sp, dt);
-    setRot(torso, 'x', -0.15, sp, dt);
+
+    // Wall climb: arms reach up overhead and alternate hand-over-hand while
+    // the knees pump up alternately, leaning into the wall.
+    const step = moving ? Math.sin(t * 6.5) : 0;
+    setRot(lArm, 'x', -Math.PI * 0.97 + step * 0.4, sp, dt);
+    setRot(rArm, 'x', -Math.PI * 0.97 - step * 0.4, sp, dt);
+    setRot(lArm, 'z', 0.3, sp, dt);
+    setRot(rArm, 'z', -0.3, sp, dt);
+    setRot(lLeg, 'x', 0.4 + step * 0.5, sp, dt);
+    setRot(rLeg, 'x', 0.4 - step * 0.5, sp, dt);
+    setRot(torso, 'x', -0.1, sp, dt);
     setRot(torso, 'z', 0, sp, dt);
 }
 
@@ -1817,15 +2043,14 @@ function updateOtherPlayers(dt) {
         const torso = p.bones['Torso'];
 
         if (p.climbState > 0) {
-            const grip = p.moving ? Math.sin(p.animTime * 6) * 0.15 : 0;
-            if (lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x || 0) - Math.PI * 0.75 + grip, Math.min(1, sp * dt));
-            if (rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x || 0) - Math.PI * 0.75 - grip, Math.min(1, sp * dt));
-            if (lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z || 0) + 0.35, Math.min(1, sp * dt));
-            if (rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z || 0) - 0.35, Math.min(1, sp * dt));
-            const kick = p.moving ? Math.sin(p.animTime * 6) * 0.3 : 0;
-            if (lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x || 0) + 0.3 + kick, Math.min(1, sp * dt));
-            if (rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x || 0) + 0.3 - kick, Math.min(1, sp * dt));
-            if (torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x || 0) - 0.15, Math.min(1, sp * dt));
+            const step = p.moving ? Math.sin(p.animTime * 6.5) : 0;
+            if (lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x || 0) - Math.PI * 0.97 + step * 0.4, Math.min(1, sp * dt));
+            if (rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x || 0) - Math.PI * 0.97 - step * 0.4, Math.min(1, sp * dt));
+            if (lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z || 0) + 0.3, Math.min(1, sp * dt));
+            if (rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z || 0) - 0.3, Math.min(1, sp * dt));
+            if (lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x || 0) + 0.4 + step * 0.5, Math.min(1, sp * dt));
+            if (rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x || 0) + 0.4 - step * 0.5, Math.min(1, sp * dt));
+            if (torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x || 0) - 0.1, Math.min(1, sp * dt));
             if (torso) torso.rotation.z = THREE.MathUtils.lerp(torso.rotation.z, (p.rest['Torso']?.z || 0), Math.min(1, sp * dt));
         } else if (p.grounded === false) {
             if (lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x || 0), Math.min(1, sp * dt));
@@ -2057,6 +2282,30 @@ function _findBone(obj, name) {
         }
     });
     return found;
+}
+
+// HumanoidRootPart: the rig root (a non-bone group) that moves the whole character.
+// Find the group that contains the skeleton bones.
+function _findRigRoot(obj) {
+    let root = null;
+    obj.traverse((o) => {
+        if (root || o === obj || !o.isGroup) return;
+        let hasBone = false;
+        o.traverse((c) => { if (c.isBone) hasBone = true; });
+        if (hasBone) root = o;
+    });
+    return root;
+}
+
+function _registerHumanoidRootPart(bones, rest, obj) {
+    const root = _findRigRoot(obj);
+    if (!root) return null;
+    bones['HumanoidRootPart'] = root;
+    rest['HumanoidRootPart'] = {
+        x: root.rotation.x, y: root.rotation.y, z: root.rotation.z,
+        px: root.position.x, py: root.position.y, pz: root.position.z,
+    };
+    return root;
 }
 
 function _clearPlayerAccessories(userId) {
@@ -2786,6 +3035,8 @@ fbxLoader.load(playerModelUrl, (fbx) => {
             }
         }
     });
+
+    _registerHumanoidRootPart(anim.bones, anim.rest, fbx);
 
     scene.add(fbx);
     character = fbx;
@@ -3782,6 +4033,12 @@ window._bloxverse = {
                 }
             }
         });
+        const rigRoot = _findRigRoot(clone);
+        if (rigRoot && anim.rest['HumanoidRootPart']) {
+            const r = anim.rest['HumanoidRootPart'];
+            rigRoot.rotation.set(r.x, r.y, r.z);
+            rigRoot.position.set(r.px, r.py, r.pz);
+        }
         clone.position.set(x, y ?? 0, z ?? 0);
         clone.name = name || 'CharacterClone';
         clone.visible = true;
@@ -4164,7 +4421,11 @@ window._bloxverse = {
         if (data.lighting) {
             if (data.lighting.Sky) {
                 const s = data.lighting.Sky;
-                if (s.SkyboxColor) scene.background = new THREE.Color(s.SkyboxColor[0], s.SkyboxColor[1], s.SkyboxColor[2]);
+                if (s.SkyboxColor) {
+                    const c = new THREE.Color(s.SkyboxColor[0], s.SkyboxColor[1], s.SkyboxColor[2]);
+                    scene.background = c;
+                    _applySkyColor(c);
+                }
                 if (s.SunColor) {
                     const sun = scene.children.find(c => c.isDirectionalLight && c.position.y > 50);
                     if (sun) sun.color.setRGB(s.SunColor[0], s.SunColor[1], s.SunColor[2]);
@@ -4812,6 +5073,12 @@ window._bloxverse = {
                     child.position.set(r.px, r.py, r.pz);
                 }
             });
+            const rigRoot = _findRigRoot(clone);
+            if (rigRoot && anim.rest['HumanoidRootPart']) {
+                const r = anim.rest['HumanoidRootPart'];
+                rigRoot.rotation.set(r.x, r.y, r.z);
+                rigRoot.position.set(r.px, r.py, r.pz);
+            }
             clone.traverse(child => {
                 if (child.isBone || child.type === 'Bone') {
                     bones[child.name] = child;
@@ -4833,6 +5100,13 @@ window._bloxverse = {
                     }
                 }
             });
+            if (rigRoot) {
+                bones['HumanoidRootPart'] = rigRoot;
+                rest['HumanoidRootPart'] = {
+                    x: rigRoot.rotation.x, y: rigRoot.rotation.y, z: rigRoot.rotation.z,
+                    px: rigRoot.position.x, py: rigRoot.position.y, pz: rigRoot.position.z,
+                };
+            }
             // Strip any clothing overlays cloned from the local character
             const toRemove = [];
             clone.traverse(child => {
@@ -5038,6 +5312,16 @@ window._bloxverse = {
     },
     getGraphicsLevel() { return _graphicsLevel; },
     onQualityChange(fn) { _qualityChangeCallback = fn; },
+    setBloom({ enabled, strength, radius, threshold } = {}) {
+        if (enabled !== undefined) _bloomEnabled = !!enabled;
+        if (strength !== undefined) _bloomStrength = strength;
+        if (radius !== undefined) _bloomRadius = radius;
+        if (threshold !== undefined) _bloomThreshold = threshold;
+        _applyBloomConfig();
+    },
+    getBloom() {
+        return { enabled: _bloomEnabled, strength: _bloomStrength, radius: _bloomRadius, threshold: _bloomThreshold };
+    },
     setFpsLimit(fps) { _targetFps = Math.max(0, fps); },
     getFpsLimit() { return _targetFps; },
     // Mobile key registry — scanned from script IsKeyDown calls
@@ -5101,6 +5385,9 @@ function _applyGraphicsLevel() {
     }
     renderer.setPixelRatio(pr);
 
+    // Post-processing is capped at 1x pixel ratio for affordable bloom
+    if (_composer) _composer.setPixelRatio(Math.min(pr, 1.0));
+
     if (level <= 4) {
         renderer.shadowMap.enabled = false;
         sun.castShadow = false;
@@ -5124,9 +5411,13 @@ function _applyGraphicsLevel() {
         renderer.shadowMap.type = THREE.PCFShadowMap;
     }
 
-    const fogTables = { near: [48, 72, 96, 120, 140, 160, 176, 184, 190, 192], far: [120, 180, 240, 300, 350, 400, 440, 460, 475, 480] };
+    // Fog scales gently with quality but never becomes "in your face" — even
+    // the lowest preset keeps a clear view across the play area.
+    const fogTables = { near: [140, 145, 150, 155, 160, 170, 180, 190, 195, 200], far: [340, 350, 360, 380, 400, 420, 440, 460, 475, 500] };
     scene.fog.near = fogTables.near[level - 1];
     scene.fog.far = fogTables.far[level - 1];
+
+    _refreshBloomEnabled();
 
     if (level >= 8) {
         if (renderer.toneMapping === THREE.NoToneMapping) {
@@ -5256,7 +5547,32 @@ function loop(now) {
     _updateSurfaceGuiProjections();
     _updateLeaderstats(_gameRef);
 
-    renderer.render(scene, camera);
+    // Keep the sky dome centered on the camera
+    if (_skyMesh) _skyMesh.position.copy(camera.position);
+    if (_cloudGroup) _cloudGroup.position.copy(camera.position);
+
+    // Gentle sun shimmer so it feels alive
+    if (sunSprite && sunHalo) {
+        const pulse = 1 + Math.sin(now * 0.0011) * 0.04;
+        sunSprite.scale.set(SUN_SIZE * pulse, SUN_SIZE * pulse, 1);
+        const haloPulse = 1 + Math.sin(now * 0.0008 + 1.4) * 0.03;
+        sunHalo.scale.set(SUN_HALO_SIZE * haloPulse, SUN_HALO_SIZE * haloPulse, 1);
+    }
+
+    // Drifting cloud layer (gated by quality level)
+    if (_graphicsLevel >= 4) {
+        _cloudGroup.visible = true;
+        for (const c of _clouds) {
+            const a = Math.atan2(c.position.z, c.position.x) + c.userData.speed * frameDt;
+            const r = c.userData.radius;
+            c.position.x = Math.cos(a) * r;
+            c.position.z = Math.sin(a) * r;
+        }
+    } else {
+        _cloudGroup.visible = false;
+    }
+
+    _renderFrame();
 
     // FPS-based auto quality adjust
     if (_graphicsAuto) {

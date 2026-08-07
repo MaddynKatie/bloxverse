@@ -16,6 +16,8 @@
   }
   </script>
   <base href="/bloxverse/">
+  <link rel="preconnect" href="https://esm.sh" crossorigin>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 
     <meta charset="UTF-8" />
   <link rel="icon" type="image/png" href="assets/icons/bloxverseLogo.png" />
@@ -369,7 +371,7 @@
       </div>
       <div class="nav-links" id="navLinks">
         <button class="nav-link-btn active" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
-        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
+        <button class="nav-link-btn" data-needs-auth onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
       </div>
     </div>
     <div class="nav-center" id="navCenter"></div>
@@ -469,6 +471,45 @@
     let _p = null;
     let _previewRenderer = null;
     const _clothingPreviewCache = new Map();
+    const PREVIEW_CACHE_KEY = 'bv:mp:previews:v1';
+    const PREVIEW_CACHE_TTL = 1000 * 60 * 60 * 24;
+    function _loadPreviewCache() {
+      try {
+        const raw = localStorage.getItem(PREVIEW_CACHE_KEY);
+        if (!raw) return;
+        const obj = JSON.parse(raw);
+        if (Date.now() - (obj.at || 0) > PREVIEW_CACHE_TTL) {
+          localStorage.removeItem(PREVIEW_CACHE_KEY);
+          return;
+        }
+        for (const id in obj.items) {
+          const v = obj.items[id];
+          if (typeof v === 'string' && v.startsWith('data:image')) _clothingPreviewCache.set(id, v);
+        }
+      } catch {}
+    }
+    function _savePreviewCache(id, dataUrl) {
+      try {
+        const raw = localStorage.getItem(PREVIEW_CACHE_KEY);
+        let obj = null;
+        if (raw) { try { obj = JSON.parse(raw); } catch { obj = null; } }
+        if (!obj || typeof obj !== 'object') obj = { at: Date.now(), items: {} };
+        obj.at = Date.now();
+        obj.items[id] = dataUrl;
+        let total = 0;
+        for (const k in obj.items) total += obj.items[k].length;
+        if (total > 1200000) {
+          const keys = Object.keys(obj.items);
+          let i = 0;
+          while (total > 1200000 && i < keys.length - 1) {
+            total -= obj.items[keys[i]].length;
+            delete obj.items[keys[i]];
+            i++;
+          }
+        }
+        localStorage.setItem(PREVIEW_CACHE_KEY, JSON.stringify(obj));
+      } catch {}
+    }
 
     function buildCatalog() {
       const accs = getAllAccessories().map(a => ({ ...a, _type: 'accessory' }));
@@ -488,7 +529,7 @@
       if (item.icon) return item.icon;
       if (item._type === 'clothing') return '👕';
       if (item._type === 'face') return '😀';
-      if (item._type === 'emote') return '💃';
+      if (item._type === 'emote') return '';
       return '📦';
     }
 
@@ -598,7 +639,10 @@
     }
 
     async function purchaseItem(itemId, price) {
-      if (!auth.currentUser) return;
+      if (!auth.currentUser) {
+        window.location.href = '/bloxverse/auth';
+        return;
+      }
       const uid = auth.currentUser.uid;
 
       if (ownedItems.includes(itemId)) return;
@@ -950,17 +994,107 @@
     async function _generateClothingPreviews() {
       const clothes = getAllClothing().map(c => ({ ...c, _type: 'clothing' }));
       const accs = getAllAccessories().map(a => ({ ...a, _type: 'accessory' }));
-      const items = [...clothes, ...accs];
+      const emotes = getAllEmotes().map(e => ({ ...e, _type: 'emote' }));
+      const items = [...clothes, ...accs, ...emotes];
       for (const item of items) {
         if (_clothingPreviewCache.has(item.id)) continue;
-        const dataUrl = await _generatePreview(item);
+        const dataUrl = item._type === 'emote'
+          ? await _generateEmotePreview(item)
+          : await _generatePreview(item);
         if (dataUrl) {
           _clothingPreviewCache.set(item.id, dataUrl);
-          const img = document.querySelector(`.mp-card[data-id="${CSS.escape(item.id)}"] .mp-card-thumb img`);
-          if (img) img.src = dataUrl;
+          _savePreviewCache(item.id, dataUrl);
+          const thumb = document.querySelector(`.mp-card[data-id="${CSS.escape(item.id)}"] .mp-card-thumb`);
+          if (thumb) {
+            const existing = thumb.querySelector('img');
+            if (existing) {
+              existing.src = dataUrl;
+            } else {
+              // Replace the placeholder (2D asset / emoji icon) with the
+              // rendered preview, keeping the corner badges.
+              const badge = thumb.querySelector('.mp-type-badge');
+              const ownedBadge = thumb.querySelector('.mp-owned-badge');
+              const img = document.createElement('img');
+              img.src = dataUrl;
+              img.alt = item.name || '';
+              img.loading = 'lazy';
+              thumb.innerHTML = '';
+              if (badge) thumb.appendChild(badge);
+              if (ownedBadge) thumb.appendChild(ownedBadge);
+              thumb.insertBefore(img, thumb.firstChild);
+            }
+          }
         }
-        await new Promise(r => setTimeout(r, 30));
+        await new Promise(r => setTimeout(r, 5));
       }
+    }
+
+    // Renders a single frame of an emote pose onto the blank preview character.
+    function _generateEmotePreview(item) {
+      return new Promise(resolve => {
+        if (!_p || !_p.avatar) return resolve(null);
+        const kfs = item.keyframes;
+        if (!kfs || kfs.length === 0) return resolve(null);
+
+        const savedBg = _p.scene.background;
+        _p.scene.background = null;
+        const savedColors = [];
+        _p.avatar.traverse(child => {
+          if (child.isMesh && child.material) {
+            const mats = Array.isArray(child.material) ? child.material : [child.material];
+            for (const mat of mats) {
+              if (mat.color) { savedColors.push({ mat, color: mat.color.getHex() }); mat.color.set(0xffffff); mat.needsUpdate = true; }
+            }
+          }
+        });
+        const hiddenGround = [];
+        _p.scene.traverse(child => { if (child.userData?.isGround) { hiddenGround.push(child); child.visible = false; } });
+
+        // Pick the most expressive keyframe (largest deviation from rest) so
+        // the thumbnail shows an actual pose instead of the resting frame.
+        let bestKf = kfs[0];
+        let bestScore = -1;
+        for (const kf of kfs) {
+          let score = 0;
+          if (kf.bones) for (const b in kf.bones) for (const axis in kf.bones[b]) score += Math.abs(kf.bones[b][axis] || 0);
+          if (kf.position) for (const b in kf.position) for (const axis in kf.position[b]) score += Math.abs(kf.position[b][axis] || 0) * 8;
+          if (score > bestScore) { bestScore = score; bestKf = kf; }
+        }
+        _resetPreviewEmoteBones();
+        _p.emote = { def: item, time: bestKf.time };
+        _updatePreviewEmote(0);
+
+        const cam = new THREE.PerspectiveCamera(20, 1, 0.1, 100);
+        cam.position.set(0, 2.8, 18); cam.lookAt(0, 2.8, 0);
+        const renderer = _getPreviewRenderer();
+        const W = 256, H = 256;
+        const rt = new THREE.WebGLRenderTarget(W, H);
+        rt.texture.colorSpace = THREE.SRGBColorSpace;
+        renderer.setRenderTarget(rt);
+        renderer.render(_p.scene, cam);
+        renderer.setRenderTarget(null);
+        const pixels = new Uint8Array(W * H * 4);
+        renderer.readRenderTargetPixels(rt, 0, 0, W, H, pixels);
+        rt.dispose();
+
+        _p.emote = null;
+        _resetPreviewEmoteBones();
+        for (const { mat, color } of savedColors) { mat.color.setHex(color); mat.needsUpdate = true; }
+        _p.scene.background = savedBg;
+        for (const m of hiddenGround) m.visible = true;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = W; canvas.height = H;
+        const ctx = canvas.getContext('2d');
+        const id = ctx.createImageData(W, H);
+        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+          const si = (y * W + x) * 4, di = ((H - 1 - y) * W + x) * 4;
+          id.data[di] = pixels[si]; id.data[di + 1] = pixels[si + 1];
+          id.data[di + 2] = pixels[si + 2]; id.data[di + 3] = pixels[si + 3];
+        }
+        ctx.putImageData(id, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      });
     }
 
     function startPreviewLoop() {
@@ -1360,6 +1494,7 @@
 
     onAuthStateChanged(auth, async (user) => {
       if (buxUnsub) { buxUnsub(); buxUnsub = null; }
+      document.querySelectorAll('[data-needs-auth]').forEach(el => { el.style.display = user ? '' : 'none'; });
 
       if (user) {
         if (await banGuard(user.uid)) return;
@@ -1499,6 +1634,7 @@
     };
 
     buildCatalog();
+    _loadPreviewCache();
     render();
     initPreview();
 

@@ -16,6 +16,8 @@
   }
   </script>
   <base href="/bloxverse/">
+  <link rel="preconnect" href="https://esm.sh" crossorigin>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
@@ -202,6 +204,22 @@
               </select>
             </div>
           </div>
+          <div class="setting-row">
+            <label id="bloomLabel">Bloom</label>
+            <div class="setting-control">
+              <label class="toggle-switch">
+                <input type="checkbox" id="bloomToggle" checked />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+          <div class="setting-row" id="bloomStrengthRow">
+            <label id="bloomStrengthLabel">Bloom Strength</label>
+            <div class="setting-control">
+              <input type="range" id="bloomStrengthSlider" min="0" max="2" step="0.1" value="0.5" style="width:100px;" />
+              <span id="bloomStrengthValue" style="min-width:28px;text-align:center;">0.5</span>
+            </div>
+          </div>
           <div id="voiceSettingsGroup" style="display:none;">
             <div class="setting-divider"></div>
             <div class="setting-row">
@@ -305,7 +323,7 @@
     import * as THREE from 'three';
     import { games } from './src/games.js';
     import { auth, db, getDoc, doc, setDoc, incrementGameVisits, rewardUniqueVisit, getFollowing, followUser, unfollowUser, getUserProfile, calculateAge, addTrustedFriend, removeTrustedFriend, checkBan, getRoles, banGuard, trackPresence, onSnapshot, collection, assignUserIdNum, submitReport, logTransaction } from './src/firebase.js';
-    import { connectMultiplayer, sendLocalTransform, sendPhysicsState, disconnectMultiplayer, sendChat, setOnVoiceSignal, setOnQueueStatus, sendVoiceSignal, getServerHttpUrl } from './src/multiplayer.js';
+    import { connectMultiplayer, sendLocalTransform, sendPhysicsState, disconnectMultiplayer, sendChat, setOnVoiceSignal, setOnQueueStatus, setOnConnectionLost, sendVoiceSignal, getServerHttpUrl } from './src/multiplayer.js';
     import { joinServer, findOrCreateServer, enqueueForServer, dequeueFromServer, leaveServer, watchServer, watchQueue, getServerMaxPlayers } from './src/servers.js';
     import { onFriendRequests, sendFriendRequest as dbSendFriendRequest, acceptFriendRequest as dbAcceptFriendRequest, declineFriendRequest as dbDeclineFriendRequest, removeFriend } from './src/friends.js';
     import { executeScript, loadScriptsFromStorage, createInstanceProxy } from './src/scriptRuntime.js';
@@ -1094,6 +1112,9 @@
     const graphicsAutoToggle = document.getElementById('graphicsAutoToggle');
     const graphicsModeLabel = document.getElementById('graphicsModeLabel');
     const fpsLimitSelect = document.getElementById('fpsLimitSelect');
+    const bloomToggle = document.getElementById('bloomToggle');
+    const bloomStrengthSlider = document.getElementById('bloomStrengthSlider');
+    const bloomStrengthValue = document.getElementById('bloomStrengthValue');
 
     // Load saved settings
     try {
@@ -1120,6 +1141,17 @@
         fpsLimitSelect.value = saved.fpsLimit;
         if (window._bloxverse) window._bloxverse.setFpsLimit(Number(saved.fpsLimit));
       }
+      if (saved.bloomEnabled != null) {
+        bloomToggle.checked = saved.bloomEnabled;
+        bloomStrengthSlider.disabled = !saved.bloomEnabled;
+        bloomStrengthSlider.style.opacity = saved.bloomEnabled ? '1' : '0.4';
+        if (window._bloxverse) window._bloxverse.setBloom({ enabled: saved.bloomEnabled });
+      }
+      if (saved.bloomStrength != null) {
+        bloomStrengthSlider.value = saved.bloomStrength;
+        bloomStrengthValue.textContent = Number(saved.bloomStrength).toFixed(1);
+        if (window._bloxverse) window._bloxverse.setBloom({ strength: Number(saved.bloomStrength) });
+      }
       if (saved.masterVolume != null) {
         masterVolumeSlider.value = saved.masterVolume;
         masterVolumeValue.textContent = saved.masterVolume;
@@ -1138,8 +1170,10 @@
         window._bloxverse.onQualityChange((level) => {
           graphicsQualitySlider.value = level;
           graphicsQualityValue.textContent = level;
+          syncBloomUi(level);
         });
       }
+      syncBloomUi(currentGraphicsLevel());
     } catch (_) { }
 
     function saveSetting(key, val) {
@@ -1148,6 +1182,34 @@
         data[key] = val;
         localStorage.setItem('bloxverse_settings', JSON.stringify(data));
       } catch (_) { }
+    }
+
+    // Bloom only works at graphics quality >= 4. When the level is below that,
+    // gray out the toggle, the labels and the strength slider, and force bloom
+    // off (the engine already refuses to render it at that level anyway).
+    function currentGraphicsLevel() {
+      if (window._bloxverse && window._bloxverse.getGraphicsLevel) return window._bloxverse.getGraphicsLevel();
+      return parseInt(graphicsQualitySlider.value, 10) || 1;
+    }
+    function syncBloomUi(level) {
+      const supported = level >= 4;
+      const gray = '0.4';
+      bloomToggle.disabled = !supported;
+      bloomToggle.style.opacity = supported ? '1' : gray;
+      document.getElementById('bloomLabel').style.opacity = supported ? '1' : gray;
+      document.getElementById('bloomStrengthLabel').style.opacity = supported ? '1' : gray;
+      if (!supported) {
+        if (bloomToggle.checked) bloomToggle.checked = false;
+        bloomStrengthSlider.disabled = true;
+        bloomStrengthSlider.style.opacity = gray;
+      } else {
+        // Restore the saved preference (the engine keeps it while the level is
+        // too low; the pass is just disabled until quality comes back up).
+        const pref = (window._bloxverse && window._bloxverse.getBloom) ? !!window._bloxverse.getBloom().enabled : bloomToggle.checked;
+        bloomToggle.checked = pref;
+        bloomStrengthSlider.disabled = !pref;
+        bloomStrengthSlider.style.opacity = pref ? '1' : gray;
+      }
     }
 
     function openSettings() {
@@ -1364,6 +1426,7 @@
       graphicsQualityValue.textContent = val;
       saveSetting('graphicsQuality', val);
       if (window._bloxverse) window._bloxverse.setQuality(val);
+      syncBloomUi(val);
     });
 
     graphicsAutoToggle.addEventListener('change', () => {
@@ -1379,12 +1442,27 @@
           window._bloxverse.setQuality(val);
         }
       }
+      syncBloomUi(currentGraphicsLevel());
     });
 
     fpsLimitSelect.addEventListener('change', () => {
       const val = parseInt(fpsLimitSelect.value, 10);
       saveSetting('fpsLimit', val);
       if (window._bloxverse) window._bloxverse.setFpsLimit(val);
+    });
+
+    bloomToggle.addEventListener('change', () => {
+      const enabled = bloomToggle.checked;
+      saveSetting('bloomEnabled', enabled);
+      if (window._bloxverse) window._bloxverse.setBloom({ enabled });
+      syncBloomUi(currentGraphicsLevel());
+    });
+
+    bloomStrengthSlider.addEventListener('input', () => {
+      const val = parseFloat(bloomStrengthSlider.value);
+      bloomStrengthValue.textContent = val.toFixed(1);
+      saveSetting('bloomStrength', val);
+      if (window._bloxverse) window._bloxverse.setBloom({ strength: val });
     });
 
     // Load map
@@ -2655,6 +2733,18 @@
                 } else {
                   loadingQueueEl.textContent = 'Waiting for an available server.';
                 }
+              });
+
+              // Lost the connection to the game server mid-session -> show the
+              // same wifi disconnect overlay used for internet loss.
+              setOnConnectionLost(() => {
+                window._bloxverse?.clearLocalAccessories?.();
+                showOverlay(
+                  'fa-solid fa-wifi', 'Connection Lost', 268,
+                  'Your connection to the game server has been interrupted. Please check your internet connection and try again.',
+                  { text: 'Reconnect', action: () => { window.location.reload(); } },
+                  { text: 'Return to Home', action: () => { window.location.href = '/bloxverse/'; } }
+                );
               });
 
               // ─── Join / Queue for a logical server ──────────────────────
