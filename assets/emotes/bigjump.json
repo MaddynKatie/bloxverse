@@ -1,0 +1,54 @@
+{
+  "id": "bigjump",
+  "name": "Big Jump",
+  "duration": 1.5,
+  "keyframes": [
+    {
+      "time": 0,
+      "bones": {},
+      "position": {}
+    },
+    {
+      "time": 0.2,
+      "bones": {
+        "Torso": {
+          "x": 0.30290292826608956
+        }
+      },
+      "position": {
+        "HumanoidRootPart": {
+          "py": 4.23,
+          "pz": 4.23
+        }
+      }
+    },
+    {
+      "time": 0.4,
+      "bones": {},
+      "position": {
+        "HumanoidRootPart": {
+          "py": 9.95,
+          "pz": 9.74
+        }
+      }
+    },
+    {
+      "time": 0.6,
+      "bones": {},
+      "position": {
+        "HumanoidRootPart": {
+          "pz": 20
+        }
+      }
+    },
+    {
+      "time": 1.5,
+      "bones": {},
+      "position": {
+        "HumanoidRootPart": {
+          "pz": 20
+        }
+      }
+    }
+  ]
+}
