@@ -2,7 +2,7 @@
 <html lang="en">
 
 <head>
-  <script type="importmap">
+    <script type="importmap">
   {
     "imports": {
       "three": "https://esm.sh/three@0.184.0",
@@ -15,15 +15,13 @@
     }
   }
   </script>
-  <base href="/bloxverse/">
-  <link rel="preconnect" href="https://esm.sh" crossorigin>
-  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 
-    <meta charset="UTF-8" />
+  <meta charset="UTF-8" />
   <link rel="icon" type="image/png" href="assets/icons/bloxverseLogo.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BloxVerse</title>
   <link rel="stylesheet" href="src/main.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
     .settings-wrapper {
       position: relative;
@@ -76,6 +74,9 @@
       <div class="nav-links" id="navLinks">
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
         <button class="nav-link-btn" data-needs-auth onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
+        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/download'" style="display:flex;align-items:center;gap:5px;">
+          <i class="fa-solid fa-download" style="font-size:12px;"></i> Download
+        </button>
       </div>
     </div>
     <div class="nav-center" id="navCenter"></div>
