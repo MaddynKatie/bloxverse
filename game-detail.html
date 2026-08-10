@@ -15,7 +15,6 @@
   }
   </script>
   <base href="/bloxverse/">
-  <script type="module" src="src/rpc.js"></script>
   <link rel="preconnect" href="https://esm.sh" crossorigin>
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 
@@ -415,7 +414,7 @@
         <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#7c8cf8" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
       </div>
       <h2 style="font-size:20px;font-weight:700;color:var(--text-primary);margin-bottom:8px;">Open in BloxVerse App?</h2>
-      <p style="font-size:14px;color:var(--text-secondary);margin:0;line-height:1.5;">The BloxVerse desktop app is installed. Open this game in the app to keep your login and play on your desktop?</p>
+      <p style="font-size:14px;color:var(--text-secondary);margin:0;line-height:1.5;">Open this game in the BloxVerse desktop app, or continue playing in your browser. You can choose either way.</p>
       <div style="display:flex;gap:12px;justify-content:center;margin-top:22px;">
         <button id="appPromptBrowser" style="background:var(--bg-tertiary);color:var(--text-secondary);padding:10px 22px;border-radius:8px;border:none;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;">Continue in Browser</button>
         <button id="appPromptOpen" style="background:var(--accent);color:var(--text-primary);padding:10px 22px;border-radius:8px;border:none;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;">Open App</button>
@@ -478,7 +477,7 @@
     import { findGame, findGameAsync } from './src/games.js';
     import { auth, trackPresence, deleteGame, updateGame, db, doc, getDoc, onSnapshot, assignUserIdNum, collection, query, where, getDeviceId, listenBux } from './src/firebase.js';
     import { onAuthStateChanged } from 'firebase/auth';
-    import { isDesktopApp, detectDesktopApp, buildJoinUrl } from './src/app-detect.js';
+    import { isDesktopApp, buildJoinUrl } from './src/app-detect.js';
 
     const params = new URLSearchParams(window.location.search);
     const gameId = params.get('id');
@@ -549,14 +548,8 @@
           window.location.href = siteUrl;
           return;
         }
-        detectDesktopApp().then((installed) => {
-          if (!installed) {
-            window.location.href = siteUrl;
-            return;
-          }
-          _pendingJoin = { gid, sid, siteUrl };
-          appPromptModal.style.display = 'flex';
-        });
+        _pendingJoin = { gid, sid, siteUrl };
+        appPromptModal.style.display = 'flex';
       });
     }
 

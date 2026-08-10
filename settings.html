@@ -16,7 +16,6 @@
   }
   </script>
   <base href="/bloxverse/">
-  <script type="module" src="src/rpc.js"></script>
   <link rel="preconnect" href="https://esm.sh" crossorigin>
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 
@@ -395,7 +394,6 @@
     import { auth, db, calculateAge, logTransaction, assignUserIdNum, trackPresence } from './src/firebase.js';
     import { onAuthStateChanged, signOut, updateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider, sendEmailVerification } from 'firebase/auth';
     import { doc, getDoc, setDoc, onSnapshot, updateDoc, increment, collection, getDocs, query, where, limit } from 'firebase/firestore';
-    import { isRpcEnabled, setRpcEnabled } from './src/rpc.js';
 
     const _checkSvg = '<span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:#22c55e;flex-shrink:0;"><svg viewBox="0 0 16 16" width="9" height="9" fill="none"><path d="M3.5 8.5L6.5 11.5L12.5 4.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
     const _xSvg = '<span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:#e74c3c;flex-shrink:0;"><svg viewBox="0 0 16 16" width="8" height="8" fill="none"><path d="M4 4L12 12M12 4L4 12" stroke="white" stroke-width="2" stroke-linecap="round"/></svg></span>';
@@ -974,8 +972,15 @@
         const inApp = !!(window.bloxverseApp && window.bloxverseApp.isApp);
         rpcRow.style.display = inApp ? '' : 'none';
         if (inApp) {
-          rpcToggle.checked = isRpcEnabled();
-          rpcToggle.addEventListener('change', () => setRpcEnabled(rpcToggle.checked));
+          rpcToggle.checked = localStorage.getItem('bloxverse_rpc_enabled') !== 'false';
+          rpcToggle.addEventListener('change', () => {
+            localStorage.setItem('bloxverse_rpc_enabled', rpcToggle.checked ? 'true' : 'false');
+            if (rpcToggle.checked) {
+              window.bloxverseApp?.setActivity?.({ details: 'In the menu', state: 'In settings', startTimestamp: Date.now() });
+            } else {
+              window.bloxverseApp?.clearActivity?.();
+            }
+          });
         }
       }
 

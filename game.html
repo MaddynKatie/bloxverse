@@ -16,7 +16,6 @@
   }
   </script>
   <base href="/bloxverse/">
-  <script type="module" src="src/rpc.js"></script>
   <link rel="preconnect" href="https://esm.sh" crossorigin>
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 
@@ -342,7 +341,6 @@
     import { ProfanityFilter } from 'glin-profanity';
     import { loadGameScriptModules } from './src/game-scripts.js';
     import { sitePath } from './src/paths.js';
-    import { reportGameActivity, clearActivity, isRpcEnabled, setRpcEnabled } from './src/rpc.js';
     auth.onAuthStateChanged((user) => {
       if (!user) {
         window.location.href = sitePath('auth.html');
@@ -837,10 +835,16 @@
     }
     async function updateDiscordGamePresence() {
       if (!_discordCreator) _discordCreator = await resolveDiscordCreator();
-      reportGameActivity(game?.name || 'a game', _currentPlayerList.length, _discordCreator);
+      if (window.bloxverseApp?.setActivity) {
+        window.bloxverseApp.setActivity({
+          details: String(game?.name || 'a game'),
+          state: `${_currentPlayerList.length} in server | by ${_discordCreator}`,
+          startTimestamp: Date.now(),
+        });
+      }
     }
-    window.addEventListener('pagehide', () => clearActivity());
-    window.addEventListener('beforeunload', () => clearActivity());
+    window.addEventListener('pagehide', () => window.bloxverseApp?.clearActivity?.());
+    window.addEventListener('beforeunload', () => window.bloxverseApp?.clearActivity?.());
 
     async function renderLeaderboard(players) {
       if (players.length === 0) {
@@ -1463,9 +1467,9 @@
 
     const discordRpcToggle = document.getElementById('discordRpcToggle');
     if (discordRpcToggle) {
-      discordRpcToggle.checked = isRpcEnabled();
+      discordRpcToggle.checked = localStorage.getItem('bloxverse_rpc_enabled') !== 'false';
       discordRpcToggle.addEventListener('change', () => {
-        setRpcEnabled(discordRpcToggle.checked);
+        localStorage.setItem('bloxverse_rpc_enabled', discordRpcToggle.checked ? 'true' : 'false');
         if (discordRpcToggle.checked) updateDiscordGamePresence();
       });
     }
