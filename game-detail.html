@@ -25,6 +25,37 @@
   <link rel="stylesheet" href="src/main.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
+    .settings-wrapper {
+      position: relative;
+    }
+    .settings-dropdown {
+      display: none;
+      position: absolute;
+      top: 100%;
+      right: 0;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      min-width: 140px;
+      z-index: 100;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .settings-dropdown.open { display: block; }
+    .settings-dropdown button {
+      display: block;
+      width: 100%;
+      padding: 10px 14px;
+      border: none;
+      background: none;
+      color: var(--text-secondary);
+      font-size: 13px;
+      text-align: left;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .settings-dropdown button:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+
     .detail-header {
       position: relative;
       width: 100%;
