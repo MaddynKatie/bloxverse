@@ -1,5 +1,6 @@
 import { auth, db, banGuard, isUsernameTaken, getEmailByUsername, backfillUsernameEntry, assignUserIdNum } from './firebase.js';
 import { sitePath } from './paths.js';
+import { fetchApi } from './api.js';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -434,11 +435,6 @@ function getAuthErrorMessage(code) {
 
 // ─── Two-Factor Authentication (TOTP) ─────────────────────────────────────
 
-function _getServerBase() {
-  return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://localhost:8080' : 'https://bloxverse.onrender.com';
-}
-
 function _cancelTfa() {
   signOut(auth);
   sessionStorage.removeItem('_pendingTotp');
@@ -480,7 +476,7 @@ document.getElementById('totpVerifyBtn')?.addEventListener('click', async () => 
     let usedIndex = -1;
 
     if (isRecovery) {
-      const res = await fetch(_getServerBase() + '/api/2fa/recover', {
+      const res = await fetchApi('/api/2fa/recover', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: window._tfaEmail, code, recoveryCodes: window._tfaRecoveryCodes })
@@ -497,7 +493,7 @@ document.getElementById('totpVerifyBtn')?.addEventListener('click', async () => 
         return;
       }
     } else {
-      const res = await fetch(_getServerBase() + '/api/2fa/verify', {
+      const res = await fetchApi('/api/2fa/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: window._tfaEmail, code, secret: window._tfaSecret })

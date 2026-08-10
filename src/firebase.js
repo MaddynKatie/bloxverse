@@ -173,6 +173,19 @@ export async function updateBux(userId, amount) {
   return updateDoc(doc(db, 'users', userId), { bux: amount });
 }
 
+export function getDeviceId() {
+  try {
+    let id = localStorage.getItem('bv:deviceId');
+    if (!id) {
+      id = Date.now().toString(36) + '_' + Math.random().toString(36).slice(2) + '_' + Math.random().toString(36).slice(2);
+      localStorage.setItem('bv:deviceId', id);
+    }
+    return id;
+  } catch {
+    return 'unknown';
+  }
+}
+
 export function trackPresence(userId, gameId, page) {
   const presenceRef = doc(db, 'presence', userId);
   let active = true;

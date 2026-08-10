@@ -789,7 +789,7 @@ function _refreshBlockTextures() {
         const mats = Array.isArray(child.material) ? child.material : [child.material];
         const color = mats[0]?.color?.getHex();
         if (color == null) return;
-        child.material = getCachedMats(sw, sh, sd, color);
+        child.material = getCachedMats(color);
         applyMeshTransparency(child, child.userData.transparency || 0);
         for (const m of mats) { if (m) oldMats.add(m); }
     });
@@ -816,29 +816,53 @@ fetch(inletTextureUrl)
     })
     .catch(err => console.error('inlet texture load failed:', err));
 
-function studTex(rx, ry) {
+let _sharedStudTex = null;
+let _sharedInletTex = null;
+
+function studTex() {
     if (!_studTexReady) return null;
-    const t = new THREE.Texture(_studTexImage);
-    t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    t.colorSpace = THREE.SRGBColorSpace;
-    t.repeat.set(rx, ry);
-    t.needsUpdate = true;
-    return t;
+    if (!_sharedStudTex) {
+        _sharedStudTex = new THREE.Texture(_studTexImage);
+        _sharedStudTex.wrapS = _sharedStudTex.wrapT = THREE.RepeatWrapping;
+        _sharedStudTex.colorSpace = THREE.SRGBColorSpace;
+        _sharedStudTex.needsUpdate = true;
+    }
+    return _sharedStudTex;
 }
 
-function inletTex(rx, ry) {
+function inletTex() {
     if (!_inletTexReady) return null;
-    const t = new THREE.Texture(_inletTexImage);
-    t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    t.colorSpace = THREE.SRGBColorSpace;
-    t.repeat.set(rx, ry);
-    t.needsUpdate = true;
-    return t;
+    if (!_sharedInletTex) {
+        _sharedInletTex = new THREE.Texture(_inletTexImage);
+        _sharedInletTex.wrapS = _sharedInletTex.wrapT = THREE.RepeatWrapping;
+        _sharedInletTex.colorSpace = THREE.SRGBColorSpace;
+        _sharedInletTex.needsUpdate = true;
+    }
+    return _sharedInletTex;
 }
 
 function getCachedGeo(sw, sh, sd) {
     const key = `${sw},${sh},${sd}`;
-    if (!geoCache.has(key)) geoCache.set(key, new THREE.BoxGeometry(sw, sh, sd));
+    if (!geoCache.has(key)) {
+        const geo = new THREE.BoxGeometry(sw, sh, sd);
+        const norm = geo.getAttribute('normal');
+        const uv = geo.getAttribute('uv');
+        if (norm && uv) {
+            const arr = uv.array;
+            for (let i = 0; i < norm.count; i++) {
+                const nx = norm.getX(i);
+                const ny = norm.getY(i);
+                const nz = norm.getZ(i);
+                let repU = 1, repV = 1;
+                if (Math.abs(nx) > 0.5) { repU = sd; repV = sh; }
+                else if (Math.abs(ny) > 0.5) { repU = sw; repV = sd; }
+                else if (Math.abs(nz) > 0.5) { repU = sw; repV = sh; }
+                arr[i * 2] *= (repU / STUDS_PER_TILE);
+                arr[i * 2 + 1] *= (repV / STUDS_PER_TILE);
+            }
+        }
+        geoCache.set(key, geo);
+    }
     return geoCache.get(key);
 }
 
@@ -850,19 +874,34 @@ function getCachedSphereGeo(radius) {
 
 function getCachedCylGeo(radius, height) {
     const key = `cyl:${radius},${height}`;
-    if (!geoCache.has(key)) geoCache.set(key, new THREE.CylinderGeometry(radius, radius, height, 24));
+    if (!geoCache.has(key)) {
+        const geo = new THREE.CylinderGeometry(radius, radius, height, 24);
+        const norm = geo.getAttribute('normal');
+        const uv = geo.getAttribute('uv');
+        if (norm && uv) {
+            const arr = uv.array;
+            for (let i = 0; i < norm.count; i++) {
+                const ny = norm.getY(i);
+                if (Math.abs(ny) > 0.5) {
+                    const rep = (radius * 2) / STUDS_PER_TILE;
+                    arr[i * 2] *= rep;
+                    arr[i * 2 + 1] *= rep;
+                }
+            }
+        }
+        geoCache.set(key, geo);
+    }
     return geoCache.get(key);
 }
 
-function getCachedMats(sw, sh, sd, color) {
-    const key = `${sw},${sh},${sd},${color}`;
+function getCachedMats(color) {
+    const key = `mat:${color}`;
     if (matCache.has(key)) return matCache.get(key);
-    const t = (v) => v / STUDS_PER_TILE;
     const mats = [
         new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0 }), // right
         new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0 }), // left
-        new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0, map: studTex(t(sw), t(sd)) }), // top
-        new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0, map: inletTex(t(sw), t(sd)) }), // bottom
+        new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0, map: studTex() }), // top
+        new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0, map: inletTex() }), // bottom
         new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0 }), // front
         new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0 }), // back
     ];
@@ -1093,9 +1132,9 @@ function addStud(sw, sh, sd, color, x, y, z, rx = 0, ry = 0, rz = 0, anchored = 
         mesh = new THREE.Mesh(getCachedSphereGeo(radius), getSphereMat(color));
     } else if (shape === 'Cylinder') {
         const radius = Math.max(sw, sd) / 2;
-        mesh = new THREE.Mesh(getCachedCylGeo(radius, sh), getCachedMats(sw, sh, sd, color));
+        mesh = new THREE.Mesh(getCachedCylGeo(radius, sh), getCachedMats(color));
     } else {
-        mesh = new THREE.Mesh(getCachedGeo(sw, sh, sd), getCachedMats(sw, sh, sd, color));
+        mesh = new THREE.Mesh(getCachedGeo(sw, sh, sd), getCachedMats(color));
     }
     const cy = y + sh / 2;
     mesh.position.set(x, cy, z);
@@ -1268,6 +1307,7 @@ function _optimizeScene() {
         const merged = _mergeGeometries(geos);
         if (!merged) continue;
         const mergedMesh = new THREE.Mesh(merged, meshes[0].material);
+        mergedMesh.userData.halfSize = meshes[0].userData.halfSize;
         mergedMesh.castShadow = true;
         mergedMesh.receiveShadow = true;
         scene.add(mergedMesh);

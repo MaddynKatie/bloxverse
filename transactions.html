@@ -16,6 +16,7 @@
   }
   </script>
   <base href="/bloxverse/">
+  <script type="module" src="src/rpc.js"></script>
   <link rel="preconnect" href="https://esm.sh" crossorigin>
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 
@@ -190,6 +191,9 @@
       <div class="nav-links" id="navLinks">
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
         <button class="nav-link-btn" data-needs-auth onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
+        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/download'" style="display:flex;align-items:center;gap:5px;">
+          <i class="fa-solid fa-download" style="font-size:12px;"></i> Download
+        </button>
       </div>
     </div>
     <div class="nav-center" id="navCenter"></div>

@@ -16,6 +16,7 @@
   }
   </script>
   <base href="/bloxverse/">
+  <script type="module" src="src/rpc.js"></script>
   <link rel="preconnect" href="https://esm.sh" crossorigin>
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 
@@ -380,6 +381,9 @@
       <div class="nav-links" id="navLinks">
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
         <button class="nav-link-btn" data-needs-auth onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
+        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/download'" style="display:flex;align-items:center;gap:5px;">
+          <i class="fa-solid fa-download" style="font-size:12px;"></i> Download
+        </button>
       </div>
     </div>
     <div class="nav-right" id="navRight"></div>
@@ -391,6 +395,7 @@
     import { auth, db, calculateAge, logTransaction, assignUserIdNum, trackPresence } from './src/firebase.js';
     import { onAuthStateChanged, signOut, updateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider, sendEmailVerification } from 'firebase/auth';
     import { doc, getDoc, setDoc, onSnapshot, updateDoc, increment, collection, getDocs, query, where, limit } from 'firebase/firestore';
+    import { isRpcEnabled, setRpcEnabled } from './src/rpc.js';
 
     const _checkSvg = '<span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:#22c55e;flex-shrink:0;"><svg viewBox="0 0 16 16" width="9" height="9" fill="none"><path d="M3.5 8.5L6.5 11.5L12.5 4.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
     const _xSvg = '<span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:#e74c3c;flex-shrink:0;"><svg viewBox="0 0 16 16" width="8" height="8" fill="none"><path d="M4 4L12 12M12 4L4 12" stroke="white" stroke-width="2" stroke-linecap="round"/></svg></span>';
@@ -558,6 +563,16 @@
               <option value="public" ${(userData.profilePrivacy || 'public') === 'public' ? 'selected' : ''}>Everyone</option>
               <option value="friends" ${userData.profilePrivacy === 'friends' ? 'selected' : ''}>Friends Only</option>
             </select>
+          </div>
+          <div class="settings-row" id="rpcRow" style="display:none;">
+            <div>
+              <div class="settings-row-label">Discord RPC</div>
+              <div class="settings-row-desc">Show your BloxVerse activity on Discord (desktop app)</div>
+            </div>
+            <label class="settings-toggle">
+              <input type="checkbox" id="rpcToggle" />
+              <span></span>
+            </label>
           </div>
         </div>
 
@@ -950,6 +965,18 @@
         privacySelect.addEventListener('change', async () => {
           await setDoc(doc(db, 'users', user.uid), { profilePrivacy: privacySelect.value }, { merge: true });
         });
+      }
+
+      // Discord RPC — app only (hidden on the public website)
+      const rpcRow = document.getElementById('rpcRow');
+      const rpcToggle = document.getElementById('rpcToggle');
+      if (rpcRow && rpcToggle) {
+        const inApp = !!(window.bloxverseApp && window.bloxverseApp.isApp);
+        rpcRow.style.display = inApp ? '' : 'none';
+        if (inApp) {
+          rpcToggle.checked = isRpcEnabled();
+          rpcToggle.addEventListener('change', () => setRpcEnabled(rpcToggle.checked));
+        }
       }
 
       const voiceChatToggle = document.getElementById('voiceChatToggle');

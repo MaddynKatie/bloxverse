@@ -16,6 +16,7 @@
   }
   </script>
   <base href="/bloxverse/">
+  <script type="module" src="src/rpc.js"></script>
   <link rel="preconnect" href="https://esm.sh" crossorigin>
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 
@@ -220,6 +221,15 @@
               <span id="bloomStrengthValue" style="min-width:28px;text-align:center;">0.5</span>
             </div>
           </div>
+          <div class="setting-row">
+            <label>Discord RPC</label>
+            <div class="setting-control">
+              <label class="toggle-switch">
+                <input type="checkbox" id="discordRpcToggle" checked />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
           <div id="voiceSettingsGroup" style="display:none;">
             <div class="setting-divider"></div>
             <div class="setting-row">
@@ -322,7 +332,7 @@
   <script type="module">
     import * as THREE from 'three';
     import { games } from './src/games.js';
-    import { auth, db, getDoc, doc, setDoc, incrementGameVisits, rewardUniqueVisit, getFollowing, followUser, unfollowUser, getUserProfile, calculateAge, addTrustedFriend, removeTrustedFriend, checkBan, getRoles, banGuard, trackPresence, onSnapshot, collection, assignUserIdNum, submitReport, logTransaction } from './src/firebase.js';
+    import { auth, db, getDoc, doc, setDoc, incrementGameVisits, rewardUniqueVisit, getFollowing, followUser, unfollowUser, getUserProfile, calculateAge, addTrustedFriend, removeTrustedFriend, checkBan, getRoles, banGuard, trackPresence, onSnapshot, collection, assignUserIdNum, submitReport, logTransaction, lookupUserByNum, getDeviceId } from './src/firebase.js';
     import { connectMultiplayer, sendLocalTransform, sendPhysicsState, disconnectMultiplayer, sendChat, setOnVoiceSignal, setOnQueueStatus, setOnConnectionLost, sendVoiceSignal, getServerHttpUrl } from './src/multiplayer.js';
     import { joinServer, findOrCreateServer, enqueueForServer, dequeueFromServer, leaveServer, watchServer, watchQueue, getServerMaxPlayers } from './src/servers.js';
     import { onFriendRequests, sendFriendRequest as dbSendFriendRequest, acceptFriendRequest as dbAcceptFriendRequest, declineFriendRequest as dbDeclineFriendRequest, removeFriend } from './src/friends.js';
@@ -332,6 +342,7 @@
     import { ProfanityFilter } from 'glin-profanity';
     import { loadGameScriptModules } from './src/game-scripts.js';
     import { sitePath } from './src/paths.js';
+    import { reportGameActivity, clearActivity, isRpcEnabled, setRpcEnabled } from './src/rpc.js';
     auth.onAuthStateChanged((user) => {
       if (!user) {
         window.location.href = sitePath('auth.html');
@@ -800,6 +811,36 @@
     const _playerRoles = new Map();     // userId -> role
     let _currentPlayerList = []; // current remote players from server
     let _selectedPlayerId = null;
+
+    // Discord Rich Presence: "Playing <game> / <n> in server | by <creator>".
+    // Re-rendered whenever the server player list changes; cleared on leave.
+    let _discordCreator = null;
+    async function resolveDiscordCreator() {
+      const g = game || {};
+      // Published games: the users doc holds the author's current username.
+      if (g.authorId) {
+        try {
+          const uSnap = await getDoc(doc(db, 'users', g.authorId));
+          const username = uSnap.exists() ? uSnap.data().username : null;
+          if (username) return username;
+        } catch (e) {}
+      }
+      if (g.authorName && g.authorName !== 'Unknown') return g.authorName;
+      // Official games carry the creator's userIdNum.
+      if (g.creator) {
+        try {
+          const user = await lookupUserByNum(g.creator);
+          if (user && user.username && user.username !== 'Unknown') return user.username;
+        } catch (e) {}
+      }
+      return 'BloxVerse';
+    }
+    async function updateDiscordGamePresence() {
+      if (!_discordCreator) _discordCreator = await resolveDiscordCreator();
+      reportGameActivity(game?.name || 'a game', _currentPlayerList.length, _discordCreator);
+    }
+    window.addEventListener('pagehide', () => clearActivity());
+    window.addEventListener('beforeunload', () => clearActivity());
 
     async function renderLeaderboard(players) {
       if (players.length === 0) {
@@ -1419,6 +1460,15 @@
         if (!enabled) window._bloxverse._disableShiftLock?.();
       }
     });
+
+    const discordRpcToggle = document.getElementById('discordRpcToggle');
+    if (discordRpcToggle) {
+      discordRpcToggle.checked = isRpcEnabled();
+      discordRpcToggle.addEventListener('change', () => {
+        setRpcEnabled(discordRpcToggle.checked);
+        if (discordRpcToggle.checked) updateDiscordGamePresence();
+      });
+    }
 
     graphicsQualitySlider.addEventListener('input', () => {
       if (graphicsAutoToggle.checked) return;
@@ -2253,6 +2303,7 @@
 
     function startGame() {
       setLoad(15, 'Initializing engine...');
+      updateDiscordGamePresence();
 
       // Early presence: mark online immediately so friends don't see "offline" during load
       let presence = null;
@@ -2792,6 +2843,7 @@
                 },
                 (players) => {
                   _currentPlayerList = players;
+                  updateDiscordGamePresence();
                   for (const p of players) {
                     _playerUsernames.set(p.userId, p.username);
                     _playerUserIds.set(p.userId, p.userIdNum);
@@ -3734,18 +3786,24 @@
               }
 
               // ─── Multi-Device Detection ────────────────────────────────────
+              // Sessions write a per-session id plus a stable per-device id.
+              // Only a session from a *different* device is a conflict, so the
+              // desktop app (which inherits the browser's device id through the
+              // deep link) and the website on the same computer don't fight.
               let _multiDeviceUnsub;
               if (user.uid) {
                 const presenceRef = doc(db, 'presence', user.uid);
+                const deviceId = new URLSearchParams(window.location.search).get('deviceId') || getDeviceId();
                 // Store this session's ID BEFORE setting up the listener
                 window._bloxverseSessionId = Date.now() + '_' + Math.random().toString(36).slice(2);
                 window._sessionInitialized = false;
 
                 _multiDeviceUnsub = onSnapshot(presenceRef, (snap) => {
-                  // Ignore initial snapshots until we've written our own session ID
+                  // Ignore snapshots until we've written our own session ID
                   if (!window._sessionInitialized) return;
                   if (!snap.exists()) return;
                   const data = snap.data();
+                  if (data._deviceId && data._deviceId === deviceId) return;
                   if (data._sessionId && data._sessionId !== window._bloxverseSessionId) {
                     leaveCurrentServer();
                     disconnectMultiplayer();
@@ -3758,7 +3816,7 @@
                         text: 'Reconnect',
                         action: () => {
                           window._bloxverseSessionId = Date.now() + '_' + Math.random().toString(36).slice(2);
-                          setDoc(presenceRef, { _sessionId: window._bloxverseSessionId }, { merge: true }).catch(() => { });
+                          setDoc(presenceRef, { _sessionId: window._bloxverseSessionId, _deviceId: deviceId }, { merge: true }).catch(() => { });
                           hideOverlay();
                           window.location.reload();
                         }
@@ -3767,10 +3825,20 @@
                     );
                   }
                 });
-                // Update presence with session ID (do this after the initial presence setup)
+                // Write our session ID before honoring snapshots (retry until
+                // it lands) so a stale id from an old session can't be read as
+                // a conflict.
                 setTimeout(() => {
-                  setDoc(presenceRef, { _sessionId: window._bloxverseSessionId }, { merge: true }).catch(() => { });
-                  window._sessionInitialized = true;
+                  const writeSession = async () => {
+                    try {
+                      await setDoc(presenceRef, { _sessionId: window._bloxverseSessionId, _deviceId: deviceId }, { merge: true });
+                      window._sessionInitialized = true;
+                    } catch (e) {
+                      console.warn('Could not write presence session id, retrying:', e);
+                      setTimeout(writeSession, 5000);
+                    }
+                  };
+                  writeSession();
                 }, 1000);
               }
 

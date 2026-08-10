@@ -21,6 +21,7 @@
   --warning: #f2cd37;
   --scrollbar-bg: #2a2b2d;
   --scrollbar-thumb: #393b3d;
+  --scrollbar-thumb-hover: #4a4d50;
 }
 
 [data-theme="light"] {
@@ -46,4 +47,30 @@
   --warning: #c7960c;
   --scrollbar-bg: #f0f0f0;
   --scrollbar-thumb: #ccc;
+  --scrollbar-thumb-hover: #b0b0b0;
+}
+
+/* Clean scrollbars everywhere instead of the chunky OS default
+   (Electron shows the native Windows scrollbar without these rules). */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-bg);
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 6px;
+  border: 2px solid var(--scrollbar-bg);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+::-webkit-scrollbar-corner {
+  background: var(--scrollbar-bg);
 }
