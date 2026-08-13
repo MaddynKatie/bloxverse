@@ -7,6 +7,7 @@ const QRCode = require('qrcode');
 const crypto = require('crypto');
 const { authenticator } = require('otplib');
 const { GameServer } = require('./game-server.js');
+const chatLog = require('./chat-log.js');
 let admin = null;
 let cloudinary = null;
 
@@ -49,6 +50,9 @@ try {
   console.warn('[AccountDeletion] Cloudinary admin unavailable:', e.message);
   cloudinary = null;
 }
+
+// ─── Chat logging (Turso) ─────────────────────────────────────────────────────
+chatLog.init();
 
 // Recovery codes: 10 codes of form xxxxx-xxxxx (no ambiguous I/O/0/1)
 const RECOVERY_CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -973,6 +977,13 @@ wss.on('connection', async (ws, req) => {
         // Route to server-side game script for processing
         if (data.message && typeof data.message === 'string') {
           gs.handleChat(data.userId, data.message);
+          chatLog.logChat({
+            userId: data.userId,
+            username: data.username || '',
+            message: data.message,
+            gameId,
+            roomKey: ws.roomKey || '',
+          });
         }
       } else if (data.type === 'voice-offer' || data.type === 'voice-answer' || data.type === 'voice-ice') {
         isVoice = true;
