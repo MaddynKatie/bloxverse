@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const { authenticator } = require('otplib');
 const { GameServer } = require('./game-server.js');
 const chatLog = require('./chat-log.js');
+const profanityFilter = require('./profanity-filter.js');
 let admin = null;
 let cloudinary = null;
 
@@ -53,6 +54,7 @@ try {
 
 // ─── Chat logging (Turso) ─────────────────────────────────────────────────────
 chatLog.init();
+profanityFilter.init();
 
 // Recovery codes: 10 codes of form xxxxx-xxxxx (no ambiguous I/O/0/1)
 const RECOVERY_CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -977,13 +979,23 @@ wss.on('connection', async (ws, req) => {
         // Route to server-side game script for processing
         if (data.message && typeof data.message === 'string') {
           gs.handleChat(data.userId, data.message);
-          chatLog.logChat({
-            userId: data.userId,
-            username: data.username || '',
-            message: data.message,
-            gameId,
-            roomKey: ws.roomKey || '',
-          });
+
+          // TT| messages are internal system/telemetry payloads, not chat —
+          // never filter, mask, or log them.
+          if (!data.message.startsWith('TT|')) {
+            const rawMessage = data.message;
+            const res = profanityFilter.filterMessage(rawMessage);
+            if (res.caught) data.message = res.masked; // authoritative masking
+            chatLog.logChat({
+              userId: data.userId,
+              username: data.username || '',
+              message: rawMessage,
+              gameId,
+              roomKey: ws.roomKey || '',
+              caught: res.caught,
+              masked: res.caught ? res.masked : null,
+            });
+          }
         }
       } else if (data.type === 'voice-offer' || data.type === 'voice-answer' || data.type === 'voice-ice') {
         isVoice = true;

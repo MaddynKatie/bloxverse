@@ -20,27 +20,29 @@ const CREATE_TABLE_SQL = `
     message TEXT NOT NULL,
     gameId TEXT,
     roomKey TEXT,
-    system INTEGER NOT NULL DEFAULT 0
+    system INTEGER NOT NULL DEFAULT 0,
+    caught INTEGER NOT NULL DEFAULT 0,
+    masked TEXT
   )
 `;
-const INSERT_SQL = `INSERT INTO chat_log (ts, userId, username, message, gameId, roomKey, system) VALUES (?, ?, ?, ?, ?, ?, ?)`;
+const INSERT_SQL = `INSERT INTO chat_log (ts, userId, username, message, gameId, roomKey, system, caught, masked) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
 async function flush() {
   if (!client || flushing || buffer.length === 0) return;
   flushing = true;
-  const rows = buffer.splice(0, buffer.length);
-  try {
-    await client.batch(rows.map((r) => ({
-      sql: INSERT_SQL,
-      args: [r.ts, r.userId, r.username, r.message, r.gameId, r.roomKey, r.system ? 1 : 0],
-    })));
-  } catch (e) {
-    console.warn('[ChatLog] flush failed, will retry:', e.message);
-    buffer = rows.concat(buffer);
-  } finally {
-    flushing = false;
+    const rows = buffer.splice(0, buffer.length);
+    try {
+      await client.batch(rows.map((r) => ({
+        sql: INSERT_SQL,
+        args: [r.ts, r.userId, r.username, r.message, r.gameId, r.roomKey, r.system ? 1 : 0, r.caught ? 1 : 0, r.masked || null],
+      })));
+    } catch (e) {
+      console.warn('[ChatLog] flush failed, will retry:', e.message);
+      buffer = rows.concat(buffer);
+    } finally {
+      flushing = false;
+    }
   }
-}
 
 function init() {
   if (!TURSO_DB_URL || !TURSO_DB_TOKEN) {
@@ -51,7 +53,16 @@ function init() {
     const { createClient } = require('@libsql/client');
     client = createClient({ url: TURSO_DB_URL, authToken: TURSO_DB_TOKEN });
     client.execute(CREATE_TABLE_SQL)
-      .then(() => console.log('[ChatLog] table ready — logging chat to ' + TURSO_DB_URL))
+      .then(async () => {
+        // Migrate tables created before the caught/masked columns existed.
+        const info = await client.execute('PRAGMA table_info(chat_log)');
+        const cols = new Set(info.rows.map((r) => r.name));
+        const adds = [];
+        if (!cols.has('caught')) adds.push('ALTER TABLE chat_log ADD COLUMN caught INTEGER NOT NULL DEFAULT 0');
+        if (!cols.has('masked')) adds.push('ALTER TABLE chat_log ADD COLUMN masked TEXT');
+        for (const sql of adds) await client.execute(sql);
+        console.log('[ChatLog] table ready — logging chat to ' + TURSO_DB_URL);
+      })
       .catch((e) => console.warn('[ChatLog] table ensure failed:', e.message));
     setInterval(flush, FLUSH_MS);
     console.log('[ChatLog] enabled');
