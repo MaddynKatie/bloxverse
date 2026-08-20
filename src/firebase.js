@@ -190,22 +190,24 @@ export function trackPresence(userId, gameId, page) {
   const presenceRef = doc(db, 'presence', userId);
   let active = true;
   let currentInGame = !!gameId;
+  let currentInStudio = false;
 
   function updatePresence(data) {
     if (!active) return;
     return setDoc(presenceRef, { ...data, lastSeen: serverTimestamp() }, { merge: true });
   }
 
-  updatePresence({ online: true, inGame: currentInGame, gameId: currentInGame ? gameId : null, page: page || null });
+  updatePresence({ online: true, inGame: currentInGame, gameId: currentInGame ? gameId : null, inStudio: currentInStudio, page: page || null });
 
   const goOffline = () => {
     if (!active) return;
-    updatePresence({ online: false, inGame: false, gameId: null, page: null });
+    updatePresence({ online: false, inGame: false, gameId: null, inStudio: false, page: null });
+    currentInStudio = false;
   };
 
   const goOnline = () => {
     if (!active) return;
-    updatePresence({ online: true, inGame: currentInGame, gameId: currentInGame ? gameId : null, page: page || null });
+    updatePresence({ online: true, inGame: currentInGame, gameId: currentInGame ? gameId : null, inStudio: currentInStudio, page: page || null });
   };
 
   const onVisibilityChange = () => {
@@ -222,7 +224,11 @@ export function trackPresence(userId, gameId, page) {
   return {
     setInGame(val) {
       currentInGame = val;
-      updatePresence({ online: true, inGame: val, gameId: val ? gameId : null });
+      updatePresence({ online: true, inGame: val, gameId: val ? gameId : null, inStudio: currentInStudio });
+    },
+    setInStudio(val) {
+      currentInStudio = val;
+      updatePresence({ online: true, inGame: currentInGame, gameId: currentInGame ? gameId : null, inStudio: val });
     },
     goOffline() {
       goOffline();
@@ -231,7 +237,7 @@ export function trackPresence(userId, gameId, page) {
       active = false;
       window.removeEventListener('beforeunload', goOffline);
       document.removeEventListener('visibilitychange', onVisibilityChange);
-      updatePresence({ online: false, inGame: false, gameId: null, page: null });
+      updatePresence({ online: false, inGame: false, gameId: null, inStudio: false, page: null });
     }
   };
 }

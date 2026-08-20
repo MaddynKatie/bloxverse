@@ -16,7 +16,6 @@
   }
   </script>
   <base href="/bloxverse/">
-  <script type="module" src="src/rpc.js"></script>
   <link rel="preconnect" href="https://esm.sh" crossorigin>
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 
@@ -358,6 +357,7 @@
     }
     .friend-status.online { color: #0d69ac; }
     .friend-status.in-game { color: var(--accent); }
+    .friend-status.in-studio { color: #8b5cf6; }
 
     /* Footer Stats Grid */
     .footer-stats-grid {
@@ -478,6 +478,8 @@
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/download'" style="display:flex;align-items:center;gap:5px;">
           <i class="fa-solid fa-download" style="font-size:12px;"></i> Download
         </button>
+        <button class="nav-link-btn" data-open-studio>Studio</button>
+        <script type="module" src="src/studio.js"></script>
       </div>
     </div>
     <div class="nav-right" id="navRight"></div>
@@ -1157,6 +1159,7 @@
           const lastSeen = p.lastSeen?.toMillis?.() ?? p.lastSeen;
           const twoMinAgo = Date.now() - 120000;
           if (lastSeen && lastSeen < twoMinAgo) status = 'offline';
+          else if (p.inStudio) status = 'in-studio';
           else if (p.inGame) status = 'in-game';
           else if (p.online) status = 'online';
         }
@@ -1179,11 +1182,12 @@
             const lastSeen = p.lastSeen?.toMillis?.() ?? p.lastSeen;
             const twoMinAgo = Date.now() - 120000;
             if (lastSeen && lastSeen < twoMinAgo) text = 'Offline';
+            else if (p.inStudio) text = 'In Studio';
             else if (p.inGame) text = 'In Game';
             else if (p.online) text = 'Online';
           }
           el.textContent = text;
-          el.className = 'friend-status ' + (text === 'Online' ? 'online' : text === 'In Game' ? 'in-game' : 'offline');
+          el.className = 'friend-status ' + (text === 'Online' ? 'online' : text === 'In Game' ? 'in-game' : text === 'In Studio' ? 'in-studio' : 'offline');
         }, () => {
           el.textContent = 'Offline';
           el.className = 'friend-status offline';

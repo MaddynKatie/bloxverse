@@ -2,7 +2,7 @@
 <html lang="en">
 
 <head>
-    <script type="importmap">
+  <script type="importmap">
   {
     "imports": {
       "three": "https://esm.sh/three@0.184.0",
@@ -15,8 +15,11 @@
     }
   }
   </script>
+  <base href="/bloxverse/">
+  <link rel="preconnect" href="https://esm.sh" crossorigin>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 
-  <meta charset="UTF-8" />
+    <meta charset="UTF-8" />
   <link rel="icon" type="image/png" href="assets/icons/bloxverseLogo.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BloxVerse</title>
@@ -77,6 +80,8 @@
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/download'" style="display:flex;align-items:center;gap:5px;">
           <i class="fa-solid fa-download" style="font-size:12px;"></i> Download
         </button>
+        <button class="nav-link-btn" data-open-studio>Studio</button>
+        <script type="module" src="src/studio.js"></script>
       </div>
     </div>
     <div class="nav-center" id="navCenter"></div>
@@ -383,6 +388,7 @@
           const lastSeen = p.lastSeen?.toMillis?.() ?? p.lastSeen;
           const twoMinAgo = Date.now() - 120000;
           if (lastSeen && lastSeen < twoMinAgo) status = 'offline';
+          else if (p.inStudio) status = 'in-studio';
           else if (p.inGame) status = 'in-game';
           else if (p.online) status = 'online';
         }
@@ -399,6 +405,7 @@
         const lastSeen = p.lastSeen?.toMillis?.() ?? p.lastSeen;
         const twoMinAgo = Date.now() - 120000;
         if (lastSeen && lastSeen < twoMinAgo) status = 'offline';
+        else if (p.inStudio) status = 'in-studio';
         else if (p.inGame) status = 'in-game';
         else if (p.online) status = 'online';
       }
@@ -420,6 +427,7 @@
     }
 
     function statusLabel(status) {
+      if (status === 'in-studio') return 'In Studio';
       if (status === 'in-game') return 'In Game';
       if (status === 'online') return 'Online';
       return 'Offline';

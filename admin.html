@@ -278,6 +278,14 @@
       <div class="status" id="supportStatus"></div>
     </div>
 
+    <!-- ── PLAYER REPORTS ──────────────────────────────────────── -->
+    <div class="panel">
+      <h2>🚩 Player Reports</h2>
+      <p style="font-size:12px;color:#666;margin-bottom:14px;">In-game reports submitted by players. "Ban →" pre-fills the ban form for the reported player. Click Resolve to mark handled, or Delete to remove.</p>
+      <div id="reportsList" style="display:flex;flex-direction:column;gap:8px;"></div>
+      <div class="status" id="reportsStatus"></div>
+    </div>
+
     <!-- ── GAME MANAGEMENT ──────────────────────────────────────── -->
     <div class="panel">
       <h2>🎮 Game Management</h2>
@@ -642,6 +650,126 @@
   }
 
   loadSupportRequests();
+
+  // ─── Player Reports ──────────────────────────────────────────────────────────
+  const reportsListEl = document.getElementById('reportsList');
+  const _nameCache = {};
+
+  async function resolveName(uid) {
+    if (!uid) return 'Unknown';
+    if (_nameCache[uid]) return _nameCache[uid];
+    try {
+      const snap = await getDoc(doc(db, 'users', uid));
+      const name = snap.exists() ? (snap.data().username || uid) : uid;
+      _nameCache[uid] = name;
+      return name;
+    } catch {
+      return uid;
+    }
+  }
+
+  function mapReportReason(reason) {
+    const map = {
+      'Harassment': 'Harassment',
+      'Cheating': 'Exploiting',
+      'Inappropriate': 'Inappropriate Content',
+      'Spam': 'Spamming',
+      'Other': 'Terms of Service Violation',
+    };
+    return map[reason] || 'Terms of Service Violation';
+  }
+
+  async function loadReports() {
+    reportsListEl.innerHTML = '<div style="color:#666;font-size:13px;padding:8px 0;">Loading reports...</div>';
+    try {
+      const snap = await getDocs(collection(db, 'reports'));
+      const reports = [];
+      snap.forEach(d => reports.push({ id: d.id, ...d.data() }));
+      reports.sort((a, b) => {
+        const pa = a.status === 'pending' ? 0 : 1;
+        const pb = b.status === 'pending' ? 0 : 1;
+        if (pa !== pb) return pa - pb;
+        const ta = a.createdAt?.toDate?.() || new Date(0);
+        const tb = b.createdAt?.toDate?.() || new Date(0);
+        return tb - ta;
+      });
+
+      if (reports.length === 0) {
+        reportsListEl.innerHTML = '<div style="color:#666;font-size:13px;padding:8px 0;">No player reports yet.</div>';
+        return;
+      }
+
+      for (const r of reports) {
+        const [reporterName, reportedName] = await Promise.all([resolveName(r.reporterId), resolveName(r.reportedId)]);
+        const date = r.createdAt?.toDate?.() ? r.createdAt.toDate().toLocaleString() : '—';
+        const isPending = r.status === 'pending';
+        const statusColor = isPending ? '#f1c40f' : '#888';
+        reportsListEl.insertAdjacentHTML('beforeend', `
+          <div style="background:#151515;border:1px solid ${isPending ? '#6b5a13' : '#2a2a2a'};border-radius:6px;padding:14px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+              <div style="flex:1;min-width:200px;">
+                <div style="font-size:13px;font-weight:600;color:#fff;">
+                  ${escHtml(reportedName)} <span style="color:#666;font-weight:400;">was reported for</span> ${escHtml(r.reason || 'Unknown reason')}
+                </div>
+                <div style="font-size:11px;color:#888;margin-top:4px;">
+                  Reported by <strong>${escHtml(reporterName)}</strong> · ${date}
+                  <span style="color:${statusColor};font-weight:600;"> · ${isPending ? 'PENDING' : (r.status || 'closed')}</span>
+                </div>
+                ${r.description ? `<div style="font-size:12px;color:#bbb;margin-top:6px;padding:8px 10px;background:#111;border-radius:4px;white-space:pre-wrap;">${escHtml(r.description)}</div>` : ''}
+              </div>
+              <div style="display:flex;gap:6px;flex-shrink:0;">
+                <button class="btn btn-red" data-report-ban="${r.reportedId}" data-report-reason="${escHtml(r.reason || '')}" data-report-detail="${escHtml(r.description || '')}" style="font-size:11px;padding:5px 10px;">Ban →</button>
+                ${isPending ? `<button class="btn btn-green" data-report-resolve="${r.id}" style="font-size:11px;padding:5px 10px;">Resolve</button>` : ''}
+                <button class="btn btn-red" data-report-delete="${r.id}" style="font-size:11px;padding:5px 10px;opacity:0.7;">Delete</button>
+              </div>
+            </div>
+          </div>
+        `);
+      }
+
+      reportsListEl.querySelectorAll('[data-report-ban]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.getElementById('banUid').value = btn.dataset.reportBan;
+          const preset = document.getElementById('banReasonPreset');
+          const mapped = mapReportReason(btn.dataset.reportReason);
+          preset.value = mapped;
+          document.getElementById('banReasonCustom').style.display = preset.value === 'Custom…' ? 'block' : 'none';
+          document.getElementById('banDetail').value = btn.dataset.reportDetail || '';
+          document.getElementById('banDuration').value = '7d';
+          document.getElementById('banUid').scrollIntoView({ behavior: 'smooth', block: 'center' });
+          showStatus('reportsStatus', `Ban form pre-filled for ${btn.dataset.reportBan} (${mapped}, 7d).`);
+        });
+      });
+      reportsListEl.querySelectorAll('[data-report-resolve]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          try {
+            await setDoc(doc(db, 'reports', btn.dataset.reportResolve), { status: 'resolved', resolvedAt: Timestamp.now(), resolvedBy: auth.currentUser?.uid }, { merge: true });
+            showStatus('reportsStatus', '✅ Report resolved.');
+            loadReports();
+          } catch (e) {
+            showStatus('reportsStatus', 'Error: ' + e.message, false);
+          }
+        });
+      });
+      reportsListEl.querySelectorAll('[data-report-delete]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Delete this report?')) return;
+          try {
+            await deleteDoc(doc(db, 'reports', btn.dataset.reportDelete));
+            showStatus('reportsStatus', '✅ Report deleted.');
+            loadReports();
+          } catch (e) {
+            showStatus('reportsStatus', 'Error: ' + e.message, false);
+          }
+        });
+      });
+    } catch (e) {
+      reportsListEl.innerHTML = '<div style="color:#e74c3c;font-size:13px;">Failed to load reports.</div>';
+      console.error('[Admin] Load reports error:', e);
+    }
+  }
+
+  loadReports();
 
   // ─── BUX Management ──────────────────────────────────────────────────────────
   document.getElementById('btnFetchBux').addEventListener('click', async () => {

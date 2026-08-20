@@ -18,6 +18,9 @@
   <link rel="preconnect" href="https://esm.sh" crossorigin>
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 
+  <link rel="preconnect" href="https://esm.sh" crossorigin>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+
   <meta charset="UTF-8" />
   <link rel="icon" type="image/png" href="assets/icons/bloxverseLogo.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -239,6 +242,8 @@
         <button class="nav-link-btn active" onclick="window.location.href='/bloxverse/download'" style="display:flex;align-items:center;gap:5px;">
           <i class="fa-solid fa-download" style="font-size:12px;"></i> Download
         </button>
+        <button class="nav-link-btn" data-open-studio>Studio</button>
+        <script type="module" src="src/studio.js"></script>
       </div>
     </div>
     <div class="nav-center"></div>
@@ -257,10 +262,14 @@
       <div class="dl-card">
         <div class="dl-card-icon"><i class="fa-brands fa-windows"></i></div>
         <div class="dl-card-platform">Windows</div>
-        <a class="btn-download" href="https://github.com/MaddynKatie/bloxverse/releases/download/v0.2.19/BloxVerse-Windows.zip" download id="downloadBtn">
-          <i class="fa-solid fa-download"></i>
-          Download
-        </a>
+        <div style="display:flex;gap:8px;width:100%;">
+          <a class="btn-download" href="https://github.com/MaddynKatie/bloxverse/releases/download/v0.2.19/BloxVerse-Windows.zip" download id="downloadBtn">
+            Client
+          </a>
+          <a class="btn-download" style="background:#3b82f6;" href="https://github.com/MaddynKatie/bloxverse/releases/download/v0.1_Studio/BloxVerseStudio-Windows.zip" download>
+            Studio
+          </a>
+        </div>
 
         <div class="dl-steps">
           <ol>

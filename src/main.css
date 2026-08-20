@@ -271,6 +271,7 @@ body {
 .status-dot.offline { background-color: var(--text-muted); }
 .status-dot.online { background-color: #0d69ac; }
 .status-dot.in-game { background-color: var(--accent); }
+.status-dot.in-studio { background-color: #8b5cf6; }
 
 .friend-avatar-wrapper {
   position: relative;
