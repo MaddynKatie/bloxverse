@@ -38,7 +38,7 @@
     }
     
     .profile-page {
-      max-width: 780px;
+      max-width: 920px;
       width: 100%;
       padding: 0;
       padding-top: 52px;
@@ -103,14 +103,14 @@
       width: 120px;
       height: 120px;
       border-radius: 50%;
-      background: var(--bg-tertiary);
+      background: #e0e0e0;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 48px;
       font-weight: 700;
       flex-shrink: 0;
-      color: var(--text-primary);
+      color: #555;
       overflow: hidden;
     }
     .profile-header-avatar img {
@@ -473,14 +473,15 @@
         <span class="logo-text">BloxVerse</span>
       </div>
       <div class="nav-links" id="navLinks">
+        <button class="nav-link-btn" onclick="window.location.href='/bloxverse'">Home</button>
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
         <button class="nav-link-btn" data-needs-auth onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
-        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/download'" style="display:flex;align-items:center;gap:5px;">
-          <i class="fa-solid fa-download" style="font-size:12px;"></i> Download
+        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/download'">
+          Download
         </button>
-        <button class="nav-link-btn" data-open-studio>Studio</button>
-        <script type="module" src="src/studio.js"></script>
       </div>
+      <button class="navbar-studio-card" data-open-studio title="Launch BloxVerse Studio">Studio</button>
+      <script type="module" src="src/studio.js"></script>
     </div>
     <div class="nav-right" id="navRight"></div>
   </nav>
@@ -496,8 +497,10 @@
       <div class="footer-links">
         <a href="/bloxverse/terms">Terms of Service</a>
         <a href="/bloxverse/privacy">Privacy Policy</a>
+        <a class="footer-discord" href="https://discord.gg/Uh6WF5NDDK" target="_blank" rel="noopener" title="Join our Discord"><i class="fab fa-discord"></i></a>
       </div>
     </div>
+    <div class="footer-copyright">© 2026 BloxVerse. All rights reserved.</div>
   </footer>
 
   <script type="module">

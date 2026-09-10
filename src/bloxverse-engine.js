@@ -8,12 +8,12 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { FXAAPass } from 'three/examples/jsm/postprocessing/FXAAPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import * as CANNON from 'cannon-es';
-const playerModelUrl = new URL('../assets/models/player.fbx', import.meta.url).href;
+const playerModelUrl = new URL('../assets/models/male.glb', import.meta.url).href;
 const studTextureUrl = new URL('../assets/textures/stud.jpeg', import.meta.url).href;
 const inletTextureUrl = new URL('../assets/textures/inlet.jpg', import.meta.url).href;
 import { findAccessory } from './accessories.js';
 import { findFace } from './faces.js';
-import { applyAvatarClothing, removeAvatarClothing, applyAvatarPants, removeAvatarPants } from './avatar-clothing.js';
+import { findClothing } from './clothing.js';
 import { findEmote } from './emotes.js';
 import { Instance } from './instances.js';
 
@@ -32,6 +32,8 @@ const COYOTE_TIME = 0.12;
 const JUMP_BUFFER_T = 0.15;
 const CAM_KEY_ZOOM_SPEED = 32;
 const CAM_PIVOT_Y = 2.56;
+const CAM_FADE_FAR = 3;
+const CAM_FADE_NEAR = 1;
 const SHIFT_LOCK_OFFSET = 1.75;
 const FIRST_PERSON_RANGE = 3.0;
 
@@ -726,6 +728,9 @@ _applyGraphicsLevel();
 const physicsWorld = new CANNON.World();
 physicsWorld.gravity.set(0, GRAVITY, 0);
 physicsWorld.defaultContactMaterial.friction = 0.4;
+// Let ragdoll limbs fall asleep once they settle instead of slowly
+// tumbling forever.
+physicsWorld.allowSleep = true;
 
 // Patch solver to use body._bounciness for restitution (bypasses broken material system)
 const origAddEq = physicsWorld.solver.addEquation.bind(physicsWorld.solver);
@@ -1613,7 +1618,7 @@ window.addEventListener('touchstart', (e) => {
 
     lockBtn.addEventListener('touchstart', (e) => {
         e.preventDefault(); e.stopPropagation();
-        if (window._bloxverse?.shiftLockEnabled === false) return;
+        if (window._bloxverse?.shiftLockEnabled === false || _firstPerson || _firstPersonBlend > 0.5) return;
         shiftLock = !shiftLock;
         shiftLockIndicator.classList.toggle('visible', shiftLock);
         dot.style.background = shiftLock ? '#4ade80' : 'rgba(255,255,255,0.6)';
@@ -1712,7 +1717,7 @@ document.addEventListener('keydown', e => {
     if (window._chatFocused) return;
     if (!locked) return;
     keys[e.code] = true;
-    if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && window._bloxverse?.shiftLockEnabled !== false) {
+    if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && window._bloxverse?.shiftLockEnabled !== false && !_firstPerson && _firstPersonBlend <= 0.5) {
         shiftLock = !shiftLock;
         shiftLockIndicator.classList.toggle('visible', shiftLock);
         cursorEl.style.display = shiftLock ? 'none' : 'block';
@@ -1882,10 +1887,15 @@ function clearEmoteOffsets(def) {
             delete anim.offset[bName];
             const bone = anim.bones[bName];
             if (bone && anim.rest[bName]) {
-                const rest = anim.rest[bName];
-                if (rest.x !== undefined) bone.rotation.x = rest.x;
-                if (rest.y !== undefined) bone.rotation.y = rest.y;
-                if (rest.z !== undefined) bone.rotation.z = rest.z;
+                const rq = anim._restQuat?.[bName];
+                if (rq) {
+                    bone.quaternion.copy(rq);
+                } else {
+                    const rest = anim.rest[bName];
+                    if (rest.x !== undefined) bone.rotation.x = rest.x;
+                    if (rest.y !== undefined) bone.rotation.y = rest.y;
+                    if (rest.z !== undefined) bone.rotation.z = rest.z;
+                }
             }
         }
     }
@@ -1901,12 +1911,99 @@ function clearEmoteOffsets(def) {
     }
 }
 
+const _tmpEuler = new THREE.Euler();
+const _tmpQuat = new THREE.Quaternion();
+const _tmpQuat2 = new THREE.Quaternion();
+const _tmpQuat3 = new THREE.Quaternion();
+const _tmpVec = new THREE.Vector3();
+
+function _ensureDelta(bone) {
+    if (!bone._dE) bone._dE = { x: 0, y: 0, z: 0 };
+    return bone._dE;
+}
+
+// The rig's arm/leg bones rotate opposite to the game's animation
+// assumptions, so every limb pose must be mirrored. All animation paths
+// (walk, run, jump, climb, idle, remote clones) route through setRot /
+// setRotMulti / setBoneRot, so flipping limbs here fixes every animation
+// in one place.
+function _limbFlip(bone) {
+    if (!bone) return 1;
+    return /arm|leg/i.test(bone.name) ? -1 : 1;
+}
+
 function setRot(bone, axis, target, speed, dt) {
     if (!bone) return;
-    const rest = anim.rest[bone.name]?.[axis] ?? 0;
+    const flip = _limbFlip(bone);
     const offset = anim.offset[bone.name]?.[axis] ?? 0;
-    bone.rotation[axis] = THREE.MathUtils.lerp(bone.rotation[axis], rest + offset + target, Math.min(1, speed * dt));
+    const t = Math.min(1, speed * dt);
+    const angle = flip * (offset + target);
+    const restQuat = anim._restQuat?.[bone.name];
+    if (restQuat) {
+        const d = _ensureDelta(bone);
+        d[axis] += (angle - d[axis]) * t;
+        _tmpEuler.set(d.x, d.y, d.z);
+        _tmpQuat.setFromEuler(_tmpEuler);
+        bone.quaternion.copy(restQuat).multiply(_tmpQuat);
+    } else {
+        const rest = anim.rest[bone.name]?.[axis] ?? 0;
+        bone.rotation[axis] = THREE.MathUtils.lerp(bone.rotation[axis], rest + angle, t);
+    }
 }
+
+function setRotMulti(bone, axes, speed, dt) {
+    if (!bone) return;
+    const flip = _limbFlip(bone);
+    const t = Math.min(1, speed * dt);
+    const restQuat = anim._restQuat?.[bone.name];
+    if (restQuat) {
+        const d = _ensureDelta(bone);
+        for (const axis in axes) {
+            const offset = anim.offset[bone.name]?.[axis] ?? 0;
+            const angle = flip * (offset + axes[axis]);
+            d[axis] += (angle - d[axis]) * t;
+        }
+        _tmpEuler.set(d.x, d.y, d.z);
+        _tmpQuat.setFromEuler(_tmpEuler);
+        bone.quaternion.copy(restQuat).multiply(_tmpQuat);
+    } else {
+        for (const axis in axes) {
+            const offset = anim.offset[bone.name]?.[axis] ?? 0;
+            const rest = anim.rest[bone.name]?.[axis] ?? 0;
+            bone.rotation[axis] = THREE.MathUtils.lerp(bone.rotation[axis], rest + flip * (offset + axes[axis]), t);
+        }
+    }
+}
+
+function _lerpAngle(a, b, t) {
+    let diff = b - a;
+    if (diff > Math.PI) diff -= Math.PI * 2;
+    if (diff < -Math.PI) diff += Math.PI * 2;
+    return a + diff * t;
+}
+
+function setBoneRot(bone, deltas, speed, dt, restQuatOverride) {
+    if (!bone) return;
+    const rest = anim.rest[bone.name];
+    if (!rest) return;
+    const flip = _limbFlip(bone);
+    const t = Math.min(1, speed * dt);
+    const restQuat = anim._restQuat?.[bone.name];
+    if (restQuat) {
+        const d = _ensureDelta(bone);
+        if (deltas.x !== undefined) d.x += (flip * deltas.x - d.x) * t;
+        if (deltas.y !== undefined) d.y += (flip * deltas.y - d.y) * t;
+        if (deltas.z !== undefined) d.z += (flip * deltas.z - d.z) * t;
+        _tmpEuler.set(d.x, d.y, d.z);
+        _tmpQuat.setFromEuler(_tmpEuler);
+        bone.quaternion.copy(restQuat).multiply(_tmpQuat);
+    } else {
+        bone.rotation.x = THREE.MathUtils.lerp(bone.rotation.x, (rest.x || 0) + flip * (deltas.x || 0), t);
+        bone.rotation.y = THREE.MathUtils.lerp(bone.rotation.y, (rest.y || 0) + flip * (deltas.y || 0), t);
+        bone.rotation.z = THREE.MathUtils.lerp(bone.rotation.z, (rest.z || 0) + flip * (deltas.z || 0), t);
+    }
+}
+
 
 function updateEmote(dt) {
     if (_charMoving && anim.emote) {
@@ -2020,14 +2117,11 @@ function updateClimbAnimation(dt, moving) {
     // Wall climb: arms reach up overhead and alternate hand-over-hand while
     // the knees pump up alternately, leaning into the wall.
     const step = moving ? Math.sin(t * 6.5) : 0;
-    setRot(lArm, 'x', -Math.PI * 0.97 + step * 0.4, sp, dt);
-    setRot(rArm, 'x', -Math.PI * 0.97 - step * 0.4, sp, dt);
-    setRot(lArm, 'z', 0.3, sp, dt);
-    setRot(rArm, 'z', -0.3, sp, dt);
+    setRotMulti(lArm, { x: -Math.PI * 0.97 + step * 0.4, z: 0.3 }, sp, dt);
+    setRotMulti(rArm, { x: -Math.PI * 0.97 - step * 0.4, z: -0.3 }, sp, dt);
     setRot(lLeg, 'x', 0.4 + step * 0.5, sp, dt);
     setRot(rLeg, 'x', 0.4 - step * 0.5, sp, dt);
-    setRot(torso, 'x', -0.1, sp, dt);
-    setRot(torso, 'z', 0, sp, dt);
+    setRotMulti(torso, { x: -0.1, z: 0 }, sp, dt);
 }
 
 function updateAnimations(dt, moving) {
@@ -2040,31 +2134,23 @@ function updateAnimations(dt, moving) {
     if (!grounded) {
         setRot(lLeg, 'x', 0, sp, dt);
         setRot(rLeg, 'x', 0, sp, dt);
-        setRot(lArm, 'x', -Math.PI, sp, dt);
-        setRot(rArm, 'x', -Math.PI, sp, dt);
-        setRot(lArm, 'z', 0, sp, dt);
-        setRot(rArm, 'z', 0, sp, dt);
+        setRotMulti(lArm, { x: -Math.PI, z: 0 }, sp, dt);
+        setRotMulti(rArm, { x: -Math.PI, z: 0 }, sp, dt);
         setRot(torso, 'x', 0, sp, dt);
     } else if (moving) {
         const swing = Math.sin(t * 2.8 * Math.PI);
         setRot(lLeg, 'x', swing * 1.0, sp, dt);
         setRot(rLeg, 'x', -swing * 1.0, sp, dt);
-        setRot(lArm, 'x', -swing * 0.8, sp, dt);
-        setRot(rArm, 'x', swing * 0.8, sp, dt);
-        setRot(lArm, 'z', 0.05, sp, dt);
-        setRot(rArm, 'z', -0.05, sp, dt);
-        setRot(torso, 'x', 0.03, sp, dt);
-        setRot(torso, 'z', 0, sp, dt);
+        setRotMulti(lArm, { x: -swing * 0.8, z: 0.05 }, sp, dt);
+        setRotMulti(rArm, { x: swing * 0.8, z: -0.05 }, sp, dt);
+        setRotMulti(torso, { x: 0.03, z: 0 }, sp, dt);
     } else {
         const breathe = Math.sin(t * 1.2) * 0.015;
         setRot(lLeg, 'x', 0, sp, dt);
         setRot(rLeg, 'x', 0, sp, dt);
-        setRot(lArm, 'x', 0, sp, dt);
-        setRot(rArm, 'x', 0, sp, dt);
-        setRot(lArm, 'z', 0.1 + breathe, sp, dt);
-        setRot(rArm, 'z', -0.1 - breathe, sp, dt);
-        setRot(torso, 'x', breathe, sp, dt);
-        setRot(torso, 'z', 0, sp, dt);
+        setRotMulti(lArm, { x: 0, z: 0 }, sp, dt);
+        setRotMulti(rArm, { x: 0, z: 0 }, sp, dt);
+        setRotMulti(torso, { x: breathe, z: 0 }, sp, dt);
     }
 }
 
@@ -2084,42 +2170,31 @@ function updateOtherPlayers(dt) {
 
         if (p.climbState > 0) {
             const step = p.moving ? Math.sin(p.animTime * 6.5) : 0;
-            if (lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x || 0) - Math.PI * 0.97 + step * 0.4, Math.min(1, sp * dt));
-            if (rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x || 0) - Math.PI * 0.97 - step * 0.4, Math.min(1, sp * dt));
-            if (lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z || 0) + 0.3, Math.min(1, sp * dt));
-            if (rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z || 0) - 0.3, Math.min(1, sp * dt));
-            if (lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x || 0) + 0.4 + step * 0.5, Math.min(1, sp * dt));
-            if (rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x || 0) + 0.4 - step * 0.5, Math.min(1, sp * dt));
-            if (torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x || 0) - 0.1, Math.min(1, sp * dt));
-            if (torso) torso.rotation.z = THREE.MathUtils.lerp(torso.rotation.z, (p.rest['Torso']?.z || 0), Math.min(1, sp * dt));
+            setBoneRot(lArm, { x: -Math.PI * 0.97 + step * 0.4, z: 0.3 }, sp, dt);
+            setBoneRot(rArm, { x: -Math.PI * 0.97 - step * 0.4, z: -0.3 }, sp, dt);
+            setBoneRot(lLeg, { x: 0.4 + step * 0.5 }, sp, dt);
+            setBoneRot(rLeg, { x: 0.4 - step * 0.5 }, sp, dt);
+            setBoneRot(torso, { x: -0.1 }, sp, dt);
         } else if (p.grounded === false) {
-            if (lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x || 0), Math.min(1, sp * dt));
-            if (rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x || 0), Math.min(1, sp * dt));
-            if (lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x || 0) - Math.PI, Math.min(1, sp * dt));
-            if (rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x || 0) - Math.PI, Math.min(1, sp * dt));
-            if (lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z || 0), Math.min(1, sp * dt));
-            if (rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z || 0), Math.min(1, sp * dt));
-            if (torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x || 0), Math.min(1, sp * dt));
+            setBoneRot(lLeg, { x: 0 }, sp, dt);
+            setBoneRot(rLeg, { x: 0 }, sp, dt);
+            setBoneRot(lArm, { x: -Math.PI, z: 0 }, sp, dt);
+            setBoneRot(rArm, { x: -Math.PI, z: 0 }, sp, dt);
+            setBoneRot(torso, { x: 0 }, sp, dt);
         } else if (p.moving) {
             const swing = Math.sin(t * 2.8 * Math.PI);
-            if (lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x || 0) + swing * 1.0, Math.min(1, sp * dt));
-            if (rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x || 0) - swing * 1.0, Math.min(1, sp * dt));
-            if (lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x || 0) - swing * 0.8, Math.min(1, sp * dt));
-            if (rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x || 0) + swing * 0.8, Math.min(1, sp * dt));
-            if (lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z || 0) + 0.05, Math.min(1, sp * dt));
-            if (rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z || 0) - 0.05, Math.min(1, sp * dt));
-            if (torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x || 0) + 0.03, Math.min(1, sp * dt));
-            if (torso) torso.rotation.z = THREE.MathUtils.lerp(torso.rotation.z, (p.rest['Torso']?.z || 0), Math.min(1, sp * dt));
+            setBoneRot(lLeg, { x: swing * 1.0 }, sp, dt);
+            setBoneRot(rLeg, { x: -swing * 1.0 }, sp, dt);
+            setBoneRot(lArm, { x: -swing * 0.8, z: 0.05 }, sp, dt);
+            setBoneRot(rArm, { x: swing * 0.8, z: -0.05 }, sp, dt);
+            setBoneRot(torso, { x: 0.03 }, sp, dt);
         } else {
             const breathe = Math.sin(t * 1.2) * 0.015;
-            if (lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x || 0), Math.min(1, sp * dt));
-            if (rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x || 0), Math.min(1, sp * dt));
-            if (lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x || 0), Math.min(1, sp * dt));
-            if (rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x || 0), Math.min(1, sp * dt));
-            if (lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z || 0) + 0.1 + breathe, Math.min(1, sp * dt));
-            if (rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z || 0) - 0.1 - breathe, Math.min(1, sp * dt));
-            if (torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x || 0) + breathe, Math.min(1, sp * dt));
-            if (torso) torso.rotation.z = THREE.MathUtils.lerp(torso.rotation.z, (p.rest['Torso']?.z || 0), Math.min(1, sp * dt));
+            setBoneRot(lLeg, { x: 0 }, sp, dt);
+            setBoneRot(rLeg, { x: 0 }, sp, dt);
+            setBoneRot(lArm, { x: 0, z: 0 }, sp, dt);
+            setBoneRot(rArm, { x: 0, z: 0 }, sp, dt);
+            setBoneRot(torso, { x: breathe }, sp, dt);
         }
     });
 }
@@ -2143,6 +2218,7 @@ let _sfxRunningGain = null;
 let _sfxSwoosh = null;
 let _sfxThud = null;
 let _spawnPoint = { x: 0, y: null, z: 0, ry: Math.PI };
+let _spawnPoints = []; // All registered spawn locations – one is chosen at random each spawn
 const otherPlayers = new Map();
 const _playerAvatarData = new Map(); // userId -> { colors, clothing, accessories, face }
 const _playerAccessoryInstances = new Map();
@@ -2268,9 +2344,14 @@ function _applyRemoteEmote(p, emote, dt) {
         const bone = p.bones[name];
         if (!rest || !bone) continue;
         if (!allBones.has(name)) {
-            bone.rotation.x = rest.x || 0;
-            bone.rotation.y = rest.y || 0;
-            bone.rotation.z = rest.z || 0;
+            const rq = anim._restQuat?.[name];
+            if (rq) {
+                bone.quaternion.copy(rq);
+            } else {
+                bone.rotation.x = rest.x || 0;
+                bone.rotation.y = rest.y || 0;
+                bone.rotation.z = rest.z || 0;
+            }
         }
         if (!allPosBones.has(name)) {
             bone.position.x = rest.px ?? 0;
@@ -2287,11 +2368,28 @@ function _applyRemoteEmote(p, emote, dt) {
         const prev = prevKF.bones?.[name] || {};
         const next = nextKF.bones?.[name] || {};
         const axes = new Set([...Object.keys(prev), ...Object.keys(next)]);
-        for (const axis of axes) {
-            const pv = prev[axis] ?? 0;
-            const nv = next[axis] ?? 0;
-            const offset = pv + (nv - pv) * t;
-            bone.rotation[axis] = rest[axis] + offset;
+        const restQuat = anim._restQuat?.[name];
+        if (restQuat && axes.size > 0) {
+            _tmpQuat2.copy(restQuat);
+            for (const axis of axes) {
+                const pv = prev[axis] ?? 0;
+                const nv = next[axis] ?? 0;
+                const offset = pv + (nv - pv) * t;
+                if (offset !== 0) {
+                    _tmpEuler.set(0, 0, 0);
+                    _tmpEuler[axis] = offset;
+                    _tmpQuat.setFromEuler(_tmpEuler);
+                    _tmpQuat2.multiply(_tmpQuat);
+                }
+            }
+            bone.quaternion.copy(_tmpQuat2);
+        } else {
+            for (const axis of axes) {
+                const pv = prev[axis] ?? 0;
+                const nv = next[axis] ?? 0;
+                const offset = pv + (nv - pv) * t;
+                bone.rotation[axis] = rest[axis] + offset;
+            }
         }
     }
 
@@ -2396,97 +2494,34 @@ function _loadAccessoryForUser(userId, accessoryId, avatarObj) {
     const accDef = findAccessory(accessoryId);
     if (!accDef) return;
 
-    const texLoader = new THREE.TextureLoader();
     const path = accDef.meshPath;
     const isGLB = typeof path === 'string' && (path.endsWith('.glb') || path.endsWith('.gltf'));
 
     const onLoad = (root) => {
         if (_playerAccessoryCancel.get(userId) || !avatarObj.parent) return;
-        const headPt = _findHeadAttachment(avatarObj);
-        if (!headPt) {
-            console.warn('No head attachment found for accessory', accessoryId);
-            return;
-        }
         avatarObj.updateMatrixWorld(true);
 
         root.traverse(child => {
             if (child.isMesh) {
                 child.castShadow = true;
                 child.receiveShadow = true;
-                const mats = Array.isArray(child.material) ? child.material : [child.material];
-                for (const mat of mats) {
-                    if (!mat) continue;
-                    if (accDef.textures?.map) {
-                        const diffuse = texLoader.load(accDef.textures.map);
-                        diffuse.colorSpace = THREE.SRGBColorSpace;
-                        mat.map = diffuse;
-                    }
-                    if (accDef.textures?.normalMap) {
-                        mat.normalMap = texLoader.load(accDef.textures.normalMap);
-                        mat.normalScale = new THREE.Vector2(1, 1);
-                    }
-                    if (accDef.textures?.displacementMap) {
-                        mat.displacementMap = texLoader.load(accDef.textures.displacementMap);
-                        mat.displacementScale = 0.01;
-                    }
-                    mat.needsUpdate = true;
-                }
             }
         });
 
-        const o = accDef.offset || {};
-        const scale = o.scale !== undefined ? o.scale : 1;
-        root.position.set(0, 0, 0);
-        root.rotation.set(0, 0, 0);
-        root.scale.setScalar(scale);
+        avatarObj.add(root);
+        root.userData = root.userData || {};
+        root.userData.isAccessory = true;
         root.updateMatrixWorld(true);
-
-        const bbox = new THREE.Box3().setFromObject(root);
-        const center = bbox.getCenter(new THREE.Vector3());
-        root.position.x -= center.x;
-        root.position.y -= bbox.min.y;
-        root.position.z -= center.z;
-
-        const wrapper = new THREE.Group();
-        wrapper.add(root);
-        wrapper.userData.isAccessory = true;
-        wrapper.traverse(node => {
-            node.userData = node.userData || {};
-            node.userData.isAccessory = true;
-        });
-        const attachment = headPt.object;
-        const localRot = new THREE.Quaternion().setFromEuler(new THREE.Euler(o.rx || 0, o.ry || 0, o.rz || 0, 'XYZ'));
-        scene.add(wrapper);
-
-        if (_playerAccessoryCancel.get(userId)) {
-            wrapper.removeFromParent();
-            return;
-        }
-
-        const headTopWorld = (headPt.headMesh ? _getMeshTopWorldPosition(headPt.headMesh) : _getAttachmentTopWorldPosition(attachment)) || attachment.getWorldPosition(new THREE.Vector3());
-        const attachmentQuat = attachment.getWorldQuaternion(new THREE.Quaternion());
-        const offsetWorld = new THREE.Vector3(o.x || 0, o.y !== undefined ? o.y : 0, o.z || 0).applyQuaternion(attachmentQuat);
-        wrapper.position.copy(headTopWorld.clone().add(offsetWorld));
-        wrapper.quaternion.copy(attachmentQuat).multiply(localRot);
-
-        const update = () => {
-            if (!wrapper.parent) return;
-            const headTop = (headPt.headMesh ? _getMeshTopWorldPosition(headPt.headMesh) : _getAttachmentTopWorldPosition(attachment)) || attachment.getWorldPosition(new THREE.Vector3());
-            const attachmentQ = attachment.getWorldQuaternion(new THREE.Quaternion());
-            const targetWorld = headTop.clone().add(new THREE.Vector3(o.x || 0, o.y !== undefined ? o.y : 0, o.z || 0).applyQuaternion(attachmentQ));
-            wrapper.position.copy(targetWorld);
-            wrapper.quaternion.copy(attachmentQ).multiply(localRot);
-        };
 
         const map = _getAccessoryMap(userId);
         if (_playerAccessoryCancel.get(userId)) {
-            wrapper.removeFromParent();
+            root.removeFromParent();
             return;
         }
-        map.set(accessoryId, { wrapper, update });
+        map.set(accessoryId, { wrapper: root, update: () => {} });
         const remoteP = userId === currentUserId ? null : otherPlayers.get(userId);
         if ((userId === currentUserId && _dead) || remoteP?.dead) {
-            wrapper.visible = false;
+            root.visible = false;
         }
         _recalcVisualTop(userId);
     };
@@ -2622,20 +2657,12 @@ function _applyAccessoriesToModel(userId, model, accessoryIds) {
 
 function _applyClothingToModel(model, clothingId) {
     if (!model) return;
-    if (clothingId) {
-        applyAvatarClothing(model, clothingId);
-    } else {
-        removeAvatarClothing(model);
-    }
+    _applyTextureToMats(_collectMatsByName(model, SHIRT_MATS), clothingId, 'SHIRT');
 }
 
 function _applyPantsToModel(model, pantsId) {
     if (!model) return;
-    if (pantsId) {
-        applyAvatarPants(model, pantsId);
-    } else {
-        removeAvatarPants(model);
-    }
+    _applyTextureToMats(_collectMatsByName(model, PANT_MATS), pantsId, 'PANT');
 }
 
 function _updateAccessoryWrappers() {
@@ -2856,8 +2883,59 @@ function _updateLeaderstats(game) {
     _leaderboardEl.innerHTML = html;
 }
 
+// The player model (male.glb / female.glb) is a multi-part rig whose
+// body-part materials carry generic names (Material.001…Material.008),
+// NOT names like "Body"/"Legs"/"Arms"/"Head". The avatar editor maps those
+// material names to body-part slots; reuse the exact same mapping here so
+// the in-game avatar's colors match what the editor preview shows.
+const AVATAR_SLOT_NAMES = ['Head', 'Torso', 'L Arm', 'R Arm', 'L Leg', 'R Leg'];
+const AVATAR_MAT_SLOT = {
+    'Material.002': 0,                 // Head
+    'Material.001': 1, 'Material.003': 1, // Torso
+    'Material.004': 2,                 // L Arm
+    'Material.005': 3,                 // R Arm
+    'Material.007': 4,                 // L Leg
+    'Material.008': 5,                 // R Leg
+};
+
+// Accepts BOTH the editor's slot format ({Head, Torso, 'L Arm', 'R Arm',
+// 'L Leg', 'R Leg'}) and the legacy format ({Head, Body, Arms, Legs}) and
+// normalizes them to slot keys.
+function _normalizeAvatarColors(colors) {
+    if (!colors) return {};
+    const out = {};
+    for (const s of AVATAR_SLOT_NAMES) {
+        if (colors[s]) out[s] = colors[s];
+    }
+    if (colors.Head && !out.Head) out.Head = colors.Head;
+    if (colors.Body && !out.Torso) out.Torso = colors.Body;
+    if (colors.Arms) {
+        if (!out['L Arm']) out['L Arm'] = colors.Arms;
+        if (!out['R Arm']) out['R Arm'] = colors.Arms;
+    }
+    if (colors.Legs) {
+        if (!out['L Leg']) out['L Leg'] = colors.Legs;
+        if (!out['R Leg']) out['R Leg'] = colors.Legs;
+    }
+    return out;
+}
+
+function _defaultAvatarColors() {
+    return { Head: '#ffffff', Torso: '#8350fb', 'L Arm': '#ffffff', 'R Arm': '#ffffff', 'L Leg': '#400eb4', 'R Leg': '#400eb4' };
+}
+
+function _resolveAvatarColors(colors) {
+    if (colors && Object.keys(colors).length > 0) return colors;
+    return _defaultAvatarColors();
+}
+
+function _applyAvatarColorsToModel(model, colors) {
+    _applyColorsToModel(model, _resolveAvatarColors(colors));
+}
+
 function _applyColorsToModel(model, colors) {
     if (!model || !colors) return;
+    const slotColors = _normalizeAvatarColors(colors);
     model.traverse(child => {
         if (child.isMesh) {
             const mats = Array.isArray(child.material) ? child.material : [child.material];
@@ -2868,61 +2946,183 @@ function _applyColorsToModel(model, colors) {
                 if (mat.userData?.isFace) continue;
                 const matNameLower = (mat.name || child.name || '').toLowerCase();
                 if (matNameLower.includes('face')) continue;
-                const name = mat.name || child.name || 'Body';
-                if (colors[name]) {
-                    mat.vertexColors = false;
-                    mat.emissive && mat.emissive.setHex(0);
-                    mat.emissiveIntensity = 0;
-                    mat.toneMapped = false;
-                    mat.transparent = false;
-                    mat.opacity = 1;
-                    mat.color.setStyle(colors[name], THREE.SRGBColorSpace);
-                    mat.needsUpdate = true;
-                }
+                const slotIdx = AVATAR_MAT_SLOT[mat.name];
+                if (slotIdx === undefined) continue;
+                const slotColor = slotColors[AVATAR_SLOT_NAMES[slotIdx]];
+                if (!slotColor) continue;
+                // The head material must keep vertexColors enabled for the
+                // face blend shader's front-mask to work (editor does the same).
+                if (!_isHeadMaterial(mat)) mat.vertexColors = false;
+                mat.emissive && mat.emissive.setHex(0);
+                mat.emissiveIntensity = 0;
+                mat.toneMapped = false;
+                mat.transparent = false;
+                mat.opacity = 1;
+                mat.color.setStyle(slotColor, THREE.SRGBColorSpace);
+                mat.needsUpdate = true;
             }
         }
     });
 }
 
-function _applyFaceToModel(mesh, faceId) {
-    const headBone = mesh.getObjectByName('Head');
-    if (!headBone) return;
+// The face is applied as a decal baked into the head material (slot 0,
+// Material.002), exactly like the avatar editor: the head material keeps a
+// vertex-color front-mask and a custom blend shader so the face texture
+// only shows on the front of the head while the rest keeps the body color.
+const _headMaterials = [];
 
-    // Remove existing face overlay
-    const toRemove = [];
-    headBone.children.forEach(child => {
-        if (child.userData?.isFaceOverlay) toRemove.push(child);
-    });
-    for (const overlay of toRemove) {
-        overlay.removeFromParent();
-        overlay.geometry?.dispose();
-        if (overlay.material) {
-            if (overlay.material.map) overlay.material.map.dispose();
-            overlay.material.dispose();
-        }
+const _headBlendShader = shader => {
+    shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <color_fragment>',
+        ''
+    );
+    shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <map_fragment>',
+        `#ifdef USE_MAP
+            vec4 sampledDiffuseColor = texture2D(map, vec2(1.0 - vMapUv.x, vMapUv.y));
+            float front = vColor.r;
+            diffuseColor.rgb = mix(diffuseColor.rgb, sampledDiffuseColor.rgb, sampledDiffuseColor.a * front);
+            diffuseColor.a = 1.0;
+        #endif
+        diffuseColor.a *= opacity;`
+    );
+};
+
+// Builds the soft front-mask vertex-color attribute used by the head blend
+// shader to know where the face decal may show (front = white, back = black).
+function _addHeadFaceMask(geometry) {
+    if (!geometry || geometry.getAttribute('color')) return;
+    const posAttr = geometry.getAttribute('position');
+    if (!posAttr) return;
+    const count = posAttr.count;
+    const colors = new Float32Array(count * 3);
+    const pos = posAttr.array;
+    let minZ = Infinity, maxZ = -Infinity;
+    for (let v = 0; v < count; v++) {
+        const z = pos[v * 3 + 2];
+        if (z < minZ) minZ = z;
+        if (z > maxZ) maxZ = z;
     }
+    const zRange = maxZ - minZ || 1;
+    const feather = 0.35;
+    const edgeLow = minZ + zRange * (0.5 - feather / 2);
+    const edgeHigh = minZ + zRange * (0.5 + feather / 2);
+    for (let v = 0; v < count; v++) {
+        const z = pos[v * 3 + 2];
+        let t = (z - edgeLow) / (edgeHigh - edgeLow);
+        t = Math.min(1, Math.max(0, t));
+        const smooth = t * t * (3 - 2 * t);
+        const r = 1.0 - smooth;
+        colors[v * 3] = r;
+        colors[v * 3 + 1] = r;
+        colors[v * 3 + 2] = r;
+    }
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geometry.getAttribute('color').needsUpdate = true;
+}
+
+function _isHeadMaterial(mat) {
+    if (!mat) return false;
+    return AVATAR_MAT_SLOT[mat.name] === 0;
+}
+
+// Clothing and pants are applied as textures on the body materials, exactly
+// like the avatar editor: shirt/pant materials get a blend shader at load,
+// then applying an item just sets mat.map on those materials. Body parts:
+// Material.001/003 = Torso, Material.004/005 = L/R Arm (shirt),
+// Material.007/008 = L/R Leg (pants).
+const SHIRT_MATS = new Set(['Material.001', 'Material.003', 'Material.004', 'Material.005']);
+const PANT_MATS = new Set(['Material.007', 'Material.008']);
+const _shirtMaterials = [];
+const _pantMaterials = [];
+const _clothingBlendShader = shader => {
+    shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <map_fragment>',
+        `#ifdef USE_MAP
+            vec4 sampledDiffuseColor = texture2D(map, vMapUv);
+            diffuseColor.rgb = mix(diffuseColor.rgb, sampledDiffuseColor.rgb, sampledDiffuseColor.a);
+            diffuseColor.a = 1.0;
+        #endif
+        diffuseColor.a *= opacity;`
+    );
+};
+
+function _collectMatsByName(model, nameSet) {
+    const mats = [];
+    if (!model) return mats;
+    const seen = new Set();
+    model.traverse(child => {
+        if (child.isMesh) {
+            const list = Array.isArray(child.material) ? child.material : [child.material];
+            for (const mat of list) {
+                if (mat && nameSet.has(mat.name) && !seen.has(mat)) {
+                    seen.add(mat);
+                    mats.push(mat);
+                }
+            }
+        }
+    });
+    return mats;
+}
+
+function _applyTextureToMats(mats, itemId, label) {
+    for (const mat of mats) {
+        if (mat.map) { mat.map.dispose(); mat.map = null; }
+        mat.needsUpdate = true;
+    }
+    if (!itemId) return;
+    const def = findClothing(itemId);
+    if (!def) return;
+    const texLoader = new THREE.TextureLoader();
+    texLoader.load(def.texturePath, (tex) => {
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.flipY = false;
+        for (const mat of mats) {
+            mat.map = tex;
+            mat.needsUpdate = true;
+        }
+    }, undefined, (err) => console.error(label + ' TEX LOAD FAILED:', err));
+}
+
+function _applyFaceToModel(mesh, faceId) {
+    if (!mesh) return;
+
+    // Clear any previously applied face texture from every head material.
+    mesh.traverse(child => {
+        if (child.isMesh) {
+            const mats = Array.isArray(child.material) ? child.material : [child.material];
+            for (const mat of mats) {
+                if (_isHeadMaterial(mat)) {
+                    if (mat.map) { mat.map.dispose(); mat.map = null; }
+                    mat.needsUpdate = true;
+                }
+            }
+        }
+    });
 
     const id = faceId || 'smile';
     const def = findFace(id);
     if (!def) return;
 
-    const headSize = Math.min(CHAR_HEIGHT * 0.3, 1.2);
     const texLoader = new THREE.TextureLoader();
     texLoader.load(def.texturePath, (tex) => {
         tex.colorSpace = THREE.SRGBColorSpace;
-        const mat = new THREE.MeshStandardMaterial({
-            map: tex, transparent: true, alphaTest: 0.05,
-            depthWrite: false, color: 0xffffff,
+        tex.flipY = false;
+        mesh.traverse(child => {
+            if (child.isMesh) {
+                const mats = Array.isArray(child.material) ? child.material : [child.material];
+                for (const mat of mats) {
+                    if (_isHeadMaterial(mat)) {
+                        mat.map = tex;
+                        mat.needsUpdate = true;
+                    }
+                }
+            }
         });
-        const faceSize = headSize * 0.85;
-        const m = new THREE.Mesh(new THREE.PlaneGeometry(faceSize, faceSize), mat);
-        m.position.set(0, headSize * 0.42, headSize * 0.51);
-        m.userData.isFaceOverlay = true;
-        headBone.add(m);
     }, undefined, (err) => console.error('FACE TEX LOAD FAILED:', err));
 }
 
-const fbxLoader = new FBXLoader();
+const gltfLoader = new GLTFLoader();
 
 function _setLocalAvatarVisible(visible) {
     if (!character) return;
@@ -2945,9 +3145,12 @@ function _setLocalAvatarVisible(visible) {
 
 function _setLocalAvatarOpacity(opacity) {
     if (!character) return;
+    const clampedOpacity = Math.max(0, Math.min(1, opacity));
     const setMatOpacity = (mat) => {
-        mat.transparent = true;
-        mat.opacity = opacity;
+        if (!mat) return;
+        mat.transparent = clampedOpacity < 1;
+        mat.opacity = clampedOpacity;
+        mat.needsUpdate = true;
     };
     character.traverse(child => {
         if (child.isMesh) {
@@ -2969,9 +3172,8 @@ function _setLocalAvatarOpacity(opacity) {
         }
     }
 }
-fbxLoader.setResourcePath(''); // Prevent FBXLoader from auto-loading external textures
-
-fbxLoader.load(playerModelUrl, (fbx) => {
+gltfLoader.load(playerModelUrl, (gltf) => {
+    const fbx = gltf.scene;
     fbx.position.set(0, 0, 0);
     fbx.updateMatrixWorld(true);
 
@@ -2982,14 +3184,17 @@ fbxLoader.load(playerModelUrl, (fbx) => {
 
     console.log('char foot offset:', CHAR_FOOT_OFFSET.toFixed(3), '| height:', CHAR_HEIGHT.toFixed(3));
 
+    // Pick a random spawn each time the character is created
+    if (_spawnPoints.length > 1) {
+        _spawnPoint = _spawnPoints[Math.floor(Math.random() * _spawnPoints.length)];
+    }
+
     const spawnY = _spawnPoint.y !== null
         ? _spawnPoint.y + CHAR_FOOT_OFFSET
         : CHAR_STAND_Y;
 
     fbx.position.set(_spawnPoint.x, spawnY, _spawnPoint.z);
     fbx.rotation.y = _spawnPoint.ry;
-
-    const faceMats = [];
 
     fbx.traverse(child => {
         if (child.isBone || child.type === 'Bone') {
@@ -3027,7 +3232,7 @@ fbxLoader.load(playerModelUrl, (fbx) => {
                 const newMat = new THREE.MeshStandardMaterial({
                     color: originalColor,
                     map: mat.map,
-                    transparent: false,
+                    transparent: true,
                     opacity: 1,
                     toneMapped: false,
                     vertexColors: false,
@@ -3046,18 +3251,29 @@ fbxLoader.load(playerModelUrl, (fbx) => {
                 mats[i] = newMat;
                 mat = newMat;
 
-                const matNameLower = (mat.name || child.name || '').toLowerCase();
-                const isFaceMat = matNameLower.includes('head') || matNameLower.includes('face');
-                if (isFaceMat) {
-                    mat.transparent = true;
-                    mat.alphaTest = 0.05;
-                    mat.depthWrite = false;
-                    mat.userData.isFace = true;
-                    mat.color.set(0xff0000);
-                    mat.emissive.setHex(0xff0000);
-                    mat.emissiveIntensity = 1.0;
+                // The head material (slot 0 = Material.002) hosts the face
+                // decal. It keeps its vertex-color front-mask and a blend
+                // shader so the face texture only draws on the front of the
+                // head while the rest keeps the user's Head body color.
+                if (_isHeadMaterial(mat)) {
+                    mat.vertexColors = true;
+                    mat.color.setHex(0xffffff);
+                    mat.onBeforeCompile = _headBlendShader;
                     mat.needsUpdate = true;
-                    faceMats.push(mat);
+                    _headMaterials.push(mat);
+                    _addHeadFaceMask(child.geometry);
+                }
+
+                // Shirt/pant materials get the clothing blend shader so an
+                // item texture can draw over them (same as the avatar editor).
+                if (SHIRT_MATS.has(mat.name)) {
+                    mat.onBeforeCompile = _clothingBlendShader;
+                    mat.needsUpdate = true;
+                    _shirtMaterials.push(mat);
+                } else if (PANT_MATS.has(mat.name)) {
+                    mat.onBeforeCompile = _clothingBlendShader;
+                    mat.needsUpdate = true;
+                    _pantMaterials.push(mat);
                 }
 
                 // Nuke every texture slot FBXLoader may have populated
@@ -3078,14 +3294,49 @@ fbxLoader.load(playerModelUrl, (fbx) => {
 
     _registerHumanoidRootPart(anim.bones, anim.rest, fbx);
 
+    console.log('Bones:', Object.keys(anim.bones).join(', '));
+    console.log('Rest poses:', JSON.stringify(anim.rest, null, 2));
+
+    // Log all meshes in the model with vertex counts and bounding box centers
+    fbx.traverse(child => {
+        if (child.isMesh) {
+            const parentName = child.parent?.name || '(root)';
+            const verts = child.geometry?.getAttribute('position')?.count || 0;
+            child.geometry?.computeBoundingBox();
+            const bb = child.geometry?.boundingBox;
+            const center = bb ? bb.getCenter(new THREE.Vector3()) : null;
+            console.log(`Mesh: "${child.name}" parent: "${parentName}" verts:${verts} center:(${center?.x?.toFixed(2)},${center?.y?.toFixed(2)},${center?.z?.toFixed(2)})`);
+        }
+    });
+
+    // Cache rest quaternions for correct animation (Euler addition breaks at ±π)
+    for (const bName in anim.bones) {
+        const rest = anim.rest[bName];
+        if (!rest) continue;
+        if (!anim._restQuat) anim._restQuat = {};
+        anim._restQuat[bName] = new THREE.Quaternion().setFromEuler(
+            new THREE.Euler(rest.x || 0, rest.y || 0, rest.z || 0)
+        );
+    }
+
+    console.log('Normalized rest:', JSON.stringify(anim.rest, null, 2));
+
+    // Log scene hierarchy to understand bone vs mesh structure
+    fbx.traverse(child => {
+        const type = child.isBone || child.type === 'Bone' ? 'Bone' : child.isMesh ? 'Mesh' : child.type || child.constructor.name;
+        const parentType = child.parent?.isBone || child.parent?.type === 'Bone' ? 'Bone' : child.parent?.type || child.parent?.constructor.name;
+        console.log(`[${type}] "${child.name}" parent:[${parentType}] "${child.parent?.name || '(root)'}"`);
+    });
+
     scene.add(fbx);
     character = fbx;
 
     // Apply saved avatar data for local player
     if (currentUserId && _playerAvatarData.has(currentUserId)) {
         const storedData = _playerAvatarData.get(currentUserId);
-        if (storedData.colors) _applyColorsToModel(character, storedData.colors);
+        _applyAvatarColorsToModel(character, storedData.colors);
         _applyClothingToModel(character, storedData.clothing);
+        _applyPantsToModel(character, storedData.pants);
         _applyAccessoriesToModel(currentUserId, character, storedData.accessories);
         _applyFaceToModel(character, storedData.face);
     }
@@ -3214,7 +3465,13 @@ function resolveOBBH(nearby, pushVx = 0, pushVz = 0, dt = 1 / 60) {
         const stepNeeded = b.maxY - fy;
         if (stepNeeded > 0 && stepNeeded <= STEP_HEIGHT && grounded && velY <= 0) {
             if (b.maxY + CHAR_FOOT_OFFSET > stepUpTarget) stepUpTarget = b.maxY + CHAR_FOOT_OFFSET;
-            // continue; // Don't skip Touched even if stepping up
+
+            // FIRE TOUCHED EVENT (Stepping)
+            if (window._bloxverse._charInstance) {
+                const _ti = b._instRef || b._meshRef?._instRef;
+                if (_ti && _ti.Touched) _ti.Touched.Fire(window._bloxverse._charInstance);
+            }
+            continue; // Skip horizontal push so the character can step up like AABB parts
         }
 
         // FIRE TOUCHED EVENT
@@ -3333,8 +3590,7 @@ function resolveBlocksH(nearby) {
     }
 }
 
-function resolveBlocksV(nearby) {
-    const cx = character.position.x, cz = character.position.z;
+function resolveBlocksV(nearby) {    const cx = character.position.x, cz = character.position.z;
     const θ = character.rotation.y;
     const co = Math.cos(θ), si = Math.sin(θ);
 
@@ -3370,7 +3626,7 @@ function resolveBlocksV(nearby) {
 
 // ─── Climb helpers ────────────────────────────────────────────────────────────
 function findClimbableBlock(px, pz, footY, fwdX, fwdZ) {
-    if (climbBlock) {
+    if (climbBlock && !climbBlock.isOBB) {
         const b = climbBlock;
         if (b.maxY - b.minY <= CLIMB_MAX_PART_H &&
             b.maxY >= footY - HANG_DEPTH - 0.1 &&
@@ -3384,6 +3640,7 @@ function findClimbableBlock(px, pz, footY, fwdX, fwdZ) {
     const nearby = getNearbyColliders(px, footY + CHAR_FOOT_OFFSET, pz);
     let best = null, bestScore = Infinity;
     for (const b of nearby) {
+        if (b.isOBB) continue;
         if (b.maxY - b.minY > CLIMB_MAX_PART_H) continue;
         if (b.maxY < footY - HANG_DEPTH - 0.1) continue;
         if (b.minY > footY + CHAR_HEIGHT) continue;
@@ -3403,6 +3660,7 @@ function findChainBlockBelow(px, pz, ledgeY) {
     const nearby = getNearbyColliders(px, ledgeY + CHAR_FOOT_OFFSET, pz);
     let best = null, bestY = -Infinity;
     for (const cb of nearby) {
+        if (cb.isOBB) continue;
         if (cb.maxY - cb.minY > CLIMB_MAX_PART_H) continue;
         if (cb.maxY >= ledgeY - 0.01 || cb.maxY < ledgeY - CLIMB_WINDOW) continue;
         const cpx = Math.max(cb.minX, Math.min(px, cb.maxX));
@@ -3417,8 +3675,10 @@ function findChainBlockBelow(px, pz, ledgeY) {
 function findChainBlockAbove(px, pz, ledgeY) {
     const nearby = getNearbyColliders(px, ledgeY + CHAR_FOOT_OFFSET, pz);
     for (const cb of nearby) {
+        if (cb.isOBB) continue;
         if (cb.maxY - cb.minY > CLIMB_MAX_PART_H) continue;
         if (cb.maxY <= ledgeY + 0.01 || cb.maxY > ledgeY + CLIMB_WINDOW) continue;
+        if (cb.minY < ledgeY + 0.2) continue;
         const cbcx = (cb.minX + cb.maxX) * 0.5 - px;
         const cbcz = (cb.minZ + cb.maxZ) * 0.5 - pz;
         const cbcd = Math.sqrt(cbcx * cbcx + cbcz * cbcz);
@@ -3440,10 +3700,17 @@ function tryLedgeGrab(nearby) {
     let bestBlock = null, bestApX = 0, bestApZ = 0, bestDist = Infinity;
 
     for (const b of nearby) {
+        if (b.isOBB) continue;
         if (b.maxY - b.minY > CLIMB_MAX_PART_H) continue;
         const below = b.maxY - footY;
         if (below < 0.3 || below > CLIMB_WINDOW) continue;
         if (b.minY > footY + CHAR_HEIGHT) continue;
+        let hasNearbyBelow = false;
+        for (const cb of nearby) {
+            if (cb === b) continue;
+            if (cb.maxY > b.minY - 0.2 && cb.maxY <= b.minY) { hasNearbyBelow = true; break; }
+        }
+        if (hasNearbyBelow) continue;
         const ox = Math.min(px + CHAR_HALF_W + CLIMB_REACH, b.maxX) - Math.max(px - CHAR_HALF_W - CLIMB_REACH, b.minX);
         const oz = Math.min(pz + CHAR_HALF_D + CLIMB_REACH, b.maxZ) - Math.max(pz - CHAR_HALF_D - CLIMB_REACH, b.minZ);
         if (ox <= 0 || oz <= 0) continue;
@@ -3481,7 +3748,7 @@ function updatePhysics(dt) {
     physicsWorld.step(1 / 60, dt, 3); // Fixed 60Hz timestep with max 3 iterations
 
     // Sync mesh positions and rotations with physics bodies
-    physicsBodies.forEach(({ body, anchored, mesh }) => {
+    physicsBodies.forEach(({ body, anchored, mesh, ragdollOffset }) => {
         if (!anchored && body) {
             // Update mesh position from physics body
             if (body.position.y < -50) {
@@ -3494,6 +3761,14 @@ function updatePhysics(dt) {
             }
             mesh.position.copy(body.position);
             mesh.quaternion.copy(body.quaternion);
+
+            // Ragdoll body origins sit at each limb's center of mass; shift
+            // the visible bone back by that offset so it stays at the joint
+            // (hip/shoulder) where the skinned mesh expects it.
+            if (ragdollOffset) {
+                _ragdollSyncV.copy(ragdollOffset).applyQuaternion(mesh.quaternion);
+                mesh.position.sub(_ragdollSyncV);
+            }
 
             // Use stored half-size from addStud
             const hs = mesh.userData.halfSize || { sw: 1, sh: 1, sd: 1 };
@@ -3534,13 +3809,19 @@ function update(dt) {
     if (_dead) {
         _respawnTimer -= dt;
         if (_respawnTimer > 0 && _ragdollParts.length > 0) {
+            // Track the torso part (kept first in _ragdollParts) so the
+            // (now visually empty) character root stays near the ragdoll
+            // for camera pivoting and for the position we broadcast to others.
             const p = _ragdollParts[0].mesh;
             character.position.copy(p.position);
-            character.position.y += CHAR_FOOT_OFFSET - CHAR_HEIGHT / 2;
             character.quaternion.copy(p.quaternion);
         }
         if (_respawnTimer <= 0) {
             _clearRagdoll();
+            // Pick a random spawn on respawn
+            if (_spawnPoints.length > 1) {
+                _spawnPoint = _spawnPoints[Math.floor(Math.random() * _spawnPoints.length)];
+            }
             character.rotation.set(0, _spawnPoint.ry, 0);
             character.position.set(_spawnPoint.x, _spawnPoint.y + CHAR_FOOT_OFFSET, _spawnPoint.z);
             character.visible = true;
@@ -3568,9 +3849,9 @@ function update(dt) {
             const camAngle = cam.yaw + Math.PI;
             const diff = ((camAngle - grabAngle) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
             if (Math.abs(diff) > Math.PI / 4) { climbState = 'none'; climbCooldown = 0.25; velY = 0; if (finishClimbUpdate(dt)) return; }
-            character.rotation.y = cam.yaw + Math.PI;
+            character.rotation.y = cam.yaw;
         } else {
-            const faceAngle = Math.atan2(climbFwdX, climbFwdZ);
+            const faceAngle = Math.atan2(climbFwdX, climbFwdZ) + Math.PI;
             character.rotation.y = lerpAngle(character.rotation.y, faceAngle, Math.min(1, ROT_SPEED * dt));
         }
 
@@ -3661,7 +3942,7 @@ function update(dt) {
         velX = moveInput.x * WALK_SPEED;
         velZ = moveInput.z * WALK_SPEED;
         if (!shiftLock) {
-            const targetAngle = Math.atan2(moveInput.x, moveInput.z);
+            const targetAngle = Math.atan2(moveInput.x, moveInput.z) + Math.PI;
             character.rotation.y = lerpAngle(character.rotation.y, targetAngle, Math.min(1, ROT_SPEED * dt));
         }
     }
@@ -3700,6 +3981,7 @@ function update(dt) {
 
         let dx = velX * dt;
         for (const b of swNearby) {
+            if (b.isOBB) continue;
             if (b.maxY <= fy0 + 0.05 || b.minY >= fy0 + CHAR_HEIGHT) continue;
             const stepNeeded = b.maxY - fy0;
             if (stepNeeded > 0 && stepNeeded <= STEP_HEIGHT && grounded && velY <= 0) continue;
@@ -3721,6 +4003,7 @@ function update(dt) {
 
         let dz = velZ * dt;
         for (const b of swNearby) {
+            if (b.isOBB) continue;
             if (b.maxY <= fy0 + 0.05 || b.minY >= fy0 + CHAR_HEIGHT) continue;
             const stepNeeded = b.maxY - fy0;
             if (stepNeeded > 0 && stepNeeded <= STEP_HEIGHT && grounded && velY <= 0) continue;
@@ -3748,7 +4031,7 @@ function update(dt) {
         if (Math.abs(extraVelZ) < 0.3) extraVelZ = 0;
     }
 
-    if (shiftLock || _firstPerson) character.rotation.y = cam.yaw + Math.PI;
+    if (shiftLock || _firstPerson) character.rotation.y = cam.yaw;
 
     climbCooldown = Math.max(0, climbCooldown - dt);
 
@@ -3871,6 +4154,22 @@ function update(dt) {
 }
 
 // ─── Camera update ────────────────────────────────────────────────────────────
+let _camHeadOwner = null;
+let _camHeadBone = null;
+function _getCamHeadBone() {
+    if (_camHeadOwner === character) return _camHeadBone;
+    _camHeadOwner = character;
+    _camHeadBone = null;
+    if (!character) return null;
+    let bone = character.getObjectByName('Head');
+    if (!bone) {
+        const att = _findHeadAttachment(character);
+        if (att?.object) bone = att.object;
+    }
+    _camHeadBone = bone;
+    return bone;
+}
+
 function updateCamera(fpDt) {
     if (!character) return;
 
@@ -3887,12 +4186,22 @@ function updateCamera(fpDt) {
     );
     _firstPersonBlend = THREE.MathUtils.lerp(_firstPersonBlend, fpBlendTarget, Math.min(1, FP_BLEND_SPEED * fpDt));
 
-    // Orbit position (normal third person)
-    const pivot = new THREE.Vector3(
-        character.position.x,
-        character.position.y + CAM_PIVOT_Y,
-        character.position.z
-    );
+    // Orbit position (normal third person). Pivot follows the Head bone so the
+    // camera is attached to the head and zooms into it, not the torso.
+    const headBone = _dead ? null : _getCamHeadBone();
+    let pivot;
+    if (headBone) {
+        headBone.updateWorldMatrix(true, false);
+        const hp = new THREE.Vector3();
+        headBone.getWorldPosition(hp);
+        pivot = new THREE.Vector3(hp.x, hp.y, hp.z);
+    } else {
+        pivot = new THREE.Vector3(
+            character.position.x,
+            character.position.y + CAM_PIVOT_Y,
+            character.position.z
+        );
+    }
     if (shiftLock) {
         pivot.x += cosYaw * SHIFT_LOCK_OFFSET;
         pivot.z += -sinYaw * SHIFT_LOCK_OFFSET;
@@ -3949,25 +4258,33 @@ function updateCamera(fpDt) {
         camera.lookAt(pivot);
     }
 
-    // Smooth character opacity fade based on blend amount
-    const opacity = 1 - _firstPersonBlend;
+    // Roblox-style fade: use the smoothed camera distance so opacity follows
+    // the camera's actual approach instead of jumping with the scroll target.
+    const fadeDist = cam.distance;
+    const opacity = THREE.MathUtils.clamp(
+        (fadeDist - CAM_FADE_NEAR) / (CAM_FADE_FAR - CAM_FADE_NEAR),
+        0, 1
+    );
     if (!_dead) {
+        // Keep the avatar mounted in the scene so the fade is continuous and does
+        // not snap between visible and hidden states when the camera zooms in.
+        character.visible = true;
+        _setLocalAvatarVisible(true);
         _setLocalAvatarOpacity(opacity);
-        character.visible = opacity > 0.0001;
-        if (opacity > 0.0001) {
-            _setLocalAvatarVisible(true);
-        } else {
-            _setLocalAvatarVisible(false);
-        }
     }
 
-    // Toggle mouse-look state (no right-click needed, cursor hidden)
-    if (_firstPersonBlend > 0.99 && !_firstPerson) {
+    // Switch cursor and mouse-look state at the midpoint of the camera blend,
+    // avoiding a visible delay while the camera finishes easing into position.
+    if (_firstPersonBlend > 0.5 && !_firstPerson) {
         _firstPerson = true;
-        if (!shiftLock) cursorEl.style.display = 'none';
-    } else if (_firstPersonBlend < 0.01 && _firstPerson) {
+        if (shiftLock) {
+            shiftLock = false;
+            shiftLockIndicator.classList.remove('visible');
+        }
+        cursorEl.style.display = 'none';
+    } else if (_firstPersonBlend <= 0.5 && _firstPerson) {
         _firstPerson = false;
-        if (!shiftLock) cursorEl.style.display = 'block';
+        cursorEl.style.display = shiftLock ? 'none' : 'block';
     }
 }
 
@@ -3993,52 +4310,181 @@ function _die() {
 }
 
 const _ragdollParts = [];
+const _ragdollSyncV = new THREE.Vector3();
+
+// Real rig bones that get physically detached on death, in the order R6
+// avatars name them. Each one already carries its actual mesh, its actual
+// material/color, and (for Torso/Legs/Head) any clothing overlay or face
+// decal parented onto it — nothing here is a fake stand-in shape.
+const RAGDOLL_BONE_NAMES = ['Torso', 'Head', 'Left_Arm', 'Right_Arm', 'Left_Leg', 'Right_Leg'];
+
+// The body model is split into several skinned meshes (one per material), so
+// a detachable bone carries no geometry of its own — an empty
+// Box3().setFromObject(bone) used to make every limb fall back to a tiny 0.6
+// cube, which is why limbs sank through objects. Instead, measure each bone's
+// real influence volume by aggregating the vertices it skims across every
+// body mesh (vertices whose dominant skin-weight belongs to that bone), in
+// the bone's own local frame, and build the collision box from that.
+function _collectBodySkinnedMeshes(root) {
+    const out = [];
+    if (!root) return out;
+    root.traverse(child => {
+        if (child.isMesh && child.skeleton && child.geometry?.getAttribute('skinIndex')) {
+            out.push(child);
+        }
+    });
+    return out;
+}
+
+function _limbSkinBounds(bone) {
+    const fallback = new THREE.Box3(new THREE.Vector3(-0.3, -0.3, -0.3), new THREE.Vector3(0.3, 0.3, 0.3));
+    if (!bone) return fallback;
+    const meshes = _collectBodySkinnedMeshes(character);
+    if (!meshes.length) return fallback;
+
+    const tmp = new THREE.Vector3();
+    const box = new THREE.Box3();
+    for (const mesh of meshes) {
+        const skeleton = mesh.skeleton;
+        const idx = skeleton.bones.indexOf(bone);
+        if (idx < 0 || !skeleton.boneInverses || !skeleton.boneInverses[idx]) continue;
+        const pos = mesh.geometry.getAttribute('position');
+        const skinIndex = mesh.geometry.getAttribute('skinIndex');
+        const skinWeight = mesh.geometry.getAttribute('skinWeight');
+        if (!pos || !skinIndex || !skinWeight) continue;
+        const inv = skeleton.boneInverses[idx];
+        for (let v = 0; v < pos.count; v++) {
+            let bi = skinIndex.getX(v);
+            let bw = skinWeight.getX(v);
+            const bx = skinIndex.getY(v), by = skinIndex.getZ(v), bz = skinIndex.getW(v);
+            const wx = skinWeight.getY(v), wy = skinWeight.getZ(v), wz = skinWeight.getW(v);
+            if (wx > bw) { bw = wx; bi = bx; }
+            if (wy > bw) { bw = wy; bi = by; }
+            if (wz > bw) { bw = wz; bi = bz; }
+            if (bi !== idx) continue;
+            tmp.fromBufferAttribute(pos, v).applyMatrix4(inv);
+            box.expandByPoint(tmp);
+        }
+    }
+    return box.isEmpty() ? fallback : box;
+}
 
 function _clearRagdoll() {
     for (const entry of _ragdollParts) {
-        if (entry.body) {
-            physicsWorld.removeBody(entry.body);
-            physicsBodies.delete(entry.mesh);
+        const { body, mesh: bone, originalParent, rest } = entry;
+        if (body) {
+            physicsWorld.removeBody(body);
+            physicsBodies.delete(bone);
         }
-        if (entry.mesh.parent) entry.mesh.removeFromParent();
-        entry.mesh.geometry?.dispose();
-        const mats = Array.isArray(entry.mesh.material) ? entry.mesh.material : [entry.mesh.material];
-        for (const m of mats) m?.dispose();
+        // Reattach the real limb back onto the character rig and reset it to
+        // its bind pose so normal walk/idle animation resumes cleanly.
+        if (bone && originalParent) {
+            originalParent.add(bone);
+            if (rest) {
+                bone.position.set(rest.px, rest.py, rest.pz);
+                bone.rotation.set(rest.x, rest.y, rest.z);
+            }
+        }
     }
     _ragdollParts.length = 0;
+    if (character) character.updateMatrixWorld(true);
 }
 
-// ─── Ragdoll death config ──────────────────────────────────────────────────────
+// Ragdoll death config — tuned to feel like Roblox's reset blow-up: parts
+// pop outward and fall, but they don't launch across the map.
 const RAGDOLL_VEL_XZ = 30;        // horizontal velocity
-const RAGDOLL_VEL_Y_BASE = 20;    // upward velocity base
-const RAGDOLL_VEL_Y_RANDOM = 4;  // upward velocity random add
-const RAGDOLL_ANG_VEL_MAX = 30;  // max angular velocity on all axes
+const RAGDOLL_VEL_Y_BASE = 22;    // upward velocity base
+const RAGDOLL_VEL_Y_RANDOM = 6;   // upward velocity random add
+const RAGDOLL_ANG_VEL_MAX = 4;    // max angular velocity on all axes
 
 function _dieRagdoll() {
     if (_dead || !character) return;
     _clearRagdoll();
-    const bb = new THREE.Box3().setFromObject(character);
-    const center = bb.getCenter(new THREE.Vector3());
-    const size = bb.getSize(new THREE.Vector3());
-    const sw = Math.max(size.x, 0.5), sh = Math.max(size.y, 0.5), sd = Math.max(size.z, 0.5);
-    const proxy = new THREE.Mesh(getCachedGeo(sw, sh, sd), new THREE.MeshBasicMaterial({ visible: false }));
-    proxy.userData.canCollide = false;
-    proxy.position.copy(center);
-    proxy.quaternion.copy(character.quaternion);
-    scene.add(proxy);
-    const cannonShape = new CANNON.Box(new CANNON.Vec3(sw / 2, sh / 2, sd / 2));
-    const body = new CANNON.Body({ mass: 0.1, shape: cannonShape });
-    body.linearDamping = 0.01;
-    body.angularDamping = 0.01;
-    body.sleepSpeedLimit = 0;
-    body.position.set(center.x, center.y, center.z);
-    body.quaternion.set(character.quaternion.x, character.quaternion.y, character.quaternion.z, character.quaternion.w);
-    const angle = Math.random() * 2 * Math.PI;
-    body.velocity.set(Math.cos(angle) * RAGDOLL_VEL_XZ, RAGDOLL_VEL_Y_BASE + Math.random() * RAGDOLL_VEL_Y_RANDOM, Math.sin(angle) * RAGDOLL_VEL_XZ);
-    body.angularVelocity.set((Math.random() - 0.5) * RAGDOLL_ANG_VEL_MAX * 2, (Math.random() - 0.5) * RAGDOLL_ANG_VEL_MAX * 2, (Math.random() - 0.5) * RAGDOLL_ANG_VEL_MAX * 2);
-    physicsWorld.addBody(body);
-    physicsBodies.set(proxy, { body, anchored: false, mesh: proxy });
-    _ragdollParts.push({ mesh: proxy, body });
+    character.updateMatrixWorld(true);
+
+    // Resolve every target bone BEFORE detaching any of them. If the rig
+    // nests bones under each other (e.g. Head/arms/legs parented under
+    // Torso, which is common for this rig's swing/walk animation), detaching
+    // Torso first would drag every other bone away with it before we ever
+    // got a chance to look them up individually — which is exactly what
+    // made the whole body ragdoll as one stiff lump instead of separating.
+    const resolved = [];
+    for (const boneName of RAGDOLL_BONE_NAMES) {
+        const bone = character.getObjectByName(boneName);
+        if (bone && bone.parent) {
+            resolved.push({ boneName, bone, originalParent: bone.parent });
+        }
+    }
+
+    const newParts = [];
+    for (const { boneName, bone, originalParent } of resolved) {
+        const rest = anim.rest[boneName] || null;
+
+        // Move the bone (and everything childed to it — its mesh, its
+        // clothing overlay, the face decal on Head, etc.) into the scene
+        // root, preserving exactly where it visually is right now.
+        scene.attach(bone);
+
+        // Size a physics box from the limb's own skinned geometry so long
+        // limbs get long, correctly-centered boxes instead of a tiny cube.
+        const limbBox = _limbSkinBounds(bone);
+        const size = limbBox.getSize(new THREE.Vector3());
+        const shapeCenter = limbBox.getCenter(new THREE.Vector3());
+        const sw = Math.max(size.x, 0.3), sh = Math.max(size.y, 0.3), sd = Math.max(size.z, 0.3);
+
+        const cannonShape = new CANNON.Box(new CANNON.Vec3(sw / 2, sh / 2, sd / 2));
+        const body = new CANNON.Body({ mass: 0.6 });
+        body.addShape(cannonShape);
+        body.updateMassProperties();
+        body.linearDamping = 0.18;
+        body.angularDamping = 0.6;
+        body.sleepSpeedLimit = 0.4;
+        body.sleepTimeLimit = 0.3;
+        // cannon-es applies collision torque about body.position, NOT the
+        // center of mass. With the body left at the hip/shoulder joint and an
+        // offset collision shape, a resting limb pivoted around the joint and
+        // slowly swung itself up in a pendulum — defying gravity. Instead,
+        // place the body at the limb's true center and keep the visible bone
+        // offset from it when syncing back each frame.
+        const boneQ = new THREE.Quaternion(bone.quaternion.x, bone.quaternion.y, bone.quaternion.z, bone.quaternion.w);
+        const cWorld = new THREE.Vector3(shapeCenter.x, shapeCenter.y, shapeCenter.z).applyQuaternion(boneQ);
+        body.position.set(bone.position.x + cWorld.x, bone.position.y + cWorld.y, bone.position.z + cWorld.z);
+        body.quaternion.copy(boneQ);
+
+        // Independent random direction, speed and spin per part — this is
+        // what makes limbs scatter individually instead of moving as one
+        // rigid lump.
+        const angle = Math.random() * Math.PI * 2;
+        const speed = RAGDOLL_VEL_XZ * (0.5 + Math.random());
+        body.velocity.set(
+            Math.cos(angle) * speed,
+            RAGDOLL_VEL_Y_BASE * (0.4 + Math.random() * 0.8) + Math.random() * RAGDOLL_VEL_Y_RANDOM,
+            Math.sin(angle) * speed
+        );
+        body.angularVelocity.set(
+            (Math.random() - 0.5) * RAGDOLL_ANG_VEL_MAX * 2,
+            (Math.random() - 0.5) * RAGDOLL_ANG_VEL_MAX * 2,
+            (Math.random() - 0.5) * RAGDOLL_ANG_VEL_MAX * 2
+        );
+
+        bone.userData.canCollide = false;
+        physicsWorld.addBody(body);
+        physicsBodies.set(bone, { body, anchored: false, mesh: bone, ragdollOffset: shapeCenter });
+        newParts.push({ mesh: bone, body, originalParent, boneName, rest });
+    }
+
+    // Keep the torso first (if present) as the stable anchor the invisible
+    // character root follows for camera + network position while dead.
+    newParts.sort((a, b) => (a.boneName === 'Torso' ? -1 : b.boneName === 'Torso' ? 1 : 0));
+    _ragdollParts.push(...newParts);
+
+    // Accessories (hats, etc.) already track whichever object they were
+    // attached to via a live world-transform lookup each frame, so once the
+    // Head bone above is flying through the air they keep following it with
+    // no extra code needed. Just drop the local nameplate/health bar since
+    // there's no longer a single stable head position to pin them to.
+    _setLocalLabelsVisible(false);
+
     velY = 0; extraVelX = 0; extraVelZ = 0;
     _dead = true;
     _deathType = 2;
@@ -4331,7 +4777,7 @@ window._bloxverse = {
         const parts = Array.isArray(data) ? data : (data.parts || []);
         const scripts = (!Array.isArray(data) && data.scripts) ? data.scripts : [];
 
-        const valid = parts.filter(p => p.Type === 'Part' && (p.Shape === 'Block' || p.Shape === 'Ball' || p.Shape === 'Cylinder'));
+        const valid = parts.filter(p => (p.Type === 'Part' || p.Type === 'SpawnLocation') && (p.Shape === 'Block' || p.Shape === 'Ball' || p.Shape === 'Cylinder'));
         if (!valid.length) return;
         let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
         for (const p of valid) {
@@ -4396,9 +4842,13 @@ window._bloxverse = {
         matCache.clear();
         geoCache.clear();
 
+        // Collect all SpawnLocation parts from raw data before partMap deduplicates by name
+        const rawSpawnParts = valid.filter(p => (p.Name || '').startsWith('SpawnLocation'));
+
         // Store part info for later physics reference
         const partMap = new Map();
         window._mapParts = [];
+        _spawnPoints = []; // Reset spawn list for new map
 
         for (const p of valid) {
             const [sw, sh, sd] = p.Size, [px, py, pz] = p.Position, [rx, ry, rz] = p.Rotation;
@@ -4504,14 +4954,22 @@ window._bloxverse = {
             }
         }
         if (!spawnFound) {
-            // Backward compatibility for older exports where SpawnLocation was only a named part.
-            for (const [name, entry] of partMap) {
-                if (name === 'SpawnLocation') {
-                    const spawnRy = entry.rotation ? entry.rotation[1] * DEG2RAD : Math.PI;
-                    _spawnPoint = { x: entry.worldPos[0], y: entry.worldPos[1] + entry.size[1] / 2, z: entry.worldPos[2], ry: spawnRy };
-                    spawnFound = true;
-                    break;
-                }
+            // Scan raw parts list (not partMap which deduplicates by name)
+            if (rawSpawnParts.length > 0) {
+                _spawnPoints = rawSpawnParts.map(p => {
+                    const [px, py, pz] = p.Position;
+                    const [, ry] = p.Rotation || [0, 0, 0];
+                    const sh = p.Size ? p.Size[1] : 1;
+                    return {
+                        x: px + ox,
+                        y: py + oy + sh / 2,
+                        z: pz + oz,
+                        ry: ry * DEG2RAD
+                    };
+                });
+                const pt = _spawnPoints[Math.floor(Math.random() * _spawnPoints.length)];
+                _spawnPoint = { ...pt };
+                spawnFound = true;
             }
         }
         if (!spawnFound) {
@@ -5093,7 +5551,7 @@ window._bloxverse = {
         if (userId === currentUserId) return;
         // Normalize received angle to [-π, π] so lerpAngle never takes the long way around
         // and so a freshly spawned clone never starts 180° wrong.
-        let correctedRy = ry % (2 * Math.PI);
+        let correctedRy = (ry % (2 * Math.PI)) + Math.PI;
         if (correctedRy > Math.PI) correctedRy -= 2 * Math.PI;
         if (correctedRy < -Math.PI) correctedRy += 2 * Math.PI;
 
@@ -5178,16 +5636,13 @@ window._bloxverse = {
             // Apply stored avatar data if available, otherwise neutral defaults
             const storedData = _playerAvatarData.get(userId);
             if (storedData) {
-                const cols = storedData.colors && Object.keys(storedData.colors).length > 0
-                    ? storedData.colors
-                    : { Body: '#2d8a4e', Legs: '#2a6bb0', Arms: '#d4a017', Head: '#c4a882' };
-                _applyColorsToModel(clone, cols);
+                _applyAvatarColorsToModel(clone, storedData.colors);
                 _applyClothingToModel(clone, storedData.clothing);
                 _applyPantsToModel(clone, storedData.pants);
                 _applyAccessoriesToModel(userId, clone, storedData.accessories);
                 _applyFaceToModel(clone, storedData.face);
             } else {
-                _applyColorsToModel(clone, { Body: '#2d8a4e', Legs: '#2a6bb0', Arms: '#d4a017', Head: '#c4a882' });
+                _applyAvatarColorsToModel(clone, null);
             }
 
             // Set initial visual top (accessories may update it later)
@@ -5253,7 +5708,7 @@ window._bloxverse = {
     _setPlayerAvatarData(userId, data) {
         _playerAvatarData.set(userId, data);
         if (userId === currentUserId && character) {
-            if (data.colors && Object.keys(data.colors).length > 0) _applyColorsToModel(character, data.colors);
+            _applyAvatarColorsToModel(character, data.colors);
             _applyClothingToModel(character, data.clothing);
             _applyPantsToModel(character, data.pants);
             _applyAccessoriesToModel(userId, character, data.accessories);
@@ -5262,7 +5717,7 @@ window._bloxverse = {
         }
         const p = otherPlayers.get(userId);
         if (p && p.mesh) {
-            if (data.colors && Object.keys(data.colors).length > 0) _applyColorsToModel(p.mesh, data.colors);
+            _applyAvatarColorsToModel(p.mesh, data.colors);
             _applyClothingToModel(p.mesh, data.clothing);
             _applyPantsToModel(p.mesh, data.pants);
             _applyAccessoriesToModel(userId, p.mesh, data.accessories);
@@ -5535,47 +5990,54 @@ function loop(now) {
 
         if (p.climbState > 0) {
             const grip = p.moving ? Math.sin(p.animTime * 6) * 0.15 : 0;
-            if (lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x || 0) + (p.offset?.['Left_Arm']?.x || 0) - Math.PI * 0.75 + grip, Math.min(1, sp * frameDt));
-            if (rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x || 0) + (p.offset?.['Right_Arm']?.x || 0) - Math.PI * 0.75 - grip, Math.min(1, sp * frameDt));
-            if (lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z || 0) + (p.offset?.['Left_Arm']?.z || 0) + 0.35, Math.min(1, sp * frameDt));
-            if (rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z || 0) + (p.offset?.['Right_Arm']?.z || 0) - 0.35, Math.min(1, sp * frameDt));
+            const lArmOffX = p.offset?.['Left_Arm']?.x || 0;
+            const rArmOffX = p.offset?.['Right_Arm']?.x || 0;
+            const lArmOffZ = p.offset?.['Left_Arm']?.z || 0;
+            const rArmOffZ = p.offset?.['Right_Arm']?.z || 0;
+            setBoneRot(lArm, { x: lArmOffX - Math.PI * 0.75 + grip, z: lArmOffZ + 0.35 }, sp, frameDt);
+            setBoneRot(rArm, { x: rArmOffX - Math.PI * 0.75 - grip, z: rArmOffZ - 0.35 }, sp, frameDt);
             const kick = p.moving ? Math.sin(p.animTime * 6) * 0.3 : 0;
-            if (lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x || 0) + 0.3 + kick, Math.min(1, sp * frameDt));
-            if (rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x || 0) + 0.3 - kick, Math.min(1, sp * frameDt));
-            if (torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x || 0) - 0.15, Math.min(1, sp * frameDt));
-            if (torso) torso.rotation.z = THREE.MathUtils.lerp(torso.rotation.z, (p.rest['Torso']?.z || 0), Math.min(1, sp * frameDt));
+            setBoneRot(lLeg, { x: 0.3 + kick }, sp, frameDt);
+            setBoneRot(rLeg, { x: 0.3 - kick }, sp, frameDt);
+            setBoneRot(torso, { x: -0.15 }, sp, frameDt);
             if (lArm) lArm.position.y = THREE.MathUtils.lerp(lArm.position.y, lArmRestY + 0.5, Math.min(1, sp * frameDt));
             if (rArm) rArm.position.y = THREE.MathUtils.lerp(rArm.position.y, rArmRestY + 0.5, Math.min(1, sp * frameDt));
         } else if (p.grounded === false) {
-            if (lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x || 0), Math.min(1, sp * frameDt));
-            if (rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x || 0), Math.min(1, sp * frameDt));
-            if (lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x || 0) + (p.offset?.['Left_Arm']?.x || 0) - Math.PI, Math.min(1, sp * frameDt));
-            if (rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x || 0) + (p.offset?.['Right_Arm']?.x || 0) - Math.PI, Math.min(1, sp * frameDt));
-            if (lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z || 0) + (p.offset?.['Left_Arm']?.z || 0), Math.min(1, sp * frameDt));
-            if (rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z || 0) + (p.offset?.['Right_Arm']?.z || 0), Math.min(1, sp * frameDt));
-            if (torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x || 0), Math.min(1, sp * frameDt));
+            setBoneRot(lLeg, { x: 0 }, sp, frameDt);
+            setBoneRot(rLeg, { x: 0 }, sp, frameDt);
+            const lArmOffX = p.offset?.['Left_Arm']?.x || 0;
+            const rArmOffX = p.offset?.['Right_Arm']?.x || 0;
+            const lArmOffZ = p.offset?.['Left_Arm']?.z || 0;
+            const rArmOffZ = p.offset?.['Right_Arm']?.z || 0;
+            setBoneRot(lArm, { x: lArmOffX - Math.PI, z: lArmOffZ }, sp, frameDt);
+            setBoneRot(rArm, { x: rArmOffX - Math.PI, z: rArmOffZ }, sp, frameDt);
+            setBoneRot(torso, { x: 0 }, sp, frameDt);
             if (lArm) lArm.position.y = THREE.MathUtils.lerp(lArm.position.y, lArmRestY, Math.min(1, sp * frameDt));
             if (rArm) rArm.position.y = THREE.MathUtils.lerp(rArm.position.y, rArmRestY, Math.min(1, sp * frameDt));
         } else if (p.moving) {
             const swing = Math.sin(t * 2.8 * Math.PI);
-            if (lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x || 0) + swing * 1.0, Math.min(1, sp * frameDt));
-            if (rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x || 0) - swing * 1.0, Math.min(1, sp * frameDt));
-            if (lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x || 0) + (p.offset?.['Left_Arm']?.x || 0) - swing * 0.8, Math.min(1, sp * frameDt));
-            if (rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x || 0) + (p.offset?.['Right_Arm']?.x || 0) + swing * 0.8, Math.min(1, sp * frameDt));
-            if (lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z || 0) + (p.offset?.['Left_Arm']?.z || 0) + 0.05, Math.min(1, sp * frameDt));
-            if (rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z || 0) + (p.offset?.['Right_Arm']?.z || 0) - 0.05, Math.min(1, sp * frameDt));
-            if (torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x || 0) + 0.03, Math.min(1, sp * frameDt));
+            setBoneRot(lLeg, { x: swing * 1.0 }, sp, frameDt);
+            setBoneRot(rLeg, { x: -swing * 1.0 }, sp, frameDt);
+            const lArmOffX = p.offset?.['Left_Arm']?.x || 0;
+            const rArmOffX = p.offset?.['Right_Arm']?.x || 0;
+            const lArmOffZ = p.offset?.['Left_Arm']?.z || 0;
+            const rArmOffZ = p.offset?.['Right_Arm']?.z || 0;
+            setBoneRot(lArm, { x: lArmOffX - swing * 0.8, z: lArmOffZ + 0.05 }, sp, frameDt);
+            setBoneRot(rArm, { x: rArmOffX + swing * 0.8, z: rArmOffZ - 0.05 }, sp, frameDt);
+            setBoneRot(torso, { x: 0.03 }, sp, frameDt);
             if (lArm) lArm.position.y = THREE.MathUtils.lerp(lArm.position.y, lArmRestY, Math.min(1, sp * frameDt));
             if (rArm) rArm.position.y = THREE.MathUtils.lerp(rArm.position.y, rArmRestY, Math.min(1, sp * frameDt));
         } else {
             const breathe = Math.sin(t * 1.2) * 0.015;
-            if (lLeg) lLeg.rotation.x = THREE.MathUtils.lerp(lLeg.rotation.x, (p.rest['Left_Leg']?.x || 0), Math.min(1, sp * frameDt));
-            if (rLeg) rLeg.rotation.x = THREE.MathUtils.lerp(rLeg.rotation.x, (p.rest['Right_Leg']?.x || 0), Math.min(1, sp * frameDt));
-            if (lArm) lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, (p.rest['Left_Arm']?.x || 0) + (p.offset?.['Left_Arm']?.x || 0), Math.min(1, sp * frameDt));
-            if (rArm) rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, (p.rest['Right_Arm']?.x || 0) + (p.offset?.['Right_Arm']?.x || 0), Math.min(1, sp * frameDt));
-            if (lArm) lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, (p.rest['Left_Arm']?.z || 0) + (p.offset?.['Left_Arm']?.z || 0) + 0.1 + breathe, Math.min(1, sp * frameDt));
-            if (rArm) rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, (p.rest['Right_Arm']?.z || 0) + (p.offset?.['Right_Arm']?.z || 0) - 0.1 - breathe, Math.min(1, sp * frameDt));
-            if (torso) torso.rotation.x = THREE.MathUtils.lerp(torso.rotation.x, (p.rest['Torso']?.x || 0) + breathe, Math.min(1, sp * frameDt));
+            setBoneRot(lLeg, { x: 0 }, sp, frameDt);
+            setBoneRot(rLeg, { x: 0 }, sp, frameDt);
+            const lArmOffX = p.offset?.['Left_Arm']?.x || 0;
+            const rArmOffX = p.offset?.['Right_Arm']?.x || 0;
+            const lArmOffZ = p.offset?.['Left_Arm']?.z || 0;
+            const rArmOffZ = p.offset?.['Right_Arm']?.z || 0;
+            setBoneRot(lArm, { x: lArmOffX, z: lArmOffZ + 0.1 + breathe }, sp, frameDt);
+            setBoneRot(rArm, { x: rArmOffX, z: rArmOffZ - 0.1 - breathe }, sp, frameDt);
+            setBoneRot(torso, { x: breathe }, sp, frameDt);
             if (lArm) lArm.position.y = THREE.MathUtils.lerp(lArm.position.y, lArmRestY, Math.min(1, sp * frameDt));
             if (rArm) rArm.position.y = THREE.MathUtils.lerp(rArm.position.y, rArmRestY, Math.min(1, sp * frameDt));
         }

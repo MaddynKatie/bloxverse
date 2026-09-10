@@ -1,4 +1,4 @@
-import { auth, db, banGuard, isUsernameTaken, getEmailByUsername, backfillUsernameEntry, assignUserIdNum } from './firebase.js';
+import { auth, db, banGuard, isUsernameTaken, getEmailByUsername, backfillUsernameEntry, assignUserIdNum, registerDeviceSession, isAuthPage } from './firebase.js';
 import { sitePath } from './paths.js';
 import { fetchApi } from './api.js';
 import {
@@ -6,7 +6,6 @@ import {
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
   updateProfile,
-  onAuthStateChanged,
   signOut
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, runTransaction, collection } from 'firebase/firestore';
@@ -232,6 +231,7 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
 
     if (await cancelPendingAccountDeletion(cred.user.uid) === 'past-due') return;
     await backfillUsernameEntry(cred.user.uid);
+    await registerDeviceSession(cred.user.uid);
     window.location.href = sitePath('index.html');
   } catch (err) {
     errorEl.textContent = getAuthErrorMessage(err.code);
@@ -525,6 +525,7 @@ document.getElementById('totpVerifyBtn')?.addEventListener('click', async () => 
       sessionStorage.removeItem('_pendingTotp');
       if (await cancelPendingAccountDeletion(window._tfaCred.user.uid) === 'past-due') return;
       await backfillUsernameEntry(window._tfaCred.user.uid);
+      await registerDeviceSession(window._tfaCred.user.uid);
       window.location.href = sitePath('index.html');
     }
   } catch (err) {
@@ -551,13 +552,19 @@ document.getElementById('totpForm')?.addEventListener('submit', (e) => {
   document.getElementById('totpVerifyBtn').click();
 });
 
-// Redirect if already logged in
-onAuthStateChanged(auth, async (user) => {
-  if (user && window.location.pathname.includes('auth.html')) {
-    if (sessionStorage.getItem('_pendingTotp') === 'true') return;
-    if (await cancelPendingAccountDeletion(user.uid) === 'past-due') return;
-    await backfillUsernameEntry(user.uid);
-    window.location.href = sitePath('index.html');
+// Redirect if already logged in — checked once at page load only. A persistent
+// onAuthStateChanged listener here would race with a fresh sign-in: it fires the
+// moment signInWithEmailAndPassword resolves, before the async 2FA check stores
+// _pendingTotp, and would bounce the user past the 2FA screen into index.html.
+auth.authStateReady().then(() => {
+  const user = auth.currentUser;
+  if (user && isAuthPage() && sessionStorage.getItem('_pendingTotp') !== 'true') {
+    return (async () => {
+      if (await cancelPendingAccountDeletion(user.uid) === 'past-due') return;
+      await backfillUsernameEntry(user.uid);
+      await registerDeviceSession(user.uid);
+      window.location.href = sitePath('index.html');
+    })();
   }
 });
 

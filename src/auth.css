@@ -212,9 +212,9 @@ body {
 }
 
 .status-dot.offline { background-color: var(--text-muted); }
-.status-dot.online { background-color: #0d69ac; }
-.status-dot.in-game { background-color: var(--accent); }
-.status-dot.in-studio { background-color: #8b5cf6; }
+.status-dot.online { background-color: var(--status-online); }
+.status-dot.in-game { background-color: var(--status-in-game); }
+.status-dot.in-studio { background-color: var(--status-in-studio); }
 
 .back-link {
   display: block;

@@ -4,7 +4,7 @@ import {
 } from 'firebase/firestore';
 
 export async function searchUsers(searchTerm) {
-  if (searchTerm.length < 3) return [];
+  if (searchTerm.length === 0) return [];
 
   const usersRef = collection(db, 'users');
   const q = query(usersRef, where('username', '>=', searchTerm), where('username', '<=', searchTerm + '\uf8ff'), limit(10));

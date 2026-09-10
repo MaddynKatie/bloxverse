@@ -288,6 +288,16 @@
           </div>
         </div>
       </div>
+      <div id="leaveConfirm" class="confirm-overlay" style="display:none;">
+        <div class="confirm-box">
+          <div class="confirm-title">Leave</div>
+          <div class="confirm-text">Are you sure you want to leave the game?</div>
+          <div class="confirm-actions">
+            <button id="btnConfirmLeave" class="settings-btn settings-btn-danger">Leave</button>
+            <button id="btnCancelLeave" class="settings-btn settings-btn-primary">Cancel</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1273,10 +1283,21 @@
 
     document.getElementById('btnResume').addEventListener('click', closeSettings);
 
-    document.getElementById('btnLeaveGame').addEventListener('click', async () => {
+    const leaveConfirm = document.getElementById('leaveConfirm');
+
+    document.getElementById('btnLeaveGame').addEventListener('click', () => {
+      leaveConfirm.style.display = 'flex';
+    });
+
+    document.getElementById('btnConfirmLeave').addEventListener('click', async () => {
+      leaveConfirm.style.display = 'none';
       await leaveCurrentServer();
       disconnectMultiplayer();
       window.location.href = '/bloxverse/';
+    });
+
+    document.getElementById('btnCancelLeave').addEventListener('click', () => {
+      leaveConfirm.style.display = 'none';
     });
 
     const respawnConfirm = document.getElementById('respawnConfirm');
@@ -1418,14 +1439,31 @@
     document.getElementById('settingsPanelBackdrop').addEventListener('click', closeSettings);
 
     document.addEventListener('keydown', (e) => {
+      // Ignore shortcuts while typing (chat, report form, etc.)
+      const tg = e.target;
+      if (tg && (tg.tagName === 'INPUT' || tg.tagName === 'TEXTAREA' || tg.tagName === 'SELECT' || tg.isContentEditable)) return;
+
+      const panelOpen = settingsPanel.classList.contains('open');
+      const confirmOpen = respawnConfirm.style.display === 'flex';
+      const leaveOpen = leaveConfirm.style.display === 'flex';
+
       if (e.key === 'Escape') {
+        // Close the leave/respawn confirm first
+        if (leaveOpen) {
+          document.getElementById('btnCancelLeave')?.click();
+          return;
+        }
+        if (confirmOpen) {
+          document.getElementById('btnCancelRespawn')?.click();
+          return;
+        }
         // Close chat first if open
         if (chatContainer.classList.contains('visible')) {
           chatContainer.classList.remove('visible');
           chatInput.blur();
           return;
         }
-        if (settingsPanel.classList.contains('open')) {
+        if (panelOpen) {
           closeSettings();
         } else if (!document.pointerLockElement) {
           // Pointer lock already inactive — open settings directly
@@ -1433,6 +1471,24 @@
         }
         // If pointer lock is active, the browser will exit it on ESC and
         // pointerlockchange will open settings
+        return;
+      }
+
+      // Menu keyboard shortcuts: R = respawn, L = leave, Enter = confirm
+      if (!panelOpen) return;
+      const key = e.key.toLowerCase();
+      if (key === 'r' && !confirmOpen && !leaveOpen) {
+        e.preventDefault();
+        document.getElementById('btnRespawn')?.click();
+      } else if (e.key === 'Enter' && leaveOpen) {
+        e.preventDefault();
+        document.getElementById('btnConfirmLeave')?.click();
+      } else if (e.key === 'Enter' && confirmOpen) {
+        e.preventDefault();
+        document.getElementById('btnConfirmRespawn')?.click();
+      } else if (key === 'l' && !confirmOpen && !leaveOpen) {
+        e.preventDefault();
+        document.getElementById('btnLeaveGame')?.click();
       }
     });
 
@@ -2596,7 +2652,7 @@
                     const avatarData = avatarSnap.data();
                     if (window._bloxverse) {
                       window._bloxverse._setPlayerAvatarData(user.uid, {
-                        colors: avatarData.avatarColors || {},
+                        colors: avatarData.avatarBodyColors || avatarData.avatarColors || {},
                         clothing: avatarData.avatarClothing || null,
                         pants: avatarData.avatarPants || null,
                         accessories: avatarData.avatarAccessories || [],
@@ -2643,12 +2699,12 @@
                   }
                   const isStalePreview = avatarData.avatarPreview && typeof avatarData.avatarPreview === 'string' && avatarData.avatarPreview.includes('/image/upload');
                   const needPreview = !avatarData.avatarPreview || isStalePreview;
-                  if ((avatarData.avatarColors || avatarData.avatarClothing || avatarData.avatarPants || avatarData.avatarAccessories || avatarData.avatarFace) && window._bloxverse) {
+                  if ((avatarData.avatarBodyColors || avatarData.avatarColors || avatarData.avatarClothing || avatarData.avatarPants || avatarData.avatarAccessories || avatarData.avatarFace) && window._bloxverse) {
                     const waitForChar = setInterval(() => {
                       if (window._bloxverse.getCharacter()) {
                         clearInterval(waitForChar);
                         window._bloxverse._setPlayerAvatarData(user.uid, {
-                          colors: avatarData.avatarColors || {},
+                          colors: avatarData.avatarBodyColors || avatarData.avatarColors || {},
                           clothing: avatarData.avatarClothing || null,
                           pants: avatarData.avatarPants || null,
                           accessories: avatarData.avatarAccessories || [],
@@ -2662,7 +2718,7 @@
                       if (window._bloxverse.getCharacter()) {
                         clearInterval(waitForChar);
                         window._bloxverse._setPlayerAvatarData(user.uid, {
-                          colors: { Body: '#2d8a4e', Legs: '#2a6bb0', Arms: '#d4a017', Head: '#c4a882' },
+                          colors: { Head: '#ffffff', Torso: '#8350fb', 'L Arm': '#ffffff', 'R Arm': '#ffffff', 'L Leg': '#400eb4', 'R Leg': '#400eb4' },
                           clothing: null,
                           accessories: [],
                           face: 'smile',
@@ -2821,7 +2877,7 @@
                     const pending = _pendingRemoteAvatarData.get(id);
                     if (pending && window._bloxverse) {
                       window._bloxverse._setPlayerAvatarData(id, {
-                        colors: pending.avatarColors || {},
+                        colors: pending.avatarBodyColors || pending.avatarColors || {},
                         clothing: pending.avatarClothing || null,
                         pants: pending.avatarPants || null,
                         accessories: pending.avatarAccessories || [],
@@ -2866,7 +2922,7 @@
                       _fetchedAvatarPlayers.add(p.userId);
                       // Set defaults immediately to prevent flash of local player's colors/accessories
                       window._bloxverse._setPlayerAvatarData(p.userId, {
-                        colors: { Body: '#2d8a4e', Legs: '#2a6bb0', Arms: '#d4a017', Head: '#c4a882' },
+                        colors: { Head: '#ffffff', Torso: '#8350fb', 'L Arm': '#ffffff', 'R Arm': '#ffffff', 'L Leg': '#400eb4', 'R Leg': '#400eb4' },
                         clothing: null,
                         accessories: [],
                         face: 'smile',
@@ -2876,7 +2932,7 @@
                         if (snap.exists() && window._bloxverse) {
                           const ad = snap.data();
                           window._bloxverse._setPlayerAvatarData(p.userId, {
-                            colors: ad.avatarColors || {},
+                            colors: ad.avatarBodyColors || ad.avatarColors || {},
                             clothing: ad.avatarClothing || null,
                             pants: ad.avatarPants || null,
                             accessories: ad.avatarAccessories || [],
@@ -3087,7 +3143,7 @@
               }
 
               function _updateVoiceUi() {
-                const allowed = _voiceAllowed();
+                const allowed = _voiceAllowed() && _getVoiceSettingEnabled();
                 if (voiceSettingsGroup) voiceSettingsGroup.style.display = allowed ? '' : 'none';
                 if (!btnMic) return;
                 btnMic.style.display = allowed ? '' : 'none';
@@ -3327,6 +3383,7 @@
 
               async function initVoice() {
                 if (voiceEnabled) return;
+                if (!_getVoiceSettingEnabled()) { _updateVoiceUi(); return; }
                 try {
                   _updateVoiceUi();
                   if (!_voiceAllowed()) { showToast('Voice chat is unavailable because this browser does not allow microphone access.', 'info', 3000); return; }

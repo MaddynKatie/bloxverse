@@ -9,6 +9,8 @@ body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Navbar */
@@ -58,6 +60,23 @@ body {
 .nav-link-btn.active {
   color: var(--text-primary);
   background: var(--bg-tertiary);
+}
+
+.navbar-studio-card {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+.navbar-studio-card:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .nav-center {
@@ -269,9 +288,9 @@ body {
 }
 
 .status-dot.offline { background-color: var(--text-muted); }
-.status-dot.online { background-color: #0d69ac; }
-.status-dot.in-game { background-color: var(--accent); }
-.status-dot.in-studio { background-color: #8b5cf6; }
+.status-dot.online { background-color: var(--status-online); }
+.status-dot.in-game { background-color: var(--status-in-game); }
+.status-dot.in-studio { background-color: var(--status-in-studio); }
 
 .friend-avatar-wrapper {
   position: relative;
@@ -338,12 +357,12 @@ body {
 
 /* Main Content */
 .main-content {
+  flex: 1 0 auto;
   padding-top: 60px;
   padding-left: 24px;
   padding-right: 24px;
   padding-bottom: 48px;
-  max-width: 1400px;
-  margin: 0 auto;
+  width: 100%;
 }
 
 /* Game Sections */
@@ -834,8 +853,8 @@ body {
 }
 
 .add-friend-circle {
-  background: rgba(0,176,111,0.12);
-  border: 2px dashed rgba(0,176,111,0.35);
+  background: var(--accent-soft);
+  border: 2px dashed color-mix(in srgb, var(--accent) 35%, transparent);
   color: var(--accent);
 }
 
@@ -884,7 +903,7 @@ body {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: var(--bg-surface);
+  background: #e0e0e0;
   flex-shrink: 0;
 }
 .init-circle {
@@ -910,7 +929,7 @@ body {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: var(--bg-surface);
+  background: #e0e0e0;
   flex-shrink: 0;
 }
 .bux-label {
@@ -992,7 +1011,7 @@ body {
 }
 
 .friend-status.online {
-  color: var(--accent);
+  color: var(--status-online);
 }
 
 .friend-actions {
@@ -1314,7 +1333,8 @@ body {
   width: 100%;
   border-top: 1px solid var(--border-strong);
   padding: 28px 16px 32px;
-  margin-top: 40px;
+  margin-top: auto;
+  flex-shrink: 0;
 }
 .footer-inner {
   max-width: 780px;
@@ -1344,3 +1364,31 @@ body {
   transition: color 0.15s;
 }
 .footer-links a:hover { color: var(--text-primary); }
+
+.footer-links a.footer-discord {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  font-size: 16px;
+  color: var(--text-secondary);
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.footer-links a.footer-discord:hover {
+  color: #fff;
+  border-color: #7c3aed;
+  background: var(--bg-tertiary);
+}
+
+.footer-copyright {
+  max-width: 780px;
+  margin: 24px auto 0;
+  padding: 16px 16px 0;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: center;
+}

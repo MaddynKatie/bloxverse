@@ -56,6 +56,26 @@ try {
 chatLog.init();
 profanityFilter.init();
 
+// Users who opted out of chat data collection. The setting is reasonably stable,
+// so a short TTL avoids a Firestore read per message.
+const DATA_OPT_OUT_TTL_MS = 60 * 1000;
+const dataOptOutCache = new Map();
+
+async function isChatDataOptOut(userId) {
+  if (!admin || !userId) return false;
+  const cached = dataOptOutCache.get(userId);
+  if (cached && Date.now() - cached.ts < DATA_OPT_OUT_TTL_MS) return cached.v;
+  try {
+    const snap = await admin.firestore().collection('users').doc(userId).get();
+    const v = !!(snap.exists && snap.data().dataCollectionOptOut);
+    dataOptOutCache.set(userId, { v, ts: Date.now() });
+    return v;
+  } catch (e) {
+    console.warn('[ChatLog] opt-out check failed:', e.message);
+    return false;
+  }
+}
+
 // Recovery codes: 10 codes of form xxxxx-xxxxx (no ambiguous I/O/0/1)
 const RECOVERY_CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const RECOVERY_CODE_RE = /^[A-Z0-9]{5}-[A-Z0-9]{5}$/;
@@ -986,14 +1006,18 @@ wss.on('connection', async (ws, req) => {
             const rawMessage = data.message;
             const res = profanityFilter.filterMessage(rawMessage);
             if (res.caught) data.message = res.masked; // authoritative masking
-            chatLog.logChat({
-              userId: data.userId,
-              username: data.username || '',
-              message: rawMessage,
-              gameId,
-              roomKey: ws.roomKey || '',
-              caught: res.caught,
-              masked: res.caught ? res.masked : null,
+            isChatDataOptOut(data.userId).then((optedOut) => {
+              if (!optedOut) {
+                chatLog.logChat({
+                  userId: data.userId,
+                  username: data.username || '',
+                  message: rawMessage,
+                  gameId,
+                  roomKey: ws.roomKey || '',
+                  caught: res.caught,
+                  masked: res.caught ? res.masked : null,
+                });
+              }
             });
           }
         }

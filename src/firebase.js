@@ -1,6 +1,6 @@
 import { sitePath } from './paths.js';
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, onAuthStateChanged, signOut } from 'firebase/auth';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, setDoc, updateDoc, getDoc, deleteDoc, onSnapshot, serverTimestamp, arrayUnion, arrayRemove, increment, collection, getDocs, query, where, runTransaction } from 'firebase/firestore';
 import { ProfanityFilter } from 'glin-profanity';
 
@@ -697,6 +697,93 @@ export async function isUsernameTaken(username) {
     return false;
   }
 }
+
+// ─── Session management (sign out of all other sessions) ──────────────────
+// Every device stores the user's current "session epoch" it authenticated at.
+// "Sign out of all other sessions" bumps the epoch on the user doc; any other
+// device whose stored epoch is lower signs out (via the global watcher below).
+// This device immediately records the new epoch so it keeps its own session.
+const SESSION_EPOCH_KEY = 'bv:sessionEpoch';
+
+function getDeviceEpoch(uid) {
+  try {
+    return Number(localStorage.getItem(SESSION_EPOCH_KEY + ':' + uid)) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+function setDeviceEpoch(uid, val) {
+  try {
+    localStorage.setItem(SESSION_EPOCH_KEY + ':' + uid, String(val));
+  } catch (_) {}
+}
+
+async function getSessionEpoch(uid) {
+  try {
+    const snap = await getDoc(doc(db, 'users', uid));
+    return Number(snap.data()?.sessionEpoch) || 0;
+  } catch (_) {
+    return 0;
+  }
+}
+
+/**
+ * Lets the current device adopt the account's latest session epoch. Call on
+ * login / page load so a freshly signed-in device isn't immediately signed out.
+ */
+export async function registerDeviceSession(uid) {
+  if (!uid) return 0;
+  const cur = await getSessionEpoch(uid);
+  setDeviceEpoch(uid, cur);
+  return cur;
+}
+
+/**
+ * Signs out every other device for this account while keeping this device
+ * signed in. Bumps sessionEpoch on the user doc; the global auth watcher signs
+ * out any device still holding an older epoch.
+ */
+export async function revokeOtherSessions(uid) {
+  if (!uid) throw new Error('Not signed in');
+  const cur = await getSessionEpoch(uid);
+  const next = (typeof cur === 'number' ? cur : 0) + 1;
+  // Record the new epoch locally FIRST so this device's own snapshot listener
+  // (and any other tab on this machine) doesn't sign itself out.
+  setDeviceEpoch(uid, next);
+  await setDoc(doc(db, 'users', uid), { sessionEpoch: next }, { merge: true });
+  return next;
+}
+
+// Global guard: any signed-in page on a revoked device signs out immediately.
+// Because firebase.js is imported by every page, this single listener covers
+// the whole site (settings, game, studio, etc.). The auth page is exempt: the
+// login flow there adopts the account's current epoch via registerDeviceSession
+// before redirecting, so a fresh sign-in is never instantly signed out.
+export function isAuthPage() {
+  const p = (window.location.pathname || '').replace(/\/+$/, '').toLowerCase();
+  return /(^|\/)auth(\.html)?$/.test(p);
+}
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) return;
+  if (isAuthPage()) return;
+  const uid = user.uid;
+  const stored = getDeviceEpoch(uid);
+  const current = await getSessionEpoch(uid);
+  if (current > stored) {
+    try { await signOut(auth); } catch (_) {}
+    window.location.href = sitePath('auth.html');
+    return;
+  }
+  setDeviceEpoch(uid, current);
+  onSnapshot(doc(db, 'users', uid), (snap) => {
+    const epoch = Number(snap.data()?.sessionEpoch) || 0;
+    if (epoch > getDeviceEpoch(uid)) {
+      signOut(auth).finally(() => { window.location.href = sitePath('auth.html'); });
+    }
+  }, (err) => console.warn('[Session] epoch watch failed:', err));
+});
 
 export async function lookupUserByNum(userIdNum) {
   try {

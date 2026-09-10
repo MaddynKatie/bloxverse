@@ -370,14 +370,15 @@
         <span class="logo-text">BloxVerse</span>
       </div>
       <div class="nav-links" id="navLinks">
+        <button class="nav-link-btn" onclick="window.location.href='/bloxverse'">Home</button>
         <button class="nav-link-btn active" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
         <button class="nav-link-btn" data-needs-auth onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
-        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/download'" style="display:flex;align-items:center;gap:5px;">
-          <i class="fa-solid fa-download" style="font-size:12px;"></i> Download
+        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/download'">
+          Download
         </button>
-        <button class="nav-link-btn" data-open-studio>Studio</button>
-        <script type="module" src="src/studio.js"></script>
       </div>
+      <button class="navbar-studio-card" data-open-studio title="Launch BloxVerse Studio">Studio</button>
+      <script type="module" src="src/studio.js"></script>
     </div>
     <div class="nav-center" id="navCenter"></div>
     <div class="nav-right" id="navRight">
@@ -472,10 +473,17 @@
     let ownedItems = [];
     let userBux = 0;
     // 3D preview
-    const playerModelUrl = new URL('./assets/models/player.fbx', import.meta.url).href;
+    const retailAvatarUrl = new URL('./assets/models/male.glb', import.meta.url).href;
+    const SHIRT_MATS = new Set(['Material.001', 'Material.003', 'Material.004', 'Material.005']);
+    const PANT_MATS = new Set(['Material.007', 'Material.008']);
+    let _retailAvatar = null;
+    let _retailAvatarPromise = null;
+    let _retailShirtMats = [];
+    let _retailPantMats = [];
     let _p = null;
     let _previewRenderer = null;
     const _clothingPreviewCache = new Map();
+    const _clothingThumbCache = new Map();
     const PREVIEW_CACHE_KEY = 'bv:mp:previews:v1';
     const PREVIEW_CACHE_TTL = 1000 * 60 * 60 * 24;
     function _loadPreviewCache() {
@@ -742,8 +750,9 @@
     }
 
     function loadPreviewModel() {
-      const loader = new FBXLoader();
-      loader.load(playerModelUrl, (fbx) => {
+      const loader = new GLTFLoader();
+      loader.load(retailAvatarUrl, (gltf) => {
+        const fbx = gltf.scene;
         fbx.traverse(child => {
           if (child.isMesh) {
             child.castShadow = true;
@@ -762,20 +771,21 @@
             for (let i = 0; i < mats.length; i++) {
               const mat = mats[i];
               if (!mat) continue;
-              const newMat = new THREE.MeshStandardMaterial({
-                color: mat.color ? mat.color.getHex() : 0xcccccc,
-                map: mat.map, transparent: false, opacity: 1,
-                toneMapped: false, vertexColors: false,
-                emissive: 0, emissiveIntensity: 0,
-                roughness: 0.8, metalness: 0.1,
-              });
-              mats[i] = newMat;
+              mat.vertexColors = false;
+              mat.toneMapped = false;
+              if (mat.emissive) mat.emissive.setHex(0);
+              mat.emissiveIntensity = 0;
+              if (mat.color) { mat.color.setHex(0xffffff); }
+              mat.needsUpdate = true;
             }
           }
         });
         const box = new THREE.Box3().setFromObject(fbx);
         const charHeight = box.max.y - box.min.y;
         fbx.position.y = -box.min.y;
+        // The model's face is authored facing local -Z, and the camera sits
+        // at +Z -- same flip the avatar editor applies to show the face.
+        fbx.rotation.y = Math.PI;
         fbx.updateMatrixWorld(true);
 
         _p.bones = {};
@@ -832,6 +842,69 @@
       });
     }
 
+    function _loadThumbTexture(path) {
+      if (!_clothingThumbCache.has(path)) {
+        _clothingThumbCache.set(path, new Promise((resolve, reject) => {
+          new THREE.TextureLoader().load(path, tex => {
+            tex.colorSpace = THREE.SRGBColorSpace;
+            tex.flipY = false;
+            resolve(tex);
+          }, undefined, err => reject(err));
+        }));
+      }
+      return _clothingThumbCache.get(path);
+    }
+
+    function _getRetailAvatar() {
+      if (!_retailAvatarPromise) {
+        _retailAvatarPromise = new Promise((resolve, reject) => {
+          new GLTFLoader().load(retailAvatarUrl, (gltf) => {
+            const root = gltf.scene;
+            _retailShirtMats = [];
+            _retailPantMats = [];
+            root.traverse(child => {
+              if (!child.isMesh) return;
+              child.castShadow = true;
+              child.receiveShadow = true;
+              if (child.geometry) {
+                for (const key of Object.keys(child.geometry.attributes)) {
+                  if (key.toLowerCase().includes('color')) child.geometry.deleteAttribute(key);
+                }
+                if (child.geometry.morphAttributes) {
+                  for (const key of Object.keys(child.geometry.morphAttributes)) {
+                    if (key.toLowerCase().includes('color')) delete child.geometry.morphAttributes[key];
+                  }
+                }
+              }
+              const mats = Array.isArray(child.material) ? child.material : [child.material];
+              for (const mat of mats) {
+                if (!mat) continue;
+                mat.vertexColors = false;
+                mat.toneMapped = false;
+                if (mat.emissive) mat.emissive.setHex(0);
+                mat.emissiveIntensity = 0;
+                if (SHIRT_MATS.has(mat.name)) _retailShirtMats.push(mat);
+                if (PANT_MATS.has(mat.name)) _retailPantMats.push(mat);
+              }
+            });
+            const box = new THREE.Box3().setFromObject(root);
+            root.position.y = -box.min.y;
+            // Same facing convention as the avatar editor / engine: the model's
+            // face is authored facing local -Z, and the camera sits at +Z.
+            root.rotation.y = Math.PI;
+            root.visible = false;
+            if (_p && _p.scene) _p.scene.add(root);
+            _retailAvatar = root;
+            resolve(root);
+          }, undefined, (err) => {
+            _retailAvatarPromise = null;
+            reject(err);
+          });
+        });
+      }
+      return _retailAvatarPromise;
+    }
+
     function _generatePreview(item) {
       if (item._type === 'accessory') {
         const accDef = findAccessory(item.id);
@@ -870,34 +943,12 @@
                 });
               }));
               return Promise.all(texApplyPromises).then(() => {
-                const headPt = findPreviewHeadAttachment();
-                if (!headPt) { resolve(null); return; }
                 const avatarObj = _p.avatar;
-                const attachment = headPt.object;
                 avatarObj.updateMatrixWorld(true);
                 modelRoot.updateMatrixWorld(true);
-                modelRoot.position.set(0, 0, 0);
-                modelRoot.rotation.set(0, 0, 0);
-                const o = accDef.offset || {};
-                const s = o.scale !== undefined ? o.scale : 1;
-                modelRoot.scale.setScalar(s);
-                modelRoot.updateMatrixWorld(true);
-                const bbox = new THREE.Box3().setFromObject(modelRoot);
-                const c = bbox.getCenter(new THREE.Vector3());
-                modelRoot.position.x -= c.x;
-                modelRoot.position.y -= bbox.min.y;
-                modelRoot.position.z -= c.z;
-                const wrapper = new THREE.Group();
-                wrapper.add(modelRoot);
-                wrapper.userData.isAccessory = true;
-                wrapper.traverse(node => { node.userData = node.userData || {}; node.userData.isAccessory = true; });
-                const localRot = new THREE.Quaternion().setFromEuler(new THREE.Euler(o.rx || 0, o.ry || 0, o.rz || 0, 'XYZ'));
-                _p.scene.add(wrapper);
-                const headTopWorld = (headPt.headMesh ? meshTopWorld(headPt.headMesh) : attachTopWorld(attachment)) || attachment.getWorldPosition(new THREE.Vector3());
-                const attachmentQuat = attachment.getWorldQuaternion(new THREE.Quaternion());
-                const offsetWorld = new THREE.Vector3(o.x || 0, o.y !== undefined ? o.y : 0, o.z || 0).applyQuaternion(attachmentQuat);
-                wrapper.position.copy(headTopWorld.clone().add(offsetWorld));
-                wrapper.quaternion.copy(attachmentQuat).multiply(localRot);
+                avatarObj.add(modelRoot);
+                modelRoot.userData = modelRoot.userData || {};
+                modelRoot.userData.isAccessory = true;
                 const cam = new THREE.PerspectiveCamera(20, 1, 0.1, 100);
                 cam.position.set(0, 2.8, 18); cam.lookAt(0, 2.8, 0);
                 const renderer = _getPreviewRenderer();
@@ -910,7 +961,7 @@
                 const pixels = new Uint8Array(W * H * 4);
                 renderer.readRenderTargetPixels(rt, 0, 0, W, H, pixels);
                 rt.dispose();
-                wrapper.removeFromParent();
+                modelRoot.removeFromParent();
                 for (const { mat, color } of savedColors) { mat.color.setHex(color); mat.needsUpdate = true; }
                 _p.scene.background = savedBg;
                 for (const m of hiddenGround) m.visible = true;
@@ -931,16 +982,17 @@
         });
       }
       return new Promise(resolve => {
-        if (!_p || !_p.avatar) return resolve(null);
+        if (!_p || !_p.scene) return resolve(null);
         const clothing = findClothing(item.id);
         if (!clothing || !clothing.texturePath) return resolve(null);
-        preloadTexture(clothing.texturePath).then(() => {
+        Promise.all([_loadThumbTexture(clothing.texturePath), _getRetailAvatar()]).then(([tex]) => {
+          if (!tex) return resolve(null);
           const savedBg = _p.scene.background;
           _p.scene.background = null;
           const savedAccKeys = Object.keys(_p.accessories);
           for (const id of savedAccKeys) { _p.accessories[id].removeFromParent(); delete _p.accessories[id]; }
           const savedColors = [];
-          _p.avatar.traverse(child => {
+          _retailAvatar.traverse(child => {
             if (child.isMesh && child.material) {
               const mats = Array.isArray(child.material) ? child.material : [child.material];
               for (const mat of mats) {
@@ -954,12 +1006,13 @@
           });
           const hiddenGround = [];
           _p.scene.traverse(child => { if (child.userData?.isGround) { hiddenGround.push(child); child.visible = false; } });
-          removeAvatarClothing(_p.avatar);
-          removeAvatarPants(_p.avatar);
-          if (clothing.category === 'Pants') {
-            applyAvatarPants(_p.avatar, item.id);
-          } else {
-            applyAvatarClothing(_p.avatar, item.id);
+          _retailAvatar.visible = true;
+          if (_p.avatar) _p.avatar.visible = false;
+          const mats = clothing.category === 'Pants' ? _retailPantMats : _retailShirtMats;
+          for (const mat of mats) mat.map = null;
+          for (const mat of mats) {
+            mat.map = tex;
+            mat.needsUpdate = true;
           }
           const cam = new THREE.PerspectiveCamera(20, 1, 0.1, 100);
           cam.position.set(0, 2.8, 18); cam.lookAt(0, 2.8, 0);
@@ -973,12 +1026,13 @@
           const pixels = new Uint8Array(W * H * 4);
           renderer.readRenderTargetPixels(rt, 0, 0, W, H, pixels);
           rt.dispose();
-          removeAvatarClothing(_p.avatar);
-          removeAvatarPants(_p.avatar);
+          for (const mat of mats) { mat.map = null; mat.needsUpdate = true; }
           for (const { mat, color } of savedColors) {
             mat.color.setHex(color);
             mat.needsUpdate = true;
           }
+          _retailAvatar.visible = false;
+          if (_p.avatar) _p.avatar.visible = true;
           _p.scene.background = savedBg;
           for (const m of hiddenGround) m.visible = true;
           const canvas = document.createElement('canvas');
@@ -992,7 +1046,7 @@
           }
           ctx.putImageData(id, 0, 0);
           resolve(canvas.toDataURL('image/png'));
-        });
+        }).catch(() => resolve(null));
       });
     }
 
@@ -1390,13 +1444,8 @@
       const path = item.meshPath.toLowerCase();
       if (!path.endsWith('.fbx') && !path.endsWith('.glb') && !path.endsWith('.gltf')) return;
 
-      const texLoader = new THREE.TextureLoader();
       const finishSetup = (modelRoot) => {
         const avatarObj = _p.avatar;
-        const headPt = findPreviewHeadAttachment();
-        const attachment = headPt.object;
-        if (!attachment) return;
-
         avatarObj.updateMatrixWorld(true);
         modelRoot.updateMatrixWorld(true);
 
@@ -1404,68 +1453,13 @@
           if (child.isMesh) {
             child.castShadow = true;
             child.receiveShadow = true;
-            const mats = Array.isArray(child.material) ? child.material : [child.material];
-            for (const mat of mats) {
-              if (!mat) continue;
-              if (item.textures?.map) {
-                const diffuse = texLoader.load(item.textures.map);
-                diffuse.colorSpace = THREE.SRGBColorSpace;
-                mat.map = diffuse;
-              }
-              if (item.textures?.normalMap) {
-                mat.normalMap = texLoader.load(item.textures.normalMap);
-                mat.normalScale = new THREE.Vector2(1, 1);
-              }
-              if (item.textures?.displacementMap) {
-                mat.displacementMap = texLoader.load(item.textures.displacementMap);
-                mat.displacementScale = 0.01;
-              }
-              mat.needsUpdate = true;
-            }
           }
         });
 
-        modelRoot.position.set(0, 0, 0);
-        modelRoot.rotation.set(0, 0, 0);
-        const o = item.offset || {};
-        const scale = o.scale !== undefined ? o.scale : 1;
-        modelRoot.scale.setScalar(scale);
-        modelRoot.updateMatrixWorld(true);
-
-        const bbox = new THREE.Box3().setFromObject(modelRoot);
-        const center = bbox.getCenter(new THREE.Vector3());
-        modelRoot.position.x -= center.x;
-        modelRoot.position.y -= bbox.min.y;
-        modelRoot.position.z -= center.z;
-
-        const wrapper = new THREE.Group();
-        wrapper.add(modelRoot);
-        wrapper.userData.isAccessory = true;
-        wrapper.traverse(node => { node.userData = node.userData || {}; node.userData.isAccessory = true; });
-
-        _p.scene.add(wrapper);
-
-        const headTopWorld =
-          (headPt.headMesh ? meshTopWorld(headPt.headMesh) : attachTopWorld(attachment))
-          || attachment.getWorldPosition(new THREE.Vector3());
-        const attachmentQuat = attachment.getWorldQuaternion(new THREE.Quaternion());
-        const localRot = new THREE.Quaternion().setFromEuler(new THREE.Euler(o.rx || 0, o.ry || 0, o.rz || 0, 'XYZ'));
-        const offsetWorld = new THREE.Vector3(o.x || 0, o.y !== undefined ? o.y : 0, o.z || 0).applyQuaternion(attachmentQuat);
-        wrapper.position.copy(headTopWorld.clone().add(offsetWorld));
-        wrapper.quaternion.copy(attachmentQuat).multiply(localRot);
-
-        const updater = () => {
-          if (!wrapper.parent) return;
-          const htw =
-            (headPt.headMesh ? meshTopWorld(headPt.headMesh) : attachTopWorld(attachment))
-            || attachment.getWorldPosition(new THREE.Vector3());
-          const aq = attachment.getWorldQuaternion(new THREE.Quaternion());
-          wrapper.position.copy(htw.clone().add(new THREE.Vector3(o.x || 0, o.y !== undefined ? o.y : 0, o.z || 0).applyQuaternion(aq)));
-          wrapper.quaternion.copy(aq).multiply(localRot);
-        };
-
-        _p.updaters.set(item.id, updater);
-        _p.accessories[item.id] = wrapper;
+        avatarObj.add(modelRoot);
+        modelRoot.userData = modelRoot.userData || {};
+        modelRoot.userData.isAccessory = true;
+        _p.accessories[item.id] = modelRoot;
       };
 
       if (path.endsWith('.fbx')) {
@@ -1878,8 +1872,10 @@
       <div class="footer-links">
         <a href="/bloxverse/terms">Terms of Service</a>
         <a href="/bloxverse/privacy">Privacy Policy</a>
+        <a class="footer-discord" href="https://discord.gg/Uh6WF5NDDK" target="_blank" rel="noopener" title="Join our Discord"><i class="fab fa-discord"></i></a>
       </div>
     </div>
+    <div class="footer-copyright">© 2026 BloxVerse. All rights reserved.</div>
   </footer>
 </body>
 

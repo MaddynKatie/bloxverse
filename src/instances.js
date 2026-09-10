@@ -52,6 +52,8 @@ export class Instance {
       StringValue: StringValue,
       NumberValue: NumberValue,
       BoolValue: BoolValue,
+      Humanoid: Humanoid,
+      BindableEvent: BindableEvent,
       Player: PlayerInstance,
       Model: ModelInstance,
     }[className];
@@ -106,6 +108,35 @@ export class Instance {
     return [...this.Children];
   }
 
+  GetDescendants() {
+    const result = [];
+    for (const child of this.Children) {
+      result.push(child, ...child.GetDescendants());
+    }
+    return result;
+  }
+
+  FindFirstChildOfClass(className) {
+    return this.Children.find(child => child.ClassName === className) || null;
+  }
+
+  FindFirstChildWhichIsA(className) {
+    return this.Children.find(child => child.IsA(className)) || null;
+  }
+
+  Clone() {
+    const clone = new this.constructor(this.Name);
+    for (const [key, value] of Object.entries(this)) {
+      if (['Parent', 'Children', 'Changed'].includes(key)) continue;
+      if (value instanceof Signal) continue;
+      if (Array.isArray(value)) clone[key] = [...value];
+      else if (value && typeof value === 'object' && value.constructor === Object) clone[key] = { ...value };
+      else clone[key] = value;
+    }
+    for (const child of this.Children) clone.setParent ? child.Clone().setParent(clone) : null;
+    return clone;
+  }
+
   IsA(className) {
     const map = {
       'Instance': true,
@@ -125,6 +156,8 @@ export class Instance {
       'StringValue': true,
       'NumberValue': true,
       'BoolValue': true,
+      'Humanoid': true,
+      'BindableEvent': true,
       'Player': true, 'PlayerInstance': true,
       'DataModel': true,
       'Workspace': true,
@@ -159,6 +192,32 @@ export class Instance {
       };
       this.Changed = listener;
     });
+  }
+}
+
+export class BindableEvent extends Instance {
+  constructor(name) {
+    super('BindableEvent', name || 'BindableEvent');
+    this.Event = new Signal();
+  }
+
+  Fire(...args) { this.Event.Fire(...args); }
+}
+
+export class Humanoid extends Instance {
+  constructor(name) {
+    super('Humanoid', name || 'Humanoid');
+    this.MaxHealth = 100;
+    this.Health = 100;
+    this.Died = new Signal();
+  }
+
+  TakeDamage(amount) {
+    const damage = Math.max(0, Number(amount) || 0);
+    const previous = this.Health;
+    this.Health = Math.max(0, this.Health - damage);
+    if (previous > 0 && this.Health <= 0) this.Died.Fire();
+    return this.Health;
   }
 }
 

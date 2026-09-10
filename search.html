@@ -71,14 +71,15 @@
         <span class="logo-text">BloxVerse</span>
       </div>
       <div class="nav-links" id="navLinks">
+        <button class="nav-link-btn" onclick="window.location.href='/bloxverse'">Home</button>
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
         <button class="nav-link-btn" data-needs-auth onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
-        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/download'" style="display:flex;align-items:center;gap:5px;">
-          <i class="fa-solid fa-download" style="font-size:12px;"></i> Download
+        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/download'">
+          Download
         </button>
-        <button class="nav-link-btn" data-open-studio>Studio</button>
-        <script type="module" src="src/studio.js"></script>
       </div>
+      <button class="navbar-studio-card" data-open-studio title="Launch BloxVerse Studio">Studio</button>
+      <script type="module" src="src/studio.js"></script>
     </div>
     </div>
     <div class="nav-center">
@@ -87,7 +88,7 @@
           <circle cx="11" cy="11" r="8" />
           <path d="m21 21-4.35-4.35" />
         </svg>
-        <input type="text" id="searchInput" placeholder="Search players..." autocomplete="off" />
+        <input type="text" id="searchInput" placeholder="Search players... (press Enter)" autocomplete="off" />
       </div>
     </div>
     <div class="nav-right" id="navRight">
@@ -99,7 +100,7 @@
     <div class="search-results" id="searchResults">
       <div class="search-empty">
         <h2>Search for players</h2>
-        <p>Type at least 3 characters to search</p>
+        <p>Type something and press Enter to search</p>
       </div>
     </div>
   </main>
@@ -107,12 +108,15 @@
   <script type="module">
     import { auth, db, getDoc, banGuard, assignUserIdNum } from './src/firebase.js';
     import { onAuthStateChanged, signOut } from 'firebase/auth';
-    import { doc, onSnapshot } from 'firebase/firestore';
+    import { doc, onSnapshot, collection, query, where, getDocs } from 'firebase/firestore';
     import { searchUsers } from './src/friends.js';
 
     const searchInput = document.getElementById('searchInput');
     const searchResults = document.getElementById('searchResults');
     const navRight = document.getElementById('navRight');
+
+    let currentFriendIds = new Set();
+    let sentRequestIds = new Set();
 
     // Handle auth state
     onAuthStateChanged(auth, async (user) => {
@@ -132,6 +136,13 @@
         try {
           const d = await getDoc(doc(db, 'users', user.uid));
           if (d.exists()) userDocData = d.data();
+        } catch {}
+        currentFriendIds = new Set(userDocData.friends || []);
+        sentRequestIds = new Set();
+        try {
+          const sq = query(collection(db, 'friendRequests'), where('from', '==', user.uid), where('status', '==', 'pending'));
+          const snap = await getDocs(sq);
+          for (const d of snap.docs) sentRequestIds.add(d.data().to);
         } catch {}
         const username = userDocData.username || 'Player';
         const ownPreview = userDocData.avatarPreviewHead || userDocData.avatarPreview || null;
@@ -208,48 +219,60 @@
       }
     });
 
-    // Auto-search on input
-    let debounceTimer;
-    searchInput.addEventListener('input', () => {
-      clearTimeout(debounceTimer);
+    // Search only when the user presses Enter (not while typing)
+    let searchInFlight = false;
+    async function runSearch() {
+      if (searchInFlight) return;
       const val = searchInput.value.trim();
-      
-      if (val.length < 3) {
+
+      if (val.length === 0) {
         searchResults.innerHTML = `
           <div class="search-empty">
             <h2>Search for players</h2>
-            <p>Type at least 3 characters to search</p>
+            <p>Press Enter to search</p>
           </div>
         `;
         return;
       }
 
-      debounceTimer = setTimeout(async () => {
-        searchResults.innerHTML = `
-          <div class="search-loading">
-            <div class="loading-spinner"></div>
-            <p>Searching...</p>
-          </div>
-        `;
+      searchInFlight = true;
+      searchResults.innerHTML = `
+        <div class="search-loading">
+          <div class="loading-spinner"></div>
+          <p>Searching...</p>
+        </div>
+      `;
 
+      try {
         const users = await searchUsers(val);
         renderResults(users, val);
-      }, 300);
-    });
+      } catch (e) {
+        console.warn('[search] failed:', e);
+        searchResults.innerHTML = `
+          <div class="search-empty">
+            <h2>Something went wrong</h2>
+            <p>Try again.</p>
+          </div>
+        `;
+      } finally {
+        searchInFlight = false;
+      }
+    }
 
-    // Allow Enter key to focus search
+    // Pressing Enter runs the search
     searchInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
-        searchInput.blur();
+        e.preventDefault();
+        runSearch();
       }
     });
 
     // Read query from URL
     const params = new URLSearchParams(window.location.search);
-    const query = params.get('q');
-    if (query) {
-      searchInput.value = query;
-      searchInput.dispatchEvent(new Event('input'));
+    const queryParam = params.get('q');
+    if (queryParam) {
+      searchInput.value = queryParam;
+      runSearch();
     }
 
     function renderResults(users, searchTerm) {
@@ -264,24 +287,18 @@
       }
 
       searchResults.innerHTML = `
-        <div class="results-header">
-          <h2>Found ${users.length} player${users.length !== 1 ? 's' : ''}</h2>
+    <div class="user-grid">
+      ${users.map(u => `
+        <div class="user-card">
+          <div class="user-card-avatar ${u.avatarPreviewHead || u.avatarPreview ? '' : 'is-letter'}" onclick="window.location.href='/bloxverse/profile?user=${u.userIdNum}'">${u.avatarPreviewHead || u.avatarPreview ? `<img src="${(u.avatarPreviewHead || u.avatarPreview)}?_cb=${Date.now()}" alt="${u.username}" class="user-card-avatar-img" onerror="this.outerHTML='<div class=user-card-avatar is-letter>${(u.username||'?').charAt(0).toUpperCase()}</div>'"/>` : (u.username || '?').charAt(0).toUpperCase()}</div>
+          <a class="user-card-name" href="/bloxverse/profile?user=${u.userIdNum}">${u.username}</a>
+          <div class="user-card-actions">
+            ${u.id === auth.currentUser?.uid ? '' : (currentFriendIds.has(u.id) ? '<span class="add-friend-btn sent">Friends</span>' : sentRequestIds.has(u.id) ? '<span class="add-friend-btn sent">Sent</span>' : `<button class="add-friend-btn" onclick="window._addFriend('${u.id}','${u.username}',this)">+ Add Friend</button>`)}
+          </div>
         </div>
-        <div class="player-grid">
-          ${users.map(u => `
-            <div class="player-card" onclick="window.location.href='/bloxverse/profile?user=${u.userIdNum}'">
-              <div class="player-avatar">${u.avatarPreviewHead || u.avatarPreview ? `<img src="${(u.avatarPreviewHead || u.avatarPreview)}?_cb=${Date.now()}" alt="" class="player-avatar-img" onerror="this.outerHTML='<div class=player-avatar-letter>${(u.username||'?').charAt(0).toUpperCase()}</div>'"/>` : `<div class="player-avatar-letter">${(u.username || '?').charAt(0).toUpperCase()}</div>`}</div>
-              <div class="player-info">
-                <div class="player-name">${u.username}</div>
-                <div class="player-join-date">Joined ${new Date(u.createdAt || Date.now()).toLocaleDateString()}</div>
-              </div>
-              <div class="player-action">
-                ${u.id === auth.currentUser?.uid ? '' : `<button class="add-friend-btn" onclick="event.stopPropagation(); window._addFriend('${u.id}','${u.username}',this)">+ Add Friend</button>`}
-              </div>
-            </div>
-          `).join('')}
-        </div>
-      `;
+      `).join('')}
+    </div>
+  `;
     }
 
     window._addFriend = async (targetId, targetUsername, btn) => {
@@ -294,6 +311,7 @@
       try {
         const { sendFriendRequest } = await import('./src/friends.js');
         await sendFriendRequest(auth.currentUser.uid, targetId, targetUsername);
+        sentRequestIds.add(targetId);
         btn.textContent = 'Sent';
         btn.classList.add('sent');
       } catch (e) {
@@ -341,8 +359,10 @@
       <div class="footer-links">
         <a href="/bloxverse/terms">Terms of Service</a>
         <a href="/bloxverse/privacy">Privacy Policy</a>
+        <a class="footer-discord" href="https://discord.gg/Uh6WF5NDDK" target="_blank" rel="noopener" title="Join our Discord"><i class="fab fa-discord"></i></a>
       </div>
     </div>
+    <div class="footer-copyright">© 2026 BloxVerse. All rights reserved.</div>
   </footer>
 </body>
 </html>

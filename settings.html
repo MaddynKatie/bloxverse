@@ -91,7 +91,7 @@
 
     .settings-input {
       background: var(--bg-surface);
-      border: 1px solid rgba(124,92,252,0.3);
+      border: 1px solid var(--border-strong);
       border-radius: 6px;
       padding: 6px 10px;
       color: var(--text-primary);
@@ -101,11 +101,11 @@
 
     .settings-input:focus {
       outline: none;
-      border-color: rgba(124,92,252,0.6);
+      border-color: #7c3aed;
     }
 
     .settings-btn {
-      background: rgba(124,92,252,0.4);
+      background: #7c3aed;
       color: var(--text-primary);
       border: none;
       border-radius: 6px;
@@ -117,7 +117,7 @@
     }
 
     .settings-btn:hover {
-      background: rgba(124,92,252,0.6);
+      background: #6d28d9;
     }
 
     .settings-btn.success {
@@ -125,12 +125,12 @@
     }
 
     .settings-btn.danger {
-      background: rgba(231,76,60,0.8);
+      background: rgba(239,68,68,0.8);
       color: var(--text-primary);
     }
 
     .settings-btn.danger:hover {
-      background: rgba(231,76,60,0.95);
+      background: rgba(239,68,68,0.95);
     }
 
     .settings-btn.danger:disabled {
@@ -145,8 +145,8 @@
     }
 
     .settings-warning-panel {
-      background: rgba(231,76,60,0.08);
-      border: 1px solid rgba(231,76,60,0.24);
+      background: rgba(239,68,68,0.08);
+      border: 1px solid rgba(239,68,68,0.24);
       border-radius: 8px;
       color: var(--text-secondary);
       font-size: 13px;
@@ -289,10 +289,10 @@
     }
     .settings-modal .field input:focus {
       outline: none;
-      border-color: rgba(124,92,252,0.6);
+      border-color: #7c3aed;
     }
     .settings-modal .field .error {
-      color: #e74c3c;
+      color: var(--danger);
       font-size: 12px;
       margin-top: 4px;
     }
@@ -322,10 +322,10 @@
     }
     .settings-modal-actions .cancel:hover { background: var(--bg-secondary); }
     .settings-modal-actions .save {
-      background: rgba(124,92,252,0.5);
+      background: #7c3aed;
       color: var(--text-primary);
     }
-    .settings-modal-actions .save:hover { background: rgba(124,92,252,0.7); }
+    .settings-modal-actions .save:hover { background: #6d28d9; }
     .settings-modal-actions .save.danger {
       background: rgba(231,76,60,0.85);
       color: var(--text-primary);
@@ -360,6 +360,256 @@
       .settings-page { padding: 12px; padding-top: 56px; }
       .settings-row { flex-direction: column; align-items: flex-start; }
     }
+
+    /* ── Redesign: reference-style settings layout ─────────────────────── */
+    .settings-container {
+      max-width: 1000px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 76px 24px 24px;
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+    }
+    .settings-left-col {
+      width: 260px;
+      flex-shrink: 0;
+      position: sticky;
+      top: 64px;
+    }
+    .profile-card {
+      background: var(--bg-secondary);
+      border-radius: 10px;
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .profile-avatar-wrap { flex-shrink: 0; cursor: pointer; }
+    .profile-avatar-img {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      object-fit: cover;
+      display: block;
+    }
+    .profile-avatar-circle {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: #7c3aed;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 18px;
+    }
+    .profile-info { flex: 1; min-width: 0; cursor: pointer; }
+    .profile-username {
+      display: block;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sidebar-logout-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 16px;
+      cursor: pointer;
+      padding: 6px;
+      border-radius: 6px;
+      transition: color 0.15s, background 0.15s;
+      line-height: 1;
+    }
+    .sidebar-logout-btn:hover { color: #e74c3c; background: var(--bg-tertiary); }
+    .settings-sidebar {
+      background: var(--bg-secondary);
+      border-radius: 10px;
+      padding: 8px;
+    }
+    .sidebar-tabs { display: flex; flex-direction: column; gap: 2px; }
+    .sidebar-tab {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 10px 14px;
+      background: none;
+      border: none;
+      border-radius: 6px;
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 13.5px;
+      font-weight: 500;
+      text-align: left;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .sidebar-tab i { width: 16px; text-align: center; font-size: 13px; }
+    .sidebar-tab:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+    .sidebar-tab.active { background: var(--accent-soft); color: var(--text-primary); }
+    .sidebar-tab.active i { color: var(--accent); }
+    .sidebar-tab.disabled { opacity: 0.5; color: var(--text-muted); cursor: not-allowed; }
+    .sidebar-tab.disabled:hover { background: none; color: var(--text-muted); }
+    .sidebar-tab.disabled i { color: var(--text-muted); }
+    .settings-main-panel { flex: 1; min-width: 0; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .content-section {
+      background: var(--bg-secondary);
+      border-radius: 10px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+    .content-section > .section-title-main { margin-bottom: 16px; }
+    .section-title-main {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin: 0;
+    }
+    .text-danger { color: var(--danger); }
+    .row-info { flex: 1; min-width: 0; }
+    .label-with-icon { display: flex; align-items: center; gap: 8px; }
+    .row-label { font-size: 14px; font-weight: 500; color: var(--text-primary); }
+    .row-desc { font-size: 12px; color: var(--text-muted); line-height: 1.5; margin: 4px 0 0; }
+    .row-value { font-size: 13px; color: var(--text-secondary); display: block; margin-top: 2px; }
+    .row-actions { display: flex; align-items: center; gap: 8px; }
+    .field-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--text-primary);
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 0.25rem;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-strong);
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      user-select: none;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+    .field-checkbox:hover { background: var(--bg-tertiary); }
+    .field-checkbox input { accent-color: var(--accent); width: 0.95rem; height: 0.95rem; cursor: pointer; margin: 0; }
+    .row-edit-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1.125rem;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-strong);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+      white-space: nowrap;
+    }
+    .row-edit-btn:hover:not(:disabled) { background: var(--bg-tertiary); border-color: var(--text-muted); }
+    .row-edit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .row-edit-btn.success { background: rgba(124,92,252,0.2); border-color: #7c3aed; color: var(--text-primary); }
+    .theme-row { align-items: flex-start; flex-wrap: wrap; }
+    .theme-options {
+      flex-basis: 100%;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+    .theme-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-strong);
+      border-radius: 10px;
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s, color 0.2s;
+    }
+    .theme-btn:hover:not(.active) { background: var(--bg-tertiary); }
+    .theme-btn.active { border-color: var(--accent); background: var(--accent-soft); color: var(--text-primary); }
+    .theme-btn.active .theme-swatch { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+    .theme-swatch {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 2px solid var(--border-strong);
+      flex-shrink: 0;
+      box-sizing: content-box;
+    }
+    .btn-primary-action {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.5rem 1.125rem;
+      background: #7c3aed;
+      border: 1px solid #7c3aed;
+      color: #ffffff;
+      font-family: inherit;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+      white-space: nowrap;
+    }
+    .btn-primary-action:hover { background: #6d28d9; border-color: #6d28d9; }
+    .btn-danger {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.625rem 1.125rem;
+      background: var(--danger-btn-bg);
+      border: 1px solid var(--danger-btn-border);
+      color: var(--danger-btn-text);
+      font-family: inherit;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+      white-space: nowrap;
+    }
+    .btn-danger:hover:not(:disabled) { background: var(--danger-btn-bg-hover); border-color: var(--danger-btn-border-hover); }
+    .btn-danger:disabled { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
+    .btn-danger-outline {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.625rem 1.125rem;
+      background: var(--danger-outline-bg);
+      border: 1px solid var(--danger-outline-border);
+      color: var(--danger-outline-text);
+      font-family: inherit;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+      white-space: nowrap;
+    }
+    .btn-danger-outline:hover:not(:disabled) { background: var(--danger-outline-bg-hover); color: var(--danger-outline-text); }
+    .btn-danger-outline:disabled { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
+    .sessions-list .settings-row:last-child { border-bottom: none; }
+    @media (max-width: 768px) {
+      .settings-container { flex-direction: column; padding: 64px 16px 16px; }
+      .settings-left-col { width: 100%; position: static; }
+      .sidebar-tabs { flex-direction: row; overflow-x: auto; }
+      .sidebar-tab { flex-shrink: 0; }
+      .theme-options { grid-template-columns: repeat(2, 1fr); }
+    }
   </style>
 
   <link rel="stylesheet" href="src/theme.css" />
@@ -378,22 +628,23 @@
         <span class="logo-text">BloxVerse</span>
       </div>
       <div class="nav-links" id="navLinks">
+        <button class="nav-link-btn" onclick="window.location.href='/bloxverse'">Home</button>
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
         <button class="nav-link-btn" data-needs-auth onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
-        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/download'" style="display:flex;align-items:center;gap:5px;">
-          <i class="fa-solid fa-download" style="font-size:12px;"></i> Download
+        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/download'">
+          Download
         </button>
-        <button class="nav-link-btn" data-open-studio>Studio</button>
-        <script type="module" src="src/studio.js"></script>
       </div>
+      <button class="navbar-studio-card" data-open-studio title="Launch BloxVerse Studio">Studio</button>
+      <script type="module" src="src/studio.js"></script>
     </div>
     <div class="nav-right" id="navRight"></div>
   </nav>
 
-  <div class="settings-page" id="settingsPage"></div>
+  <div id="settingsPage"></div>
 
   <script type="module">
-    import { auth, db, calculateAge, logTransaction, assignUserIdNum, trackPresence } from './src/firebase.js';
+    import { auth, db, calculateAge, logTransaction, assignUserIdNum, trackPresence, revokeOtherSessions } from './src/firebase.js';
     import { onAuthStateChanged, signOut, updateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider, sendEmailVerification } from 'firebase/auth';
     import { doc, getDoc, setDoc, onSnapshot, updateDoc, increment, collection, getDocs, query, where, limit } from 'firebase/firestore';
 
@@ -406,7 +657,7 @@
       if (!email) return email || '';
       const idx = email.indexOf('@');
       if (idx <= 0) return email;
-      return email.slice(0, 4) + '***' + email.slice(idx);
+      return email.slice(0, 4) + '*'.repeat(Math.max(0, idx - 4)) + email.slice(idx);
     };
 
     const formatDateTime = (value) => {
@@ -456,152 +707,274 @@
         ? Math.max(0, 10 - (Number(userData.recoveryCodesUsed) || 0))
         : 0;
 
+      const _ua = navigator.userAgent || '';
+      const deviceOs = _ua.includes('Windows') ? 'Windows' : _ua.includes('Mac') ? 'macOS' : _ua.includes('Linux') ? 'Linux' : 'Unknown OS';
+      const deviceBrowser = _ua.includes('Edg') ? 'Edge' : _ua.includes('Firefox') ? 'Firefox' : _ua.includes('Chrome') ? 'Chrome' : _ua.includes('Safari') ? 'Safari' : 'Browser';
+      const deviceLabel = deviceOs + ' · ' + deviceBrowser;
+
       settingsPage.innerHTML = `
-        <a href="${ownProfileLink}" class="settings-back">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M19 12H5M12 19l-7-7 7-7" />
-          </svg>
-          Back to Profile
-        </a>
-
-        <h1>Settings</h1>
-
-        <div class="settings-section">
-          <div class="settings-section-header">
-            <h2>Account</h2>
-          </div>
-          <div class="settings-row">
-            <div>
-              <div class="settings-row-label">Birthday</div>
-              <div class="settings-row-desc">Used to calculate your age for content filtering</div>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span class="settings-row-value" id="birthdayDisplay">${birthday ? new Date(+birthday.split('-')[0], +birthday.split('-')[1] - 1, +birthday.split('-')[2]).toLocaleDateString() : 'Not set'}</span>
-              <button class="settings-btn" id="editBirthdayBtn">Edit</button>
-            </div>
-          </div>
-          <div class="settings-row">
-            <div>
-              <div style="display:flex;align-items:center;gap:8px;">
-                <div class="settings-row-label" style="margin:0;">Email</div>
-                ${user.emailVerified ? _checkSvg : _xSvg}
+        <div class="settings-container">
+          <div class="settings-left-col">
+            <div class="profile-card">
+              <div class="profile-avatar-wrap" id="settingsProfileAvatarWrap" onclick="window.location.href='${ownProfileLink}'">
+                ${ownPreview
+                  ? `<img src="${ownPreview}?_cb=${_cb}" alt="" class="profile-avatar-img" data-initial="${ownInitial}" onerror="window.__handleBrokenAvatar(this, '${user.uid}')"/>`
+                  : `<div class="profile-avatar-circle">${ownInitial}</div>`}
               </div>
-              <div class="settings-row-desc">Your login email address</div>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span class="settings-row-value" id="emailDisplay">${maskEmail(user.email)}</span>
-              <button class="settings-btn" id="editEmailBtn">Edit</button>
-              ${!user.emailVerified ? `<button class="settings-btn" id="verifyEmailBtn" style="background:rgba(231,76,60,0.4);font-size:11px;">Verify</button><span id="verifyEmailStatus" style="font-size:12px;color:var(--text-muted);display:none;"></span>` : ''}
-            </div>
-          </div>
-          ${user.email && !['gmail.com','yahoo.com','outlook.com','hotmail.com','icloud.com','protonmail.com','proton.me'].includes(user.email.split('@')[1]?.toLowerCase()) ? `
-          <div class="settings-row" style="border:none;padding-top:0;">
-            <span style="color:#e74c3c;font-size:12px;">Only Gmail, Yahoo, Outlook/Hotmail, iCloud, or Proton Mail are supported. Update your email to a supported provider.</span>
-          </div>
-          ` : ''}
-          <div class="settings-row">
-            <div>
-              <div class="settings-row-label">Password</div>
-              <div class="settings-row-desc">Change your account password</div>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span class="settings-row-value" id="passwordDisplay">${'•'.repeat(userData.passwordLength || 0) || '••••••••'}</span>
-              <button class="settings-btn" id="editPasswordBtn">Edit</button>
-            </div>
-          </div>
-          <div class="settings-row">
-            <div>
-              <div class="settings-row-label settings-danger-text">Delete Account</div>
-              <div class="settings-row-desc" id="accountDeletionDesc">${deletionRequested ? `Deletion scheduled for ${formatDateTime(deletionScheduledFor) || '7 days from your request'}` : 'Request permanent deletion of your account and data'}</div>
-            </div>
-            <button class="settings-btn danger" id="deleteAccountBtn">${deletionRequested ? 'Requested' : 'Delete Account'}</button>
-          </div>
-        </div>
-
-        <div class="settings-section">
-          <div class="settings-section-header">
-            <h2>Appearance</h2>
-          </div>
-          <div class="settings-row">
-            <div>
-              <div class="settings-row-label">Theme</div>
-              <div class="settings-row-desc">Switch between light and dark mode</div>
-            </div>
-            <select class="settings-input" id="themeSelect">
-              <option value="dark">Dark</option>
-              <option value="light">Light</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="settings-section">
-          <div class="settings-section-header">
-            <h2>Communication</h2>
-          </div>
-          <div class="settings-row">
-            <div>
-              <div class="settings-row-label">Voice Chat</div>
-              <div class="settings-row-desc" id="voiceChatDesc">${canUseVoiceChat ? 'Allow voice chat in experiences that support it' : 'Voice chat is only available for 13+ accounts'}</div>
-            </div>
-            <label class="settings-toggle" title="${canUseVoiceChat ? 'Voice Chat' : 'Requires a 13+ account'}">
-              <input type="checkbox" id="voiceChatToggle" ${voiceChatEnabled ? 'checked' : ''} ${canUseVoiceChat ? '' : 'disabled'} />
-              <span></span>
-            </label>
-          </div>
-        </div>
-
-        <div class="settings-section">
-          <div class="settings-section-header">
-            <h2>Privacy</h2>
-          </div>
-          <div class="settings-row">
-            <div>
-              <div class="settings-row-label">Profile Visibility</div>
-              <div class="settings-row-desc">Who can view your profile page</div>
-            </div>
-            <select class="settings-input" id="privacySelect">
-              <option value="public" ${(userData.profilePrivacy || 'public') === 'public' ? 'selected' : ''}>Everyone</option>
-              <option value="friends" ${userData.profilePrivacy === 'friends' ? 'selected' : ''}>Friends Only</option>
-            </select>
-          </div>
-          <div class="settings-row" id="rpcRow" style="display:none;">
-            <div>
-              <div class="settings-row-label">Discord RPC</div>
-              <div class="settings-row-desc">Show your BloxVerse activity on Discord (desktop app)</div>
-            </div>
-            <label class="settings-toggle">
-              <input type="checkbox" id="rpcToggle" />
-              <span></span>
-            </label>
-          </div>
-        </div>
-
-        <div class="settings-section">
-          <div class="settings-section-header">
-            <h2>Security</h2>
-          </div>
-          <div class="settings-row">
-            <div>
-              <div style="display:flex;align-items:center;gap:6px;">
-                <div class="settings-row-label" style="margin:0;">Two-Factor Authentication</div>
-                ${has2FA ? _checkSvg : _xSvg}
+              <div class="profile-info" onclick="window.location.href='${ownProfileLink}'">
+                <span class="profile-username" id="sidebarUsername">${username}</span>
               </div>
-              <div class="settings-row-desc">${has2FA ? '2FA is enabled on your account' : 'Add an extra layer of security to your account'}</div>
-              ${has2FA ? `<div class="settings-row-desc" style="margin-top:2px;font-size:12px;">Unused recovery codes left: <span id="recoveryLeftCount">${recoveryLeft}</span></div>` : ''}
+              <button class="sidebar-logout-btn" id="sidebarLogoutBtn" title="Sign out" aria-label="Sign out">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i>
+              </button>
             </div>
-            <div style="display:flex;align-items:center;gap:8px;">
-              ${has2FA ? `<button class="settings-btn" id="generateRecoveryBtn" style="font-size:12px;">Generate New Recovery Codes</button>` : ''}
-              <button class="settings-btn" id="${has2FA ? 'disable2FABtn' : 'enable2FABtn'}" style="${has2FA ? 'background:rgba(231,76,60,0.4);' : ''}">${has2FA ? 'Disable' : 'Enable'}</button>
+
+            <div class="settings-sidebar">
+              <div class="sidebar-tabs">
+                <button class="sidebar-tab active" data-tab="account" type="button"><i class="fa-solid fa-user"></i> Account</button>
+                <button class="sidebar-tab" data-tab="security" type="button"><i class="fa-solid fa-eye-slash"></i> Security &amp; Privacy</button>
+                <button class="sidebar-tab" data-tab="sessions" type="button"><i class="fa-solid fa-clock-rotate-left"></i> Sessions</button>
+                <button class="sidebar-tab" data-tab="customization" type="button"><i class="fa-solid fa-paintbrush"></i> Customization</button>
+                <button class="sidebar-tab disabled" data-tab="apps" type="button" disabled><i class="fa-solid fa-link"></i> Authorized Apps</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-main-panel">
+            <div class="tab-content active" id="tab-account">
+              <div class="content-section">
+                <h2 class="section-title-main">Account Info</h2>
+
+                <div class="settings-row">
+                  <div class="row-info">
+                    <span class="row-label">Username</span>
+                    <span id="displayUsername" class="row-value">${username}</span>
+                  </div>
+                  <button class="row-edit-btn" id="usernameEditBtn" disabled title="soon" type="button">
+                    <i class="fa-solid fa-pen"></i> Edit
+                  </button>
+                </div>
+
+                <div class="settings-row">
+                  <div class="row-info">
+                    <div class="label-with-icon">
+                      <span class="row-label">Email</span>
+                      ${user.emailVerified ? _checkSvg : _xSvg}
+                    </div>
+                    <span id="emailDisplay" class="row-value">${maskEmail(user.email)}</span>
+                    ${user.email && !['gmail.com','yahoo.com','outlook.com','hotmail.com','icloud.com','protonmail.com','proton.me'].includes(user.email.split('@')[1]?.toLowerCase()) ? `<p class="row-desc" style="color:#e74c3c;">Only Gmail, Yahoo, Outlook/Hotmail, iCloud, or Proton Mail are supported. Update your email to a supported provider.</p>` : ''}
+                  </div>
+                  <div class="row-actions">
+                    ${!user.emailVerified ? `<button class="btn-primary-action" id="verifyEmailBtn" type="button">Verify</button><span id="verifyEmailStatus" style="font-size:12px;color:var(--text-muted);display:none;"></span>` : ''}
+                    <button class="row-edit-btn" id="editEmailBtn"><i class="fa-solid fa-pen"></i> Edit</button>
+                  </div>
+                </div>
+
+                <div class="settings-row">
+                  <div class="row-info">
+                    <span class="row-label">Date of Birth</span>
+                    <span class="row-value" id="birthdayDisplay">${birthday ? new Date(+birthday.split('-')[0], +birthday.split('-')[1] - 1, +birthday.split('-')[2]).toLocaleDateString() : 'Not set'}</span>
+                  </div>
+                  <button class="row-edit-btn" id="editBirthdayBtn"><i class="fa-solid fa-pen"></i> Edit</button>
+                </div>
+              </div>
+
+              <div class="content-section">
+                <h2 class="section-title-main text-danger">Danger Zone</h2>
+                <div class="settings-row">
+                  <div class="row-info">
+                    <span class="row-label">Delete Account</span>
+                    <p class="row-desc" id="accountDeletionDesc">${deletionRequested ? `Deletion scheduled for ${formatDateTime(deletionScheduledFor) || '7 days from your request'}` : 'Request permanent deletion of your account and data'}</p>
+                  </div>
+                  <button class="btn-danger" id="deleteAccountBtn">${deletionRequested ? 'Requested' : 'Delete Account'}</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="tab-content" id="tab-security">
+              <div class="content-section">
+                <h2 class="section-title-main">Security</h2>
+
+                <div class="settings-row">
+                  <div class="row-info">
+                    <span class="row-label">Password</span>
+                  </div>
+                  <div class="row-actions">
+                    <span class="row-value" id="passwordDisplay">${'•'.repeat(userData.passwordLength || 0) || '••••••••'}</span>
+                    <button class="row-edit-btn" id="editPasswordBtn"><i class="fa-solid fa-pen"></i> Edit</button>
+                  </div>
+                </div>
+
+                <div class="settings-row">
+                  <div class="row-info">
+                    <div class="label-with-icon">
+                      <span class="row-label">Multi-Factor Authentication</span>
+                      ${has2FA ? _checkSvg : _xSvg}
+                    </div>
+                    <p class="row-desc">${has2FA ? `You have <span id="recoveryLeftCount">${recoveryLeft}</span> unused recovery codes.` : 'Add an extra layer of security to your account'}</p>
+                  </div>
+                  <div class="row-actions">
+                    ${has2FA ? `<button class="btn-primary-action" id="generateRecoveryBtn" type="button">Recovery Codes</button>` : ''}
+                    <button class="row-edit-btn" id="${has2FA ? 'disable2FABtn' : 'enable2FABtn'}"><i class="fa-solid fa-pen"></i> Edit</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="content-section">
+                <h2 class="section-title-main">Privacy</h2>
+
+                <div class="settings-row">
+                  <div class="row-info">
+                    <span class="row-label">Profile Visibility</span>
+                    <p class="row-desc">Who can view your profile page</p>
+                  </div>
+                  <select class="settings-input" id="privacySelect">
+                    <option value="public" ${(userData.profilePrivacy || 'public') === 'public' ? 'selected' : ''}>Everyone</option>
+                    <option value="friends" ${userData.profilePrivacy === 'friends' ? 'selected' : ''}>Friends Only</option>
+                  </select>
+                </div>
+
+                <div class="settings-row">
+                  <div class="row-info">
+                    <span class="row-label">Voice Chat</span>
+                    <p class="row-desc" id="voiceChatDesc">${canUseVoiceChat ? 'Allow voice chat in experiences that support it' : 'Voice chat is only available for 13+ accounts'}</p>
+                  </div>
+                  <label class="settings-toggle" title="${canUseVoiceChat ? 'Voice Chat' : 'Requires a 13+ account'}">
+                    <input type="checkbox" id="voiceChatToggle" ${voiceChatEnabled ? 'checked' : ''} ${canUseVoiceChat ? '' : 'disabled'} />
+                    <span></span>
+                  </label>
+                </div>
+
+                <div class="settings-row">
+                  <div class="row-info">
+                    <span class="row-label">Chat Data Collection</span>
+                    <p class="row-desc">We log chat messages to help improve moderation and safety tools. Opt out to stop your chat messages from being logged.</p>
+                  </div>
+                  <label class="field-checkbox">
+                    <input type="checkbox" id="chatOptOutToggle" ${userData.dataCollectionOptOut === true ? 'checked' : ''} />
+                    Opt out
+                  </label>
+                </div>
+
+                <div class="settings-row" id="rpcRow" style="display:none;">
+                  <div class="row-info">
+                    <span class="row-label">Discord RPC</span>
+                    <p class="row-desc">Show your BloxVerse activity on Discord (desktop app)</p>
+                  </div>
+                  <label class="settings-toggle">
+                    <input type="checkbox" id="rpcToggle" />
+                    <span></span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="tab-content" id="tab-sessions">
+              <div class="content-section">
+                <div class="settings-row single-line">
+                  <div class="row-info">
+                    <h2 style="margin:0;">Active Sessions</h2>
+                    <p class="row-desc">Devices currently signed in to your account.</p>
+                  </div>
+                  <button class="btn-danger-outline" id="sessionsSignOutAllBtn" type="button">Sign out of all other sessions</button>
+                </div>
+                <div class="sessions-list" id="sessionsList">
+                  <div class="settings-row">
+                    <div class="row-info">
+                      <span class="row-label">${deviceLabel} (This Device)</span>
+                      <p class="row-desc">IP: <span id="sessionsIpLabel">…</span> · Last active: just now</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="tab-content" id="tab-customization">
+              <div class="content-section">
+                <h2 class="section-title-main">Appearance</h2>
+                <div class="settings-row theme-row">
+                  <div class="row-info">
+                    <span class="row-label">Theme</span>
+                    <p class="row-desc">Pick light or dark, then a color family</p>
+                  </div>
+                  <select class="settings-input" id="themeLightDarkSelect">
+                    <option value="dark">Dark</option>
+                    <option value="light">Light</option>
+                    <option value="system">System</option>
+                  </select>
+                  <div class="theme-options" id="themeOptions"></div>
+                </div>
+                <div class="settings-row">
+                  <div class="row-info">
+                    <span class="row-label">UI Style</span>
+                    <p class="row-desc">Compact uses icon buttons and less text</p>
+                  </div>
+                  <select class="settings-input" id="uiStyleSelect">
+                    <option value="default">Default</option>
+                    <option value="compact">Compact</option>
+                  </select>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       `;
 
       // Theme toggle
-      const themeSelect = document.getElementById('themeSelect');
+      const lightDarkSelect = document.getElementById('themeLightDarkSelect');
+      const themeOptions = document.getElementById('themeOptions');
       import('./src/theme.js').then(mod => {
-        themeSelect.value = mod.getTheme();
-        themeSelect.addEventListener('change', () => mod.setTheme(themeSelect.value));
+        const familyBtns = {};
+        for (const fam of mod.getThemeFamilies()) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'theme-btn';
+          const swatch = document.createElement('span');
+          swatch.className = 'theme-swatch';
+          btn.appendChild(swatch);
+          btn.appendChild(document.createTextNode(fam.label));
+          themeOptions.appendChild(btn);
+          familyBtns[fam.key] = { btn, swatch, fam };
+        }
+        const applyTheme = (theme) => {
+          const resolved = mod.resolveTheme(theme);
+          const light = mod.isLightTheme(resolved);
+          const family = mod.getThemeFamily(theme);
+          if (mod.isSystemTheme(theme)) {
+            lightDarkSelect.value = 'system';
+          } else {
+            lightDarkSelect.value = light ? 'light' : 'dark';
+          }
+          for (const key in familyBtns) {
+            const { btn, swatch, fam } = familyBtns[key];
+            btn.classList.toggle('active', key === family);
+            swatch.style.background = light ? fam.swatchLight : fam.swatchDark;
+          }
+        };
+        lightDarkSelect.addEventListener('change', () => {
+          const current = mod.getTheme();
+          const family = mod.getThemeFamily(current);
+          const next = mod.buildTheme(family, lightDarkSelect.value);
+          mod.setTheme(next);
+          applyTheme(next);
+        });
+        for (const key in familyBtns) {
+          familyBtns[key].btn.addEventListener('click', () => {
+            const current = mod.getTheme();
+            const mode = mod.getMode(current);
+            const next = mod.buildTheme(key, mode);
+            mod.setTheme(next);
+            applyTheme(next);
+          });
+        }
+        applyTheme(mod.getTheme());
+      });
+
+      // UI Style toggle
+      const uiStyleSelect = document.getElementById('uiStyleSelect');
+      import('./src/theme.js').then(mod => {
+        uiStyleSelect.value = mod.getUiStyle();
+        uiStyleSelect.addEventListener('change', () => mod.setUiStyle(uiStyleSelect.value));
       });
 
       // Nav bar
@@ -964,6 +1337,73 @@
       if (privacySelect) {
         privacySelect.addEventListener('change', async () => {
           await setDoc(doc(db, 'users', user.uid), { profilePrivacy: privacySelect.value }, { merge: true });
+        });
+      }
+
+      // Sidebar tab switching
+      document.querySelectorAll('.sidebar-tab:not(.disabled)').forEach(tab => {
+        tab.addEventListener('click', () => {
+          const key = tab.dataset.tab;
+          document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
+          document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          const content = document.getElementById('tab-' + key);
+          if (content) content.classList.add('active');
+        });
+      });
+
+      // Sidebar logout
+      const sidebarLogoutBtn = document.getElementById('sidebarLogoutBtn');
+      if (sidebarLogoutBtn) {
+        sidebarLogoutBtn.addEventListener('click', () => window._logout());
+      }
+
+      // Sessions sign out
+      const sessionsSignOutAllBtn = document.getElementById('sessionsSignOutAllBtn');
+      if (sessionsSignOutAllBtn) {
+        sessionsSignOutAllBtn.addEventListener('click', async () => {
+          if (!user) return;
+          sessionsSignOutAllBtn.disabled = true;
+          sessionsSignOutAllBtn.textContent = 'Signing out…';
+          const sessionsDesc = document.querySelector('#tab-sessions .row-desc');
+          try {
+            await revokeOtherSessions(user.uid);
+            sessionsSignOutAllBtn.textContent = 'Signed out ✓';
+            if (sessionsDesc) sessionsDesc.textContent = 'All other devices have been signed out.';
+          } catch (e) {
+            sessionsSignOutAllBtn.disabled = false;
+            sessionsSignOutAllBtn.textContent = 'Sign out of all other sessions';
+            if (sessionsDesc) sessionsDesc.textContent = 'Could not sign out other sessions. Try again.';
+            return;
+          }
+          setTimeout(() => {
+            sessionsSignOutAllBtn.disabled = false;
+            sessionsSignOutAllBtn.textContent = 'Sign out of all other sessions';
+            if (sessionsDesc) sessionsDesc.textContent = 'Devices currently signed in to your account.';
+          }, 3000);
+        });
+      }
+
+      // Best-effort public IP for the current session row
+      fetch('https://api.ipify.org?format=json').then(r => r.json()).then(d => {
+        const el = document.getElementById('sessionsIpLabel');
+        if (el && d.ip) el.textContent = d.ip;
+      }).catch(() => {
+        const el = document.getElementById('sessionsIpLabel');
+        if (el) el.textContent = '—';
+      });
+
+      // Chat data collection opt-out
+      const chatOptOutToggle = document.getElementById('chatOptOutToggle');
+      if (chatOptOutToggle) {
+        chatOptOutToggle.addEventListener('change', async () => {
+          const optedOut = chatOptOutToggle.checked;
+          try {
+            await setDoc(doc(db, 'users', user.uid), { dataCollectionOptOut: optedOut }, { merge: true });
+          } catch (e) {
+            console.error('Error saving chat data opt-out:', e);
+            chatOptOutToggle.checked = !optedOut;
+          }
         });
       }
 
@@ -1555,8 +1995,10 @@
       <div class="footer-links">
         <a href="/bloxverse/terms">Terms of Service</a>
         <a href="/bloxverse/privacy">Privacy Policy</a>
+        <a class="footer-discord" href="https://discord.gg/Uh6WF5NDDK" target="_blank" rel="noopener" title="Join our Discord"><i class="fab fa-discord"></i></a>
       </div>
     </div>
+    <div class="footer-copyright">© 2026 BloxVerse. All rights reserved.</div>
   </footer>
 </body>
 

@@ -237,14 +237,15 @@
         <span class="logo-text">BloxVerse</span>
       </div>
       <div class="nav-links" id="navLinks">
+        <button class="nav-link-btn" onclick="window.location.href='/bloxverse'">Home</button>
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
         <button class="nav-link-btn" data-needs-auth onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
-        <button class="nav-link-btn active" onclick="window.location.href='/bloxverse/download'" style="display:flex;align-items:center;gap:5px;">
-          <i class="fa-solid fa-download" style="font-size:12px;"></i> Download
+        <button class="nav-link-btn active" onclick="window.location.href='/bloxverse/download'">
+          Download
         </button>
-        <button class="nav-link-btn" data-open-studio>Studio</button>
-        <script type="module" src="src/studio.js"></script>
       </div>
+      <button class="navbar-studio-card" data-open-studio title="Launch BloxVerse Studio">Studio</button>
+      <script type="module" src="src/studio.js"></script>
     </div>
     <div class="nav-center"></div>
     <div class="nav-right" id="navRight">
