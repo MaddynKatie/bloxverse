@@ -3554,6 +3554,7 @@ function resolveOBBH(nearby, pushVx = 0, pushVz = 0, dt = 1 / 60) {
                 const targetVx = (-nx / horzNorm) * pushSpeed;
                 const targetVz = (-nz / horzNorm) * pushSpeed;
                 const factor = Math.min(1, dt * PUSH_SCALE * depth / m);
+                if (b._bodyRef.velocity.x !== targetVx || b._bodyRef.velocity.z !== targetVz) b._bodyRef.wakeUp();
                 b._bodyRef.velocity.x += (targetVx - b._bodyRef.velocity.x) * factor;
                 b._bodyRef.velocity.z += (targetVz - b._bodyRef.velocity.z) * factor;
             }
@@ -5439,7 +5440,9 @@ window._bloxverse = {
     _setPartVelocity(mesh, vx, vy, vz) {
         const entry = physicsBodies.get(mesh);
         if (entry && entry.body) {
+            if (entry.anchored) return;
             markLocalPhysicsOwner(mesh, PHYSICS_OWNER_LEASE_MS * 2);
+            entry.body.wakeUp();
             entry.body.velocity.set(vx, vy, vz);
         }
     },
@@ -5472,6 +5475,7 @@ window._bloxverse = {
                 entry.body.shapes[0]?.type === CANNON.Shape.types.SPHERE ? 'Ball' : 'Block'
             );
             entry.body.updateMassProperties();
+            entry.body.wakeUp();
             if (anchored && mesh.userData.canCollide !== false) {
                 this._activatePartCollider(mesh);
             }
@@ -5618,6 +5622,7 @@ window._bloxverse = {
 
                     // Smooth corrective velocity instead of teleporting
                     const correctionFactor = 10;
+                    body.wakeUp();
                     body.velocity.x = s.vx + (s.x - body.position.x) * correctionFactor;
                     body.velocity.y = s.vy + (s.y - body.position.y) * correctionFactor;
                     body.velocity.z = s.vz + (s.z - body.position.z) * correctionFactor;

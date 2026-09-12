@@ -16,8 +16,6 @@
   }
   </script>
   <base href="/bloxverse/">
-  <link rel="preconnect" href="https://esm.sh" crossorigin>
-  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
@@ -345,7 +343,7 @@
     import { connectMultiplayer, sendLocalTransform, sendPhysicsState, disconnectMultiplayer, sendChat, setOnVoiceSignal, setOnQueueStatus, setOnConnectionLost, sendVoiceSignal, getServerHttpUrl } from './src/multiplayer.js';
     import { joinServer, findOrCreateServer, enqueueForServer, dequeueFromServer, leaveServer, watchServer, watchQueue, getServerMaxPlayers } from './src/servers.js';
     import { onFriendRequests, sendFriendRequest as dbSendFriendRequest, acceptFriendRequest as dbAcceptFriendRequest, declineFriendRequest as dbDeclineFriendRequest, removeFriend } from './src/friends.js';
-    import { executeScript, loadScriptsFromStorage, createInstanceProxy } from './src/scriptRuntime.js';
+    import { executeScript, loadScriptsFromStorage, createInstanceProxy } from './src/legacyscriptRuntime.js';
     import { Instance, PartInstance, ScriptInstance, initGameHierarchy } from './src/instances.js';
     import { findEmote, getAllEmotes } from './src/emotes.js';
     import { ProfanityFilter } from 'glin-profanity';

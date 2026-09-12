@@ -158,8 +158,21 @@ ballInst.Touched:Connect(function(hit)
     local char = game:GetCharacterData()
     if not char.moving then return end
 
-    local facingX = math.sin(char.ry)
-    local facingZ = math.cos(char.ry)
+    -- The engine's character.rotation.y is stored 180° opposite of the
+    -- direction the player actually faces/moves (you can see the engine
+    -- correct for this itself when it syncs a player's rotation to other
+    -- clients: it adds Math.PI before using it). Using math.sin(char.ry)/
+    -- math.cos(char.ry) directly therefore gives the direction BEHIND the
+    -- player, which is why kicks (and the curve) were sending the ball
+    -- backwards. Negating both flips it to the true facing direction —
+    -- same effect as adding math.pi to the angle, but this environment's
+    -- math table doesn't define math.pi, so char.ry + math.pi evaluated to
+    -- "char.ry + nil", which threw inside the Touched handler before
+    -- SetVelocity ever ran (that's why the ball vanished instead of moving:
+    -- the kick errored out, and nothing after it — including whatever put
+    -- the ball back down — ran either).
+    local facingX = -math.sin(char.ry)
+    local facingZ = -math.cos(char.ry)
     local walkSpeed = game:GetWalkSpeed()
     local speedRatio = walkSpeed / WALK_SPEED
     local speedMult = speedRatio * MAX_SPEED_BONUS
