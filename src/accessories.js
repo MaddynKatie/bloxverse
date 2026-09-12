@@ -103,7 +103,7 @@ export const accessories = [
     author: 'BloxVerse',
      icon: 'C',
     meshPath: new URL('../assets/accessories/classicbowTie.glb', import.meta.url).href,
-    category: 'Face Accessory',
+    category: 'Front Accessory',
     created: 'September 11, 2026 8:40:06 PM',
     updated: 'September 11, 2026 8:40:06 PM',
   },
