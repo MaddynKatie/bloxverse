@@ -762,7 +762,13 @@
           mat.toneMapped = false;
           mat.transparent = false;
           mat.opacity = 1;
-          mat.color.setStyle(currentColors[slotName], THREE.SRGBColorSpace);
+          // Sanitize saved colors: setStyle() renders unparseable values as
+          // black, so fall back to the slot default instead.
+          const saved = currentColors[slotName];
+          const safe = typeof saved === 'string' && /^#[0-9a-f]{3,8}$/i.test(saved.trim())
+            ? saved.trim()
+            : (SLOT_DEFAULTS[slotName] || '#cccccc');
+          mat.color.setStyle(safe, THREE.SRGBColorSpace);
           mat.needsUpdate = true;
         }
       }
@@ -1758,6 +1764,33 @@
       });
     }
 
+    // Swap the circular navbar avatar to a freshly generated preview without a
+    // page reload, keeping it consistent with the saved avatar right away.
+    function refreshNavAvatar(newPreviews) {
+      if (!newPreviews) return;
+      const src = newPreviews.avatarPreviewHead || newPreviews.avatarPreview;
+      if (!src) return;
+      const img = navRight && navRight.querySelector('img.avatar-circle-img');
+      if (img) {
+        img.src = src;
+        return;
+      }
+      const div = navRight && navRight.querySelector('.avatar-circle');
+      if (div) {
+        const initial = div.textContent.trim().charAt(0).toUpperCase();
+        const onclick = div.getAttribute('onclick') || '';
+        const uid = auth.currentUser ? auth.currentUser.uid : '';
+        const im = document.createElement('img');
+        im.src = src;
+        im.alt = '';
+        im.className = 'avatar-circle-img';
+        im.setAttribute('data-initial', initial);
+        if (onclick) im.setAttribute('onclick', onclick);
+        if (uid) im.setAttribute('onerror', "window.__handleBrokenAvatar(this, '" + uid + "')");
+        div.parentNode.replaceChild(im, div);
+      }
+    }
+
     function updateSaveState() {
       const s = document.getElementById('btnSave');
       if (!s) return;
@@ -1782,11 +1815,13 @@
         showToast('Avatar saved!');
 
         // Render and upload a thumbnail preview
+        let newPreviews = null;
         try {
-          await captureAndUploadThumbnail();
+          newPreviews = await captureAndUploadThumbnail();
         } catch (e) {
           console.warn('Thumbnail upload failed:', e);
         }
+        refreshNavAvatar(newPreviews);
       } catch (e) {
         console.error('Error saving avatar:', e);
         showToast('Failed to save');
@@ -1876,51 +1911,48 @@
         return;
       }
 
-      // Upload to Cloudinary
+      // Upload to Cloudinary WITHOUT a public_id. The preset is unsigned and
+      // cannot overwrite (overwrite:true is signed-only), so a fixed id like
+      // `u_<uid>` would make every save return `existing:true` with the FIRST
+      // uploaded URL forever. Letting Cloudinary assign a fresh id guarantees a
+      // new asset + new URL per save (old ones are cleaned by a regen pass).
       const CLOUD_NAME = 'dvkbiobph';
       const UPLOAD_PRESET = 'bloxverse_upload';
-
-      let publicId = 'avatar';
-      try {
-        if (auth.currentUser) {
-          publicId = 'u_' + auth.currentUser.uid.replace(/[^a-zA-Z0-9_-]/g, '_');
-        }
-      } catch (e) { /* fallback */ }
 
       const updateData = {};
       const ts = Date.now();
 
-      if (fullBodyBlob) {
+      async function uploadAvatarBlob(blob, fileName) {
         const fd = new FormData();
-        fd.append('file', fullBodyBlob, `${publicId}_full.png`);
+        fd.append('file', blob, fileName);
         fd.append('upload_preset', UPLOAD_PRESET);
-        fd.append('public_id', publicId);
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, { method: 'POST', body: fd });
+        const data = await res.json();
+        if (!data || !data.secure_url) {
+          throw new Error((data && data.error && data.error.message) || ('upload failed ' + res.status));
+        }
+        return data.secure_url;
+      }
+
+      if (fullBodyBlob) {
         try {
-          const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
-            method: 'POST', body: fd,
-          });
-          const data = await res.json();
-          if (data.secure_url) updateData.avatarPreview = data.secure_url + '?t=' + ts;
+          const url = await uploadAvatarBlob(fullBodyBlob, 'avatarPreview.png');
+          if (url) updateData.avatarPreview = url + '?t=' + ts;
         } catch (e) { console.warn('[thumbnail] full body upload failed:', e); }
       }
 
       if (headBlob) {
-        const fd = new FormData();
-        fd.append('file', headBlob, `${publicId}_head.png`);
-        fd.append('upload_preset', UPLOAD_PRESET);
-        fd.append('public_id', `${publicId}_head`);
         try {
-          const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
-            method: 'POST', body: fd,
-          });
-          const data = await res.json();
-          if (data.secure_url) updateData.avatarPreviewHead = data.secure_url + '?t=' + ts;
+          const url = await uploadAvatarBlob(headBlob, 'avatarPreviewHead.png');
+          if (url) updateData.avatarPreviewHead = url + '?t=' + ts;
         } catch (e) { console.warn('[thumbnail] head shot upload failed:', e); }
       }
 
       if (Object.keys(updateData).length > 0) {
         await setDoc(doc(db, 'users', auth.currentUser.uid), updateData, { merge: true });
+        return updateData;
       }
+      return null;
     }
 
     const toast = document.getElementById('saveToast');
@@ -1996,7 +2028,8 @@
         }
       });
     })();
-  </script>
+
+    </script>
 
   <footer class="site-footer">
     <div class="footer-inner">

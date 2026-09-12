@@ -112,6 +112,7 @@ export const clothingItems = [
     created: 'June 6, 2026 11:14:00 AM',
     updated: 'June 6, 2026 11:14:00 AM',
   },
+  */
   {
     id: 'bloxverseshirt',
     name: 'BloxVerse Shirt',
@@ -121,9 +122,10 @@ export const clothingItems = [
     category: 'Shirts',
     texturePath: new URL('../assets/clothing/bloxverseShirt.png', import.meta.url).href,
     created: 'June 7, 2026 4:36:00 PM',
-    updated: 'September 9, 2026 8:36:00 PM',
+    updated: 'September 11, 2026 5:34:32 PM',
   },
   // ── Pants ────────────────────────────────────────────────────────────────────
+  /*
   {
     id: 'blockyfightspants',
     name: 'Blocky Fights Pants',

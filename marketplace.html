@@ -484,44 +484,14 @@
     let _previewRenderer = null;
     const _clothingPreviewCache = new Map();
     const _clothingThumbCache = new Map();
-    const PREVIEW_CACHE_KEY = 'bv:mp:previews:v1';
-    const PREVIEW_CACHE_TTL = 1000 * 60 * 60 * 24;
-    function _loadPreviewCache() {
-      try {
-        const raw = localStorage.getItem(PREVIEW_CACHE_KEY);
-        if (!raw) return;
-        const obj = JSON.parse(raw);
-        if (Date.now() - (obj.at || 0) > PREVIEW_CACHE_TTL) {
-          localStorage.removeItem(PREVIEW_CACHE_KEY);
-          return;
-        }
-        for (const id in obj.items) {
-          const v = obj.items[id];
-          if (typeof v === 'string' && v.startsWith('data:image')) _clothingPreviewCache.set(id, v);
-        }
-      } catch {}
-    }
-    function _savePreviewCache(id, dataUrl) {
-      try {
-        const raw = localStorage.getItem(PREVIEW_CACHE_KEY);
-        let obj = null;
-        if (raw) { try { obj = JSON.parse(raw); } catch { obj = null; } }
-        if (!obj || typeof obj !== 'object') obj = { at: Date.now(), items: {} };
-        obj.at = Date.now();
-        obj.items[id] = dataUrl;
-        let total = 0;
-        for (const k in obj.items) total += obj.items[k].length;
-        if (total > 1200000) {
-          const keys = Object.keys(obj.items);
-          let i = 0;
-          while (total > 1200000 && i < keys.length - 1) {
-            total -= obj.items[keys[i]].length;
-            delete obj.items[keys[i]];
-            i++;
-          }
-        }
-        localStorage.setItem(PREVIEW_CACHE_KEY, JSON.stringify(obj));
-      } catch {}
+
+    // Previews are deliberately regenerated on every page load from the
+    // CURRENT assets (no localStorage persistence) so edited textures/models
+    // never get stuck showing yesterday's image. Keys are versioned by the
+    // item's source URL so a re-upload that changes the path busts the cache too.
+    function _previewKey(item) {
+      const src = item.meshPath || item.texturePath || (item.textures && item.textures.map) || '';
+      return item.id + '|' + src;
     }
 
     function buildCatalog() {
@@ -547,7 +517,8 @@
     }
 
     function getThumbnail(item) {
-      if (_clothingPreviewCache.has(item.id)) return _clothingPreviewCache.get(item.id);
+      const k = _previewKey(item);
+      if (_clothingPreviewCache.has(k)) return _clothingPreviewCache.get(k);
       if (item.texturePath) return item.texturePath;
       if (item._type === 'accessory' && item.textures?.map) return item.textures.map;
       return null;
@@ -1056,13 +1027,13 @@
       const emotes = getAllEmotes().map(e => ({ ...e, _type: 'emote' }));
       const items = [...clothes, ...accs, ...emotes];
       for (const item of items) {
-        if (_clothingPreviewCache.has(item.id)) continue;
+        const key = _previewKey(item);
+        if (_clothingPreviewCache.has(key)) continue;
         const dataUrl = item._type === 'emote'
           ? await _generateEmotePreview(item)
           : await _generatePreview(item);
         if (dataUrl) {
-          _clothingPreviewCache.set(item.id, dataUrl);
-          _savePreviewCache(item.id, dataUrl);
+          _clothingPreviewCache.set(key, dataUrl);
           const thumb = document.querySelector(`.mp-card[data-id="${CSS.escape(item.id)}"] .mp-card-thumb`);
           if (thumb) {
             const existing = thumb.querySelector('img');
@@ -1633,7 +1604,7 @@
     };
 
     buildCatalog();
-    _loadPreviewCache();
+    try { localStorage.removeItem('bv:mp:previews:v1'); } catch {}
     render();
     initPreview();
 

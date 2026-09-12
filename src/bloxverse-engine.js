@@ -2157,8 +2157,11 @@ function updateAnimations(dt, moving) {
 function updateOtherPlayers(dt) {
     otherPlayers.forEach((p, userId) => {
         if (!p.mesh) return;
+        // Dead/ragdolled clones still track their sender (root follows the
+        // flying torso, like the local ragdoll), but skip pose animation.
         p.mesh.position.lerp(new THREE.Vector3(p.targetX, p.targetY, p.targetZ), Math.min(1, dt * 10));
         p.mesh.rotation.y = lerpAngle(p.mesh.rotation.y, p.targetRy, Math.min(1, dt * 10));
+        if (p.dead || p.ragdollActive) return;
 
         if (p._emote) { _applyRemoteEmote(p, p._emote, dt); return; }
 
@@ -2924,6 +2927,29 @@ function _defaultAvatarColors() {
     return { Head: '#ffffff', Torso: '#8350fb', 'L Arm': '#ffffff', 'R Arm': '#ffffff', 'L Leg': '#400eb4', 'R Leg': '#400eb4' };
 }
 
+// Turns any stored color value into a safe '#rrggbb'. THREE's setStyle() falls
+// back to rgb(1,2,3) — effectively BLACK — for values it can't parse (numbers,
+// arrays/objects, odd strings), so never hand it raw doc data. Anything
+// unparseable falls back to the slot's default color instead of black.
+function _sanitizeSlotColor(value, fallbackHex) {
+    if (value == null) return fallbackHex;
+    try {
+        if (typeof value === 'string') {
+            const s = value.trim();
+            if (/^#[0-9a-f]{3}$/i.test(s)) return '#' + s.slice(1).split('').map(ch => ch + ch).join('').toLowerCase();
+            if (/^#[0-9a-f]{6}$/i.test(s)) return s.toLowerCase();
+            const hex6 = s.replace(/^0x/i, '');
+            if (/^[0-9a-f]{6}$/i.test(hex6)) return '#' + hex6.toLowerCase();
+            const c = new THREE.Color(s);
+            return c.getHex() === 0 && c.r === 0 ? fallbackHex : '#' + c.getHexString();
+        }
+        const c = new THREE.Color(value);
+        return '#' + c.getHexString();
+    } catch {
+        return fallbackHex;
+    }
+}
+
 function _resolveAvatarColors(colors) {
     if (colors && Object.keys(colors).length > 0) return colors;
     return _defaultAvatarColors();
@@ -2938,6 +2964,9 @@ function _applyColorsToModel(model, colors) {
     const slotColors = _normalizeAvatarColors(colors);
     model.traverse(child => {
         if (child.isMesh) {
+            // Accessories and clothing overlays carry their own colors/textures —
+            // body/torso colors must never tint them.
+            if (child.userData?.isAccessory || child.userData?.isClothingOverlay) return;
             const mats = Array.isArray(child.material) ? child.material : [child.material];
             for (const mat of mats) {
                 if (!mat) continue;
@@ -2958,7 +2987,8 @@ function _applyColorsToModel(model, colors) {
                 mat.toneMapped = false;
                 mat.transparent = false;
                 mat.opacity = 1;
-                mat.color.setStyle(slotColor, THREE.SRGBColorSpace);
+                const fallback = _defaultAvatarColors()[AVATAR_SLOT_NAMES[slotIdx]];
+                mat.color.setStyle(_sanitizeSlotColor(slotColor, fallback), THREE.SRGBColorSpace);
                 mat.needsUpdate = true;
             }
         }
@@ -3047,6 +3077,33 @@ const _clothingBlendShader = shader => {
     );
 };
 
+// THREE.Material.clone()/copy() only copies serializable fields (color,
+// opacity, vertexColors, userData, etc.) — it does NOT copy onBeforeCompile,
+// since that's a plain function property rather than part of Material's
+// copy() list. Every place that clones a body material (e.g. spawning a
+// remote player) therefore ends up with a material that still has
+// vertexColors enabled but has lost the custom shader that makes sense of
+// those vertex colors:
+//   - Head material: vertexColors=true drives a black->white front-mask
+//     used ONLY by _headBlendShader to blend in the face decal. Without
+//     that shader, the standard pipeline multiplies the diffuse color by
+//     the mask directly, which is black everywhere except the front of the
+//     face — this is why remote players' heads rendered solid black.
+//   - Shirt/pant materials: lose the blend shader that mixes the clothing
+//     texture over the body color, so remote players' clothing textures
+//     would apply incorrectly too.
+// Call this on every freshly-cloned material to restore the correct shader.
+function _reattachBodyMaterialShader(mat) {
+    if (!mat) return;
+    if (_isHeadMaterial(mat)) {
+        mat.onBeforeCompile = _headBlendShader;
+        mat.needsUpdate = true;
+    } else if (SHIRT_MATS.has(mat.name) || PANT_MATS.has(mat.name)) {
+        mat.onBeforeCompile = _clothingBlendShader;
+        mat.needsUpdate = true;
+    }
+}
+
 function _collectMatsByName(model, nameSet) {
     const mats = [];
     if (!model) return mats;
@@ -3079,6 +3136,9 @@ function _applyTextureToMats(mats, itemId, label) {
         tex.flipY = false;
         for (const mat of mats) {
             mat.map = tex;
+            // Clothing/pants textures carry their own full color — neutralize
+            // any body-slot color tint so they render exactly as designed.
+            mat.color.setRGB(1, 1, 1, THREE.SRGBColorSpace);
             mat.needsUpdate = true;
         }
     }, undefined, (err) => console.error(label + ' TEX LOAD FAILED:', err));
@@ -4336,10 +4396,10 @@ function _collectBodySkinnedMeshes(root) {
     return out;
 }
 
-function _limbSkinBounds(bone) {
+function _limbSkinBounds(bone, root) {
     const fallback = new THREE.Box3(new THREE.Vector3(-0.3, -0.3, -0.3), new THREE.Vector3(0.3, 0.3, 0.3));
     if (!bone) return fallback;
-    const meshes = _collectBodySkinnedMeshes(character);
+    const meshes = _collectBodySkinnedMeshes(root || character);
     if (!meshes.length) return fallback;
 
     const tmp = new THREE.Vector3();
@@ -4492,6 +4552,94 @@ function _dieRagdoll() {
     for (const fn of _deathCallbacks) fn();
 }
 
+// ─── Remote player ragdoll death (mirror of the local _dieRagdoll) ────────────
+const _remoteRagdolls = new Map(); // userId -> { parts, p }
+
+function _startRemoteRagdoll(p, userId) {
+    if (!p || !p.mesh || p.ragdollActive) return;
+    p.mesh.updateMatrixWorld(true);
+    const resolved = [];
+    for (const boneName of RAGDOLL_BONE_NAMES) {
+        const bone = p.bones[boneName];
+        if (bone && bone.parent) resolved.push({ boneName, bone, originalParent: bone.parent });
+    }
+    if (!resolved.length) return;
+
+    const newParts = [];
+    for (const { boneName, bone, originalParent } of resolved) {
+        const rest = p.rest[boneName] || null;
+
+        // Move the bone (and everything it carries) into the scene root so the
+        // physics body, not the clone rig, drives its world transform.
+        scene.attach(bone);
+
+        // Size a physics box from the clone's own skinned geometry.
+        const limbBox = _limbSkinBounds(bone, p.mesh);
+        const size = limbBox.getSize(new THREE.Vector3());
+        const shapeCenter = limbBox.getCenter(new THREE.Vector3());
+        const sw = Math.max(size.x, 0.3), sh = Math.max(size.y, 0.3), sd = Math.max(size.z, 0.3);
+
+        const cannonShape = new CANNON.Box(new CANNON.Vec3(sw / 2, sh / 2, sd / 2));
+        const body = new CANNON.Body({ mass: 0.6 });
+        body.addShape(cannonShape);
+        body.updateMassProperties();
+        body.linearDamping = 0.18;
+        body.angularDamping = 0.6;
+        body.sleepSpeedLimit = 0.4;
+        body.sleepTimeLimit = 0.3;
+
+        const boneQ = new THREE.Quaternion(bone.quaternion.x, bone.quaternion.y, bone.quaternion.z, bone.quaternion.w);
+        const cWorld = new THREE.Vector3(shapeCenter.x, shapeCenter.y, shapeCenter.z).applyQuaternion(boneQ);
+        body.position.set(bone.position.x + cWorld.x, bone.position.y + cWorld.y, bone.position.z + cWorld.z);
+        body.quaternion.copy(boneQ);
+
+        const angle = Math.random() * Math.PI * 2;
+        const speed = RAGDOLL_VEL_XZ * (0.5 + Math.random());
+        body.velocity.set(
+            Math.cos(angle) * speed,
+            RAGDOLL_VEL_Y_BASE * (0.4 + Math.random() * 0.8) + Math.random() * RAGDOLL_VEL_Y_RANDOM,
+            Math.sin(angle) * speed
+        );
+        body.angularVelocity.set(
+            (Math.random() - 0.5) * RAGDOLL_ANG_VEL_MAX * 2,
+            (Math.random() - 0.5) * RAGDOLL_ANG_VEL_MAX * 2,
+            (Math.random() - 0.5) * RAGDOLL_ANG_VEL_MAX * 2
+        );
+
+        bone.userData.canCollide = false;
+        physicsWorld.addBody(body);
+        physicsBodies.set(bone, { body, anchored: false, mesh: bone, ragdollOffset: shapeCenter });
+        newParts.push({ mesh: bone, body, originalParent, boneName, rest });
+    }
+
+    newParts.sort((a, b) => (a.boneName === 'Torso' ? -1 : b.boneName === 'Torso' ? 1 : 0));
+    _remoteRagdolls.set(userId, { parts: newParts, p });
+    p.ragdollActive = true;
+}
+
+function _clearRemoteRagdoll(p, userId) {
+    const entry = _remoteRagdolls.get(userId);
+    if (!entry) { if (p) p.ragdollActive = false; return; }
+    for (const { body, mesh: bone, originalParent, rest } of entry.parts) {
+        if (body) {
+            physicsWorld.removeBody(body);
+            physicsBodies.delete(bone);
+        }
+        // Reattach the real limb back onto the clone rig and reset it to its
+        // bind pose so normal walk/idle/climb animation resumes cleanly.
+        if (bone && originalParent) {
+            originalParent.add(bone);
+            if (rest) {
+                bone.position.set(rest.px, rest.py, rest.pz);
+                bone.rotation.set(rest.x, rest.y, rest.z);
+            }
+        }
+    }
+    if (entry.p && entry.p.mesh) entry.p.mesh.updateMatrixWorld(true);
+    if (p) p.ragdollActive = false;
+    _remoteRagdolls.delete(userId);
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 window._mapParts = [];
 
@@ -4513,9 +4661,14 @@ window._bloxverse = {
                 child.castShadow = true;
                 child.receiveShadow = true;
                 if (Array.isArray(child.material)) {
-                    child.material = child.material.map(m => m.clone());
+                    child.material = child.material.map(m => {
+                        const cloned = m.clone();
+                        _reattachBodyMaterialShader(cloned);
+                        return cloned;
+                    });
                 } else if (child.material) {
                     child.material = child.material.clone();
+                    _reattachBodyMaterialShader(child.material);
                 }
             }
         });
@@ -5588,13 +5741,18 @@ window._bloxverse = {
                 if (child.isMesh) {
                     child.castShadow = true;
                     child.receiveShadow = true;
-                    // Clone materials so each player has unique instances
+                    // Clone materials so each player has unique instances.
+                    // Cloning drops onBeforeCompile (see _reattachBodyMaterialShader),
+                    // so the head/shirt/pant blend shaders must be reattached here or
+                    // the remote player's head renders black and clothing mis-blends.
                     if (Array.isArray(child.material)) {
                         for (let i = 0; i < child.material.length; i++) {
                             child.material[i] = child.material[i].clone();
+                            _reattachBodyMaterialShader(child.material[i]);
                         }
                     } else if (child.material) {
                         child.material = child.material.clone();
+                        _reattachBodyMaterialShader(child.material);
                     }
                 }
             });
@@ -5605,14 +5763,18 @@ window._bloxverse = {
                     px: rigRoot.position.x, py: rigRoot.position.y, pz: rigRoot.position.z,
                 };
             }
-            // Strip any clothing overlays cloned from the local character
+            // Strip anything cloned from the local character: clothing overlays,
+            // face decals, and the local player's own accessories (the remote
+            // player's accessories are loaded separately below from their data).
             const toRemove = [];
             clone.traverse(child => {
                 if (child.userData?.isClothingOverlay) toRemove.push(child);
                 if (child.userData?.isFaceOverlay) toRemove.push(child);
+                if (child.userData?.isAccessory) toRemove.push(child);
             });
             for (const overlay of toRemove) {
                 overlay.removeFromParent();
+                if (overlay.userData?.isAccessory) continue;
                 overlay.geometry?.dispose?.();
                 const mats = Array.isArray(overlay.material) ? overlay.material : [overlay.material];
                 for (const mat of mats) mat?.dispose?.();
@@ -5648,6 +5810,10 @@ window._bloxverse = {
             // Set initial visual top (accessories may update it later)
             _recalcVisualTop(userId);
 
+            // A clone that joins already ragdoll-dead should blow apart too,
+            // matching the local player's death animation.
+            if (dead && deathType === 2) _startRemoteRagdoll(p, userId);
+
             // Create username label if provided
             if (username) {
                 if (!_playerNames.has(userId)) {
@@ -5680,6 +5846,11 @@ window._bloxverse = {
                 }
             }
             p.targetX = x; p.targetY = y; p.targetZ = z; p.targetRy = correctedRy; p.moving = moving; p.grounded = grounded; p.climbState = climbState; p.dead = !!dead; p.deathType = deathType || 0;
+
+            // Keep the clone's death in sync with the sender: start the same
+            // ragdoll blow-apart when they die, and reattach+bind it on respawn.
+            if (p.dead && p.deathType === 2) _startRemoteRagdoll(p, userId);
+            else if (!p.dead) _clearRemoteRagdoll(p, userId);
             if (qw !== undefined) {
                 p.targetQ.set(qx, qy, qz, qw);
             }
@@ -5751,8 +5922,9 @@ window._bloxverse = {
     removeOtherPlayer: (userId) => {
         if (userId === currentUserId) return;
         const p = otherPlayers.get(userId);
-        if (p && p.mesh) {
-            scene.remove(p.mesh);
+        if (p) {
+            _clearRemoteRagdoll(p, userId);
+            if (p.mesh) scene.remove(p.mesh);
         }
         otherPlayers.delete(userId);
         _playerAvatarData.delete(userId);
@@ -5972,12 +6144,15 @@ function loop(now) {
     // Update other players (visual interpolation, once per frame)
     otherPlayers.forEach((p, userId) => {
         if (!p.mesh) return;
+        // Dead/ragdolled clones still track their sender (root follows the
+        // flying torso, like the local ragdoll), but skip pose animation.
         p.mesh.position.lerp(new THREE.Vector3(p.targetX, p.targetY, p.targetZ), Math.min(1, frameDt * 10));
         if (p.targetQ) {
             p.mesh.quaternion.slerp(p.targetQ, Math.min(1, frameDt * 10));
         } else {
             p.mesh.rotation.y = lerpAngle(p.mesh.rotation.y, p.targetRy, Math.min(1, frameDt * 10));
         }
+        if (p.ragdollActive) return;
         if (p._emote) { _applyRemoteEmote(p, p._emote, frameDt); return; }
         p.animTime = (p.animTime || 0) + frameDt;
         if (p.dead) return;
@@ -5989,19 +6164,14 @@ function loop(now) {
         const rArmRestY = p.rest['Right_Arm']?.py ?? 0;
 
         if (p.climbState > 0) {
-            const grip = p.moving ? Math.sin(p.animTime * 6) * 0.15 : 0;
-            const lArmOffX = p.offset?.['Left_Arm']?.x || 0;
-            const rArmOffX = p.offset?.['Right_Arm']?.x || 0;
-            const lArmOffZ = p.offset?.['Left_Arm']?.z || 0;
-            const rArmOffZ = p.offset?.['Right_Arm']?.z || 0;
-            setBoneRot(lArm, { x: lArmOffX - Math.PI * 0.75 + grip, z: lArmOffZ + 0.35 }, sp, frameDt);
-            setBoneRot(rArm, { x: rArmOffX - Math.PI * 0.75 - grip, z: rArmOffZ - 0.35 }, sp, frameDt);
-            const kick = p.moving ? Math.sin(p.animTime * 6) * 0.3 : 0;
-            setBoneRot(lLeg, { x: 0.3 + kick }, sp, frameDt);
-            setBoneRot(rLeg, { x: 0.3 - kick }, sp, frameDt);
-            setBoneRot(torso, { x: -0.15 }, sp, frameDt);
-            if (lArm) lArm.position.y = THREE.MathUtils.lerp(lArm.position.y, lArmRestY + 0.5, Math.min(1, sp * frameDt));
-            if (rArm) rArm.position.y = THREE.MathUtils.lerp(rArm.position.y, rArmRestY + 0.5, Math.min(1, sp * frameDt));
+            // Identical pose to the local wall-climb in updateClimbAnimation.
+            const step = p.moving ? Math.sin(p.animTime * 6.5) : 0;
+            const csp = 10;
+            setBoneRot(lArm, { x: -Math.PI * 0.97 + step * 0.4, z: 0.3 }, csp, frameDt);
+            setBoneRot(rArm, { x: -Math.PI * 0.97 - step * 0.4, z: -0.3 }, csp, frameDt);
+            setBoneRot(lLeg, { x: 0.4 + step * 0.5 }, csp, frameDt);
+            setBoneRot(rLeg, { x: 0.4 - step * 0.5 }, csp, frameDt);
+            setBoneRot(torso, { x: -0.1 }, csp, frameDt);
         } else if (p.grounded === false) {
             setBoneRot(lLeg, { x: 0 }, sp, frameDt);
             setBoneRot(rLeg, { x: 0 }, sp, frameDt);

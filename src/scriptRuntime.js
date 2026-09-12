@@ -680,6 +680,12 @@ export function createInstanceProxy(inst) {
                     return _v3ToObj(target.Position);
                 }
                 if (prop === 'Size') return _v3ToObj(target.Size);
+                if (prop === 'Color') {
+                    if (target.Color && typeof target.Color === 'object' && 'r' in target.Color) return target.Color;
+                    const mat = Array.isArray(target.mesh?.material) ? target.mesh.material[0] : target.mesh?.material;
+                    if (mat?.color) return mat.color;
+                    return { r: 163 / 255, g: 162 / 255, b: 165 / 255 };
+                }
                 if (prop === 'SetVelocity') {
                     return (vx, vy, vz) => {
                         const bv = window._bloxverse;
@@ -918,6 +924,24 @@ export function createInstanceProxy(inst) {
                     return true;
                 }
                 if (prop === 'Color') {
+                    // Defensive: a fresh Instance.new("Part") (or a host that
+                    // hasn't linked inst.Color to the mesh's real material
+                    // color yet) may not have a THREE.Color-like object here
+                    // at all. Without this check, `target.Color.setRGB(...)`
+                    // throws - and since this runs inside an async Lua
+                    // function, an uncaught throw here silently aborts the
+                    // rest of the *entire* script (not just this statement),
+                    // which is exactly what made scripts that set .Color
+                    // right after creating a Part appear to "stop working
+                    // after one part" instead of erroring visibly.
+                    if (!target.Color || typeof target.Color.setRGB !== 'function') {
+                        const mat = Array.isArray(target.mesh?.material) ? target.mesh.material[0] : target.mesh?.material;
+                        if (mat?.color) {
+                            target.Color = mat.color;
+                        } else {
+                            target.Color = { r: 1, g: 1, b: 1, setRGB(r, g, b) { this.r = r; this.g = g; this.b = b; }, setHex(h) { this.r = ((h >> 16) & 255) / 255; this.g = ((h >> 8) & 255) / 255; this.b = (h & 255) / 255; } };
+                        }
+                    }
                     if (typeof value === 'object' && value !== null && 'r' in value) {
                         target.Color.setRGB(value.r, value.g, value.b);
                     } else {
