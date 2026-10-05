@@ -6,7 +6,7 @@ import { TransformControls } from 'three/examples/jsm/controls/TransformControls
 
 const playerModelUrl = new URL('../assets/models/player.fbx', import.meta.url).href;
 
-// ─── State ────────────────────────────────────────────────────────────────────
+// --- State --------------------------------------------------------------------
 const state = {
     model: null,
     bones: {},           // name -> THREE.Bone
@@ -21,7 +21,7 @@ const state = {
     modelLoaded: false,
 };
 
-// ─── DOM refs ─────────────────────────────────────────────────────────────────
+// --- DOM refs -----------------------------------------------------------------
 const $ = id => document.getElementById(id);
 const dom = {
     container: $('viewport-container'),
@@ -53,7 +53,7 @@ const dom = {
     toolSelector: $('tool-selector'),
 };
 
-// ─── Three.js setup ───────────────────────────────────────────────────────────
+// --- Three.js setup -----------------------------------------------------------
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setClearColor(0x222222, 1);
@@ -117,7 +117,7 @@ const gridHelper = new THREE.GridHelper(20, 20, 0x444444, 0x333333);
 gridHelper.position.y = -0.01;
 scene.add(gridHelper);
 
-// ─── Render loop ──────────────────────────────────────────────────────────────
+// --- Render loop --------------------------------------------------------------
 function animateScene() {
     requestAnimationFrame(animateScene);
     controls.update();
@@ -137,7 +137,7 @@ window.addEventListener('resize', resize);
 new ResizeObserver(resize).observe(dom.container);
 resize();
 
-// ─── Model loading ────────────────────────────────────────────────────────────
+// --- Model loading ------------------------------------------------------------
 const KNOWN_BONES = ['Head', 'Torso', 'Left_Arm', 'Right_Arm', 'Left_Leg', 'Right_Leg'];
 
 // HumanoidRootPart: the rig root (a non-bone group) that moves the whole character.
@@ -189,7 +189,7 @@ fbxLoader.load(playerModelUrl, (fbx) => {
     console.error('FBX load error:', err);
 });
 
-// ─── Bone list ────────────────────────────────────────────────────────────────
+// --- Bone list ----------------------------------------------------------------
 function buildBoneList() {
     const ordered = [];
     if (state.bones['HumanoidRootPart']) ordered.push('HumanoidRootPart');
@@ -265,7 +265,7 @@ function setSlider(id, val) {
     dom[id + 'Deg'].textContent = (v * 180 / Math.PI).toFixed(1) + '°';
 }
 
-// ─── Rotation controls ────────────────────────────────────────────────────────
+// --- Rotation controls --------------------------------------------------------
 ['rotX', 'rotY', 'rotZ'].forEach(id => {
     dom[id].addEventListener('input', () => {
         if (!state.selectedBone) return;
@@ -298,7 +298,7 @@ function getOffset(name) {
     };
 }
 
-// ─── Position controls ────────────────────────────────────────────────────────
+// --- Position controls --------------------------------------------------------
 ['posX', 'posY', 'posZ'].forEach(id => {
     dom[id].addEventListener('input', () => {
         if (!state.selectedBone) return;
@@ -365,7 +365,7 @@ function updateBoneBadge(name) {
     }
 }
 
-// ─── Apply pose from keyframes at a given time ────────────────────────────────
+// --- Apply pose from keyframes at a given time --------------------------------
 function applyPose(time) {
     if (!state.modelLoaded) return;
     time = time ?? state.currentTime;
@@ -464,7 +464,7 @@ function applyPose(time) {
     if (state.selectedBone) updateSliderValues();
 }
 
-// ─── Timeline / Playback ──────────────────────────────────────────────────────
+// --- Timeline / Playback ------------------------------------------------------
 function setCurrentTime(time) {
     state.currentTime = Math.max(0, Math.min(state.duration, time));
     dom.playhead.style.left = (state.currentTime / state.duration * 100) + '%';
@@ -504,7 +504,7 @@ function playbackLoop(now) {
 }
 requestAnimationFrame(playbackLoop);
 
-// ─── Keyframe management ──────────────────────────────────────────────────────
+// --- Keyframe management ------------------------------------------------------
 function addKeyframe() {
     if (!state.modelLoaded) return;
     const time = state.currentTime;
@@ -654,7 +654,7 @@ window.addEventListener('mousemove', (e) => {
 });
 window.addEventListener('mouseup', () => { _scrubbing = false; });
 
-// ─── Export ────────────────────────────────────────────────────────────────────
+// --- Export --------------------------------------------------------------------
 function exportJSON() {
     const id = dom.emoteId.value.trim() || 'custom_emote';
     const name = dom.emoteName.value.trim() || 'Custom Emote';
@@ -683,7 +683,7 @@ function exportJSON() {
     dom.kfInfo.textContent = 'Exported: ' + a.download;
 }
 
-// ─── Import ────────────────────────────────────────────────────────────────────
+// --- Import --------------------------------------------------------------------
 dom.btnImport.addEventListener('click', () => dom.fileInput.click());
 
 dom.fileInput.addEventListener('change', (e) => {
@@ -728,7 +728,7 @@ dom.fileInput.addEventListener('change', (e) => {
     e.target.value = '';
 });
 
-// ─── Duration change ───────────────────────────────────────────────────────────
+// --- Duration change -----------------------------------------------------------
 dom.emoteDuration.addEventListener('input', () => {
     state.duration = Math.max(0.1, parseFloat(dom.emoteDuration.value) || 3);
     dom.timeTotal.textContent = state.duration.toFixed(2) + 's';
@@ -736,7 +736,7 @@ dom.emoteDuration.addEventListener('input', () => {
     updateTimelineUI();
 });
 
-// ─── Button wiring ────────────────────────────────────────────────────────────
+// --- Button wiring ------------------------------------------------------------
 dom.btnPlay.addEventListener('click', togglePlay);
 dom.btnAddKF.addEventListener('click', addKeyframe);
 dom.btnDelKF.addEventListener('click', deleteSelectedKeyframe);
@@ -779,7 +779,7 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'w' || e.key === 'W') setTransformMode('translate');
 });
 
-// ─── Transform tool selector ──────────────────────────────────────────────────
+// --- Transform tool selector --------------------------------------------------
 function setTransformMode(mode) {
     xformControls.setMode(mode);
     dom.toolSelector.querySelectorAll('.tool-btn').forEach(btn => {

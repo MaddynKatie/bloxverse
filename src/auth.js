@@ -31,7 +31,7 @@ async function cancelPendingAccountDeletion(uid) {
     if (scheduledFor && scheduledFor.getTime() <= Date.now()) {
       sessionStorage.setItem('_accountDeletionBlocked', 'true');
       await signOut(auth);
-      window.location.href = sitePath('auth.html');
+      window.location.href = sitePath('login');
       return 'past-due';
     }
 
@@ -51,48 +51,54 @@ async function cancelPendingAccountDeletion(uid) {
 
 // Tab switching
 window.switchTab = function(tab) {
-  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
   document.getElementById('authSuccess').classList.remove('visible');
 
   if (tab === 'login') {
-    document.querySelectorAll('.auth-tab')[0].classList.add('active');
     document.getElementById('loginForm').classList.add('active');
     document.getElementById('authSubtitle').textContent = 'Sign in to continue';
+    const title = document.getElementById('authTitle');
+    if (title) title.textContent = 'Sign in';
   } else {
-    document.querySelectorAll('.auth-tab')[1].classList.add('active');
     document.getElementById('signupForm').classList.add('active');
+    window.renderAuthCaptcha?.('signup');
     document.getElementById('authSubtitle').textContent = 'Create your account';
+    const title = document.getElementById('authTitle');
+    if (title) title.textContent = 'Create account';
   }
 };
 
 window.showForgotPassword = function() {
-  document.querySelectorAll('.auth-tabs').forEach(t => t.style.display = 'none');
   document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
   document.getElementById('authSuccess').classList.remove('visible');
   document.getElementById('forgotForm').classList.add('active');
+  window.renderAuthCaptcha?.('forgot');
   document.getElementById('authSubtitle').textContent = 'Reset your password';
+  const title = document.getElementById('authTitle');
+  if (title) title.textContent = 'Forgot password';
   document.getElementById('forgotError').classList.remove('visible');
   document.getElementById('forgotSuccess').style.display = 'none';
   document.getElementById('forgotEmail').value = '';
 };
 
 window.showTotp = function() {
-  document.querySelectorAll('.auth-tabs').forEach(t => t.style.display = 'none');
   document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
   document.getElementById('authSuccess').classList.remove('visible');
   document.getElementById('totpForm').classList.add('active');
   document.getElementById('authSubtitle').textContent = 'Two-Factor Authentication';
+  const title = document.getElementById('authTitle');
+  if (title) title.textContent = 'Verify your identity';
   document.getElementById('totpError').classList.remove('visible');
   document.getElementById('totpCode').value = '';
   document.getElementById('totpCode').focus();
 };
 
 window.showLogin = function() {
-  document.querySelectorAll('.auth-tabs').forEach(t => t.style.display = '');
   document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
   document.getElementById('loginForm').classList.add('active');
   document.getElementById('authSubtitle').textContent = 'Sign in to continue';
+  const title = document.getElementById('authTitle');
+  if (title) title.textContent = 'Sign in';
   document.getElementById('authSuccess').classList.remove('visible');
 };
 
@@ -260,7 +266,7 @@ document.getElementById('forgotForm')?.addEventListener('submit', async (e) => {
     return;
   }
 
-  const captchaToken = typeof hcaptcha !== 'undefined' ? hcaptcha.getResponse() : '';
+  const captchaToken = window.authCaptchaTokens?.forgot || '';
   if (!captchaToken) {
     errorEl.textContent = 'Please complete the captcha';
     errorEl.classList.add('visible');
@@ -318,8 +324,27 @@ document.getElementById('signupForm')?.addEventListener('submit', async (e) => {
     return;
   }
 
+  const [birthYear, birthMonth, birthDay] = birthday.split('-').map(Number);
+  const today = new Date();
+  let age = today.getUTCFullYear() - birthYear;
+  const birthdayHasPassed = today.getUTCMonth() + 1 > birthMonth ||
+    (today.getUTCMonth() + 1 === birthMonth && today.getUTCDate() >= birthDay);
+  if (!birthdayHasPassed) age--;
+  if (!Number.isFinite(age) || age < 13) {
+    errorEl.textContent = 'You must be at least 13 years old to create an account';
+    errorEl.classList.add('visible');
+    return;
+  }
+
   if (!document.getElementById('signupTerms')?.checked) {
     errorEl.textContent = 'You must agree to the Terms of Service and Privacy Policy';
+    errorEl.classList.add('visible');
+    return;
+  }
+
+  const signupCaptchaToken = window.authCaptchaTokens?.signup || '';
+  if (!signupCaptchaToken) {
+    errorEl.textContent = 'Please complete the captcha';
     errorEl.classList.add('visible');
     return;
   }
@@ -433,7 +458,7 @@ function getAuthErrorMessage(code) {
   return messages[code] || 'An error occurred. Please try again.';
 }
 
-// ─── Two-Factor Authentication (TOTP) ─────────────────────────────────────
+// --- Two-Factor Authentication (TOTP) -------------------------------------
 
 function _cancelTfa() {
   signOut(auth);
@@ -552,7 +577,7 @@ document.getElementById('totpForm')?.addEventListener('submit', (e) => {
   document.getElementById('totpVerifyBtn').click();
 });
 
-// Redirect if already logged in — checked once at page load only. A persistent
+// Redirect if already logged in -- checked once at page load only. A persistent
 // onAuthStateChanged listener here would race with a fresh sign-in: it fires the
 // moment signInWithEmailAndPassword resolves, before the async 2FA check stores
 // _pendingTotp, and would bounce the user past the 2FA screen into index.html.

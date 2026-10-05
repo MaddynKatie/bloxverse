@@ -59,6 +59,7 @@ export const accessories = [
     created: 'September 10, 2026 5:30:06 PM',
     updated: 'September 10, 2026 5:30:06 PM',
   },
+  /*
   {
     id: 'burgerhead',
     name: 'Burger Head',
@@ -71,6 +72,7 @@ export const accessories = [
     created: 'September 10, 2026 8:46:06 PM',
     updated: 'September 10, 2026 8:46:06 PM',
   },
+  */
   {
     id: 'goldcrank',
     name: 'Gold Crank',

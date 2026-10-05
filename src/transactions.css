@@ -1,0 +1,358 @@
+/* Transactions styles.
+ *
+ * Ported from the reference transactions.css onto the BloxVerse shell. The
+ * reference wraps these rules in `@layer pages`; home.css declares no layers here,
+ * so this file relies on source order and scopes every rule to
+ * .transactions-container. The column and cell class names (.col-date, .col-amount,
+ * .desc-icon ...) are short enough to collide with other pages, which is why none of
+ * them are left unscoped.
+ *
+ * Tokens the reference reads straight from its palette are routed through the
+ * --tx-* variables below, so light mode is one override block instead of a rule per
+ * element. Palette names that home.css may not define carry a fallback.
+ */
+
+.transactions-container {
+  --tx-text: var(--palette-white);
+  --tx-muted: var(--palette-muted-dim, #8a8c8e);
+  --tx-border: var(--palette-border);
+  --tx-stripe: var(--palette-surface);
+  --tx-raised: var(--palette-surface-raised, var(--bg-tertiary));
+  --tx-control: var(--color-control);
+  --tx-control-border: var(--color-border-strong);
+  --tx-positive: var(--palette-info-text, #7db6ff);
+  --tx-negative: var(--palette-danger-text, #f87171);
+  --tx-empty: var(--palette-muted-neutral, #8a8c8e);
+
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0;
+}
+
+[data-theme="light"] .transactions-container,
+[data-theme$="-light"] .transactions-container {
+  --tx-text: var(--palette-canvas, #1a1a1a);
+  --tx-muted: var(--palette-muted-deep, #767676);
+  --tx-border: var(--palette-light-border, #e5e5e5);
+  --tx-stripe: rgba(0, 0, 0, 0.03);
+  --tx-raised: var(--palette-light-surface, #ffffff);
+  --tx-control: var(--palette-light-control, #ffffff);
+  --tx-control-border: var(--palette-light-border, #cccccc);
+  --tx-positive: #1d6fd1;
+  --tx-negative: var(--palette-danger-ink, #b91c1c);
+  --tx-empty: var(--palette-muted-deep, #767676);
+}
+
+.transactions-container .transactions-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-16);
+  margin-bottom: var(--space-24);
+}
+
+.transactions-container .transactions-title {
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  color: var(--tx-text);
+}
+
+.transactions-container .transactions-size-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.transactions-container .transactions-size-field select {
+  appearance: none;
+  min-width: 150px;
+  height: var(--control-height-touch, 44px);
+  padding: 0 var(--space-40) 0 var(--space-16);
+  background: var(--tx-control);
+  border: 1px solid var(--tx-control-border);
+  border-radius: var(--radius-lg);
+  color: var(--tx-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+}
+
+.transactions-container .transactions-size-field select:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset, 2px);
+}
+
+.transactions-container .transactions-size-field > img {
+  position: absolute;
+  right: var(--space-16);
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+[data-theme="light"] .transactions-container .transactions-size-field > img,
+[data-theme$="-light"] .transactions-container .transactions-size-field > img {
+  filter: invert(1);
+}
+
+.transactions-container .transactions-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-12);
+  margin-bottom: var(--space-16);
+}
+
+@media (max-width: 520px) {
+  .transactions-container .transactions-filters .transactions-size-field,
+  .transactions-container .transactions-filters .transactions-size-field select {
+    width: 100%;
+  }
+
+  .transactions-container .transactions-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .transactions-container .transactions-header .transactions-size-field,
+  .transactions-container .transactions-header .transactions-size-field select {
+    width: 100%;
+  }
+}
+
+.transactions-container .transactions-table {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-portrait, var(--radius-lg));
+  overflow: hidden;
+  border: 1px solid var(--tx-border);
+}
+
+.transactions-container .transactions-row {
+  display: grid;
+  grid-template-columns: 110px 200px 1fr 120px;
+  align-items: center;
+  gap: var(--space-16);
+  padding: var(--space-12) var(--space-16);
+}
+
+.transactions-container .transactions-row:not(.transactions-head):nth-child(odd) {
+  background: var(--tx-stripe);
+}
+
+.transactions-container .transactions-head {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium, 500);
+  color: var(--tx-muted);
+  border-bottom: 1px solid var(--tx-border);
+}
+
+.transactions-container .col-date {
+  font-size: var(--text-sm);
+  color: var(--tx-muted);
+}
+
+.transactions-container .col-source {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.transactions-container .source-avatar-wrap {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: var(--radius-md, 8px);
+  background: var(--tx-raised);
+  color: var(--tx-text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+}
+
+.transactions-container a.col-source:hover .source-name,
+.transactions-container a.col-desc:hover .desc-title {
+  text-decoration: underline;
+}
+
+.transactions-container .source-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.transactions-container .source-name {
+  font-size: var(--text-sm);
+  color: var(--tx-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transactions-container .col-desc {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.transactions-container .desc-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm, 6px);
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--tx-raised);
+  color: var(--tx-muted);
+  font-size: 14px;
+}
+
+/* The catalog's thumbnail element carries its own tile styling (home.css scopes
+   .ui-thumbnail to .site-page); inside the 32px description tile it only needs to
+   fill it. */
+.site-page .transactions-container .desc-icon > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.transactions-container .desc-icon .bux-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.transactions-container .desc-title {
+  font-size: var(--text-sm);
+  color: var(--tx-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transactions-container .col-amount {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.3rem;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+}
+
+.transactions-container .transactions-row:not(.transactions-head) .col-amount.negative {
+  color: var(--tx-negative);
+}
+
+.transactions-container .transactions-row:not(.transactions-head) .col-amount.positive {
+  color: var(--tx-positive);
+}
+
+.transactions-container .col-amount .bux-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+.transactions-container .bux-icon {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.transactions-container .transactions-empty {
+  text-align: center;
+  color: var(--tx-empty);
+  font-size: var(--text-sm);
+  padding: var(--space-24) 0;
+}
+
+.transactions-container .transactions-empty[hidden] {
+  display: none;
+}
+
+.transactions-container .transactions-error {
+  margin-top: var(--space-16);
+  min-height: 1.2em;
+  color: var(--tx-negative);
+  font-size: var(--text-sm);
+}
+
+/* The reference gets .pagination from its shared stylesheet; ours has no such rule,
+   so the pager is styled here. */
+.transactions-container .pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+  margin-top: var(--space-16);
+}
+
+.transactions-container .pagination:empty {
+  display: none;
+}
+
+.transactions-container .pagination button {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 var(--space-12);
+  background: var(--tx-control);
+  border: 1px solid var(--tx-control-border);
+  border-radius: var(--radius-md, 8px);
+  color: var(--tx-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+}
+
+.transactions-container .pagination button:hover:not(:disabled):not([aria-current="page"]) {
+  border-color: var(--tx-muted);
+}
+
+.transactions-container .pagination button[aria-current="page"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  cursor: default;
+}
+
+.transactions-container .pagination button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.transactions-container .pagination button:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset, 2px);
+}
+
+.transactions-container .pagination .pagination-gap {
+  color: var(--tx-muted);
+  padding: 0 var(--space-4, 4px);
+}
+
+@media (max-width: 720px) {
+  .transactions-container .transactions-row {
+    grid-template-columns: 90px 1fr 90px;
+  }
+
+  .transactions-container .col-source {
+    display: none;
+  }
+}

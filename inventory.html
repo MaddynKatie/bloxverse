@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://esm.sh/three@0.184.0",
+      "three/": "https://esm.sh/three@0.184.0/",
+      "firebase/app": "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js",
+      "firebase/auth": "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js",
+      "firebase/firestore": "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js",
+      "cannon-es": "https://esm.sh/cannon-es@0.20.0",
+      "glin-profanity": "https://esm.sh/glin-profanity@3.3.0"
+    }
+  }
+  </script>
+  <base href="/bloxverse/">
+  <link rel="preconnect" href="https://esm.sh" crossorigin>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/png" href="assets/icons/bloxverseLogo.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inventory - BloxVerse</title>
+  <script>
+    // Resolve the stored theme and nav-rail state before first paint so the
+    // shell never flashes the wrong surface colours. Mirrors src/theme.js.
+    (function () {
+      try {
+        var NAMES = ['dark', 'light', 'system',
+          'valley', 'valley-light', 'valley-system',
+          'sky', 'sky-light', 'sky-system',
+          'lava', 'lava-light', 'lava-system',
+          'solar', 'solar-light', 'solar-system'];
+        // 'twilight' was merged into the default family; keep stored values working.
+        var ALIASES = { twilight: 'dark', 'twilight-light': 'light', 'twilight-system': 'system' };
+
+        var raw = localStorage.getItem('bloxverse_theme');
+        var name = ALIASES[raw] || (NAMES.indexOf(raw) > -1 ? raw : 'dark');
+        var mode = (name === 'light' || name.slice(-6) === '-light') ? 'light'
+          : (name === 'system' || name.slice(-7) === '-system') ? 'system'
+            : 'dark';
+
+        if (mode === 'system') {
+          var family = name === 'system' ? 'default' : name.split('-')[0];
+          var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          name = prefersDark ? family : (family === 'default' ? 'light' : family + '-light');
+        }
+        document.documentElement.setAttribute('data-theme', name);
+        document.documentElement.setAttribute(
+          'data-ui',
+          localStorage.getItem('bloxverse_ui_style') === 'compact' ? 'compact' : 'default'
+        );
+
+        // Without this the rail starts collapsed, and shell.js init then
+        // persists that collapsed state, so it would stay minimised here and
+        // on every page loaded afterwards.
+        if (localStorage.getItem('bloxverse_rail_expanded') !== 'false'
+          && window.matchMedia('(min-width: 801px)').matches) {
+          document.documentElement.classList.add('site-navigation-expanded');
+        }
+      } catch (e) { /* storage blocked - fall through to the defaults above */ }
+    })();
+  </script>
+  <link rel="stylesheet" href="src/theme.css" />
+  <link rel="stylesheet" href="src/auth.css" />
+  <link rel="stylesheet" href="src/main.css" />
+
+  <!-- Figtree is the site font (home.css --font-body); without this the page
+       falls back to system-ui and every height/width breaks against the
+       reference. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" />
+
+  <!-- Third-party origins the import map, font CSS and Firestore RPC all pull
+       from. Preconnecting starts DNS + TLS while the HTML is still parsing,
+       instead of serialising three handshakes into the critical path. -->
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://esm.sh" crossorigin />
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-solid-900.woff2" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-brands-400.woff2" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <script type="module" src="src/theme.js"></script>
+
+  <!-- New UI: home.css carries the tokens, primitives and the shared shell
+       (topbar, nav rail, mobile bar, notice, footer). catalog.css then lays down
+       the product grid the item browser reuses, and inventory_page.css adds the
+       toolbar and grouped results on top of both. All three load after the
+       legacy main.css so the new look wins on source order. -->
+  <link rel="stylesheet" href="src/home.css" />
+  <link rel="stylesheet" href="src/catalog.css" />
+  <link rel="stylesheet" href="src/inventory_page.css" />
+
+  <!-- defer keeps the HTML parser unblocked. Deferred classic scripts and module
+       scripts share a single execution queue and run in document order, so these
+       still publish BloxVerseMotion / openDialog ahead of the module graph below. -->
+  <script src="src/motion.js" defer></script>
+  <script src="src/action-dialog.js" defer></script>
+  <script src="src/navigation-indicator.js" defer></script>
+  <script src="src/tooltips.js" defer></script>
+  <script src="js/sw-register.js" defer></script>
+</head>
+
+<body class="site-page inventory-page catalog-page">
+  <a class="site-skip" href="#site-content">Skip to content</a>
+
+  <header class="site-topbar">
+    <div class="site-brand">
+      <button type="button" id="site-nav-toggle" class="site-icon-button" aria-label="Expand navigation" aria-expanded="false" aria-controls="site-navigation">
+        <i class="site-nav-toggle-icon site-nav-toggle-collapsed fa-solid fa-bars" aria-hidden="true"></i>
+        <i class="site-nav-toggle-icon site-nav-toggle-expanded fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
+      <a href="/bloxverse/" class="site-wordmark" aria-label="BloxVerse home">
+        <img class="site-wordmark-mark" src="assets/icons/bloxverseLogo.png" alt="" width="34" height="34" draggable="false" />
+        <span>BloxVerse</span>
+      </a>
+    </div>
+
+    <form action="/bloxverse/search" method="get" id="search-form" class="site-global-search" role="search" aria-label="Player search" autocomplete="off">
+      <img class="site-icon" src="assets/icons/search.svg" alt="" width="16" height="16" draggable="false" />
+      <input type="search" name="q" id="search-input" placeholder="Search players..." aria-label="Search players" />
+      <div class="site-search-results" id="search-results" hidden></div>
+    </form>
+
+    <div class="site-account" id="site-account">
+      <button type="button" id="site-theme-toggle" class="site-icon-button" aria-label="Switch to light mode" title="Switch to light mode">
+        <i class="site-font-icon fa-solid fa-sun" aria-hidden="true"></i>
+      </button>
+      <div id="navRight" class="site-account-slot"></div>
+    </div>
+  </header>
+
+  <div class="notice" id="notice" hidden>
+    <i class="fa-solid fa-triangle-exclamation" id="notice-icon"></i>
+    <span id="notice-text"></span>
+  </div>
+
+  <div class="site-shell">
+
+    <div class="site-nav-rail">
+      <nav class="site-navigation" id="site-navigation" aria-label="Main navigation">
+        <div class="site-navigation-upper">
+          <div class="site-navigation-top">
+            <a href="/bloxverse/" title="Home" aria-label="Home">
+              <i class="site-font-icon fa-solid fa-house" aria-hidden="true"></i>
+              <span class="site-nav-label">Home</span>
+            </a>
+            <a href="/bloxverse/profile" title="Profile" aria-label="Profile" data-needs-auth>
+              <i class="site-font-icon fa-solid fa-user" aria-hidden="true"></i>
+              <span class="site-nav-label">Profile</span>
+            </a>
+            <a href="/bloxverse/friends" title="Friends" aria-label="Friends">
+              <i class="site-font-icon fa-solid fa-user-group" aria-hidden="true"></i>
+              <span class="site-nav-label">Friends</span>
+            </a>
+            <a href="/bloxverse/catalog" title="Catalog" aria-label="Catalog">
+              <i class="site-font-icon fa-solid fa-store" aria-hidden="true"></i>
+              <span class="site-nav-label">Catalog</span>
+            </a>
+            <a href="/bloxverse/inventory" title="Inventory" aria-label="Inventory" aria-current="page">
+              <i class="site-font-icon fa-solid fa-box-open" aria-hidden="true"></i>
+              <span class="site-nav-label">Inventory</span>
+            </a>
+            <a href="/bloxverse/avatar" title="Avatar" aria-label="Avatar">
+              <i class="site-font-icon fa-solid fa-shirt" aria-hidden="true"></i>
+              <span class="site-nav-label">Avatar</span>
+            </a>
+            <a href="/bloxverse/groups" title="Groups" aria-label="Groups">
+              <i class="site-font-icon fa-solid fa-users" aria-hidden="true"></i>
+              <span class="site-nav-label">Groups</span>
+            </a>
+            <a href="/bloxverse/settings" title="Settings" aria-label="Settings" data-needs-auth>
+              <i class="site-font-icon fa-solid fa-gear" aria-hidden="true"></i>
+              <span class="site-nav-label">Settings</span>
+            </a>
+          </div>
+
+          <div class="site-navigation-tools" role="group" aria-label="Tools">
+            <button type="button" class="site-nav-studio" data-open-studio title="Launch BloxVerse Studio" aria-label="Launch BloxVerse Studio">
+              <i class="site-font-icon fa-solid fa-hammer" aria-hidden="true"></i>
+              <span class="site-nav-label">Studio</span>
+            </button>
+            <a href="/bloxverse/download" title="Download" aria-label="Download" class="site-nav-download">
+              <i class="site-font-icon fa-solid fa-download" aria-hidden="true"></i>
+              <span class="site-nav-label">Download</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="site-navigation-bottom">
+          <a href="https://discord.gg/Uh6WF5NDDK" target="_blank" rel="noopener" title="Discord" aria-label="Discord">
+            <i class="site-font-icon fa-brands fa-discord" aria-hidden="true"></i>
+            <span class="site-nav-label">Discord</span>
+          </a>
+        </div>
+      </nav>
+    </div>
+
+    <nav class="ui-card site-mobile-bar" id="site-mobile-bar" aria-label="Mobile navigation">
+      <a href="/bloxverse/" data-nav-key="home" class="site-mobile-link btn-ghost">
+        <img class="site-icon" src="assets/icons/home.svg" alt="" width="24" height="24" draggable="false" /><span>Home</span>
+      </a>
+      <a href="/bloxverse/friends" data-nav-key="friends" class="site-mobile-link btn-ghost">
+        <img class="site-icon" src="assets/icons/friends.svg" alt="" width="24" height="24" draggable="false" /><span>Friends</span>
+      </a>
+      <a href="/bloxverse/catalog" data-nav-key="catalog" class="site-mobile-link btn-ghost">
+        <img class="site-icon" src="assets/icons/catalog.svg" alt="" width="24" height="24" draggable="false" /><span>Catalog</span>
+      </a>
+      <a href="/bloxverse/avatar" data-nav-key="avatar" class="site-mobile-link btn-primary">
+        <img class="site-icon" src="assets/icons/avatar.svg" alt="" width="24" height="24" draggable="false" /><span>Avatar</span>
+      </a>
+      <button type="button" data-nav-key="more" class="site-mobile-link btn-ghost" id="site-mobile-more" aria-label="More navigation" aria-haspopup="dialog" aria-expanded="false" aria-controls="site-mobile-menu">
+        <i class="site-font-icon fa-solid fa-bars" aria-hidden="true"></i><span>More</span>
+      </button>
+    </nav>
+
+    <dialog class="ui-dialog ui-bottom-sheet site-mobile-menu" id="site-mobile-menu" aria-label="More navigation">
+      <div class="ui-dialog-header">
+        <h2>More</h2>
+        <button type="button" class="btn-ghost btn-icon" id="site-mobile-menu-close" aria-label="Close">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </div>
+      <nav class="site-navigation" aria-label="More navigation">
+        <div class="site-navigation-upper">
+          <div class="site-navigation-top">
+            <a href="/bloxverse/profile" data-needs-auth>
+              <i class="site-font-icon fa-solid fa-user" aria-hidden="true"></i>
+              <span class="site-nav-label">Profile</span>
+            </a>
+            <a href="/bloxverse/settings" data-needs-auth>
+              <i class="site-font-icon fa-solid fa-gear" aria-hidden="true"></i>
+              <span class="site-nav-label">Settings</span>
+            </a>
+            <a href="/bloxverse/inventory">
+              <i class="site-font-icon fa-solid fa-box-open" aria-hidden="true"></i>
+              <span class="site-nav-label">Inventory</span>
+            </a>
+            <a href="/bloxverse/groups">
+              <i class="site-font-icon fa-solid fa-users" aria-hidden="true"></i>
+              <span class="site-nav-label">Groups</span>
+            </a>
+            <a href="/bloxverse/download">
+              <i class="site-font-icon fa-solid fa-download" aria-hidden="true"></i>
+              <span class="site-nav-label">Download</span>
+            </a>
+          </div>
+          <div class="site-navigation-tools" role="group" aria-label="Tools">
+            <a href="/bloxverse/catalog">
+              <i class="site-font-icon fa-solid fa-store" aria-hidden="true"></i>
+              <span class="site-nav-label">Catalog</span>
+            </a>
+          </div>
+        </div>
+        <div class="site-navigation-bottom">
+          <a href="https://discord.gg/Uh6WF5NDDK" target="_blank" rel="noopener">
+            <i class="site-font-icon fa-brands fa-discord" aria-hidden="true"></i>
+            <span class="site-nav-label">Discord</span>
+          </a>
+        </div>
+      </nav>
+    </dialog>
+
+    <div class="site-main" id="site-main">
+      <main class="page-content" id="site-content" tabindex="-1">
+        <div class="catalog-heading inventory-heading">
+          <div>
+            <h1>Inventory</h1>
+            <p class="catalog-muted">Items you own.</p>
+          </div>
+          <p class="inventory-count" id="inventory-count" role="status" aria-live="polite"></p>
+        </div>
+
+        <div class="inventory-toolbar">
+          <label class="catalog-search-field">
+            <img class="site-icon" src="assets/icons/search.svg" alt="" width="16" height="16" draggable="false" />
+            <input type="search" id="inventory-query" placeholder="Search your items..." aria-label="Search your inventory" />
+          </label>
+          <label class="catalog-sort-field inventory-category-field">
+            <span class="catalog-sr-only">Item category</span>
+            <select id="inventory-category" aria-label="Filter inventory by category"></select>
+            <img class="site-icon" src="assets/icons/chevron.svg" alt="" width="24" height="24" draggable="false" />
+          </label>
+        </div>
+
+        <section class="catalog-results" aria-label="Owned items" aria-busy="true" id="inventory-results">
+          <div class="catalog-products catalog-loading" id="inventory-loading" aria-label="Loading inventory">
+            <div class="catalog-skeleton"><div class="skeleton"></div><div class="skeleton"></div></div><div class="catalog-skeleton"><div class="skeleton"></div><div class="skeleton"></div></div><div class="catalog-skeleton"><div class="skeleton"></div><div class="skeleton"></div></div><div class="catalog-skeleton"><div class="skeleton"></div><div class="skeleton"></div></div><div class="catalog-skeleton"><div class="skeleton"></div><div class="skeleton"></div></div><div class="catalog-skeleton"><div class="skeleton"></div><div class="skeleton"></div></div><div class="catalog-skeleton"><div class="skeleton"></div><div class="skeleton"></div></div><div class="catalog-skeleton"><div class="skeleton"></div><div class="skeleton"></div></div><div class="catalog-skeleton"><div class="skeleton"></div><div class="skeleton"></div></div><div class="catalog-skeleton"><div class="skeleton"></div><div class="skeleton"></div></div><div class="catalog-skeleton"><div class="skeleton"></div><div class="skeleton"></div></div><div class="catalog-skeleton"><div class="skeleton"></div><div class="skeleton"></div></div>
+          </div>
+          <div class="inventory-groups" id="inventory-groups" hidden>
+            <section class="inventory-group inventory-limited-group" id="inventory-limited-group" aria-labelledby="inventory-limited-heading">
+              <div class="inventory-group-heading">
+                <h2 id="inventory-limited-heading">Limited items</h2>
+                <span id="inventory-limited-count"></span>
+              </div>
+              <div class="catalog-products" id="inventory-limited-products"></div>
+            </section>
+            <section class="inventory-group" id="inventory-regular-group" aria-labelledby="inventory-regular-heading">
+              <div class="inventory-group-heading">
+                <h2 id="inventory-regular-heading">Catalog items</h2>
+                <span id="inventory-regular-count"></span>
+              </div>
+              <div class="catalog-products" id="inventory-regular-products"></div>
+            </section>
+          </div>
+          <div class="catalog-state" id="inventory-state" hidden>
+            <h2 id="inventory-state-title"></h2>
+            <p id="inventory-state-message"></p>
+            <a class="btn-primary" id="inventory-state-action" href="/bloxverse/catalog">Browse catalog</a>
+            <button type="button" class="btn-primary" id="inventory-retry" hidden>Try again</button>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer" aria-label="Site information">
+        <div class="footer-inner">
+          <nav class="footer-links" aria-label="Resources and policies">
+            <a href="https://bloxverse.discourse.group/" target="_blank" rel="noopener">Forum</a>
+            <a href="/bloxverse/community-guidelines">Community Guidelines</a>
+            <a href="/bloxverse/terms">Terms of Service</a>
+            <a href="/bloxverse/privacy">Privacy Policy</a>
+            <a href="/bloxverse/support">Support</a>
+          </nav>
+          <p class="footer-copyright">&copy; 2026 BloxVerse. All rights reserved.</p>
+          <div class="footer-socials" role="group" aria-label="Follow BloxVerse">
+            <a class="btn-ghost btn-icon footer-icon" href="https://discord.gg/Uh6WF5NDDK" target="_blank" rel="noopener" aria-label="Discord">
+              <i class="fa-brands fa-discord" aria-hidden="true"></i>
+            </a>
+          </div>
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <script type="module" src="src/studio.js"></script>
+  <script type="module">
+    import { initShell } from './src/shell.js';
+    // initShell() also calls initNotice(), so the announcement bar is started.
+    initShell();
+  </script>
+  <script type="module" src="src/inventory_page.js"></script>
+</body>
+
+</html>

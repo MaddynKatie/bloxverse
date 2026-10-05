@@ -1,87 +1,10 @@
 :root {
-  --bg-primary: #232527;
-  --bg-secondary: #2a2b2d;
-  --bg-tertiary: #393b3d;
-  --bg-surface: #1e1f22;
-  --bg-card: #2a2b2d;
-  --bg-input: #1e1f22;
-  --bg-nav: #393b3d;
-  --bg-avatar: #2a2b2d;
-  --bg-banner: #2a2b2d;
-  --text-primary: #fff;
-  --text-secondary: #babbbe;
-  --text-muted: #8a8c8e;
-  --text-link: #4a9eff;
-  --border: rgba(255,255,255,0.06);
-  --border-strong: rgba(255,255,255,0.12);
-  --accent: #00b06f;
-  --accent-hover: #009b61;
-  --accent-soft: rgba(0,176,111,0.12);
-  --danger: #ef4444;
-  --warning: #f2cd37;
-  --danger-btn-bg: #450a0a;
-  --danger-btn-bg-hover: #7f1d1d;
-  --danger-btn-border: #7f1d1d;
-  --danger-btn-border-hover: #991b1b;
-  --danger-btn-text: #ffffff;
-  --danger-outline-bg: #18080c;
-  --danger-outline-bg-hover: #450a0a;
-  --danger-outline-border: #450a0a;
-  --danger-outline-text: #f87171;
-  --scrollbar-bg: #2a2b2d;
-  --scrollbar-thumb: #393b3d;
-  --scrollbar-thumb-hover: #4a4d50;
-  --status-online: #0d69ac;
-  --status-in-game: #00b06f;
-  --status-in-studio: #8b5cf6;
-}
-
-[data-theme="light"] {
-  --bg-primary: #f2f2f2;
-  --bg-secondary: #ffffff;
-  --bg-tertiary: #e8e8e8;
-  --bg-surface: #ffffff;
-  --bg-card: #ffffff;
-  --bg-input: #ffffff;
-  --bg-nav: #e8e8e8;
-  --bg-avatar: #ddd;
-  --bg-banner: #e0e0e0;
-  --text-primary: #1a1a1a;
-  --text-secondary: #555;
-  --text-muted: #767676;
-  --text-link: #0d69ac;
-  --border: #e5e5e5;
-  --border-strong: #ccc;
-  --accent: #00b06f;
-  --accent-hover: #009b61;
-  --accent-soft: rgba(0,176,111,0.08);
-  --danger: #dc2626;
-  --warning: #c7960c;
-  --danger-btn-bg: #fecaca;
-  --danger-btn-bg-hover: #fca5a5;
-  --danger-btn-border: #e5484d;
-  --danger-btn-border-hover: #dc2626;
-  --danger-btn-text: #7f1d1d;
-  --danger-outline-bg: #fee2e2;
-  --danger-outline-bg-hover: #fecaca;
-  --danger-outline-border: #dc2626;
-  --danger-outline-text: #b91c1c;
-  --scrollbar-bg: #f0f0f0;
-  --scrollbar-thumb: #ccc;
-  --scrollbar-thumb-hover: #b0b0b0;
-}
-
-/* ── Color family themes ─────────────────────────
-   Families ONLY override surfaces/backgrounds, the accent,
-   and scrollbar tint. Text, links, borders and semantic
-   colors (danger/warning/status) stay consistent within each
-   dark or light mode to keep readability and consistency.   */
-
-[data-theme="twilight"] {
   --bg-primary: #0b0b12;
   --bg-secondary: #171020;
   --bg-tertiary: #22222e;
   --bg-surface: #15151f;
+  --bg-shell: #120b1b;
+  --bg-content: #08050e;
   --bg-card: #171020;
   --bg-input: #15151f;
   --bg-nav: #171020;
@@ -93,8 +16,8 @@
   --text-link: #4a9eff;
   --border: rgba(255,255,255,0.06);
   --border-strong: rgba(255,255,255,0.12);
-  --accent: #7c3aed;
-  --accent-hover: #6d28d9;
+  --accent: #a855f7;
+  --accent-hover: #9333ea;
   --accent-soft: rgba(124,92,252,0.16);
   --danger: #ef4444;
   --warning: #f2cd37;
@@ -110,13 +33,20 @@
   --scrollbar-bg: #171020;
   --scrollbar-thumb: #24242f;
   --scrollbar-thumb-hover: #2c2c3a;
+  --status-online: #3b82f6;
+  --status-in-game: #16a34a;
+  --status-in-studio: #a855f7;
 }
 
-[data-theme="twilight-light"] {
+/* The default light ramp is the old 'twilight-light' family, which was merged
+   into default because twilight's dark ramp duplicated :root exactly. */
+[data-theme="light"] {
   --bg-primary: #f4f2fa;
   --bg-secondary: #ffffff;
   --bg-tertiary: #e9e5f3;
   --bg-surface: #ffffff;
+  --bg-shell: #efeaf5;
+  --bg-content: #f8f7fa;
   --bg-card: #ffffff;
   --bg-input: #ffffff;
   --bg-nav: #e9e5f3;
@@ -128,8 +58,8 @@
   --text-link: #0d69ac;
   --border: #e5e5e5;
   --border-strong: #ccc;
-  --accent: #7c3aed;
-  --accent-hover: #6d28d9;
+  --accent: #a855f7;
+  --accent-hover: #9333ea;
   --accent-soft: rgba(124,92,252,0.12);
   --danger: #dc2626;
   --warning: #c7960c;
@@ -147,11 +77,19 @@
   --scrollbar-thumb-hover: #b4aad6;
 }
 
+/* -- Color family themes -------------------------
+   Families ONLY override surfaces/backgrounds, the accent,
+   and scrollbar tint. Text, links, borders and semantic
+   colors (danger/warning/status) stay consistent within each
+   dark or light mode to keep readability and consistency.   */
+
 [data-theme="valley"] {
   --bg-primary: #0c1410;
   --bg-secondary: #122018;
   --bg-tertiary: #1b2e23;
   --bg-surface: #0f1a14;
+  --bg-shell: var(--bg-primary);
+  --bg-content: var(--bg-primary);
   --bg-card: #122018;
   --bg-input: #0f1a14;
   --bg-nav: #122018;
@@ -187,6 +125,8 @@
   --bg-secondary: #ffffff;
   --bg-tertiary: #e0ece3;
   --bg-surface: #ffffff;
+  --bg-shell: var(--bg-primary);
+  --bg-content: var(--bg-primary);
   --bg-card: #ffffff;
   --bg-input: #ffffff;
   --bg-nav: #e0ece3;
@@ -222,6 +162,8 @@
   --bg-secondary: #101f30;
   --bg-tertiary: #182e45;
   --bg-surface: #0e1a29;
+  --bg-shell: var(--bg-primary);
+  --bg-content: var(--bg-primary);
   --bg-card: #101f30;
   --bg-input: #0e1a29;
   --bg-nav: #101f30;
@@ -257,6 +199,8 @@
   --bg-secondary: #ffffff;
   --bg-tertiary: #dcebf7;
   --bg-surface: #ffffff;
+  --bg-shell: var(--bg-primary);
+  --bg-content: var(--bg-primary);
   --bg-card: #ffffff;
   --bg-input: #ffffff;
   --bg-nav: #dcebf7;
@@ -292,6 +236,8 @@
   --bg-secondary: #231414;
   --bg-tertiary: #3a1e1e;
   --bg-surface: #1c1010;
+  --bg-shell: var(--bg-primary);
+  --bg-content: var(--bg-primary);
   --bg-card: #231414;
   --bg-input: #1c1010;
   --bg-nav: #231414;
@@ -327,6 +273,8 @@
   --bg-secondary: #ffffff;
   --bg-tertiary: #fbe1dd;
   --bg-surface: #ffffff;
+  --bg-shell: var(--bg-primary);
+  --bg-content: var(--bg-primary);
   --bg-card: #ffffff;
   --bg-input: #ffffff;
   --bg-nav: #fbe1dd;
@@ -362,6 +310,8 @@
   --bg-secondary: #241d11;
   --bg-tertiary: #3a2f1c;
   --bg-surface: #211a0f;
+  --bg-shell: var(--bg-primary);
+  --bg-content: var(--bg-primary);
   --bg-card: #241d11;
   --bg-input: #211a0f;
   --bg-nav: #241d11;
@@ -397,6 +347,8 @@
   --bg-secondary: #ffffff;
   --bg-tertiary: #f6edd9;
   --bg-surface: #ffffff;
+  --bg-shell: var(--bg-primary);
+  --bg-content: var(--bg-primary);
   --bg-card: #ffffff;
   --bg-input: #ffffff;
   --bg-nav: #f6edd9;
@@ -452,7 +404,7 @@
   background: var(--scrollbar-bg);
 }
 
-/* ── Compact UI style ─────────────────────────── */
+/* -- Compact UI style --------------------------- */
 /* Icon-only nav like the reference (Font Awesome buttons, less text). */
 html[data-ui="compact"] .nav-links {
   display: flex;
@@ -498,7 +450,7 @@ html[data-ui="compact"] .nav-link-btn::before {
 }
 
 html[data-ui="compact"] .nav-link-btn[onclick*="href='/bloxverse'"]::before { content: "\f015"; } /* fa-house */
-html[data-ui="compact"] .nav-link-btn[onclick*="marketplace"]::before { content: "\f54e"; } /* fa-store */
+html[data-ui="compact"] .nav-link-btn[onclick*="catalog"]::before { content: "\f54e"; } /* fa-store */
 html[data-ui="compact"] .nav-link-btn[onclick*="avatar"]::before { content: "\f553"; } /* fa-shirt */
 html[data-ui="compact"] .nav-link-btn[onclick*="download"]::before { content: "\f019"; } /* fa-download */
 

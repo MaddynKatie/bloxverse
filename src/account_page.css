@@ -1,0 +1,786 @@
+﻿/* Account / settings page.
+ *
+ * Ported from the Vortex reference:
+ *   unused\uirevamp\settings.css   - container, sidebar, tabs, rows, dialog internals
+ *   unused\uirevamp\shared.css     - .settings-row / .row-* / .section-title-main primitives
+ *   unused\uirevamp\primitives.css - the .ui-disclosure component
+ * plus the switch and select styling, which the reference expresses with its own
+ * generic primitives and we do not have.
+ *
+ * Scoped to .site-page.account-page and deliberately not wrapped in @layer, so it
+ * wins on source order against main.css the way social_page.css and
+ * avatar_page.css do.
+ */
+
+/* theme.css has no themed success colour, so define the two we need here. The
+ * badge sits behind a white glyph and can stay bright; the text variant has to
+ * darken on light backgrounds to stay readable. Light mode is spelled
+ * `light` for the default family and `<family>-light` for the others. */
+.site-page.account-page {
+  --ap-success-bg: #22c55e;
+  --ap-success-text: #4ade80;
+  /* Reference palette parity (same reasoning as profile.css): home.css
+     bridges --color-* to per-family values, but the settings reference is
+     written against the raw palette. Map the neutrals, links, errors and
+     borders here so the rows, sidebar, profile card and dialogs match the
+     reference exactly, while the family canvas/surface/accent stay ours.
+     The extra --color-* tones below are the reference's row/description
+     palette (muted-dim, text-soft, muted-mid) this page is styled with. */
+  --color-muted: var(--palette-muted);
+  --color-muted-dim: var(--palette-muted-dim);
+  --color-text-soft: var(--palette-text-soft);
+  --color-muted-mid: var(--palette-muted-mid);
+  --color-text-subtle: var(--palette-text);
+  --color-border: var(--palette-border);
+  --color-border-strong: var(--palette-border);
+  --color-control: var(--palette-control);
+  --color-error: var(--palette-danger-text);
+  /* The reference settings page inherits the body's `line-height: normal`
+     (tokens.css), which its rows, profile card and headings are tuned to.
+     main.css applies line-height: 1.5 at the body level, so bring the
+     account page back to `normal` to reproduce the reference rhythm. */
+  line-height: normal;
+}
+
+[data-theme="light"] .site-page.account-page,
+[data-theme$="-light"] .site-page.account-page {
+  --ap-success-text: #15803d;
+  --color-muted: var(--palette-muted-deep);
+  --color-muted-dim: var(--palette-muted-deep);
+  --color-text-soft: var(--palette-canvas);
+  --color-muted-mid: var(--palette-muted-deep);
+  --color-text-subtle: var(--palette-canvas);
+  --color-border: var(--palette-light-border);
+  --color-border-strong: var(--palette-light-border);
+  --color-control: var(--palette-light-control);
+  --color-error: var(--palette-danger-ink);
+  /* The active sidebar tab paints --color-text on top of --color-primary. In
+     light mode --color-text is near-black, which put near-black text on the
+     purple fill. The reference avoids this by using a fixed on-accent token
+     (light.css:59), so the accent pair is restored here. */
+  --color-danger: var(--palette-danger-ink);
+}
+
+/* Reference light.css:59. The active tab is a filled accent surface, so its
+   label must use the on-accent colour, never the page text colour. */
+:root[data-theme="light"] .site-page.account-page .sidebar-tab:is(.active, .active:hover),
+:root[data-theme$="-light"] .site-page.account-page .sidebar-tab:is(.active, .active:hover) {
+  color: var(--color-on-primary);
+  border-color: var(--color-primary);
+}
+
+/* Reference light.css:55. These inputs kept --bg-surface, which resolves to
+   plain white in light mode instead of the light control surface. */
+:root[data-theme="light"] .site-page.account-page :is(.settings-field input, .settings-input),
+:root[data-theme$="-light"] .site-page.account-page :is(.settings-field input, .settings-input) {
+  background: var(--palette-light-control);
+}
+
+/* Reference light.css:58. The hover already picked up the light control
+   background and the page text colour, but the border stayed light-grey
+   instead of turning purple. */
+:root[data-theme="light"] .site-page.account-page .field-checkbox:hover,
+:root[data-theme$="-light"] .site-page.account-page .field-checkbox:hover {
+  border-color: var(--palette-purple);
+}
+
+/* -- disclosure (mobile sidebar accordion) -------------------------------- */
+
+.site-page.account-page .ui-disclosure-panel {
+  display: grid;
+  grid-template-rows: var(--disclosure-rows, 0fr);
+  visibility: var(--disclosure-visibility, hidden);
+  transition: grid-template-rows var(--motion-layout) var(--ease-out), visibility 0s var(--motion-layout);
+}
+
+.site-page.account-page .ui-disclosure-panel>* {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.site-page.account-page .ui-disclosure-trigger[aria-expanded="true"]+.ui-disclosure-panel {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+.site-page.account-page .ui-disclosure-chevron {
+  transition: transform var(--motion-layout) var(--ease-out);
+}
+
+.site-page.account-page .ui-disclosure-trigger[aria-expanded="true"] .ui-disclosure-chevron {
+  transform: rotate(180deg);
+}
+
+/* -- layout --------------------------------------------------------------- */
+
+.site-page.account-page .settings-container {
+  display: flex;
+  max-width: 1200px;
+  /* The page-shell padding (home.css) already insets the content, so this
+     must stay `0` on both axes -- the reference container does the same, and
+     doubling it pushed the whole settings block in by another 32px.
+     Deliberately mirrors unused/uirevamp/settings.css. */
+  margin: 0 auto;
+  gap: var(--space-48);
+  padding: 0;
+  align-items: flex-start;
+}
+
+.site-page.account-page .settings-left-col {
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-20);
+  flex-shrink: 0;
+}
+
+.site-page.account-page .settings-main-panel {
+  flex: 1;
+  min-width: 0;
+}
+
+.site-page.account-page .settings-main-panel a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+/* -- sidebar -------------------------------------------------------------- */
+
+.site-page.account-page .settings-sidebar {
+  --disclosure-rows: 1fr;
+  --disclosure-visibility: visible;
+  width: 100%;
+  background: var(--color-canvas);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-2xl);
+  padding: var(--space-20);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Collapsible mobile section list. The panel is collapsed by the
+   --disclosure-* overrides further down and only reopens while the trigger
+   beside it reports aria-expanded="true", which account_page.js keeps in sync
+   with the breakpoint. */
+.site-page.account-page .ui-disclosure-panel {
+  display: grid;
+  grid-template-rows: var(--disclosure-rows, 1fr);
+  visibility: var(--disclosure-visibility, visible);
+  transition: grid-template-rows var(--motion-layout) var(--ease-out), visibility 0s var(--motion-layout);
+}
+
+.site-page.account-page .ui-disclosure-panel > * {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.site-page.account-page .ui-disclosure-trigger[aria-expanded="true"] + .ui-disclosure-panel {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+.site-page.account-page .ui-disclosure-chevron {
+  transition: transform var(--motion-layout) var(--ease-out);
+}
+
+.site-page.account-page .ui-disclosure-trigger[aria-expanded="true"] .ui-disclosure-chevron {
+  transform: rotate(180deg);
+}
+
+.site-page.account-page .settings-menu-toggle {
+  --button-display: none;
+  --button-height: var(--control-height-touch);
+  --button-padding: var(--space-12);
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.site-page.account-page .settings-menu-toggle .ui-disclosure-chevron {
+  margin-left: auto;
+}
+
+.site-page.account-page .sidebar-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.site-page.account-page .sidebar-tab {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  width: 100%;
+  padding: var(--space-12) var(--space-16);
+  background: none;
+  border: none;
+  border-radius: var(--radius-portrait);
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--motion-normal), color var(--motion-normal);
+}
+
+.site-page.account-page .sidebar-tab i {
+  width: 16px;
+  text-align: center;
+  font-size: var(--text-body-sm);
+  flex: 0 0 auto;
+}
+
+.site-page.account-page .sidebar-tab:hover:not(:disabled):not(.active) {
+  background: var(--bg-tertiary);
+  color: var(--color-text);
+}
+
+.site-page.account-page .sidebar-tab.active {
+  background: var(--color-primary);
+  color: var(--color-text);
+  font-weight: var(--weight-semibold);
+}
+
+.site-page.account-page .sidebar-tab.active:hover {
+  background: var(--color-primary-hover);
+  color: var(--color-text);
+}
+
+.site-page.account-page .sidebar-tab.disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* -- profile card --------------------------------------------------------- */
+
+.site-page.account-page .profile-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  /* Canvas, not surface: the reference card sits on the same colour as the
+     sidebar so the two read as one column. */
+  background: var(--color-canvas);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-12) var(--space-16);
+}
+
+.site-page.account-page .profile-avatar-wrap {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-lg);
+  /* The avatar previews are transparent-background renders, so the plate behind
+     them stays white in every theme. Same reason as .user-card-portrait in
+     social_page.css: a themed plate makes pale limbs vanish in light mode. */
+  background: #fff;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.site-page.account-page .profile-avatar-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.site-page.account-page .profile-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.site-page.account-page .profile-username {
+  font-size: var(--text-body-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  margin-bottom: 0;
+}
+
+.site-page.account-page .sidebar-logout {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  /* The reference's filled danger square (unused/uirevamp/settings.css). The
+     red is the palette value, not the family --danger, so it stays the same
+     soft red in every theme the way the reference shows it. */
+  background: var(--palette-danger);
+  border: 1px solid var(--palette-danger);
+  color: var(--color-on-danger);
+  cursor: pointer;
+  font-size: var(--text-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: var(--radius-lg);
+  transition: background var(--motion-normal), border-color var(--motion-normal), color var(--motion-normal);
+}
+
+.site-page.account-page .sidebar-logout:hover {
+  background: var(--palette-danger);
+  border-color: var(--palette-danger);
+  color: var(--color-on-danger);
+  box-shadow: inset 0 0 0 1px var(--color-on-danger);
+}
+
+/* -- tabs and sections ---------------------------------------------------- */
+
+.site-page.account-page .tab-content {
+  display: none;
+}
+
+.site-page.account-page .tab-content.active {
+  display: block;
+}
+
+.site-page.account-page .content-section {
+  margin-bottom: 2.75rem;
+}
+
+.site-page.account-page .section-title-main {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+  color: var(--color-text);
+  margin: 0 0 var(--space-20);
+  letter-spacing: -0.01em;
+}
+
+.site-page.account-page .section-title-main.text-danger {
+  color: var(--color-danger);
+}
+
+.site-page.account-page .section-title-main.flush {
+  margin-bottom: 0;
+}
+
+/* -- rows ----------------------------------------------------------------- */
+
+.site-page.account-page .settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-20) 0;
+  border-bottom: 1px solid var(--color-border);
+  gap: var(--space-24);
+}
+
+.site-page.account-page .settings-row:first-of-type {
+  padding-top: var(--space-4);
+}
+
+.site-page.account-page .settings-row:last-of-type {
+  border-bottom: none;
+}
+
+.site-page.account-page .settings-row.danger-row,
+.site-page.account-page .settings-row.ai-optout-row {
+  align-items: flex-start;
+}
+
+.site-page.account-page .settings-row.single-line .row-info {
+  margin-top: var(--space-8);
+}
+
+.site-page.account-page .row-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  flex: 1;
+  min-width: 0;
+}
+
+.site-page.account-page .row-label {
+  font-size: var(--text-body-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+}
+
+.site-page.account-page .row-desc {
+  font-size: var(--text-caption);
+  color: var(--color-muted-dim);
+  line-height: 1.4;
+  margin: var(--space-4) 0 0;
+}
+
+.site-page.account-page .row-value {
+  font-size: var(--text-sm);
+  color: var(--color-text-soft);
+  display: block;
+}
+
+.site-page.account-page .row-value.text-muted {
+  color: var(--color-muted-mid);
+}
+
+.site-page.account-page .row-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  flex: 0 0 auto;
+}
+
+.site-page.account-page .label-icon {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+/* -- status pill (verified / not verified / 2FA on-off) ------------------- */
+
+.site-page.account-page .status-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.site-page.account-page .status-icon svg {
+  display: block;
+}
+
+.site-page.account-page .status-icon.enabled {
+  background: var(--ap-success-bg);
+}
+
+.site-page.account-page .status-icon.disabled {
+  background: var(--color-danger);
+}
+
+/* -- controls ------------------------------------------------------------- */
+
+.site-page.account-page .field-checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+  margin-top: var(--space-4);
+  background: var(--color-canvas);
+  border: 1px solid var(--color-border);
+  padding: var(--space-8) var(--space-16);
+  border-radius: var(--radius-lg);
+  user-select: none;
+  transition: background var(--motion-normal);
+}
+
+.site-page.account-page .field-checkbox:hover {
+  background: var(--bg-tertiary);
+}
+
+.site-page.account-page .field-checkbox input {
+  accent-color: var(--color-primary);
+  width: 0.95rem;
+  height: 0.95rem;
+  cursor: pointer;
+}
+
+.site-page.account-page .settings-input {
+  padding: var(--space-10) var(--space-14);
+  background: var(--bg-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  color: var(--color-text-subtle);
+  outline: none;
+  cursor: pointer;
+  transition: border-color var(--motion-normal);
+}
+
+.site-page.account-page .settings-input:focus {
+  border-color: var(--color-primary);
+}
+
+.site-page.account-page .settings-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Switch. The reference has no toggle primitive; this is the existing
+   .settings-toggle from the legacy page, retokenised. */
+.site-page.account-page .settings-toggle {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex: 0 0 auto;
+}
+
+.site-page.account-page .settings-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.site-page.account-page .settings-toggle span {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--color-muted);
+  cursor: pointer;
+  transition: background var(--motion-normal);
+}
+
+.site-page.account-page .settings-toggle span::before {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  left: 3px;
+  top: 3px;
+  border-radius: 50%;
+  /* Stays white in both modes: this is the switch knob sitting on a coloured track. */
+  background: #fff;
+  transition: transform var(--motion-normal);
+}
+
+.site-page.account-page .settings-toggle input:checked+span {
+  background: var(--ap-success-bg);
+}
+
+.site-page.account-page .settings-toggle input:checked+span::before {
+  transform: translateX(20px);
+}
+
+.site-page.account-page .settings-toggle input:disabled+span {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.site-page.account-page .settings-toggle input:focus-visible+span {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Theme picker: one card per family, the colour filling the card. */
+.site-page.account-page .theme-row {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.site-page.account-page .theme-options {
+  /* flex-basis alone still allows the flex algorithm to shrink this below the
+     row width, because .row-info shares the line before the wrap. */
+  flex: 0 0 100%;
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: var(--space-12);
+  margin-top: var(--space-16);
+}
+
+.site-page.account-page .theme-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-8);
+  background: var(--color-canvas);
+  border: 2px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  color: var(--color-text-subtle);
+  font-family: inherit;
+  font-size: var(--text-caption);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--motion-normal), border-color var(--motion-normal), transform var(--motion-normal);
+}
+
+.site-page.account-page .theme-card:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--color-text-subtle);
+  transform: translateY(-1px);
+}
+
+.site-page.account-page .theme-card:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.site-page.account-page .theme-card.active {
+  border-color: var(--color-primary);
+  background: var(--bg-tertiary);
+  color: var(--color-text);
+}
+
+/* The split preview: the family's dark colour against its light one. */
+.site-page.account-page .theme-card-swatch {
+  display: block;
+  width: 100%;
+  height: 56px;
+  border-radius: calc(var(--radius-lg) - 4px);
+  border: 1px solid var(--color-border-strong);
+  background-clip: padding-box;
+}
+
+.site-page.account-page .theme-card-label {
+  padding: 0 var(--space-4) var(--space-4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.site-page.account-page .theme-card-check {
+  position: absolute;
+  top: calc(var(--space-8) + var(--space-8));
+  right: calc(var(--space-8) + var(--space-8));
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 45%);
+}
+
+/* -- sessions ------------------------------------------------------------- */
+
+.site-page.account-page #sessions-list .settings-row:first-of-type {
+  padding-top: var(--space-20);
+}
+
+/* -- dialog internals -----------------------------------------------------
+   The shell already styles .ui-dialog itself (header, body, error, actions) in
+   home.css, so only the field-level pieces live here. */
+
+.site-page.account-page .settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.site-page.account-page .settings-field label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-soft);
+}
+
+.site-page.account-page .settings-field input {
+  padding: var(--space-10) var(--space-14);
+  background: var(--bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  outline: none;
+  transition: border-color var(--motion-normal);
+}
+
+.site-page.account-page .settings-field input:focus {
+  border-color: var(--color-primary);
+}
+
+.site-page.account-page .account-qr-img {
+  max-width: 200px;
+  width: 100%;
+  margin: var(--space-8) 0;
+  padding: var(--space-12);
+  /* A QR code needs a white quiet zone to stay scannable, in either mode. */
+  background: #fff;
+  border-radius: var(--radius-lg);
+  box-sizing: border-box;
+  display: block;
+  margin-inline: auto;
+}
+
+.site-page.account-page .modal-hint {
+  font-size: var(--text-caption);
+  color: var(--color-muted-dim);
+  margin: 0 0 var(--space-6);
+}
+
+.site-page.account-page .account-secret {
+  font-family: monospace;
+  font-size: var(--text-sm);
+  word-break: break-all;
+  color: var(--color-text-soft);
+  background: var(--bg-primary);
+  border: 1px solid var(--color-border);
+  padding: var(--space-8) var(--space-10);
+  border-radius: var(--radius-md);
+  margin: 0 0 var(--space-16);
+}
+
+.site-page.account-page .account-codes {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-6);
+  padding: var(--space-10);
+  margin: 0 0 var(--space-16);
+  background: var(--bg-primary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+
+.site-page.account-page .account-codes li {
+  font-family: monospace;
+  font-size: var(--text-sm);
+  letter-spacing: 0.05em;
+  text-align: center;
+  color: var(--color-text-soft);
+}
+
+.site-page.account-page .error {
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+  margin: 0 0 var(--space-8);
+}
+
+.site-page.account-page .success {
+  color: var(--ap-success-text);
+  font-size: var(--text-sm);
+  margin: 0 0 var(--space-8);
+}
+
+/* -- responsive ----------------------------------------------------------- */
+
+@media (max-width: 800px) {
+  .site-page.account-page .settings-container {
+    flex-direction: column;
+    gap: var(--space-32);
+    margin: 0;
+    padding: 0;
+  }
+
+  .site-page.account-page .settings-left-col {
+    width: 100%;
+  }
+
+  .site-page.account-page .settings-sidebar {
+    --disclosure-rows: 0fr;
+    --disclosure-visibility: hidden;
+    padding: var(--space-8);
+  }
+
+  .site-page.account-page .settings-menu-toggle {
+    --button-display: flex;
+    --button-radius: calc(var(--radius-2xl) - var(--space-8) - 1px);
+  }
+
+  .site-page.account-page .settings-sidebar .sidebar-tabs {
+    padding-top: var(--space-8);
+  }
+
+  .site-page.account-page .settings-main-panel {
+    width: 100%;
+  }
+
+  .site-page.account-page .settings-row {
+    flex-wrap: wrap;
+    gap: var(--space-12);
+  }
+}

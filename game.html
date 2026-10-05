@@ -16,6 +16,8 @@
   }
   </script>
   <base href="/bloxverse/">
+  <link rel="preconnect" href="https://esm.sh" crossorigin>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
@@ -304,14 +306,14 @@
       <div class="gp-header">
         <span class="gp-header-title">Buy item</span>
         <div class="gp-header-right">
-          <span class="gp-bux-balance"><span class="gp-bux-icon">B</span><span id="gpBalance">—</span></span>
+          <span class="gp-bux-balance"><img class="gp-bux-icon" src="assets/icons/bux.svg" width="14" height="14" alt="" draggable="false" /><span id="gpBalance">—</span></span>
           <button id="btnCancelGamepass" class="gp-close-btn">✕</button>
         </div>
       </div>
       <div class="gp-item-row">
         <div class="gp-item-info">
           <div class="gp-item-name" id="gpTitle">Gamepass</div>
-          <div class="gp-item-price"><span class="gp-bux-icon">B</span><span id="gpPrice">500</span></div>
+          <div class="gp-item-price"><img class="gp-bux-icon" src="assets/icons/bux.svg" width="14" height="14" alt="" draggable="false" /><span id="gpPrice">500</span></div>
         </div>
       </div>
       <div class="gp-error" id="gpError"></div>
@@ -410,7 +412,7 @@
       return cleaned;
     }
 
-    // ─── Real Loading Progress ──────────────────────────────────────────────
+    // --- Real Loading Progress ----------------------------------------------
     const loadingScreen = document.getElementById('loadingScreen');
     const loadingBarFill = document.getElementById('loadingBarFill');
     const loadingTitle = document.getElementById('loadingTitle');
@@ -451,7 +453,7 @@
       } catch (e) {}
     }
 
-    // Fires on browser back, refresh, and tab close — unlike beforeunload alone,
+    // Fires on browser back, refresh, and tab close -- unlike beforeunload alone,
     // which isn't always dispatched on back/forward navigation.
     window.addEventListener('pagehide', leaveCurrentServerFireAndForget);
     window.addEventListener('beforeunload', leaveCurrentServerFireAndForget);
@@ -776,7 +778,7 @@
           return;
         }
         if (!_ownedItems.includes(emoteId)) {
-          appendChatMessage({ system: true, message: `You don't own the "${def.name}" emote. Buy it in the Marketplace!` });
+          appendChatMessage({ system: true, message: `You don't own the "${def.name}" emote. Buy it in the Catalog!` });
           chatInput.value = '';
           chatInput.blur();
           return;
@@ -1464,7 +1466,7 @@
         if (panelOpen) {
           closeSettings();
         } else if (!document.pointerLockElement) {
-          // Pointer lock already inactive — open settings directly
+          // Pointer lock already inactive -- open settings directly
           openSettings();
         }
         // If pointer lock is active, the browser will exit it on ESC and
@@ -1779,7 +1781,7 @@
       return obj;
     }
 
-    // ── Script GUI system ────────────────────────────────────────────────────
+    // -- Script GUI system ----------------------------------------------------
     const _scriptGuiContainer = document.getElementById('scriptGuiContainer');
     const _scriptGuiScreens = [];
 
@@ -1931,7 +1933,7 @@
       };
     }
 
-    // ── Leaderstats: watch instance tree for leaderstats folders ─────────────
+    // -- Leaderstats: watch instance tree for leaderstats folders -------------
     // Called after scripts run; polls for leaderstats children on player instances
     function _setupLeaderstatsWatcher(gameRoot) {
       const playersService = gameRoot.Children.find(c => c.ClassName === 'Players');
@@ -2068,7 +2070,7 @@
             const b = snap.data()?.bux ?? 0;
           balanceEl.textContent = b;
           if (b < amount) {
-            errorEl.textContent = 'Insufficient BUX! You don\'t have enough BUX to purchase this item.';
+            errorEl.textContent = 'Insufficient Bux! You don\'t have enough Bux to purchase this item.';
             errorEl.style.display = 'block';
             buyBtn.style.display = 'none';
           } else {
@@ -2164,7 +2166,7 @@
           const b = snap.data()?.bux ?? 0;
             balanceEl.textContent = b;
             if (b < price) {
-              errorEl.textContent = 'Insufficient BUX! You don\'t have enough BUX to purchase this item.';
+              errorEl.textContent = 'Insufficient Bux! You don\'t have enough Bux to purchase this item.';
               errorEl.style.display = 'block';
               buyBtn.style.display = 'none';
             } else {
@@ -2218,7 +2220,7 @@
           const b = snap.data()?.bux ?? 0;
             balanceEl.textContent = b;
             if (b < price) {
-              errorEl.textContent = 'Insufficient BUX! You don\'t have enough BUX to purchase this item.';
+              errorEl.textContent = 'Insufficient Bux! You don\'t have enough Bux to purchase this item.';
               errorEl.style.display = 'block';
               buyBtn.style.display = 'none';
             } else {
@@ -2263,7 +2265,7 @@
         IsKeyDown: (key) => {
           const bv2 = window._bloxverse;
           if (bv2?.keys?.[key]) return true;
-          // Joystick WASD compatibility — mobile joystick sets these keys
+          // Joystick WASD compatibility -- mobile joystick sets these keys
           if (key === 'KeyW' || key === 'KeyA' || key === 'KeyS' || key === 'KeyD') {
             const jv = bv2?.getJoystick?.();
             if (jv) {
@@ -2409,7 +2411,7 @@
           const workspace = gameRoot.Children.find(c => c.ClassName === 'Workspace');
 
           // Wire up PartInstances for all parts loaded by loadMap.
-          // loadMap runs before initGameHierarchy so the workspace didn't exist yet —
+          // loadMap runs before initGameHierarchy so the workspace didn't exist yet --
           // we create PartInstance objects now and parent them in so scripts can find
           // them via workspace:WaitForChild("Field1") etc.
           for (const entry of window._mapParts || []) {
@@ -2711,7 +2713,7 @@
                       }
                     }, 200);
                   } else if (window._bloxverse) {
-                    // No customization — apply defaults once character is ready
+                    // No customization -- apply defaults once character is ready
                     const waitForChar = setInterval(() => {
                       if (window._bloxverse.getCharacter()) {
                         clearInterval(waitForChar);
@@ -2828,7 +2830,7 @@
                 document.getElementById('mapCashLabel').style.display = '';
               }
 
-              // ─── Server Queue / Retry Status ─────────────────────────────
+              // --- Server Queue / Retry Status -----------------------------
               const loadingQueueEl = document.getElementById('loadingQueueText');
               setOnQueueStatus((s) => {
                 if (!loadingQueueEl) return;
@@ -2856,7 +2858,7 @@
                 );
               });
 
-              // ─── Join / Queue for a logical server ──────────────────────
+              // --- Join / Queue for a logical server ----------------------
               window._currentServerId = null;
               await joinServerFlow(user.uid, username, getServerMaxPlayers(game));
 
@@ -2925,7 +2927,7 @@
                         accessories: [],
                         face: 'smile',
                       });
-                      // Initial fetch — apply immediately so new arrivals see the avatar
+                      // Initial fetch -- apply immediately so new arrivals see the avatar
                       getDoc(doc(db, 'users', p.userId)).then(snap => {
                         if (snap.exists() && window._bloxverse) {
                           const ad = snap.data();
@@ -2939,7 +2941,7 @@
                           if (ad.trustedFriends) _playerTrustedFriends.set(p.userId, new Set(ad.trustedFriends));
                         }
                       }).catch(() => {});
-                      // Realtime listener — only store; apply on next respawn
+                      // Realtime listener -- only store; apply on next respawn
                       const unsub = onSnapshot(doc(db, 'users', p.userId), snap => {
                         if (!snap.exists() || !window._bloxverse) return;
                         _pendingRemoteAvatarData.set(p.userId, snap.data());
@@ -3092,7 +3094,7 @@
                 }
               };
 
-              // ─── Voice Chat System ───────────────────────────────────────
+              // --- Voice Chat System ---------------------------------------
               const STUN_SERVERS = {
                 iceServers: [
                   { urls: 'stun:stun.l.google.com:19302' },
@@ -3676,7 +3678,7 @@
                 }, 500);
               }
 
-              // ─── End Voice Chat System ─────────────────────────────────────
+              // --- End Voice Chat System -------------------------------------
 
               window.addEventListener('beforeunload', () => {
                 window._bloxverse?.clearLocalAccessories?.();
@@ -3685,7 +3687,7 @@
                 if (_banUnsub) { _banUnsub(); _banUnsub = null; }
               });
 
-              // ─── Toast Notification System ──────────────────────────────────
+              // --- Toast Notification System ----------------------------------
               const toastContainer = document.getElementById('toastContainer');
               function showToast(message, type = 'info', duration = 0) {
                 const icons = {
@@ -3732,7 +3734,7 @@
                 return el;
               }
 
-              // ─── Ban Listener (instant) ────────────────────────────────────
+              // --- Ban Listener (instant) ------------------------------------
               let _banUnsub;
               if (user.uid) {
                 _banUnsub = onSnapshot(doc(db, 'bans', user.uid), (snap) => {
@@ -3752,7 +3754,7 @@
                 });
               }
 
-              // ─── helpers to show overlay ──────────────────────────────────
+              // --- helpers to show overlay ----------------------------------
               const _overlay = document.getElementById('disconnectOverlay');
               const _overlayIcon = document.querySelector('#disconnectOverlay i');
               const _overlayTitle = document.querySelector('#disconnectOverlay h2');
@@ -3787,7 +3789,7 @@
                 _overlay.style.display = 'none';
               }
 
-              // ─── Idle Kick (20 minutes) ────────────────────────────────────
+              // --- Idle Kick (20 minutes) ------------------------------------
               let _lastActivity = Date.now();
               let _idleKicked = false;
               const _markActivity = () => { _lastActivity = Date.now(); };
@@ -3817,7 +3819,7 @@
                 }
               }, 15000);
 
-              // ─── Game Deletion/Recovery Listener (instant) ────────────────
+              // --- Game Deletion/Recovery Listener (instant) ----------------
               let _gameDelUnsub;
               if (gameId) {
                 _gameDelUnsub = onSnapshot(doc(db, 'publishedGames', gameId), (snap) => {
@@ -3844,7 +3846,7 @@
                 });
               }
 
-              // ─── Multi-Device Detection ────────────────────────────────────
+              // --- Multi-Device Detection ------------------------------------
               // Sessions write a per-session id plus a stable per-device id.
               // Only a session from a *different* device is a conflict, so the
               // desktop app (which inherits the browser's device id through the
@@ -3901,7 +3903,7 @@
                 }, 1000);
               }
 
-              // ─── Internet Loss Detection ───────────────────────────────────
+              // --- Internet Loss Detection -----------------------------------
               let _wasOffline = false;
               window.addEventListener('offline', () => {
                 _wasOffline = true;
@@ -3930,7 +3932,7 @@
       }, 100);
     }
 
-    // ─── Voice Chat ───────────────────────────────────────────────────
+    // --- Voice Chat ---------------------------------------------------
     if (game) {
       if (document.readyState === 'complete') {
         startGame();

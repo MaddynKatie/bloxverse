@@ -544,7 +544,7 @@ input[type=range] {
   line-height: 1.4;
 }
 
-/* ── Gamepass modal entrance animation ── */
+/* -- Gamepass modal entrance animation -- */
 @keyframes gpSlideIn {
   from { opacity: 0; transform: translateY(24px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -593,9 +593,9 @@ input[type=range] {
   border-radius: 20px;
 }
 .gp-bux-icon {
-  color: #93c5fd;
-  font-size: 14px;
-  font-weight: 800;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 .gp-close-btn {
   background: none;
@@ -1130,7 +1130,7 @@ input[type=range] {
   border-radius: 3px;
 }
 
-/* ── Mobile Responsive ──────────────────────── */
+/* -- Mobile Responsive ------------------------ */
 @media (max-width: 768px) {
   .top-bar {
     top: 8px;

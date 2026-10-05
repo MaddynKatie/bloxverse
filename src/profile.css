@@ -1,0 +1,1096 @@
+/* BloxVerse profile page -- new UI layer.
+   Loaded after src/home.css (tokens, primitives, shared shell) and after the
+   legacy inline <style> block in profile.html, so these rules win.
+
+   This is a direct port of the reference profile stylesheet
+   (unused/uirevamp/profile.css) plus the shared primitives it relies on
+   (.section-header, .carousel-*, .has-tooltip, .profile-badge, ...) that the
+   homepage port did not need. Breakpoints are copied from the reference:
+   container queries at 960/620/440 and media queries at 720/480. */
+
+/* The legacy inline <style> in profile.html is loaded after home.css and still
+   carries a `.profile-page` container rule (max-width 920px, auto margins,
+   52px top padding for the old fixed navbar). Because <body> also carries the
+   `profile-page` marker, that rule would squeeze the whole shell to 920px and
+   centre it. Reset it at body level. */
+body.site-page.profile-page {
+    max-width: none;
+    width: auto;
+    margin: 0;
+    padding: 0;
+    background: var(--color-shell);
+    color: var(--color-text);
+    font-family: var(--font-body);
+    font-size: var(--text-md);
+    line-height: 1.5;
+}
+
+/* `.profile-page` is the container-query root for this page. */
+.site-page.profile-page .profile-page {
+    max-width: none;
+    width: auto;
+    margin: 0;
+    padding: 0;
+    container-type: inline-size;
+}
+
+/* -- Reference palette parity ---------------------------------------------
+   home.css bridges --color-* to per-family values (src/theme.css). Most of
+   those already match the reference palette, but the neutrals drift: muted is
+   greyer (#8a8c8e vs #9a9aab), secondary text is dimmer (#babbbe vs #e5e5ea),
+   links are blue (#4a9eff) instead of the reference's lavender (#a78bfa), and
+   the borders are translucent white tints rather than the reference's solid
+   greys. Map those tokens to the reference values here. Family
+   canvas/surface/accent stay untouched, and light themes get the reference's
+   own light mapping so the text stays readable. */
+.site-page.profile-page {
+    --color-muted: var(--palette-muted);
+    --color-text-subtle: var(--palette-text);
+    --color-border: var(--palette-border);
+    --color-border-strong: var(--palette-border-strong);
+    --color-control: var(--palette-control);
+    --color-link: var(--palette-purple-soft);
+    --color-error: var(--palette-danger-text);
+}
+
+[data-theme="light"] .site-page.profile-page,
+[data-theme$="-light"] .site-page.profile-page {
+    --color-muted: var(--palette-muted-deep);
+    --color-text-subtle: var(--palette-canvas);
+    --color-border: var(--palette-light-border);
+    --color-border-strong: var(--palette-light-border);
+    --color-control: var(--palette-light-control);
+    --color-link: var(--palette-purple);
+    --color-error: var(--palette-danger-ink);
+}
+
+/* -- Shared primitives the profile needs --------------------------------- */
+
+.site-page .section-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-10);
+    margin-bottom: var(--space-12);
+}
+
+.site-page .carousel-nav {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+}
+
+.site-page .carousel-arrow {
+    width: var(--control-height);
+    height: var(--control-height);
+    flex-shrink: 0;
+}
+
+.site-page .carousel-arrow svg {
+    display: block;
+    /* Reference (unused/uirevamp/primitives.css .btn-icon): the chevron keeps
+       its natural 20px size and is centered by the button; stretching the SVG
+       to fill the content box scales the stroke and pads it off-centre. */
+    width: 20px;
+    height: 20px;
+}
+
+/* The reference announces the carousel range through a visually hidden live
+   region rather than visible page numbers, so it must not paint. */
+.site-page .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+.site-page .has-tooltip {
+    cursor: pointer;
+}
+
+.site-page .badge-tip {
+    cursor: pointer;
+    display: inline-block;
+}
+
+.site-page .profile-badge {
+    font-size: var(--text-heading-sm);
+    vertical-align: middle;
+    margin-left: var(--space-8);
+}
+
+/* -- Identity header ----------------------------------------------------- */
+
+.site-page.profile-page .profile-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-28);
+    margin: 0 0 var(--space-32);
+    padding: 0 0 var(--space-32);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.site-page.profile-page .profile-avatar-wrap,
+.site-page.profile-page .profile-header .skel-avatar {
+    width: var(--avatar-size-xl);
+    height: var(--avatar-size-xl);
+    --avatar-radius: var(--radius-2xl);
+    border-radius: var(--radius-2xl);
+}
+
+.site-page.profile-page .profile-avatar-wrap {
+    position: relative;
+}
+
+.site-page.profile-page .profile-avatar-wrap .profile-avatar {
+    overflow: hidden;
+    border-radius: var(--radius-2xl);
+}
+
+.site-page.profile-page .profile-avatar {
+    border-radius: 0;
+}
+
+/* The reference avatar frame stays transparent, letting the dark theme's
+   shell show through instead of painting a bright white square. */
+.site-page.profile-page .profile-avatar-wrap {
+    background: transparent;
+}
+
+:root:not([data-theme="light"]):not([data-theme$="-light"]) .site-page.profile-page .profile-avatar-wrap {
+    border-color: var(--palette-border-strong);
+}
+
+.site-page.profile-page .profile-header .skel-avatar {
+    background: var(--color-control);
+}
+
+:root:not([data-theme="light"]):not([data-theme$="-light"]) .site-page.profile-page .profile-avatar-wrap,
+:root:not([data-theme="light"]):not([data-theme$="-light"]) .site-page.profile-page .profile-avatar-wrap > .profile-avatar:not(img) {
+    background: transparent;
+}
+
+:root[data-theme="light"] .site-page.profile-page .profile-avatar-wrap {
+    background: var(--palette-light-surface);
+    border-color: var(--palette-light-border);
+}
+
+.site-page.profile-page .profile-equipped-preview {
+    background: var(--color-control);
+    border-radius: var(--radius-lg);
+}
+
+.site-page.profile-page .profile-equipped-still {
+    background: var(--color-control);
+    border-radius: inherit;
+}
+
+.site-page.profile-page .profile-equipped-still img {
+    background: transparent;
+}
+
+.site-page.profile-page .profile-equipped-fallback {
+    background: transparent;
+}
+
+:root[data-theme="light"] .site-page.profile-page .profile-equipped-preview,
+:root[data-theme$="-light"] .site-page.profile-page .profile-equipped-preview {
+    background: var(--palette-light-surface);
+}
+
+:root[data-theme="light"] .site-page.profile-page .profile-equipped-still,
+:root[data-theme$="-light"] .site-page.profile-page .profile-equipped-still {
+    background: var(--palette-light-surface);
+}
+
+.site-page.profile-page .profile-header-body {
+    gap: var(--space-20);
+}
+
+.site-page.profile-page .profile-header-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-16);
+}
+
+/* Username on the left, actions on the right -- this is the reference's
+   heading row, and the single biggest structural difference from the old
+   stacked profile header. */
+.site-page.profile-page .profile-heading-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-24);
+}
+
+.site-page.profile-page .profile-identity {
+    display: flex;
+    flex-flow: row wrap;
+    align-items: center;
+    gap: var(--space-8) var(--space-12);
+    min-width: 0;
+}
+
+.site-page.profile-page .profile-username {
+    margin: 0;
+    color: var(--color-text);
+    font-size: var(--text-4xl);
+    line-height: 1.2;
+    font-weight: var(--weight-bold);
+    overflow-wrap: anywhere;
+}
+
+.site-page.profile-page .profile-badges {
+    display: inline-flex;
+    vertical-align: middle;
+    transform: translateY(-0.19em);
+}
+
+.site-page.profile-page .profile-presence {
+    position: absolute;
+    right: -6px;
+    bottom: -6px;
+    /* Reference: unused/uirevamp/profile.css:13. Canvas-cutout ring badge
+       (32px cutout / 8px padding -> 16px status dot). */
+    --presence-cutout: var(--color-canvas);
+    --presence-cutout-size: 32px;
+    --presence-cutout-padding: 8px;
+}
+
+/* -- Stats --------------------------------------------------------------- */
+
+.site-page.profile-page .profile-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-32);
+    margin: 0;
+}
+
+.site-page.profile-page .profile-stat {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    min-height: 44px;
+    color: var(--color-muted);
+    font-size: var(--text-sm);
+    line-height: 20px;
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+}
+
+.site-page.profile-page .profile-stat strong {
+    color: var(--color-text);
+    font-size: var(--text-2xl);
+    line-height: 28px;
+    font-weight: var(--weight-bold);
+    font-variant-numeric: tabular-nums;
+}
+
+.site-page.profile-page .profile-stat:hover,
+.site-page.profile-page .profile-stat:hover strong {
+    color: var(--color-link);
+}
+
+/* -- Actions ------------------------------------------------------------- */
+
+.site-page.profile-page .profile-actions {
+    display: flex;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-8);
+    margin: 0;
+}
+
+.site-page.profile-page .profile-actions > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-8);
+}
+
+.site-page.profile-page .profile-actions > div:empty {
+    display: none;
+}
+
+/* Actions use the shared `btn-primary` / `btn-secondary` / `btn-danger`
+   primitives from src/home.css, exactly like the reference. Only the row
+   wrapper and the icon-only report button are profile-specific. */
+.site-page.profile-page .profile-actions .report-btn {
+    position: relative;
+    width: var(--control-height);
+    height: var(--control-height);
+}
+
+/* Reference: unused/uirevamp/profile.css:126. The report menu is a 520px
+   dialog instead of the default 440px. */
+.site-page.profile-page .report-dialog {
+    --dialog-width: 520px;
+}
+
+.site-page.profile-page button:disabled {
+    opacity: .5;
+    cursor: default;
+}
+
+/* -- About --------------------------------------------------------------- */
+
+.site-page.profile-page .profile-about {
+    min-width: 0;
+}
+
+.site-page.profile-page .bio-box {
+    min-width: 0;
+    margin: 0;
+    --card-padding: var(--space-20);
+    --card-radius: var(--radius-2xl);
+}
+
+.site-page.profile-page .bio-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-16);
+    min-height: var(--control-height);
+    margin-bottom: var(--space-8);
+    letter-spacing: 0;
+}
+
+.site-page.profile-page .bio-label h2,
+.site-page.profile-page .section-title {
+    margin: 0;
+    color: var(--color-text);
+    font-size: var(--text-lg);
+    line-height: 24px;
+    font-weight: var(--weight-semibold);
+    letter-spacing: 0;
+}
+
+.site-page.profile-page .bio-box .row-edit {
+    position: static;
+    --button-height: var(--control-height-sm);
+    --button-text-size: var(--text-xs);
+}
+
+.site-page.profile-page .bio-text[hidden] {
+    display: none;
+}
+
+.site-page.profile-page .bio-text {
+    max-width: 70ch;
+    font-size: var(--text-md);
+    line-height: 1.65;
+    color: var(--color-text-subtle);
+    overflow-wrap: anywhere;
+}
+
+.site-page.profile-page .bio-text.empty {
+    color: var(--color-muted);
+}
+
+.site-page.profile-page .bio-error {
+    margin-top: var(--space-8);
+    color: var(--color-error);
+    font-size: var(--text-sm);
+    line-height: 20px;
+}
+
+.site-page.profile-page .bio-textarea {
+    min-height: 160px;
+    margin: 0;
+    line-height: 1.5;
+    /* The legacy inline <style> sets `border: var(--border)` (invisible);
+       restore the shared ui-input frame. */
+    border: 1px solid var(--color-border-strong);
+}
+
+.site-page.profile-page .bio-editor {
+    margin-top: var(--space-12);
+}
+
+.site-page.profile-page .bio-editor-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-8);
+    margin-top: var(--space-12);
+}
+
+.site-page.profile-page .bio-counter {
+    color: var(--color-muted);
+    font-size: var(--text-xs);
+    font-variant-numeric: tabular-nums;
+}
+
+/* -- Sections ------------------------------------------------------------ */
+
+/* Profile sections are plain content on canvas; the legacy inline <style>
+   in profile.html still paints each one as an old card. Strip that chrome. */
+.site-page.profile-page .profile-section {
+    margin-top: var(--space-32);
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    margin-bottom: 0;
+}
+
+.site-page.profile-page .profile-content {
+    padding: 0;
+}
+
+.site-page.profile-page .section-header {
+    align-items: center;
+    gap: var(--space-8);
+    min-height: var(--control-height);
+    margin-bottom: var(--space-16);
+}
+
+.site-page.profile-page .section-title {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-8);
+}
+
+.site-page.profile-page .profile-section-count {
+    --count-badge-size: 22px;
+    --count-badge-text-size: var(--text-xs);
+}
+
+.site-page.profile-page .section-link {
+    min-height: var(--control-height);
+    font-size: var(--text-sm);
+    color: var(--color-muted);
+    text-decoration: none;
+    /* Reference: unused/uirevamp/social.css:46. The View-all link carries the
+       auto margin so it, and the carousel arrows that follow it, push to the
+       right end of the section header. */
+    margin-left: auto;
+}
+
+.site-page.profile-page .section-link:hover {
+    color: var(--color-text);
+}
+
+/* -- Friends carousel ---------------------------------------------------- */
+
+/* The track is a shared `.ui-scroll-shelf` (snap, overscroll, hidden scrollbar);
+   these rules only add the profile-specific column sizing. */
+.site-page.profile-page .profile-friends-carousel {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: var(--avatar-size-lg);
+    gap: var(--space-12);
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-radius: var(--radius-lg);
+}
+
+.site-page.profile-page .profile-friends-carousel .friend-card {
+    scroll-snap-stop: always;
+}
+
+.site-page.profile-page .profile-friends-carousel:focus-visible,
+.site-page.profile-page .profile-friends-carousel .friend-card:focus-visible {
+    outline-offset: -2px;
+}
+
+.site-page.profile-page .carousel-nav {
+    gap: var(--space-8);
+}
+
+.site-page.profile-page .carousel-arrow {
+    width: var(--control-height);
+    height: var(--control-height);
+    flex-shrink: 0;
+}
+
+.site-page.profile-page .friend-card {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    gap: var(--space-4);
+    color: var(--color-text);
+    text-decoration: none;
+    border-radius: var(--radius-xl);
+}
+
+.site-page.profile-page .friend-avatar-wrap {
+    position: relative;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+    margin-bottom: var(--space-6);
+}
+
+.site-page.profile-page .friend-avatar {
+    border-radius: 0;
+}
+
+.site-page.profile-page .friend-avatar-wrap.has-presence .friend-avatar {
+    overflow: hidden;
+    border-radius: var(--radius-xl);
+}
+
+.site-page.profile-page .friend-presence {
+    position: absolute;
+    right: -5px;
+    bottom: -5px;
+    /* Reference: unused/uirevamp/profile.css:58. Canvas-cutout ring badge
+       (26px cutout / 7px padding -> 12px status dot). */
+    --presence-cutout: var(--color-canvas);
+    --presence-cutout-size: 26px;
+    --presence-cutout-padding: 7px;
+}
+
+.site-page.profile-page .friend-name {
+    width: 100%;
+    color: var(--color-text);
+    font-size: var(--text-sm);
+    line-height: 20px;
+    font-weight: var(--weight-semibold);
+}
+
+/* The reference uses overlay presence on the carousel, so the cards carry no
+   textual status line. */
+.site-page.profile-page .friend-card:hover .friend-avatar-wrap {
+    border-color: var(--color-primary);
+}
+
+/* The reference switches the name to the flat palette white on hover. BloxVerse
+   ships light themes where white-on-hover would be unreadable, so the emphasis
+   uses the theme's own interactive colour instead. */
+.site-page.profile-page .friend-card:hover .friend-name {
+    color: var(--color-primary);
+}
+
+/* Reference light.css:78. The generic light.css:48 rule turns .section-link
+   hover black, but the profile page overrides that back to the accent. */
+:root[data-theme="light"] .site-page.profile-page .section-link:hover,
+:root[data-theme$="-light"] .site-page.profile-page .section-link:hover {
+    color: var(--palette-purple);
+}
+
+/* The old legacy class is kept working so the cached/fresh templates and the
+   friend renderer do not all have to change at once. */
+.site-page.profile-page .friend-avatar-wrapper {
+    position: relative;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+    margin-bottom: var(--space-6);
+    overflow: hidden;
+    background: var(--palette-white);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+}
+
+.site-page.profile-page .friend-avatar-wrapper img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 0;
+}
+
+.site-page.profile-page .friend-avatar-wrapper > span {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    color: var(--color-muted);
+    font-size: var(--text-xl);
+    font-weight: var(--weight-bold);
+}
+
+.site-page.profile-page .friends-list .friend-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* -- Groups -------------------------------------------------------------- */
+
+.site-page.profile-page .profile-groups-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+    gap: var(--space-12);
+}
+
+.site-page.profile-page .group-card {
+    display: grid;
+    grid-template-columns: var(--avatar-size-md) minmax(0, 1fr);
+    align-items: center;
+    width: auto;
+    gap: var(--space-12);
+    --card-padding: 0;
+    --card-radius: var(--radius-2xl);
+}
+
+.site-page.profile-page .profile-group-emblem {
+    align-self: stretch;
+    width: var(--avatar-size-md);
+    min-height: var(--avatar-size-md);
+    height: 100%;
+    object-fit: cover;
+    border-radius: 0;
+    background: var(--color-control);
+}
+
+.site-page.profile-page .group-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    min-width: 0;
+    padding: var(--space-12) var(--space-12) var(--space-12) 0;
+}
+
+.site-page.profile-page .group-card-name {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    font-size: var(--text-sm);
+    line-height: 20px;
+    font-weight: var(--weight-semibold);
+    color: var(--color-text);
+}
+
+.site-page.profile-page .group-card-meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-8);
+}
+
+.site-page.profile-page .group-card-meta {
+    color: var(--color-muted);
+    font-size: var(--text-xs);
+    line-height: 18px;
+}
+
+.site-page.profile-page .group-card-owner {
+    font-size: var(--text-xs);
+    line-height: 18px;
+    letter-spacing: 0;
+    text-transform: none;
+    font-weight: var(--weight-semibold);
+    color: var(--color-link);
+}
+
+/* -- Empty / state ------------------------------------------------------- */
+
+.site-page.profile-page .profile-empty {
+    --card-padding: var(--space-24);
+    --card-radius: var(--radius-2xl);
+    color: var(--color-muted);
+    font-size: var(--text-sm);
+    line-height: 1.5;
+}
+
+.site-page.profile-page .profile-state {
+    padding-block: var(--space-32);
+}
+
+/* Loading skeleton: mirrors the reference's cold-load state. */
+.site-page.profile-page .profile-header .skel-avatar {
+    flex: 0 0 auto;
+    background: var(--color-control);
+}
+
+.site-page.profile-page .profile-identity .skel-name {
+    display: block;
+    height: var(--text-4xl);
+    min-width: 180px;
+    border-radius: var(--radius-sm);
+}
+
+.site-page.profile-page .profile-identity .skel-name + .skel-name {
+    height: var(--text-2xl);
+    min-width: 72px;
+}
+
+/* Reference base (unused/uirevamp/social.css:341). The `display`/`flex-direction`
+   pair is what makes the `gap` above apply; without it the body stayed a plain
+   block and the stats row collapsed up against the username. */
+.site-page.profile-page .profile-header-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.site-page.profile-page .profile-state h1 {
+    margin: 0;
+    color: var(--color-text);
+    font-size: var(--text-4xl);
+    line-height: 1.2;
+    font-weight: var(--weight-bold);
+    overflow-wrap: anywhere;
+}
+
+.site-page.profile-page .profile-state p,
+.site-page.profile-page .profile-loading {
+    color: var(--color-muted);
+    font-size: var(--text-md);
+    line-height: 1.5;
+    margin-block: var(--space-16);
+}
+
+/* `.profile-header-meta` is a flex column with `align-items: flex-start`, so
+   the line placeholders would collapse to 0 width without an explicit stretch. */
+.site-page.profile-page .profile-skel-lines {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    align-self: stretch;
+    gap: var(--space-16);
+}
+
+.site-page.profile-page .profile-skel-lines .skel-name:first-child {
+    width: min(240px, 80%);
+    height: 32px;
+}
+
+.site-page.profile-page .profile-skel-lines .skel-name:last-child {
+    width: min(180px, 60%);
+    height: 20px;
+}
+
+/* -- Avatar / equipped --------------------------------------------------- */
+
+.site-page.profile-page .profile-equipped {
+    margin-top: var(--space-32);
+}
+
+.site-page.profile-page .profile-equipped-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--space-24);
+    --card-padding: var(--space-20);
+    --card-radius: var(--radius-2xl);
+}
+
+.site-page.profile-page .profile-equipped-preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 420px;
+}
+
+.site-page.profile-page .profile-equipped-preview canvas,
+.site-page.profile-page .profile-equipped-preview img {
+  display: block;
+  height: 100%;
+  max-width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: contain;
+}
+
+/* The 3D canvas and the static Cloudinary still occupy the same slot. Only one is
+   ever unhidden: the still until the outfit finishes loading, the canvas after.
+   `hidden` has to win over the display: block above, so it is restated. */
+.site-page.profile-page .profile-equipped-preview > [hidden] {
+  display: none;
+}
+
+/* The still is a plain wrapper so the swap does not disturb the grid track. */
+.site-page.profile-page .profile-equipped-still {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+}
+
+.site-page.profile-page .profile-equipped-canvas {
+  width: auto;
+  touch-action: pan-y;
+}
+
+
+.site-page.profile-page .profile-equipped-items {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-rows: 204px;
+    gap: var(--space-12);
+    align-content: start;
+    max-height: 420px;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+}
+
+.site-page.profile-page .profile-equipped-items li {
+    display: flex;
+    min-height: 0;
+}
+
+.site-page.profile-page .profile-equipped-item {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: var(--space-8);
+    min-width: 0;
+    padding: var(--space-8);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    color: var(--color-text);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    line-height: 18px;
+    text-align: center;
+    text-decoration: none;
+}
+
+.site-page.profile-page .profile-equipped-item:hover {
+    border-color: var(--color-link);
+}
+
+.site-page.profile-page .profile-equipped-item img {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    object-fit: contain;
+    border-radius: var(--radius-md);
+}
+
+/* Replaces the inline-style empty state that used to sit in the grid. Spans the
+   full track and centres itself so the card's right column never looks broken. */
+.site-page.profile-page .profile-equipped-items .profile-equipped-empty {
+    grid-column: 1 / -1;
+    align-self: center;
+    justify-content: center;
+    text-align: center;
+    color: var(--color-muted);
+    font-size: var(--text-sm);
+}
+
+.site-page.profile-page .profile-equipped-item span {
+    display: -webkit-box;
+    flex: none;
+    height: 36px;
+    overflow: hidden;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow-wrap: anywhere;
+}
+
+/* -- Widgets ------------------------------------------------------------- */
+
+.site-page.profile-page .profile-widgets {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-16);
+    margin: var(--space-32) 0 0;
+}
+
+.site-page.profile-page .profile-widget {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 0 var(--space-16);
+    --card-padding: var(--space-20);
+    --card-radius: var(--radius-2xl);
+}
+
+.site-page.profile-page .profile-widget > i {
+    grid-row: 1 / 3;
+    font-size: var(--text-2xl);
+    color: var(--color-muted);
+}
+
+.site-page.profile-page .profile-widget :is(dt, dd) {
+    margin: 0;
+}
+
+.site-page.profile-page .profile-widget dt {
+    color: var(--color-muted);
+    font-size: var(--text-sm);
+    line-height: 20px;
+}
+
+.site-page.profile-page .profile-widget dd {
+    color: var(--color-text);
+    font-size: var(--text-xl);
+    line-height: 28px;
+    font-weight: var(--weight-bold);
+    font-variant-numeric: tabular-nums;
+}
+
+/* -- Letter fallbacks (no avatar image available) ------------------------ */
+
+.site-page.profile-page .profile-avatar-wrap > .profile-avatar:not(img),
+.site-page.profile-page .equipped-fallback {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    color: var(--color-text);
+    font-size: var(--text-4xl);
+    font-weight: var(--weight-bold);
+    line-height: 1;
+}
+
+.site-page.profile-page .friend-avatar-wrap > .friend-avatar:not(img),
+.site-page.profile-page .friend-avatar-wrap > span:not(img):not(.presence-indicator) {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    background: var(--color-control);
+    color: var(--color-muted);
+    font-size: var(--text-xl);
+    font-weight: var(--weight-bold);
+    line-height: 1;
+}
+
+/* -- Legacy class neutralisers --------------------------------------------
+   The old profile CSS is still loaded below home.css; these strip its chrome
+   so the new structure is not fighting nested cards.
+   `.profile-section` is deliberately NOT neutralised: the reference relies on
+   its `margin-top` to space the sections apart, and `display: contents` would
+   silently drop that margin (the spacing bug the user reported). */
+
+.site-page.profile-page .profile-header-info {
+    display: contents;
+}
+
+.site-page.profile-page .profile-banner,
+.site-page.profile-page .profile-avatar-centered,
+.site-page.profile-page .footer-stats-grid,
+.site-page.profile-page .footer-stat-card {
+    display: contents;
+}
+
+/* -- Breakpoints (ported from the reference) ------------------------------ */
+
+@container (max-width: 960px) {
+    .site-page.profile-page .profile-heading-row {
+        flex-direction: column;
+        gap: var(--space-16);
+    }
+
+    .site-page.profile-page .profile-header-body {
+        gap: var(--space-20);
+    }
+}
+
+@container (max-width: 620px) {
+    .site-page.profile-page .profile-header {
+        align-items: flex-start;
+        gap: var(--space-20);
+    }
+
+    .site-page.profile-page .profile-avatar-wrap,
+    .site-page.profile-page .profile-header .skel-avatar {
+        width: var(--avatar-size-lg);
+        height: var(--avatar-size-lg);
+    }
+
+    .site-page.profile-page .profile-username {
+        font-size: var(--text-3xl);
+    }
+
+    .site-page.profile-page .profile-stats {
+        gap: var(--space-20);
+    }
+}
+
+@container (max-width: 440px) {
+    .site-page.profile-page .profile-header {
+        display: grid;
+        grid-template-columns: var(--avatar-size-lg) minmax(0, 1fr);
+        gap: var(--space-16) var(--space-20);
+        padding-bottom: var(--space-24);
+        margin-bottom: var(--space-24);
+    }
+
+    .site-page.profile-page .profile-header-body,
+    .site-page.profile-page .profile-heading-row {
+        display: contents;
+    }
+
+    .site-page.profile-page .profile-identity {
+        align-self: center;
+    }
+
+    .site-page.profile-page .profile-actions,
+    .site-page.profile-page .profile-header-meta {
+        grid-column: 1 / -1;
+    }
+
+    .site-page.profile-page .profile-actions:empty {
+        display: none;
+    }
+
+    .site-page.profile-page .profile-header-meta > * {
+        width: 100%;
+    }
+
+    .site-page.profile-page .profile-stats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: var(--space-12);
+    }
+
+    .site-page.profile-page .profile-stat {
+        font-size: var(--text-caption);
+    }
+
+    .site-page.profile-page .profile-stat strong {
+        font-size: var(--text-xl);
+    }
+
+    .site-page.profile-page .profile-section {
+        margin-top: var(--space-24);
+    }
+
+    .site-page.profile-page .section-header {
+        flex-wrap: wrap;
+    }
+
+    .site-page.profile-page .section-link {
+        margin-left: auto;
+    }
+
+    .site-page.profile-page .carousel-nav {
+        gap: var(--space-4);
+    }
+
+    .site-page.profile-page .profile-groups-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .site-page.profile-page .bio-editor-footer .bio-counter {
+        width: 100%;
+    }
+}
+
+@media (max-width: 720px) {
+    .site-page.profile-page .profile-equipped-card {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .site-page.profile-page .profile-equipped-items {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .site-page.profile-page .profile-widgets {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .site-page.profile-page .skeleton {
+        animation: none;
+    }
+}

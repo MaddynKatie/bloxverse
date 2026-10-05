@@ -113,6 +113,28 @@
     #loading { text-align:center; color:#555; padding: 48px; font-size:14px; }
   </style>
 
+  <!-- Announcement-bar preview. Mirrors the dark-theme token values used by
+       src/home.css (.site-page .notice); admin.html does not load home.css, so
+       the rules are restated here rather than pulling the whole site shell in. -->
+  <style>
+    #noticePreview {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      text-align: center;
+      font-size: .8125rem;
+      font-weight: 500;
+      line-height: 1.5;
+    }
+    #noticePreview.notice-yellow { background: #23190c; border-color: #3d2e14; color: #d9a441; }
+    #noticePreview.notice-red    { background: #2a1414; border-color: #4a1f1f; color: #f87171; }
+    #noticePreview.notice-blue   { background: #101a2a; border-color: #1f2f4a; color: #60a5fa; }
+  </style>
+
   <link rel="stylesheet" href="src/theme.css" />
   <script type="module" src="src/theme.js"></script>
   <script src="js/sw-register.js" defer></script>
@@ -131,7 +153,7 @@
 
   <main>
 
-    <!-- ── LOOKUP USER ──────────────────────────────────────────── -->
+    <!-- -- LOOKUP USER -------------------------------------------- -->
     <div class="panel">
       <h2>🔍 Look Up User</h2>
       <label>Username or User ID</label>
@@ -154,7 +176,7 @@
       <div class="status" id="lookupStatus"></div>
     </div>
 
-    <!-- ── BAN / UNBAN ───────────────────────────────────────────── -->
+    <!-- -- BAN / UNBAN --------------------------------------------- -->
     <div class="panel">
       <h2>🔨 Ban / Unban</h2>
       <p style="font-size:12px;color:#666;margin-bottom:14px;">Fill in the target user first using the lookup above, or paste a UID directly.</p>
@@ -167,7 +189,7 @@
       <div class="row">
         <div>
           <label>Reason</label>
-          <!-- ── Easy preset reasons ── -->
+          <!-- -- Easy preset reasons -- -->
           <select id="banReasonPreset">
             <option value="">— Choose preset —</option>
             <option value="Exploiting">Exploiting</option>
@@ -211,7 +233,7 @@
       <div class="status" id="banStatus"></div>
     </div>
 
-    <!-- ── ROLE MANAGEMENT ───────────────────────────────────────── -->
+    <!-- -- ROLE MANAGEMENT ----------------------------------------- -->
     <div class="panel">
       <h2>🛡️ Role Management</h2>
       <p style="font-size:12px;color:#666;margin-bottom:14px;">Grant or revoke staff roles. These appear as badges on profiles and the in-game leaderboard.</p>
@@ -234,10 +256,10 @@
       <div class="status" id="roleStatus"></div>
     </div>
 
-    <!-- ── BUX MANAGEMENT ──────────────────────────────────────────── -->
+    <!-- -- Bux MANAGEMENT -------------------------------------------- -->
     <div class="panel">
-      <h2>💰 BUX Management</h2>
-      <p style="font-size:12px;color:#666;margin-bottom:14px;">Add, subtract, or set a user's BUX balance. Changes are logged. Use the lookup above to auto-fill the UID.</p>
+      <h2>💰 Bux Management</h2>
+      <p style="font-size:12px;color:#666;margin-bottom:14px;">Add, subtract, or set a user's Bux balance. Changes are logged. Use the lookup above to auto-fill the UID.</p>
 
       <label>Target User ID</label>
       <input type="text" id="buxUid" placeholder="Paste UID or auto-fill from lookup" />
@@ -260,9 +282,9 @@
         <div style="flex:0;">
           <label>Action</label>
           <select id="buxAction" style="min-width:120px;">
-            <option value="add">Add BUX</option>
-            <option value="subtract">Subtract BUX</option>
-            <option value="set">Set BUX</option>
+            <option value="add">Add Bux</option>
+            <option value="subtract">Subtract Bux</option>
+            <option value="set">Set Bux</option>
           </select>
         </div>
         <button class="btn btn-blue" id="btnApplyBux" style="flex:0;white-space:nowrap;">Apply</button>
@@ -270,7 +292,7 @@
       <div class="status" id="buxStatus"></div>
     </div>
 
-    <!-- ── SUPPORT REQUESTS ─────────────────────────────────────── -->
+    <!-- -- SUPPORT REQUESTS --------------------------------------- -->
     <div class="panel">
       <h2>📬 Support Requests</h2>
       <p style="font-size:12px;color:#666;margin-bottom:14px;">View and manage incoming support requests. Click Delete to remove a request once resolved.</p>
@@ -278,7 +300,7 @@
       <div class="status" id="supportStatus"></div>
     </div>
 
-    <!-- ── PLAYER REPORTS ──────────────────────────────────────── -->
+    <!-- -- PLAYER REPORTS ---------------------------------------- -->
     <div class="panel">
       <h2>🚩 Player Reports</h2>
       <p style="font-size:12px;color:#666;margin-bottom:14px;">In-game reports submitted by players. "Ban →" pre-fills the ban form for the reported player. Click Resolve to mark handled, or Delete to remove.</p>
@@ -286,12 +308,43 @@
       <div class="status" id="reportsStatus"></div>
     </div>
 
-    <!-- ── GAME MANAGEMENT ──────────────────────────────────────── -->
+    <!-- -- GAME MANAGEMENT ---------------------------------------- -->
     <div class="panel">
       <h2>🎮 Game Management</h2>
       <p style="font-size:12px;color:#666;margin-bottom:14px;">All published games. Soft-delete replaces name with "[ Content Deleted ]". Recover restores the original name. Permanent delete removes the document entirely.</p>
       <div id="gameList" style="display:flex;flex-direction:column;gap:8px;"></div>
       <div class="status" id="gameStatus"></div>
+    </div>
+
+    <!-- -- ANNOUNCEMENT BAR --------------------------------------- -->
+    <div class="panel">
+      <h2>📢 Announcement Bar</h2>
+      <p style="font-size:12px;color:#666;margin-bottom:14px;">Publishes the notice bar shown under the topbar on the homepage and profile pages. Leave the message empty and save to remove the bar. It appears for signed-out visitors too.</p>
+
+      <label>Message</label>
+      <input type="text" id="noticeMessageInput" placeholder="e.g. Scheduled maintenance tonight at 10pm UTC" />
+
+      <div class="row" style="align-items:flex-end;margin-top:12px;">
+        <div style="flex:0;">
+          <label>Colour</label>
+          <select id="noticeColorSelect" style="min-width:130px;">
+            <option value="yellow">Yellow &mdash; warning</option>
+            <option value="red">Red &mdash; urgent</option>
+            <option value="blue">Blue &mdash; info</option>
+          </select>
+        </div>
+        <button class="btn btn-blue" id="btnSaveNotice" style="flex:0;white-space:nowrap;">Publish</button>
+        <button class="btn btn-gray" id="btnClearNotice" style="flex:0;white-space:nowrap;">Clear</button>
+      </div>
+
+      <div style="margin-top:14px;">
+        <label>Preview</label>
+        <div class="notice" id="noticePreview" style="margin:0;">
+          <i class="fa-solid fa-triangle-exclamation" id="noticePreviewIcon"></i>
+          <span id="noticePreviewText">No message set.</span>
+        </div>
+      </div>
+      <div class="status" id="noticeStatus"></div>
     </div>
 
   </main>
@@ -302,18 +355,18 @@
   import { doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs, Timestamp, arrayUnion, arrayRemove, onSnapshot } from 'firebase/firestore';
   import { signOut } from 'firebase/auth';
 
-  // ─── Access guard ────────────────────────────────────────────────────────────
+  // --- Access guard ------------------------------------------------------------
   auth.onAuthStateChanged(async (user) => {
     document.getElementById('loading').style.display = 'none';
     if (!user) { window.location.href = '/bloxverse/auth'; return; }
     if (await banGuard(user.uid)) return;
-    // ── Real-time ban listener ──────────────────────────────────────
+    // -- Real-time ban listener --------------------------------------
     onSnapshot(doc(db, 'bans', user.uid), (snap) => {
       if (snap.exists() && snap.data().banned) {
         window.location.href = '/bloxverse/ban';
       }
     });
-    // ────────────────────────────────────────────────────────────────
+    // ----------------------------------------------------------------
     trackPresence(user.uid, null, 'admin');
     const roles = await getRoles(user.uid);
     if (!roles.includes('admin')) {
@@ -324,12 +377,81 @@
     document.getElementById('adminRoot').style.display = 'flex';
   });
 
-  // ─── Helpers ─────────────────────────────────────────────────────────────────
+  // --- Helpers -----------------------------------------------------------------
   function showStatus(id, msg, ok = true) {
     const el = document.getElementById(id);
     el.textContent = msg;
     el.className = 'status ' + (ok ? 'ok' : 'err');
   }
+
+  // --- Announcement bar --------------------------------------------------------
+  // Lives at settings/notice and is read by src/shell.js (initNotice) on every
+  // revamped page, so publishing here is the only step needed to go live.
+  const NOTICE_ICONS = {
+    yellow: 'triangle-exclamation',
+    red: 'circle-exclamation',
+    blue: 'circle-info',
+  };
+  const noticeRef = () => doc(db, 'settings', 'notice');
+
+  function paintNoticePreview(message, color) {
+    const preview = document.getElementById('noticePreview');
+    const icon = document.getElementById('noticePreviewIcon');
+    const text = document.getElementById('noticePreviewText');
+    const tone = NOTICE_ICONS[color] ? color : 'yellow';
+    preview.className = 'notice notice-' + tone;
+    icon.className = 'fa-solid fa-' + NOTICE_ICONS[tone];
+    text.textContent = message || 'No message set.';
+  }
+
+  (async function loadNotice() {
+    try {
+      const snap = await getDoc(noticeRef());
+      const data = snap.exists() ? snap.data() : null;
+      const message = (data && data.message) || '';
+      const color = (data && data.color) || 'yellow';
+      document.getElementById('noticeMessageInput').value = message;
+      document.getElementById('noticeColorSelect').value = color;
+      paintNoticePreview(message, color);
+    } catch (e) {
+      showStatus('noticeStatus', 'Could not load the current notice: ' + e.message, false);
+    }
+  })();
+
+  document.getElementById('noticeMessageInput').addEventListener('input', (event) => {
+    paintNoticePreview(event.target.value, document.getElementById('noticeColorSelect').value);
+  });
+  document.getElementById('noticeColorSelect').addEventListener('change', (event) => {
+    paintNoticePreview(document.getElementById('noticeMessageInput').value, event.target.value);
+  });
+
+  document.getElementById('btnSaveNotice').addEventListener('click', async () => {
+    const message = document.getElementById('noticeMessageInput').value.trim();
+    const color = document.getElementById('noticeColorSelect').value;
+    try {
+      if (!message) {
+        await deleteDoc(noticeRef());
+        paintNoticePreview('', color);
+        showStatus('noticeStatus', 'Notice cleared. The bar is now hidden.');
+        return;
+      }
+      await setDoc(noticeRef(), { message, color, updatedAt: Timestamp.now() });
+      showStatus('noticeStatus', 'Notice published. It appears on the next page load.');
+    } catch (e) {
+      showStatus('noticeStatus', 'Error: ' + e.message, false);
+    }
+  });
+
+  document.getElementById('btnClearNotice').addEventListener('click', async () => {
+    try {
+      await deleteDoc(noticeRef());
+      document.getElementById('noticeMessageInput').value = '';
+      paintNoticePreview('', document.getElementById('noticeColorSelect').value);
+      showStatus('noticeStatus', 'Notice cleared. The bar is now hidden.');
+    } catch (e) {
+      showStatus('noticeStatus', 'Error: ' + e.message, false);
+    }
+  });
 
   function durationToTimestamp(val) {
     if (val === 'permanent') return null;
@@ -348,7 +470,7 @@
     return `<span class="tag ${cfg.cls}">${cfg.label}</span>`;
   }
 
-  // ─── Lookup ──────────────────────────────────────────────────────────────────
+  // --- Lookup ------------------------------------------------------------------
   let _foundUid = null;
 
   document.getElementById('btnLookup').addEventListener('click', async () => {
@@ -402,7 +524,7 @@
     }
   });
 
-  // ─── Ban preset → custom field ───────────────────────────────────────────────
+  // --- Ban preset → custom field -----------------------------------------------
   document.getElementById('banReasonPreset').addEventListener('change', (e) => {
     const custom = document.getElementById('banReasonCustom');
     custom.style.display = e.target.value === 'Custom…' ? 'block' : 'none';
@@ -414,7 +536,7 @@
     return preset || 'Terms of Service Violation';
   }
 
-  // ─── Ban ─────────────────────────────────────────────────────────────────────
+  // --- Ban ---------------------------------------------------------------------
   document.getElementById('btnBan').addEventListener('click', async () => {
     const uid = document.getElementById('banUid').value.trim();
     if (!uid) { showStatus('banStatus', 'Enter a user ID.', false); return; }
@@ -441,7 +563,7 @@
     }
   });
 
-  // ─── Unban ───────────────────────────────────────────────────────────────────
+  // --- Unban -------------------------------------------------------------------
   document.getElementById('btnUnban').addEventListener('click', async () => {
     const uid = document.getElementById('banUid').value.trim();
     if (!uid) { showStatus('banStatus', 'Enter a user ID.', false); return; }
@@ -454,7 +576,7 @@
     }
   });
 
-  // ─── Grant / Revoke role ─────────────────────────────────────────────────────
+  // --- Grant / Revoke role -----------------------------------------------------
   document.getElementById('btnGrantRole').addEventListener('click', async () => {
     const uid  = document.getElementById('roleUid').value.trim();
     const role = document.getElementById('roleSelect').value;
@@ -483,7 +605,7 @@
     }
   });
 
-  // ─── Game Management ─────────────────────────────────────────────────────────
+  // --- Game Management ---------------------------------------------------------
   const gameListEl = document.getElementById('gameList');
 
   async function loadGames() {
@@ -570,7 +692,7 @@
 
   loadGames();
 
-  // ─── Support Requests ─────────────────────────────────────────────────────────
+  // --- Support Requests ---------------------------------------------------------
   const supportListEl = document.getElementById('supportRequestsList');
 
   async function loadSupportRequests() {
@@ -651,7 +773,7 @@
 
   loadSupportRequests();
 
-  // ─── Player Reports ──────────────────────────────────────────────────────────
+  // --- Player Reports ----------------------------------------------------------
   const reportsListEl = document.getElementById('reportsList');
   const _nameCache = {};
 
@@ -771,7 +893,7 @@
 
   loadReports();
 
-  // ─── BUX Management ──────────────────────────────────────────────────────────
+  // --- Bux Management ----------------------------------------------------------
   document.getElementById('btnFetchBux').addEventListener('click', async () => {
     const uid = document.getElementById('buxUid').value.trim();
     if (!uid) { showStatus('buxStatus', 'Enter a user ID.', false); return; }
@@ -779,7 +901,7 @@
       const snap = await getDoc(doc(db, 'users', uid));
       if (!snap.exists()) { showStatus('buxStatus', 'User not found.', false); return; }
       const bux = snap.data().bux ?? 0;
-      document.getElementById('buxCurrentBalance').textContent = `${bux.toLocaleString()} BUX`;
+      document.getElementById('buxCurrentBalance').textContent = `${bux.toLocaleString()} Bux`;
       document.getElementById('buxCurrentBalance').style.color = '#e0e0e0';
       statusEl: document.getElementById('buxStatus').style.display = 'none';
     } catch (e) {
@@ -823,13 +945,13 @@
         userId: uid,
         type: 'admin_bux',
         amount: newBux - currentBux,
-        description: `Admin BUX adjustment (${actionLabel}) by ${auth.currentUser?.email || 'admin'}`,
+        description: `Admin Bux adjustment (${actionLabel}) by ${auth.currentUser?.email || 'admin'}`,
         createdAt: Timestamp.now(),
       });
 
-      document.getElementById('buxCurrentBalance').textContent = `${newBux.toLocaleString()} BUX`;
+      document.getElementById('buxCurrentBalance').textContent = `${newBux.toLocaleString()} Bux`;
       document.getElementById('buxCurrentBalance').style.color = '#2ecc71';
-      showStatus('buxStatus', `✅ BUX updated for ${uid}: ${currentBux} → ${newBux} (${actionLabel})`);
+      showStatus('buxStatus', `✅ Bux updated for ${uid}: ${currentBux} → ${newBux} (${actionLabel})`);
     } catch (e) {
       showStatus('buxStatus', 'Error: ' + e.message, false);
     }

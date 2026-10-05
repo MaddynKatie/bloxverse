@@ -184,7 +184,7 @@
     import { doc, getDoc } from 'firebase/firestore';
     import { signOut } from 'firebase/auth';
 
-    // ─── Formatting helpers ─────────────────────────────────────────────────────
+    // --- Formatting helpers -----------------------------------------------------
     function fmtDate(ts) {
       if (!ts) return '—';
       const d = ts.toDate ? ts.toDate() : new Date(ts);
@@ -206,7 +206,7 @@
       return h === 1 ? '1 Hour' : `${h} Hours`;
     }
 
-    // ─── Auth guard ─────────────────────────────────────────────────────────────
+    // --- Auth guard -------------------------------------------------------------
     auth.onAuthStateChanged(async (user) => {
       const loading = document.getElementById('loading-state');
       const content = document.getElementById('ban-content');

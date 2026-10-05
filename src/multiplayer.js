@@ -111,7 +111,7 @@ export async function connectMultiplayer(gameId, serverId, userId, username, onP
         }
         const data = JSON.parse(text);
         if (data.type === 'redirect' && data.url && redirectCount < MAX_REDIRECTS) {
-          // This logical server is hosted on another Render instance — switch.
+          // This logical server is hosted on another Render instance -- switch.
           redirectCount += 1;
           redirecting = true;
           const target = normalizeWsUrl(String(data.url));
@@ -158,7 +158,7 @@ export async function connectMultiplayer(gameId, serverId, userId, username, onP
       if (redirecting) { redirecting = false; return; }
       clearTimers();
       if (connected) {
-        // Live connection lost — hand it to the page (wifi disconnect overlay).
+        // Live connection lost -- hand it to the page (wifi disconnect overlay).
         connected = false;
         console.log('Disconnected from multiplayer server');
         notifyQueueStatus({ disconnected: true });

@@ -52,7 +52,7 @@ try {
   cloudinary = null;
 }
 
-// ─── Chat logging (Turso) ─────────────────────────────────────────────────────
+// --- Chat logging (Turso) -----------------------------------------------------
 chatLog.init();
 profanityFilter.init();
 
@@ -80,7 +80,7 @@ async function isChatDataOptOut(userId) {
 const RECOVERY_CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const RECOVERY_CODE_RE = /^[A-Z0-9]{5}-[A-Z0-9]{5}$/;
 
-// ─── Multi-instance node identity ─────────────────────────────────────────────
+// --- Multi-instance node identity ---------------------------------------------
 // Each Render service is a "node". A node claims a logical server when it
 // accepts its first connection, writing hostNode/hostUrl on the server doc.
 // Clients pick a starting node, and a node that doesn't own the server bounces
@@ -360,7 +360,7 @@ const gameServers = new Map();
 const server = http.createServer(async (req, res) => {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Purge-Secret');
 
   if (req.method === 'OPTIONS') {
@@ -378,6 +378,43 @@ const server = http.createServer(async (req, res) => {
     const gameId = pathname.replace('/api/game-scripts/', '');
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(gameScripts.get(gameId) || {}));
+    return;
+  }
+
+  // Catalog: metadata joined with Cloudinary asset URLs
+  if (pathname === '/api/catalog' && req.method === 'GET') {
+    try {
+      const { getCatalog } = require('./catalog.js');
+      const data = await getCatalog(cloudinary);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(data));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
+  // Catalog trading: original purchases and resale settlement. The client asks for an
+  // outcome and the server decides it with the Admin SDK, because a sale has to move
+  // Bux between two players in one atomic step and security rules cannot verify that,
+  // and because the copy ledger must have exactly one writer (see catalog-trading.js).
+  if (pathname.startsWith('/api/catalog/resale/') || pathname === '/api/catalog/purchase') {
+    const { handleResale } = require('./catalog-trading.js');
+    await handleResale(admin, cloudinary, req, res, pathname, req.method);
+    return;
+  }
+
+  // Groups: browse, create, join, leave. The listing is public but creating a group
+  // spends Bux, so that write is settled server-side with the Admin SDK for the same
+  // reason catalog purchases are (see catalog-trading.js).
+  if (pathname === '/api/groups' || pathname.startsWith('/api/groups/')) {
+    const { handleGroups } = require('./groups.js');
+    // url.parse() is the legacy parser and has no searchParams (only .query), so the
+    // parameters are converted here. Passing parsedUrl.searchParams straight through
+    // handed the handler an undefined query and every listing request threw.
+    const searchParams = new URLSearchParams(parsedUrl.query || {});
+    await handleGroups(admin, req, res, pathname, searchParams, req.method);
     return;
   }
 
@@ -502,7 +539,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // ── 2FA Endpoints ────────────────────────────────────────────────────────────
+  // -- 2FA Endpoints ------------------------------------------------------------
 
   if (pathname === '/api/2fa/setup' && req.method === 'POST') {
     let body = '';
@@ -869,7 +906,7 @@ async function reconcileServers() {
           serverSeenAt.set(key, now);
           keep.push(p);
         } else if ((serverSeenAt.get(key) || 0) && now - (serverSeenAt.get(key) || 0) > RECONCILE_GRACE_MS) {
-          // Was connected recently but is gone now — prune.
+          // Was connected recently but is gone now -- prune.
         } else {
           if (!serverSeenAt.has(key)) serverSeenAt.set(key, now);
           keep.push(p);
@@ -1000,7 +1037,7 @@ wss.on('connection', async (ws, req) => {
         if (data.message && typeof data.message === 'string') {
           gs.handleChat(data.userId, data.message);
 
-          // TT| messages are internal system/telemetry payloads, not chat —
+          // TT| messages are internal system/telemetry payloads, not chat --
           // never filter, mask, or log them.
           if (!data.message.startsWith('TT|')) {
             const rawMessage = data.message;

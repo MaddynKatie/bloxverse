@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://esm.sh/three@0.184.0",
+      "three/": "https://esm.sh/three@0.184.0/",
+      "firebase/app": "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js",
+      "firebase/auth": "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js",
+      "firebase/firestore": "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js",
+      "cannon-es": "https://esm.sh/cannon-es@0.20.0",
+      "glin-profanity": "https://esm.sh/glin-profanity@3.3.0"
+    }
+  }
+  </script>
+  <base href="/bloxverse/">
+  <link rel="preconnect" href="https://esm.sh" crossorigin>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/png" href="assets/icons/bloxverseLogo.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Sign in - BloxVerse</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="src/theme.css" />
+  <link rel="stylesheet" href="src/home.css" />
+  <link rel="stylesheet" href="src/auth.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <script>
+    window.authCaptchaTokens = {};
+    window.authCaptchaWidgets = {};
+    window.renderAuthCaptcha = function (name) {
+      if (typeof hcaptcha === 'undefined' || window.authCaptchaWidgets[name] !== undefined) return;
+      const container = document.getElementById(`${name}CaptchaContainer`);
+      if (!container) return;
+      window.authCaptchaWidgets[name] = hcaptcha.render(container, {
+        sitekey: container.dataset.sitekey,
+        callback: token => { window.authCaptchaTokens[name] = token; },
+        'expired-callback': () => { window.authCaptchaTokens[name] = ''; },
+        'error-callback': () => { window.authCaptchaTokens[name] = ''; }
+      });
+    };
+    window.onAuthCaptchaReady = function () {
+      const renderActiveCaptcha = () => {
+        if (document.getElementById('signupForm')?.classList.contains('active')) window.renderAuthCaptcha('signup');
+        if (document.getElementById('forgotForm')?.classList.contains('active')) window.renderAuthCaptcha('forgot');
+      };
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', renderActiveCaptcha, { once: true });
+      else renderActiveCaptcha();
+    };
+  </script>
+  <script type="module" src="src/theme.js"></script>
+  <script src="https://js.hcaptcha.com/1/api.js?onload=onAuthCaptchaReady&amp;render=explicit" async defer></script>
+  <script src="js/sw-register.js" defer></script>
+</head>
+
+<body class="site-page site-page-guest auth-page">
+  <a class="site-skip" href="#site-content">Skip to content</a>
+
+  <header class="site-topbar">
+    <div class="site-brand">
+      <a href="/bloxverse/" class="site-wordmark" aria-label="BloxVerse home">
+        <img class="site-wordmark-mark" src="assets/icons/bloxverseLogo.png" alt="" width="34" height="34" draggable="false" />
+        <span>BloxVerse</span>
+      </a>
+    </div>
+    <form action="/bloxverse/search" method="get" class="site-global-search" role="search" aria-label="Player search">
+      <img class="site-icon" src="assets/icons/search.svg" alt="" width="16" height="16" draggable="false" />
+      <input type="search" name="q" placeholder="Search players..." aria-label="Search players" />
+    </form>
+    <div class="site-account">
+      <button type="button" id="site-theme-toggle" class="site-icon-button" aria-label="Switch to light mode" title="Switch to light mode">
+        <i class="site-font-icon fa-solid fa-sun" aria-hidden="true"></i>
+      </button>
+      <a class="btn-primary btn-sm site-signin" href="/bloxverse/login" aria-current="page">Sign in</a>
+    </div>
+  </header>
+
+  <div class="site-shell">
+    <div class="site-main" id="site-main">
+      <main class="page-content page-shell auth-main" id="site-content" tabindex="-1">
+        <div class="auth-container">
+          <div class="auth-header">
+            <img class="auth-logo" src="assets/icons/bloxverseLogo.png" alt="BloxVerse" width="95" height="56" />
+            <h1 id="authTitle">Sign in</h1>
+            <p id="authSubtitle">Sign in to continue</p>
+          </div>
+
+          <div class="auth-success" id="authSuccess"></div>
+
+    <!-- Login Form -->
+    <form class="auth-form active" id="loginForm">
+      <div class="form-group">
+        <label for="loginEmail">Username or email</label>
+        <input type="text" id="loginEmail" autocomplete="username" required autofocus />
+      </div>
+      <div class="form-group">
+        <label for="loginPassword">Password</label>
+        <input type="password" id="loginPassword" autocomplete="current-password" required />
+      </div>
+      <div class="form-error" id="loginError"></div>
+      <button type="submit" class="auth-submit btn-primary" id="loginBtn">Sign in</button>
+      <p class="auth-signup-prompt">No account? <a href="#signup" onclick="switchTab('signup');return false;">Create one</a></p>
+      <p class="auth-forgot-row"><a href="#" class="forgot-link" onclick="showForgotPassword();return false;">Forgot password?</a></p>
+    </form>
+
+    <!-- Forgot Password Form -->
+    <form class="auth-form" id="forgotForm">
+      <p class="auth-form-hint">Enter the verified email on your account and we'll send you a reset link.</p>
+      <div class="form-group">
+        <label for="forgotEmail">Email</label>
+        <input type="email" id="forgotEmail" placeholder="Enter your email" required />
+      </div>
+      <div class="form-group">
+        <div class="h-captcha" data-sitekey="42382d9c-3d68-424a-a678-f1e46ac4789a" id="forgotCaptchaContainer"></div>
+      </div>
+      <div class="form-error" id="forgotError"></div>
+      <div class="auth-success" id="forgotSuccess" style="display:none;text-align:center;padding:12px;border-radius:8px;margin-bottom:16px;"></div>
+      <button type="submit" class="auth-submit" id="forgotBtn">Send Reset Link</button>
+      <p class="auth-signup-prompt"><a href="#" class="forgot-link" onclick="showLogin();return false;">← Back to sign in</a></p>
+    </form>
+
+    <!-- Signup Form -->
+    <form class="auth-form" id="signupForm">
+      <div class="form-group">
+        <label for="signupUsername">Username</label>
+        <input type="text" id="signupUsername" placeholder="Choose a username" required minlength="3" maxlength="20" autocomplete="off" />
+        <div class="field-error" id="usernameError"></div>
+      </div>
+      <div class="form-group">
+        <label for="signupEmail">Email</label>
+        <input type="email" id="signupEmail" placeholder="Enter your email" required />
+        <div class="field-error" id="emailError"></div>
+      </div>
+      <div class="form-group">
+        <label for="signupPassword">Password</label>
+        <input type="password" id="signupPassword" placeholder="Create a password" required minlength="6" />
+        <div class="password-strength" id="passwordStrength">
+          <div class="strength-bar"></div>
+          <div class="strength-bar"></div>
+          <div class="strength-bar"></div>
+          <div class="strength-bar"></div>
+        </div>
+        <div class="strength-text" id="strengthText"></div>
+        <div class="field-error" id="passwordError"></div>
+      </div>
+      <div class="form-group">
+        <label for="signupConfirm">Confirm Password</label>
+        <input type="password" id="signupConfirm" placeholder="Confirm your password" required />
+        <div class="field-error" id="confirmError"></div>
+      </div>
+      <div class="form-group">
+        <label for="signupBirthday">Birthday</label>
+        <input type="date" id="signupBirthday" required />
+        <p class="auth-age-note">BloxVerse requires all users to be at least 13 years old.</p>
+        <div class="field-error" id="birthdayError"></div>
+      </div>
+      <div class="form-group">
+        <div class="h-captcha" data-sitekey="42382d9c-3d68-424a-a678-f1e46ac4789a" id="signupCaptchaContainer"></div>
+      </div>
+      <div class="form-group terms-group">
+        <label class="terms-label">
+          <input type="checkbox" id="signupTerms" required />
+          <span>I agree to the <a href="/bloxverse/terms" target="_blank">Terms of Service</a> and <a href="/bloxverse/privacy" target="_blank">Privacy Policy</a></span>
+        </label>
+        <div class="field-error" id="termsError"></div>
+      </div>
+      <div class="form-error" id="signupError"></div>
+      <button type="submit" class="auth-submit" id="signupBtn">Create account</button>
+      <p class="auth-signup-prompt">Already have an account? <a href="#login" onclick="switchTab('login');return false;">Sign in</a></p>
+    </form>
+
+    <!-- Two-Factor Authentication Form -->
+    <form class="auth-form" id="totpForm">
+      <p class="auth-form-hint">Enter the 6-digit code from your authenticator app. Lost access to it? Enter one of your recovery codes instead.</p>
+      <div class="form-group">
+        <label for="totpCode">Verification or recovery code</label>
+        <input type="text" id="totpCode" maxlength="11" autocomplete="off" inputmode="text" />
+      </div>
+      <div class="auth-forgot-row">
+        <a href="#" class="forgot-link" id="totpForgotBtn">Forgot password?</a>
+      </div>
+      <div class="form-error" id="totpError"></div>
+      <button type="button" class="auth-submit" id="totpVerifyBtn">Verify</button>
+      <p class="auth-signup-prompt"><a href="#" class="forgot-link" id="totpBackBtn">← Back to sign in</a></p>
+    </form>
+  </div>
+
+        </div>
+      </main>
+      <footer class="footer" aria-label="Site information">
+        <div class="footer-inner">
+          <nav class="footer-links" aria-label="Resources and policies">
+            <a href="/bloxverse/community-guidelines">Community Guidelines</a>
+            <a href="/bloxverse/terms">Terms of Service</a>
+            <a href="/bloxverse/privacy">Privacy Policy</a>
+            <a href="/bloxverse/support">Support</a>
+          </nav>
+          <p class="footer-copyright">&copy; 2026 BloxVerse. All rights reserved.</p>
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <script type="module">
+    import { toggleThemeMode, isDarkActive } from './src/theme.js';
+    const button = document.getElementById('site-theme-toggle');
+    const syncThemeButton = () => {
+      const dark = isDarkActive();
+      const label = dark ? 'Switch to light mode' : 'Switch to dark mode';
+      button.setAttribute('aria-label', label);
+      button.title = label;
+      button.querySelector('i').className = `site-font-icon fa-solid ${dark ? 'fa-sun' : 'fa-moon'}`;
+    };
+    button.addEventListener('click', () => { toggleThemeMode(); syncThemeButton(); });
+    syncThemeButton();
+  </script>
+  <script type="module" src="src/auth.js"></script>
+</body>
+
+</html>

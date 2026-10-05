@@ -80,3 +80,61 @@ export async function getFriends(userId) {
   }
   return friends;
 }
+
+/**
+ * Reads one id-array field off the caller's user doc (friends, following,
+ * followers) and hydrates each id into a user object. Missing/deleted user
+ * docs are skipped instead of throwing, and a failed read resolves to null so
+ * one bad document cannot blank the whole list.
+ */
+export async function getUserList(userId, field) {
+  const userDoc = await getDoc(doc(db, 'users', userId));
+  if (!userDoc.exists()) return [];
+
+  const ids = userDoc.data()[field] || [];
+  if (ids.length === 0) return [];
+
+  const snapshots = await Promise.all(
+    ids.map((id) => getDoc(doc(db, 'users', id)).catch(() => null))
+  );
+  const users = [];
+  for (let i = 0; i < ids.length; i++) {
+    const snapshot = snapshots[i];
+    if (snapshot && snapshot.exists()) {
+      users.push({ id: ids[i], ...snapshot.data() });
+    }
+  }
+  return users;
+}
+
+/** Batch-loads user docs for an arbitrary set of ids, keyed by user id. */
+export async function hydrateUsers(ids) {
+  const unique = [...new Set(ids.filter(Boolean))];
+  const users = new Map();
+  if (unique.length === 0) return users;
+
+  const snapshots = await Promise.all(
+    unique.map((id) => getDoc(doc(db, 'users', id)).catch(() => null))
+  );
+  snapshots.forEach((snapshot, i) => {
+    if (snapshot && snapshot.exists()) {
+      users.set(unique[i], { id: unique[i], ...snapshot.data() });
+    }
+  });
+  return users;
+}
+
+/** Pending requests this user sent, each with the recipient hydrated. */
+export async function getSentRequests(userId) {
+  const q = query(
+    collection(db, 'friendRequests'),
+    where('from', '==', userId),
+    where('status', '==', 'pending')
+  );
+  const snapshot = await getDocs(q);
+  const requests = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+  if (requests.length === 0) return [];
+
+  const users = await hydrateUsers(requests.map((r) => r.to));
+  return requests.map((r) => ({ ...r, user: users.get(r.to) || null }));
+}

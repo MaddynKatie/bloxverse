@@ -18,6 +18,14 @@ export class Signal {
       try { h(...args); } catch (e) { console.error('[Signal] Handler error:', e); }
     });
   }
+  Wait() {
+    return new Promise((resolve) => {
+      const connection = this.Connect((...args) => {
+        connection.Disconnect();
+        resolve(args[0]); // Lua wait returns first arg (or multiple in some runtimes, but transpiler wraps await)
+      });
+    });
+  }
 }
 
 export class Instance {
@@ -235,11 +243,14 @@ export class PartInstance extends Instance {
     super('Part', name);
     this.Shape = 'Block';
     this.Size = [4, 1.2, 2];
-    this.Color = new THREE.Color(0x808080);
+    this.Color = new THREE.Color(0xA3A3A3);
     this.Anchored = true;
     this.CanCollide = true;
     this.Transparency = 0;
     this.Position = [0, 0, 0];
+    // Roblox-style .Rotation is a Vector3 in DEGREES (kept separate from the
+    // THREE mesh's radian Euler); the script proxy converts to/from the mesh.
+    this.Rotation = [0, 0, 0];
     this.mesh = null;
     this.Touched = new Signal();
   }

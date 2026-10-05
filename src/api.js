@@ -11,9 +11,16 @@ export const API_BASES = [
 
 /**
  * Fetch a backend API path with node failover. Tries each node in order and
- * returns the first real response. A CORS-blocked request or a non-JSON error
- * response (e.g. Render's suspended-service HTML page) counts as a failed node
- * and moves on to the next one.
+ * returns the first real response.
+ *
+ * Every endpoint these callers use answers JSON, so a response whose
+ * content-type is not JSON counts as a failed node and moves on. A Render
+ * service that is suspended, still spinning up, or running a revision without
+ * the route answers 200 with the plain-text banner
+ * ("BloxVerse WebSocket Server Running") from the catch-all in server/index.js
+ * rather than a 404 -- treating that as success handed callers a body they
+ * could not parse, so they silently fell back to local data instead of trying
+ * the next node.
  */
 export async function fetchApi(path, options) {
   const host = window.location.hostname;
@@ -25,8 +32,8 @@ export async function fetchApi(path, options) {
     try {
       const res = await fetch(base + path, options);
       const ct = res.headers.get('content-type') || '';
-      if (!res.ok && !ct.includes('json')) {
-        lastErr = new Error('HTTP ' + res.status);
+      if (!ct.includes('json')) {
+        lastErr = new Error(`${base} answered ${res.status} ${ct || 'no content-type'}`);
         continue;
       }
       return res;

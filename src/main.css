@@ -542,7 +542,7 @@ body {
   transition: width 0.2s ease;
 }
 
-/* ── Hamburger Menu ─────────────────────────── */
+/* -- Hamburger Menu --------------------------- */
 .nav-hamburger {
   display: none;
   background: none;
@@ -553,7 +553,7 @@ body {
   flex-shrink: 0;
 }
 
-/* ── Responsive ─────────────────────────────── */
+/* -- Responsive ------------------------------- */
 @media (max-width: 1024px) {
   .nav-left {
     min-width: unset;
@@ -879,7 +879,7 @@ body {
   display: block;
 }
 
-/* ── Send Bux Modal ────── */
+/* -- Send Bux Modal ------ */
 .search-list {
   max-height: 200px;
   overflow-y: auto;
@@ -1175,7 +1175,7 @@ body {
   display: flex;
 }
 
-/* ── Modal overlay (shared by publish/edit modals) ─── */
+/* -- Modal overlay (shared by publish/edit modals) --- */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -1258,7 +1258,7 @@ body {
 .modal-btn.confirm { background: rgba(76,175,80,0.8); color: var(--text-primary); }
 .modal-btn.confirm:hover { background: rgba(76,175,80,1); }
 
-/* ── Thumbnail picker ───────────────────────────────── */
+/* -- Thumbnail picker --------------------------------- */
 .thumb-picker {
   display: flex;
   flex-wrap: wrap;
@@ -1328,7 +1328,7 @@ body {
   font-weight: 700;
 }
 
-/* ── Site footer ─────────────────────────────── */
+/* -- Site footer ------------------------------- */
 .site-footer {
   width: 100%;
   border-top: 1px solid var(--border-strong);

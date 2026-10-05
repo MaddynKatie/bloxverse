@@ -1,0 +1,161 @@
+.download-page .download-content {
+    container-type: inline-size;
+}
+
+.download-page .dl-hero {
+    margin-bottom: var(--space-40);
+}
+
+.download-page .dl-hero-title {
+    margin-bottom: var(--space-12);
+    color: var(--palette-white);
+    font-size: var(--text-4xl);
+    font-weight: var(--weight-bold);
+    line-height: 1.2;
+}
+
+.download-page .dl-hero-sub {
+    color: var(--palette-muted);
+    font-size: var(--text-md);
+    line-height: 1.5;
+}
+
+.download-page .dl-cards {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
+    gap: var(--space-24);
+    width: 100%;
+}
+
+.download-page .dl-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-20);
+    min-width: 0;
+    padding: var(--space-24);
+    border: 1px solid var(--palette-border);
+    border-radius: var(--radius-lg);
+    background: var(--palette-surface);
+}
+
+.download-page .dl-card-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-12);
+    min-height: 32px;
+}
+
+.download-page .dl-card-header > i {
+    width: 32px;
+    flex: 0 0 32px;
+    color: var(--palette-white);
+    font-size: var(--text-3xl);
+    text-align: center;
+}
+
+.download-page .dl-card-platform {
+    color: var(--palette-white);
+    font-size: var(--text-xl);
+    font-weight: var(--weight-bold);
+    line-height: 1.2;
+}
+
+.download-page .dl-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-8);
+}
+
+.download-page .dl-buttons .btn-download {
+    --button-height: var(--control-height-touch);
+    flex: 1;
+}
+
+.download-page .dl-card > .btn-download {
+    --button-height: var(--control-height-touch);
+}
+
+.download-page .dl-notice {
+    flex: 1;
+    min-width: 0;
+    padding: var(--space-16);
+    border: 1px solid var(--palette-border);
+    border-radius: var(--radius-lg);
+    background: var(--palette-canvas);
+    color: var(--palette-muted);
+    font-size: var(--text-sm);
+    line-height: 1.65;
+}
+
+.download-page .dl-notice ol {
+    padding-left: var(--space-20);
+}
+
+.download-page .dl-notice li + li {
+    margin-top: var(--space-12);
+}
+
+.download-page .dl-notice strong {
+    color: var(--palette-white);
+}
+
+.download-page .dl-notice-subtle {
+    color: var(--palette-muted);
+}
+
+.download-page .dl-footer-note {
+    max-width: 75ch;
+    margin-top: var(--space-40);
+    color: var(--palette-muted);
+    font-size: var(--text-sm);
+    line-height: 1.6;
+}
+
+.download-page .dl-footer-note a {
+    color: var(--palette-white);
+    text-underline-offset: 3px;
+}
+
+:root[data-theme="light"] .download-page :is(.dl-hero-title, .dl-card-platform, .dl-card-header > i, .dl-notice strong, .dl-footer-note a),
+:root[data-theme$="-light"] .download-page :is(.dl-hero-title, .dl-card-platform, .dl-card-header > i, .dl-notice strong, .dl-footer-note a) {
+    color: var(--palette-black);
+}
+
+:root[data-theme="light"] .download-page :is(.dl-hero-sub, .dl-notice, .dl-footer-note),
+:root[data-theme$="-light"] .download-page :is(.dl-hero-sub, .dl-notice, .dl-footer-note) {
+    color: var(--palette-muted-deep);
+}
+
+:root[data-theme="light"] .download-page .dl-card,
+:root[data-theme$="-light"] .download-page .dl-card {
+    background: var(--palette-light-surface);
+    border-color: var(--palette-light-border);
+}
+
+:root[data-theme="light"] .download-page .dl-notice,
+:root[data-theme$="-light"] .download-page .dl-notice {
+    background: var(--palette-light-surface);
+    border-color: var(--palette-light-border);
+}
+
+@container (max-width: 900px) {
+    .download-page .dl-cards {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@container (max-width: 580px) {
+    .download-page .dl-cards {
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--space-16);
+    }
+
+    .download-page .dl-card {
+        padding: var(--space-16);
+    }
+
+    .download-page .dl-hero-title {
+        font-size: var(--text-3xl);
+    }
+}

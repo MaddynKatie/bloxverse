@@ -1,0 +1,1119 @@
+﻿/* Catalog styles.
+ *
+ * Ported from the original catalog page onto
+ * the BloxVerse shell. The reference wraps these rules in `@layer pages`; home.css
+ * declares no layers here, so this file relies on source order instead and scopes
+ * every rule to .catalog-page. That keeps the catalog grid and the avatar page's
+ * embedded item browser from leaking into the legacy pages.
+ *
+ * The first consumer is the avatar page, which reuses the product card, search
+ * field and category button; the catalog revamp picks up the filter and item
+ * detail rules from the same file.
+ */
+
+.catalog-page {
+  color: var(--color-text);
+  /* Reference parity: home.css bridges --color-* to per-family values that
+     drift off the reference palette (greier muted, dimmer secondary, blue
+     links, translucent borders). Map the neutrals back so the catalog and the
+     avatar page (body.catalog-page) match the reference exactly. */
+  --color-muted: var(--palette-muted);
+  --color-text-subtle: var(--palette-text);
+  --color-border: var(--palette-border);
+  --color-border-strong: var(--palette-border-strong);
+  --color-control: var(--palette-control);
+  --color-link: var(--palette-purple-soft);
+  --color-error: var(--palette-danger-text);
+}
+
+[data-theme="light"] .catalog-page,
+[data-theme$="-light"] .catalog-page {
+  --color-muted: var(--palette-muted-deep);
+  --color-text-subtle: var(--palette-canvas);
+  --color-border: var(--palette-light-border);
+  --color-border-strong: var(--palette-light-border);
+  --color-control: var(--palette-light-control);
+  --color-link: var(--palette-purple);
+  --color-error: var(--palette-danger-ink);
+}
+
+[data-theme="light"] .catalog-page .catalog-product-price.is-paid,
+[data-theme$="-light"] .catalog-page .catalog-product-price.is-paid {
+  color: var(--palette-purple);
+}
+
+/* Reference parity (light.css:35): in light mode the tile flips to the light
+   surface, which keeps the same darker-than-card relationship inverted. */
+[data-theme="light"] .catalog-page :is(.catalog-product-image, .catalog-detail-image),
+[data-theme$="-light"] .catalog-page :is(.catalog-product-image, .catalog-detail-image) {
+  background: var(--palette-light-surface);
+  border-color: var(--palette-light-border);
+}
+
+/* Reference light.css:7-9. The reference groups the search field, the sort select
+   and the price/author inputs into one rule, because in light mode all four take
+   the light control fill and border. Our first pass covered only the search field
+   and the sort select, which left the Author and Min/Max Price boxes on the dark
+   surface colour in light mode. Text is forced to black and the placeholder to
+   muted-deep, matching :8 and :9. */
+[data-theme="light"] .catalog-page :is(.catalog-search-field, .catalog-sort-field select, .catalog-price-filters input),
+[data-theme$="-light"] .catalog-page :is(.catalog-search-field, .catalog-sort-field select, .catalog-price-filters input) {
+  background: var(--palette-light-control);
+  border-color: var(--palette-light-border);
+  color: var(--palette-black);
+}
+
+[data-theme="light"] .catalog-page :is(.catalog-search-field input, .catalog-price-filters input),
+[data-theme$="-light"] .catalog-page :is(.catalog-search-field input, .catalog-price-filters input) {
+  color: var(--palette-black);
+}
+
+[data-theme="light"] .catalog-page :is(.catalog-search-field input, .catalog-price-filters input)::placeholder,
+[data-theme$="-light"] .catalog-page :is(.catalog-search-field input, .catalog-price-filters input)::placeholder {
+  color: var(--palette-muted-deep);
+  opacity: 1;
+}
+
+.catalog-page [hidden] {
+  display: none !important;
+}
+
+.catalog-page :is(button, input, select, summary) {
+  font: inherit;
+}
+
+.catalog-page {
+  /* The reference keeps its ring geometry in two tokens and reuses the same pair
+     for every control, including the search pill -- so a focused search field and
+     a focused button are the same ring, 2px out from the edge rather than drawn
+     inside it. */
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+}
+
+.catalog-page :is(button, a, input, select, summary):focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.catalog-page input::placeholder {
+  color: var(--color-muted);
+  opacity: 1;
+}
+
+.catalog-page .catalog-search-field input:focus {
+  outline: none;
+}
+
+.catalog-page button {
+  cursor: pointer;
+}
+
+.catalog-page a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.catalog-page button:disabled {
+  cursor: default;
+  opacity: .5;
+}
+
+/* The ring moves to the field rather than the bare input, so the whole pill
+   lights up instead of a 1px line inside it. Same geometry as every other
+   control on the page. */
+.catalog-page .catalog-filters :is(input, select, button):focus-visible,
+.catalog-page .catalog-search-field:focus-within,
+.catalog-page .catalog-search-field:has(input:focus-visible) {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* The shell animates its rail on load; on this page the catalog grid is what
+   should move, not the frame around it. */
+.catalog-page .site-shell {
+  transition: none;
+}
+
+.catalog-icon {
+  display: block;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.catalog-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.catalog-heading {
+  min-height: 32px;
+  margin-bottom: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-16);
+}
+
+.catalog-heading h1 {
+  font-size: var(--text-4xl);
+  line-height: 1;
+  font-weight: var(--weight-bold);
+  letter-spacing: -.02em;
+}
+
+/* Desktop keeps the filters in the rail, so the toggle is hidden. The
+   button-display custom property is what home.css buttons read; overriding it
+   here rather than display:none keeps the button's own padding/align intact
+   when it does appear. */
+.catalog-filter-toggle {
+  --button-display: none;
+}
+
+.catalog-search-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  height: 42px;
+  padding: 0 var(--space-12);
+  border: 1px solid var(--palette-border);
+  background: var(--palette-surface);
+  border-radius: var(--radius-lg);
+  min-width: 0;
+}
+
+.catalog-search-field input {
+  width: 100%;
+  min-width: 0;
+  background: none;
+  border: 0;
+  color: var(--palette-white);
+  height: 100%;
+}
+
+.catalog-browser {
+  display: grid;
+  --catalog-filter-width: 256px;
+grid-template-columns: var(--catalog-filter-width) minmax(0, 1fr);
+  gap: var(--space-32);
+  align-items: start;
+  }
+
+.catalog-filter-slot {
+  position: sticky;
+  top: calc(82px + var(--space-16));
+  align-self: start;
+  min-width: 0;
+  max-height: calc(100dvh - 82px - var(--space-32));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.catalog-filters {
+  width: var(--catalog-filter-width);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+  min-width: 0;
+}
+
+.catalog-sort-field {
+  position: relative;
+}
+
+.catalog-sort-field select {
+  appearance: none;
+  width: 100%;
+  height: 42px;
+  padding: 0 var(--space-40) 0 var(--space-12);
+  background: var(--palette-control);
+  color: var(--palette-white);
+  border: 1px solid var(--palette-border);
+  border-radius: var(--radius-lg);
+  font-weight: var(--weight-bold);
+  cursor: pointer;
+}
+
+.catalog-sort-field>img {
+  position: absolute;
+  right: 12px;
+  top: 9px;
+  pointer-events: none;
+}
+
+.catalog-categories {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.catalog-categories button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  width: 100%;
+  min-height: 40px;
+  padding: var(--space-8) var(--space-12);
+  border: 0;
+  background: none;
+  /* Reference parity (catalog.css:28): the reference paints these labels with
+     --palette-white, not the shell's --color-text, which is greyer and drifts off
+     the reference palette. The remap block at the top of this file bridges
+     --color-muted but not --color-text, so the category labels - and the All items
+     row most of all, since it is the only one that is bare text - came out duller
+     than the reference. */
+  color: var(--palette-white);
+  border-radius: var(--radius-lg);
+  text-align: left;
+  font-weight: var(--weight-bold);
+  transition: background-color var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard);
+}
+
+.catalog-categories button:hover {
+  background: var(--color-control);
+}
+
+.catalog-categories button[aria-pressed="true"] {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+/* The All items row is a peer of the five category buttons, not a subdued
+   footnote: it carries the same 24px icon and the same label colour. The reference
+   snapshot styled it smaller and muted (catalog.css:32-33) and shipped it without
+   an icon, which left it reading as a different kind of control rather than
+   "everything"; it now matches the rest of the rail. The class is kept because the
+   reference markup uses it as the hook for this button. */
+
+/* Reference light.css:31-33. These three rules used to fall out of the
+   --color-* remap block at the top of this file. Now that the category labels are
+   pinned to the raw palette, the light theme needs the reference's own overrides:
+   black labels on the light panel, the light control fill on hover, and the purple
+   fill plus white label when selected. */
+[data-theme="light"] .catalog-page .catalog-categories button,
+[data-theme$="-light"] .catalog-page .catalog-categories button {
+  color: var(--palette-black);
+}
+
+[data-theme="light"] .catalog-page .catalog-categories button:hover,
+[data-theme$="-light"] .catalog-page .catalog-categories button:hover {
+  background: var(--palette-light-control);
+}
+
+[data-theme="light"] .catalog-page .catalog-categories button[aria-pressed="true"],
+[data-theme$="-light"] .catalog-page .catalog-categories button[aria-pressed="true"] {
+  background: var(--palette-purple);
+  color: var(--palette-white);
+}
+
+.catalog-price-filters {
+  border: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.catalog-price-filters legend {
+  font-weight: var(--weight-bold);
+  margin-bottom: var(--space-8);
+}
+
+.catalog-price-filters input {
+  height: 40px;
+  width: 100%;
+  min-width: 0;
+  padding: 0 var(--space-12);
+  border: 1px solid var(--palette-border);
+  background: var(--palette-surface);
+  color: var(--palette-white);
+  border-radius: var(--radius-lg);
+}
+
+.catalog-price-range {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-8);
+}
+
+.catalog-check-filter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-10);
+  min-height: 40px;
+  padding: var(--space-8) var(--space-12);
+  border: 1px solid var(--palette-border);
+  border-radius: var(--radius-lg);
+  background: var(--palette-surface);
+  color: var(--palette-text);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+}
+
+.catalog-check-filter input {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  padding: 0;
+  margin: 0;
+  accent-color: var(--palette-purple);
+  cursor: pointer;
+}
+
+.catalog-clear {
+  align-self: center;
+  background: none;
+  color: var(--color-muted);
+  border: 0;
+  margin-top: -12px;
+  font-size: var(--text-sm) !important;
+  padding: var(--space-4);
+}
+
+.catalog-clear:hover {
+  color: var(--color-text);
+}
+
+.catalog-filter-error {
+  color: var(--color-error);
+  font-size: var(--text-sm);
+}
+
+.catalog-results {
+  min-width: 0;
+}
+
+.catalog-products {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--space-24) var(--space-16);
+}
+
+.catalog-product {
+  position: relative;
+  --card-padding: 0;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.catalog-product-image,
+.catalog-detail-image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 4/5;
+  padding: var(--space-16);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  /* Reference parity: the image tile sits on --palette-surface (#0b0b12), a shade
+     darker than the card's --color-surface (#15151f). That gap is what reads as
+     the lighter name strip under the item. Using --color-surface here collapsed
+     both to one colour and the strip disappeared. */
+  background: var(--palette-surface);
+  overflow: hidden;
+}
+
+/* home.css scopes .ui-thumbnail to .site-page (two classes), which outranks the
+   bare .catalog-product-image selector below, so the shared hover-zoom class
+   would otherwise force rounded corners onto a product image the reference
+   renders square, flush with the card. Restate both here at equal specificity so
+   source order inside this file decides, as it does in the reference. */
+.site-page .catalog-product-image.ui-thumbnail {
+  display: flex;
+  border-radius: 0;
+}
+
+.catalog-product-image {
+  border: 0;
+  border-radius: 0;
+}
+
+.catalog-product-image img,
+.catalog-detail-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.catalog-product-image.is-face {
+  padding: 0;
+}
+
+.catalog-product-image.is-face img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.catalog-product-image .catalog-missing-image,
+.catalog-detail-image .catalog-missing-image {
+  width: 32px;
+  height: 32px;
+  opacity: .5;
+}
+
+.catalog-product-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  width: 100%;
+  padding: var(--space-8) var(--space-10) var(--space-10);
+}
+
+.catalog-product-name {
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+  line-height: 19px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.catalog-product-price {
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
+  min-height: 16px;
+  color: var(--color-muted);
+  font-size: var(--text-md);
+  line-height: 16px;
+  font-weight: var(--weight-semibold);
+}
+
+.catalog-product-price.is-paid {
+  /* Reference parity: paid prices use --color-focus (--palette-purple-focus,
+     #c084fc dark / #a855f7 light), not --color-primary. */
+  color: var(--palette-purple-focus);
+}
+
+.catalog-product-stock {
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+  line-height: 16px;
+}
+
+.catalog-page .catalog-limited-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  width: max-content;
+  padding: var(--space-4) var(--space-8);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: var(--text-xs);
+  line-height: 16px;
+  font-weight: var(--weight-bold);
+  white-space: nowrap;
+}
+
+.catalog-page .catalog-product > .catalog-limited-badge {
+  position: absolute;
+  top: var(--space-8);
+  left: var(--space-8);
+  z-index: 1;
+}
+
+.catalog-page .catalog-limited-badge.is-sold-out {
+  border-color: var(--color-border);
+  background: var(--color-control);
+  color: var(--color-muted);
+}
+
+.catalog-page .catalog-product.is-limited 
+/* Reference (catalog.css:131-132): items with family_id get a rainbow brush
+   badge at top-right indicating multiple color/style variations. */
+.catalog-variants-badge {
+  position: absolute;
+  top: var(--space-8);
+  right: var(--space-8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  font-size: 22px;
+}
+
+.catalog-variants-badge i {
+  background: linear-gradient(135deg, #ff4d4d, #ffb84d, #4dff88, #4dc3ff, #b84dff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.catalog-owned-badge {
+  right: var(--space-8);
+  left: auto;
+}
+
+.catalog-page .catalog-product.is-sold-out .catalog-product-image img,
+.catalog-page .catalog-product.is-sold-out .catalog-detail-image img {
+  opacity: .45;
+  filter: saturate(.5);
+}
+
+.catalog-page .catalog-product-ownership {
+  color: var(--color-focus);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  line-height: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.catalog-page .catalog-product-price.is-bought {
+  color: color-mix(in srgb, var(--color-text) 66%, transparent);
+}
+
+.catalog-owned-badge {
+  position: absolute;
+  top: var(--space-8);
+  left: var(--space-8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: 11px;
+}
+
+.catalog-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.catalog-skeleton .skeleton:first-child {
+  width: 100%;
+  aspect-ratio: 4/5;
+  border-radius: var(--radius-lg);
+}
+
+.catalog-skeleton .skeleton:last-child {
+  width: 65%;
+  height: 19px;
+}
+
+.catalog-state {
+  padding: var(--space-64) var(--space-24);
+  text-align: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.catalog-state h2 {
+  font-size: var(--text-heading-sm);
+  margin-bottom: var(--space-12);
+}
+
+.catalog-state p {
+  color: var(--color-muted);
+  margin-bottom: var(--space-20);
+  line-height: 1.5;
+}
+
+.catalog-muted {
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+
+@media (max-width: 1280px) {
+  .catalog-browser {
+    --catalog-filter-width: 224px;
+    gap: var(--space-24);
+  }
+}
+
+@media (max-width: 800px) {
+  .catalog-browser {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-20);
+  }
+
+  /* The rail collapses into a drawer: the form is moved into a <dialog>, and
+     the slot only exists to park it while it is closed. */
+  .catalog-filter-toggle {
+    --button-display: inline-flex;
+  }
+
+  .catalog-filter-slot {
+    display: none;
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .ui-drawer .catalog-filters {
+    width: 100%;
+    margin-top: var(--space-24);
+  }
+
+  .catalog-categories {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .catalog-heading {
+    margin-bottom: var(--space-20);
+  }
+
+  .catalog-heading h1 {
+    font-size: var(--text-3xl);
+  }
+}
+
+@media (max-width: 540px) {
+  .catalog-products {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-24) var(--space-12);
+  }
+
+  .catalog-product-name,
+  .catalog-product-price {
+    font-size: var(--text-sm);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .catalog-page .skeleton {
+    animation: none;
+  }
+}
+
+/* Item detail.
+   The reference serves this from its own /catalog/:id page and never shipped its
+   markup to us -- only the stylesheet (unused\uirevamp\catalog.css). So these rules
+   are the reference verbatim, and the markup in catalog.html is rebuilt to the
+   structure they describe rather than to an invention: .item-visual-column beside
+   .item-details, and the purchase panel nested in the details column.
+   The reference's facts list, variants, serials and resale listings are omitted.
+   The facts list styles are kept below because they are the reference's own rules
+   and cost nothing unused, but no facts markup is rendered: we had no reference
+   markup for it, and inventing Type/Creator/Category/Availability rows put content
+   on the page that the reference does not show.
+   Variants, serials and resale are omitted for a different reason: our stores carry
+   none of that data, so those rules would be dead weight. */
+.catalog-item-page {
+  display: grid;
+  grid-template-columns: minmax(0, 420px) minmax(320px, 480px);
+  justify-content: center;
+  gap: var(--space-32);
+  align-items: start;
+  max-width: 980px;
+  margin-inline: auto;
+  padding-top: var(--space-16);
+}
+
+.catalog-item-page .catalog-state {
+  grid-column: 1 / -1;
+}
+
+.item-visual-column {
+  min-width: 0;
+}
+
+.item-media {
+  position: relative;
+  aspect-ratio: 1;
+  border: 1px solid var(--palette-border);
+  border-radius: var(--radius-lg);
+  background: var(--palette-surface);
+  overflow: hidden;
+}
+
+.item-media .catalog-detail-image {
+  height: 100%;
+  aspect-ratio: auto;
+  border: 0;
+  border-radius: 0;
+}
+
+.item-media .catalog-detail-image img {
+  width: 150px;
+  height: 190px;
+  object-fit: contain;
+}
+
+.item-media .catalog-detail-image.is-face img {
+  width: 260px;
+  height: 260px;
+}
+
+.item-preview,
+.item-preview canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.item-media-controls {
+  position: absolute;
+  right: var(--space-16);
+  bottom: var(--space-16);
+  display: flex;
+  gap: var(--space-8);
+}
+
+.item-details h1 {
+  margin: 0;
+  font-size: var(--text-2xl);
+  overflow-wrap: anywhere;
+}
+
+.item-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-10);
+}
+
+.item-details > .catalog-muted {
+  margin: var(--space-4) 0 0;
+}
+
+/* Scoped to .catalog-item-page so it outranks our own `.site-page p { margin: 0 }`
+   reset in home.css. The reference has no such reset, so this rule wins there on
+   its own; without the scope the description collapses against the author line and
+   the reference's 20px gap above it never renders. */
+.catalog-item-page .item-description {
+  max-width: 65ch;
+  margin: var(--space-20) 0 0;
+  color: var(--palette-muted);
+  line-height: 1.55;
+}
+
+#item-variant-note {
+  margin-top: var(--space-12);
+}
+
+.item-facts {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin-top: calc(-1 * var(--space-12));
+}
+
+.item-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-12) var(--space-32);
+  margin: 0;
+  padding: var(--space-12) 0;
+}
+
+.item-info > div {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.item-info dt {
+  color: var(--palette-muted);
+}
+
+.item-info dd {
+  margin: 0;
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.item-purchase-panel {
+  min-width: 0;
+  padding-top: var(--space-8);
+}
+
+.item-purchase-summary {
+  display: grid;
+  gap: var(--space-16);
+  margin-top: var(--space-24);
+  padding-top: var(--space-20);
+  border-top: 1px solid var(--palette-border);
+}
+
+.item-price-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-16);
+}
+
+.item-price-row > span {
+  color: var(--palette-muted);
+}
+
+.item-price-row .catalog-product-price {
+  font-size: var(--text-xl);
+  font-weight: 700;
+}
+
+.item-buy {
+  width: 100%;
+  padding-block: var(--space-12);
+}
+
+#item-status {
+  margin-top: var(--space-16);
+  font-size: var(--text-sm);
+}
+
+/* Creator line. The reference underlines the name so it reads as a link into that
+   player's profile, and tints it on hover. */
+#item-author a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+#item-author a:hover {
+  color: var(--palette-purple);
+}
+
+/* Limited-run readout: sold count against the run size, with the bar underneath. */
+.item-sale-stats {
+  display: grid;
+  gap: var(--space-8);
+}
+
+.item-sale-stats-copy {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-16);
+  font-size: var(--text-sm);
+}
+
+.item-sale-stats-copy strong {
+  color: var(--palette-white);
+}
+
+.item-sale-stats-copy span {
+  color: var(--palette-muted);
+}
+
+.item-limited-progress {
+  height: 5px;
+  border-radius: 999px;
+  background: var(--palette-control);
+  overflow: hidden;
+}
+
+.item-limited-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--palette-purple);
+  transition: width 180ms ease;
+}
+
+.item-owned-copies {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-10);
+  color: var(--palette-muted);
+  font-size: var(--text-sm);
+}
+
+.item-serials {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+
+/* Resale marketplace. Matches the original catalog design so the listing rows,
+   the sell dialog and the mobile stacking match it exactly. The .ui-* primitives
+   the dialog uses (ui-dialog, ui-field, ui-input, ui-card) come from home.css. */
+.item-resale {
+  grid-column: 1 / -1;
+  margin-top: var(--space-8);
+  padding-top: var(--space-24);
+}
+
+.item-resale-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-16);
+}
+
+.item-resale-heading h2 {
+  margin: 0;
+  font-size: var(--text-xl);
+}
+
+.item-resale-dialog {
+  --dialog-width: 420px;
+}
+
+.item-resale-fields {
+  grid-template-columns: minmax(0, .8fr) minmax(0, 1fr);
+}
+
+.item-resale-payout {
+  margin: var(--space-16) 0 0;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.item-resale-select {
+  position: relative;
+  display: block;
+}
+
+.item-resale-select select {
+  width: 100%;
+  appearance: none;
+  --input-padding: var(--space-12) var(--space-40) var(--space-12) var(--space-12);
+}
+
+.item-resale-select::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: var(--space-16);
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  pointer-events: none;
+  transform: translateY(-70%) rotate(45deg);
+}
+
+.item-listings {
+  display: grid;
+  gap: var(--space-8);
+  margin-top: var(--space-16);
+}
+
+.item-listing {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-12);
+  min-height: var(--avatar-size-md);
+  padding: 0 var(--space-12) 0 0;
+  --card-padding: 0 var(--space-12) 0 0;
+  --card-radius: var(--radius-2xl);
+}
+
+.item-listing-seller {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  min-width: 0;
+  width: max-content;
+  max-width: 100%;
+}
+
+.item-listing-seller.has-no-avatar {
+  padding-left: var(--space-12);
+}
+
+.item-listing-avatar {
+  align-self: stretch;
+  flex: 0 0 var(--avatar-size-md);
+  width: var(--avatar-size-md);
+  min-height: var(--avatar-size-md);
+  height: 100%;
+  border-radius: 0;
+  background: #fff;
+  object-fit: cover;
+  object-position: center top;
+}
+
+.item-listing-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.item-listing-copy strong {
+  font-size: var(--text-md);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-listing-copy span {
+  color: var(--palette-muted);
+  font-size: var(--text-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-listing-price {
+  margin-left: auto;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+}
+
+.item-listings-empty,
+.item-resale-hold,
+#item-resale-status {
+  margin-top: var(--space-12);
+}
+
+@media (max-width: 800px) {
+  .catalog-item-page {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-16);
+  }
+
+  .item-visual-column {
+    display: contents;
+  }
+
+  .item-media {
+    grid-row: 1;
+  }
+
+  .item-details {
+    grid-row: 2;
+  }
+
+  .item-facts {
+    grid-column: 1;
+    grid-row: 3;
+    margin-top: 0;
+  }
+
+  .item-resale {
+    grid-row: 4;
+  }
+}
+
+@media (max-width: 540px) {
+  .item-info {
+    gap: var(--space-10);
+  }
+
+  .item-listing {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .item-listing-price {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: start;
+  }
+
+  .item-listing button {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: end;
+  }
+}

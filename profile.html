@@ -23,11 +23,74 @@
   <link rel="icon" type="image/png" href="assets/icons/bloxverseLogo.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BloxVerse - Profile</title>
-   <link rel="stylesheet" href="src/theme.css" />
+  <link rel="stylesheet" href="src/theme.css" />
   <link rel="stylesheet" href="src/auth.css" />
   <link rel="stylesheet" href="src/main.css" />
+
+  <!-- Figtree is the site font (home.css --font-body); without this the page
+       falls back to system-ui and every height/width breaks against the
+       reference. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" />
+
+  <!-- Third-party origins the import map, font CSS and Firestore RPC all pull
+       from. Preconnecting starts DNS + TLS while the HTML is still parsing,
+       instead of serialising three handshakes into the critical path. -->
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://esm.sh" crossorigin />
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-solid-900.woff2" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-brands-400.woff2" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <script type="module" src="src/theme.js"></script>
+  <!-- New UI: home.css carries the tokens, primitives and the shared shell
+       (topbar, nav rail, mobile bar, footer); profile.css layers the
+       profile page on top of it. Both load after the legacy main.css so the
+       new look wins while the old page keeps working. -->
+  <link rel="stylesheet" href="src/home.css" />
+  <!-- defer keeps the HTML parser unblocked. Deferred classic scripts and module
+       scripts share a single execution queue and run in document order, so these
+       still publish BloxVerseMotion / openDialog ahead of the module graph below. -->
+  <script src="src/motion.js" defer></script>
+  <script src="src/action-dialog.js" defer></script>
+  <script src="src/navigation-indicator.js" defer></script>
+  <script src="src/tooltips.js" defer></script>
+  <script>
+    // Restore the persisted theme and nav-rail state before first paint so the
+    // shell never flashes the wrong surfaces. Mirrors src/theme.js.
+    (function () {
+      try {
+        var NAMES = ['dark', 'light', 'system',
+          'valley', 'valley-light', 'valley-system',
+          'sky', 'sky-light', 'sky-system',
+          'lava', 'lava-light', 'lava-system',
+          'solar', 'solar-light', 'solar-system'];
+        var ALIASES = { twilight: 'dark', 'twilight-light': 'light', 'twilight-system': 'system' };
+        var raw = localStorage.getItem('bloxverse_theme');
+        var name = ALIASES[raw] || (NAMES.indexOf(raw) > -1 ? raw : 'dark');
+        var mode = (name === 'light' || name.slice(-6) === '-light') ? 'light'
+          : (name === 'system' || name.slice(-7) === '-system') ? 'system'
+            : 'dark';
+        var family = name === 'dark' || name === 'light' || name === 'system'
+          ? 'default'
+          : name.replace(/-(light|dark|system)$/, '');
+        var resolved = mode === 'system'
+          ? (matchMedia('(prefers-color-scheme: dark)').matches
+            ? (family === 'default' ? 'dark' : family)
+            : (family === 'default' ? 'light' : family + '-light'))
+          : (family === 'default' ? mode : (mode === 'dark' ? family : family + '-' + mode));
+        document.documentElement.setAttribute('data-theme', resolved);
+
+        if (localStorage.getItem('bloxverse_rail_expanded') !== 'false'
+          && matchMedia('(min-width: 801px)').matches) {
+          document.documentElement.classList.add('site-navigation-expanded');
+        }
+      } catch (e) { /* storage blocked */ }
+    })();
+  </script>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
 
@@ -45,7 +108,7 @@
       margin: 0 auto;
     }
 
-    /* ── Banner + avatar ─────────────────────────── */
+    /* -- Banner + avatar --------------------------- */
     .profile-banner {
       position: relative;
       width: auto;
@@ -84,7 +147,7 @@
       object-fit: contain;
     }
 
-    /* ── Header ─────────────────── */
+    /* -- Header ------------------- */
     .profile-header {
       padding: 24px 16px;
       display: flex;
@@ -162,23 +225,9 @@
       margin-top: 10px;
       flex-wrap: wrap;
     }
-    .profile-btn {
-      padding: 8px 18px;
-      border-radius: 8px;
-      border: var(--border);
-      background: var(--bg-tertiary);
-      color: var(--text-primary);
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.15s, opacity 0.15s;
-    }
-    .profile-btn:hover { background: var(--bg-secondary); }
-    .profile-btn:disabled { opacity: 0.55; cursor: default; }
-    .profile-btn-primary { background: var(--accent); border: none; }
-    .profile-btn-primary:hover { background: var(--accent-hover); }
-    .profile-btn-danger { background: rgba(255,68,68,0.15); color: #ff6666; }
-    .profile-btn-danger:hover { background: rgba(255,68,68,0.25); }
+    /* Profile actions now use the shared `btn-primary` / `btn-secondary` /
+       `btn-danger` primitives from src/home.css, so the old bespoke
+       `.profile-btn*` rules are gone. */
 
     @media (max-width: 768px) {
       .profile-page { padding-top: 48px; }
@@ -231,12 +280,12 @@
     .settings-dropdown button:hover { background: var(--bg-tertiary); color: var(--text-primary); }
 
     
-    /* ── Content layout ────────────────────────── */
+    /* -- Content layout -------------------------- */
     .profile-content {
       padding: 0 16px;
     }
 
-    /* ── Sections ──────────────────────────────── */
+    /* -- Sections -------------------------------- */
     .profile-section {
       background: var(--bg-secondary);
       border-radius: 12px;
@@ -351,13 +400,8 @@
       text-align: center;
       width: 100%;
     }
-    .friend-status {
-      font-size: 11px;
-      color: var(--text-muted);
-    }
-    .friend-status.online { color: #0d69ac; }
-    .friend-status.in-game { color: var(--accent); }
-    .friend-status.in-studio { color: #8b5cf6; }
+    /* Presence is an overlay badge on the avatar in the reference, so the old
+       textual `.friend-status` line no longer has any markup. */
 
     /* Footer Stats Grid */
     .footer-stats-grid {
@@ -388,7 +432,7 @@
       color: var(--text-primary);
     }
 
-    /* ── Bio ───────────────────────────────────── */
+    /* -- Bio ------------------------------------- */
     .profile-bio { color: var(--text-secondary); font-size: 15px; line-height: 1.5; word-wrap: break-word; }
     .profile-bio-empty { color: var(--text-muted); }
     .bio-edit-btn {
@@ -424,7 +468,7 @@
     .bio-btn-save { background: var(--accent); color: var(--text-primary); }
     .bio-btn-save:hover { background: var(--accent-hover); }
 
-    /* ── Role badges ─────────────────────────────── */
+    /* -- Role badges ------------------------------- */
     .role-badge {
       display: inline-flex;
       align-items: center;
@@ -459,55 +503,208 @@
     }
     .role-badge:hover::after { opacity: 1; }
   </style>
+  <!-- Loaded last so the new-UI profile layout wins over the legacy rules above. -->
+  <link rel="stylesheet" href="src/profile.css" />
   <script src="js/sw-register.js" defer></script>
 </head>
 
-<body>
-  <nav class="navbar">
-    <div class="nav-left">
-      <button class="nav-hamburger" id="navHamburger" aria-label="Menu">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+<body class="site-page profile-page">
+  <a class="site-skip" href="#site-content">Skip to content</a>
+
+  <header class="site-topbar">
+    <div class="site-brand">
+      <button type="button" id="site-nav-toggle" class="site-icon-button" aria-label="Expand navigation" aria-expanded="false" aria-controls="site-navigation">
+        <i class="site-nav-toggle-icon site-nav-toggle-collapsed fa-solid fa-bars" aria-hidden="true"></i>
+        <i class="site-nav-toggle-icon site-nav-toggle-expanded fa-solid fa-xmark" aria-hidden="true"></i>
       </button>
-      <div class="logo" onclick="window.location.href='/bloxverse/'">
-        
-        <span class="logo-text">BloxVerse</span>
-      </div>
-      <div class="nav-links" id="navLinks">
-        <button class="nav-link-btn" onclick="window.location.href='/bloxverse'">Home</button>
-        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
-        <button class="nav-link-btn" data-needs-auth onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
-        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/download'">
-          Download
+      <a href="/bloxverse/" class="site-wordmark" aria-label="BloxVerse home">
+        <img class="site-wordmark-mark" src="assets/icons/bloxverseLogo.png" alt="" width="34" height="34" draggable="false" />
+        <span>BloxVerse</span>
+      </a>
+    </div>
+
+    <form action="/bloxverse/search" method="get" id="search-form" class="site-global-search" role="search" aria-label="Player search" autocomplete="off">
+      <img class="site-icon" src="assets/icons/search.svg" alt="" width="16" height="16" draggable="false" />
+      <input type="search" name="q" id="search-input" placeholder="Search players..." aria-label="Search players" />
+      <div class="site-search-results" id="search-results" hidden></div>
+    </form>
+
+    <div class="site-account" id="site-account">
+      <button type="button" id="site-theme-toggle" class="site-icon-button" aria-label="Switch to light mode" title="Switch to light mode">
+        <i class="site-font-icon fa-solid fa-sun" aria-hidden="true"></i>
+      </button>
+      <div id="navRight" class="site-account-slot"></div>
+    </div>
+  </header>
+
+  <div class="notice" id="notice" hidden>
+    <i class="fa-solid fa-triangle-exclamation" id="notice-icon"></i>
+    <span id="notice-text"></span>
+  </div>
+
+  <div class="site-shell">
+
+    <div class="site-nav-rail">
+      <nav class="site-navigation" id="site-navigation" aria-label="Main navigation">
+        <div class="site-navigation-upper">
+          <div class="site-navigation-top">
+            <a href="/bloxverse/" title="Home" aria-label="Home">
+              <i class="site-font-icon fa-solid fa-house" aria-hidden="true"></i>
+              <span class="site-nav-label">Home</span>
+            </a>
+            <a href="/bloxverse/profile" title="Profile" aria-label="Profile" data-needs-auth aria-current="page">
+              <i class="site-font-icon fa-solid fa-user" aria-hidden="true"></i>
+              <span class="site-nav-label">Profile</span>
+            </a>
+            <a href="/bloxverse/friends" title="Friends" aria-label="Friends">
+              <i class="site-font-icon fa-solid fa-user-group" aria-hidden="true"></i>
+              <span class="site-nav-label">Friends</span>
+            </a>
+            <a href="/bloxverse/catalog" title="Catalog" aria-label="Catalog">
+              <i class="site-font-icon fa-solid fa-store" aria-hidden="true"></i>
+              <span class="site-nav-label">Catalog</span>
+            </a>
+            <a href="/bloxverse/inventory" title="Inventory" aria-label="Inventory">
+              <i class="site-font-icon fa-solid fa-box-open" aria-hidden="true"></i>
+              <span class="site-nav-label">Inventory</span>
+            </a>
+            <a href="/bloxverse/avatar" title="Avatar" aria-label="Avatar" data-needs-auth>
+              <i class="site-font-icon fa-solid fa-shirt" aria-hidden="true"></i>
+              <span class="site-nav-label">Avatar</span>
+            </a>
+            <a href="/bloxverse/groups" title="Groups" aria-label="Groups">
+              <i class="site-font-icon fa-solid fa-users" aria-hidden="true"></i>
+              <span class="site-nav-label">Groups</span>
+            </a>
+            <a href="/bloxverse/settings" title="Settings" aria-label="Settings" data-needs-auth>
+              <i class="site-font-icon fa-solid fa-gear" aria-hidden="true"></i>
+              <span class="site-nav-label">Settings</span>
+            </a>
+          </div>
+
+          <div class="site-navigation-tools" role="group" aria-label="Tools">
+            <button type="button" class="site-nav-studio" data-open-studio title="Launch BloxVerse Studio" aria-label="Launch BloxVerse Studio">
+              <i class="site-font-icon fa-solid fa-hammer" aria-hidden="true"></i>
+              <span class="site-nav-label">Studio</span>
+            </button>
+            <a href="/bloxverse/download" title="Download" aria-label="Download" class="site-nav-download">
+              <i class="site-font-icon fa-solid fa-download" aria-hidden="true"></i>
+              <span class="site-nav-label">Download</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="site-navigation-bottom">
+          <a href="https://discord.gg/Uh6WF5NDDK" target="_blank" rel="noopener" title="Discord" aria-label="Discord">
+            <i class="site-font-icon fa-brands fa-discord" aria-hidden="true"></i>
+            <span class="site-nav-label">Discord</span>
+          </a>
+        </div>
+      </nav>
+    </div>
+
+    <nav class="ui-card site-mobile-bar" id="site-mobile-bar" aria-label="Mobile navigation">
+      <a href="/bloxverse/" data-nav-key="home" class="site-mobile-link btn-ghost">
+        <img class="site-icon" src="assets/icons/home.svg" alt="" width="24" height="24" draggable="false" /><span>Home</span>
+      </a>
+      <a href="/bloxverse/friends" data-nav-key="friends" class="site-mobile-link btn-ghost">
+        <img class="site-icon" src="assets/icons/friends.svg" alt="" width="24" height="24" draggable="false" /><span>Friends</span>
+      </a>
+      <a href="/bloxverse/catalog" data-nav-key="catalog" class="site-mobile-link btn-ghost">
+        <img class="site-icon" src="assets/icons/catalog.svg" alt="" width="24" height="24" draggable="false" /><span>Catalog</span>
+      </a>
+      <a href="/bloxverse/profile" data-nav-key="profile" class="site-mobile-link btn-primary" aria-current="page" data-needs-auth>
+        <img class="site-icon" src="assets/icons/profile.svg" alt="" width="24" height="24" draggable="false" /><span>Profile</span>
+      </a>
+      <button type="button" data-nav-key="more" class="site-mobile-link btn-ghost" id="site-mobile-more" aria-label="More navigation" aria-haspopup="dialog" aria-expanded="false" aria-controls="site-mobile-menu">
+        <i class="site-font-icon fa-solid fa-bars" aria-hidden="true"></i><span>More</span>
+      </button>
+    </nav>
+
+    <dialog class="ui-dialog ui-bottom-sheet site-mobile-menu" id="site-mobile-menu" aria-label="More navigation">
+      <div class="ui-dialog-header">
+        <h2>More</h2>
+        <button type="button" class="btn-ghost btn-icon" id="site-mobile-menu-close" aria-label="Close">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
         </button>
       </div>
-      <button class="navbar-studio-card" data-open-studio title="Launch BloxVerse Studio">Studio</button>
-      <script type="module" src="src/studio.js"></script>
-    </div>
-    <div class="nav-right" id="navRight"></div>
-  </nav>
+      <nav class="site-navigation" aria-label="More navigation">
+        <div class="site-navigation-upper">
+          <div class="site-navigation-top">
+            <a href="/bloxverse/avatar" data-needs-auth>
+              <i class="site-font-icon fa-solid fa-shirt" aria-hidden="true"></i>
+              <span class="site-nav-label">Avatar</span>
+            </a>
+            <a href="/bloxverse/settings" data-needs-auth>
+              <i class="site-font-icon fa-solid fa-gear" aria-hidden="true"></i>
+              <span class="site-nav-label">Settings</span>
+            </a>
+            <a href="/bloxverse/inventory">
+              <i class="site-font-icon fa-solid fa-box-open" aria-hidden="true"></i>
+              <span class="site-nav-label">Inventory</span>
+            </a>
+            <a href="/bloxverse/groups">
+              <i class="site-font-icon fa-solid fa-users" aria-hidden="true"></i>
+              <span class="site-nav-label">Groups</span>
+            </a>
+            <a href="/bloxverse/download">
+              <i class="site-font-icon fa-solid fa-download" aria-hidden="true"></i>
+              <span class="site-nav-label">Download</span>
+            </a>
+          </div>
+          <div class="site-navigation-tools" role="group" aria-label="Tools">
+            <a href="/bloxverse/catalog">
+              <i class="site-font-icon fa-solid fa-store" aria-hidden="true"></i>
+              <span class="site-nav-label">Catalog</span>
+            </a>
+          </div>
+        </div>
+        <div class="site-navigation-bottom">
+          <a href="https://discord.gg/Uh6WF5NDDK" target="_blank" rel="noopener">
+            <i class="site-font-icon fa-brands fa-discord" aria-hidden="true"></i>
+            <span class="site-nav-label">Discord</span>
+          </a>
+        </div>
+      </nav>
+    </dialog>
 
-  <div class="profile-page" id="profilePage"></div>
+    <div class="site-main" id="site-main">
+      <main class="page-content" id="site-content" tabindex="-1">
+        <div class="profile-page" id="profilePage"></div>
+      </main>
 
-  <footer class="site-footer">
-    <div class="footer-inner">
-      <div class="logo" onclick="window.location.href='/bloxverse/'">
-        <img src="assets/icons/bloxverseLogo.png" alt="" class="footer-logo-img" />
-        <span class="logo-text">BloxVerse</span>
-      </div>
-      <div class="footer-links">
-        <a href="/bloxverse/terms">Terms of Service</a>
-        <a href="/bloxverse/privacy">Privacy Policy</a>
-        <a class="footer-discord" href="https://discord.gg/Uh6WF5NDDK" target="_blank" rel="noopener" title="Join our Discord"><i class="fab fa-discord"></i></a>
-      </div>
+      <footer class="footer" aria-label="Site information">
+        <div class="footer-inner">
+          <nav class="footer-links" aria-label="Resources and policies">
+            <a href="https://bloxverse.discourse.group/" target="_blank" rel="noopener">Forum</a>
+            <a href="/bloxverse/community-guidelines">Community Guidelines</a>
+            <a href="/bloxverse/terms">Terms of Service</a>
+            <a href="/bloxverse/privacy">Privacy Policy</a>
+            <a href="/bloxverse/support">Support</a>
+          </nav>
+          <p class="footer-copyright">&copy; 2026 BloxVerse. All rights reserved.</p>
+          <div class="footer-socials" role="group" aria-label="Follow BloxVerse">
+            <a class="btn-ghost btn-icon footer-icon" href="https://discord.gg/Uh6WF5NDDK" target="_blank" rel="noopener" aria-label="Discord">
+              <i class="fa-brands fa-discord" aria-hidden="true"></i>
+            </a>
+          </div>
+        </div>
+      </footer>
     </div>
-    <div class="footer-copyright">© 2026 BloxVerse. All rights reserved.</div>
-  </footer>
+  </div>
+
+  <script type="module" src="src/studio.js"></script>
+  <script type="module">
+    import { initShell } from './src/shell.js';
+    initShell();
+  </script>
 
   <script type="module">
     import { auth, db, calculateAge, addTrustedFriend, removeTrustedFriend, getRoles, resolveProfileUser, assignUserIdNum, logTransaction, trackPresence, followUser, unfollowUser, getGameStats } from './src/firebase.js';
     import { sendFriendRequest, removeFriend } from './src/friends.js';
+    import { wireAccountMenus } from './src/shell.js';
     import { onAuthStateChanged, signOut } from 'firebase/auth';
-    import { doc, getDoc, setDoc, onSnapshot, updateDoc, increment, collection, getDocs, query, where, limit } from 'firebase/firestore';
+    import { doc, getDoc, setDoc, onSnapshot, updateDoc, increment, collection, getDocs, query, where, limit, Timestamp } from 'firebase/firestore';
 
     const navRight = document.getElementById('navRight');
     const profilePage = document.getElementById('profilePage');
@@ -567,8 +764,285 @@
     const roleBadgeHtml = (r) => {
       const cfg = ROLE_BADGE_CONFIG[r];
       if (!cfg) return '';
-      return `<span class="role-badge ${r}" data-label="${cfg.label}"><i class="${cfg.icon}"></i></span>`;
+      // Reference: unused/uirevamp/profile.js:465. The label rides on `tooltip`
+      // so the shared portal in src/tooltips.js can render it; role="img" plus
+      // aria-label keeps the same text available to screen readers.
+      return `<span class="badge-tip role-badge ${r}" tooltip="${_escapeHtml(cfg.label)}" role="img" aria-label="${_escapeHtml(cfg.label)}"><i class="${cfg.icon} profile-badge" aria-hidden="true"></i></span>`;
     };
+
+    // -- Shared profile render helpers ------------------------------------
+    const _svgChevron = dir => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="${dir === 'prev' ? 'M19 12H5m7-7-7 7 7 7' : 'M5 12h14m-7-7 7 7-7 7'}"/></svg>`;
+
+    // Stat rows are links in the reference; friends.html now honours ?tab=
+    // so these deep-link to the matching list instead of a generic page.
+    // Reference: unused/uirevamp/profile.js:553 locale-formats the stat value
+    // (data.friend_count.toLocaleString()), so a five-figure friend list reads
+    // as "12,345" rather than "12345".
+    const _statLink = (href, value, label, id) =>
+      `<a class="profile-stat" href="${href}"><strong${id ? ` id="${id}"` : ''}>${Number(value || 0).toLocaleString()}</strong><span>${label}</span></a>`;
+
+    // Reference: unused/uirevamp/profile.js:227-234 and social.css:46. The
+    // section-link carries margin-left: auto, so it and the carousel arrows
+    // that follow it sit at the right end of the section header. The arrows
+    // are only rendered when there are friends: matching base.js wireCarousel,
+    // which never hides the controls - it only disables them at the ends.
+    const _carouselNavHtml = () => `
+            <div class="carousel-nav" id="friendsPagination">
+              <span class="carousel-position sr-only" aria-live="polite" aria-atomic="true"></span>
+              <button class="btn-secondary btn-icon carousel-arrow carousel-prev" id="friendsPrev" type="button" aria-label="Previous friends" aria-controls="friendsList" disabled>${_svgChevron('prev')}</button>
+              <button class="btn-secondary btn-icon carousel-arrow carousel-next" id="friendsNext" type="button" aria-label="Next friends" aria-controls="friendsList" disabled>${_svgChevron('next')}</button>
+            </div>`;
+
+    // Reference bio card: `#profile-about-heading` on the label, the rendered
+    // text in `#bio-text[data-bio]`, and a `btn-ghost row-edit` disclosure for
+    // the owner. The editor itself only exists for the owner.
+    const _aboutHtml = (bio, isSelf) => `
+        <section class="profile-about">
+          <div class="bio-box ui-card" id="bio-box">
+            <div class="bio-label">
+              <h2 id="profile-about-heading">About</h2>
+              ${isSelf ? `<button class="btn-ghost row-edit" type="button" aria-label="Edit bio" aria-expanded="false" aria-controls="profile-bio-editor" onclick="window.__toggleBioEditor(this)"><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</button>` : ''}
+            </div>
+            <p class="bio-text${bio ? '' : ' empty'}" id="bio-text" data-bio="${_escapeHtml(bio)}">${bio ? _escapeHtml(bio) : isSelf ? 'Tell people about yourself.' : 'This player has not added a bio yet.'}</p>
+            ${isSelf ? _bioEditorHtml(bio) : ''}
+          </div>
+        </section>`;
+
+    const _bioEditorHtml = (bio) => `
+            <div id="profile-bio-editor" class="bio-editor" hidden>
+              <textarea id="bioTextarea" class="ui-input bio-textarea" aria-label="About you" maxlength="1000" rows="3" placeholder="Tell people about yourself">${_escapeHtml(bio)}</textarea>
+              <p class="bio-error" id="bioError" role="alert" hidden></p>
+              <div class="bio-editor-footer">
+                <span class="bio-counter"><span id="bioCount">${bio.length}</span> / 1000</span>
+                <div>
+                  <button class="btn-secondary bio-btn bio-btn-cancel" type="button" onclick="window.__cancelBioEdit()">Cancel</button>
+                  <button class="btn-primary bio-btn bio-btn-save" type="button" onclick="saveBio()">Save</button>
+                </div>
+              </div>
+            </div>`;
+
+    // The reference splits the avatar preview and the equipped item grid into
+    // one two-column card, with the preview as a rotating 3D canvas
+    // (unused/uirevamp/avatar_viewer.js). BloxVerse persists the outfit on the
+    // user doc (avatarClothing / avatarPants / avatarAccessories / avatarFace /
+    // avatarColors / avatarBodyType), so src/avatar-viewer.js rebuilds that
+    // canvas from the same doc; the Cloudinary still is the fallback for
+    // anything that cannot render in 3D.
+    const _equippedHtml = (previewHtml, items) => `
+        <section class="profile-section profile-equipped" aria-labelledby="profile-avatar-heading">
+          <div class="section-header"><h2 class="section-title" id="profile-avatar-heading">Avatar</h2></div>
+          <div class="ui-card profile-equipped-card">
+            <div class="profile-equipped-preview">
+              <canvas class="profile-equipped-canvas" aria-label="3D avatar preview" role="img" hidden></canvas>
+              <div class="profile-equipped-still">${previewHtml}</div>
+            </div>
+            <ul class="profile-equipped-items" aria-label="Equipped items">
+              ${items.length ? items.map(_equippedItemHtml).join('') : '<li class="profile-equipped-empty">No items equipped.</li>'}
+            </ul>
+          </div>
+        </section>`;
+
+    const _equippedItemHtml = (item) => `
+              <li>
+                <a class="profile-equipped-item" href="/bloxverse/catalog/${item.id}">
+                  ${item.thumbUrl
+                    ? `<img src="${item.thumbUrl}" data-fallback="${item.imageUrl || ''}" alt="" loading="lazy" decoding="async" />`
+                    : item.imageUrl
+                      ? `<img src="${item.imageUrl}" alt="" loading="lazy" decoding="async" />`
+                      : `<span class="equipped-fallback" aria-hidden="true">${_escapeHtml((item.name || '?').charAt(0))}</span>`}
+                  <span>${_escapeHtml(item.name)}</span>
+                </a>
+              </li>`;
+
+    // A thumbnail that was never published 404s, so step the <img> down to the
+    // raw texture and finally to the letter tile instead of showing a broken
+    // image. `error` does not bubble, hence the capture phase.
+    const _wireEquippedFallbacks = (root) => {
+      if (!root || root.dataset.equippedFallbacks) return;
+      root.dataset.equippedFallbacks = 'true';
+      root.addEventListener('error', (event) => {
+        const img = event.target;
+        if (!(img instanceof HTMLImageElement)) return;
+        const fallback = img.dataset.fallback;
+        if (fallback) {
+          delete img.dataset.fallback;
+          img.src = fallback;
+          return;
+        }
+        const letter = document.createElement('span');
+        letter.className = 'equipped-fallback';
+        letter.setAttribute('aria-hidden', 'true');
+        const name = img.closest('.profile-equipped-item')?.querySelector('span:last-child')?.textContent || '?';
+        letter.textContent = name.charAt(0);
+        img.replaceWith(letter);
+      }, true);
+    };
+
+    // #profilePage is a stable element whose children get replaced on every
+    // paint, so a single capture-phase listener covers the cached paint, the
+    // full paint and any later re-paint.
+    _wireEquippedFallbacks(profilePage);
+
+    // Reference: unused/uirevamp/profile.js:601-614. Game visits first, then
+    // Joined in long-form locale order ("March 5, 2024"), and the Joined card is
+    // omitted entirely when the account has no creation date.
+    const _profileWidgetsHtml = (visits, joined) => `
+        <dl class="profile-widgets" aria-label="Account details">
+          <div class="profile-widget ui-card">
+            <i class="fa-solid fa-eye" aria-hidden="true"></i>
+            <dt>Game visits</dt>
+            <dd id="profileVisitCount">${visits}</dd>
+          </div>
+          ${joined ? `
+          <div class="profile-widget ui-card">
+            <i class="fa-solid fa-calendar" aria-hidden="true"></i>
+            <dt>Joined</dt>
+            <dd>${joined}</dd>
+          </div>` : ''}
+        </dl>`;
+
+    // Long month name, numeric day and year, in the viewer's locale order.
+    const _joinedLabel = value => {
+      const date = value ? new Date(value) : null;
+      if (!date || Number.isNaN(date.getTime())) return '';
+      return date.toLocaleString('default', { month: 'long', day: 'numeric', year: 'numeric' });
+    };
+
+    // Resolve the equipped outfit from the persisted avatar fields using the
+    // real item catalogs. Clothing and faces carry a texture thumbnail; hair
+    // and other accessories are GLB-only, so they fall back to a letter tile.
+    let _catalogPromise = null;
+    const _loadCatalogs = () => (_catalogPromise ||= Promise.all([
+      import('./src/clothing.js'),
+      import('./src/faces.js'),
+      import('./src/accessories.js'),
+      import('./src/catalog-thumbnails.js'),
+    ]).then(([clothing, faces, accessories, thumbnails]) => ({ clothing, faces, accessories, thumbnails }))
+      .catch(() => null));
+
+    async function _equippedItemsFor(userData) {
+      const catalogs = await _loadCatalogs();
+      if (!catalogs) return [];
+      const { findClothing } = catalogs.clothing;
+      const { findFace } = catalogs.faces;
+      const { findAccessory } = catalogs.accessories;
+      const { isCatalogThumbnailPublished, catalogThumbnailUrl } = catalogs.thumbnails;
+      const out = [];
+      const push = (def, kind) => {
+        if (!def || out.some(i => i.id === def.id)) return;
+        const item = { id: def.id, name: def.name, kind };
+        // Resolve the local source first. Local-first. Every face and clothing
+        // entry ships a local texturePath, so that is the normal source and the
+        // common case needs no network at all. A published Cloudinary render is
+        // only used when this browser actually recorded one -- assuming every
+        // item is uploaded just produced a 404 per tile.
+        item.imageUrl = def.texturePath || null;
+        item.source = def.texturePath || def.meshPath || def.id;
+        // Must come after `source`: isCatalogThumbnailPublished() compares the
+        // recorded source against sourceOf(item), and falls back to item.id when
+        // source is unset, so checking first never matched a real publication.
+        item.thumbUrl = isCatalogThumbnailPublished(item) ? catalogThumbnailUrl(item) : null;
+        out.push(item);
+      };
+      if (userData.avatarFace) push(findFace(userData.avatarFace), 'face');
+      if (userData.avatarClothing) push(findClothing(userData.avatarClothing), 'clothing');
+      if (userData.avatarPants) push(findClothing(userData.avatarPants), 'pants');
+      const accIds = Array.isArray(userData.avatarAccessories) ? userData.avatarAccessories : [];
+      for (const accId of accIds) push(findAccessory(accId), 'accessory');
+      return out;
+    }
+
+    // Generate rendered previews for any equipped item that does not have one
+    // yet, then swap them into the tiles. Clothing and accessories render as the
+    // full white character; faces render as the head alone. Anything that cannot
+    // be rendered keeps whatever the tile already had.
+    const _ensureEquippedPreviews = async (items) => {
+      if (!items?.length || typeof IntersectionObserver === 'undefined') return;
+      const list = document.querySelector('.profile-equipped-items');
+      if (!list) return;
+      // Only render once the grid is actually on screen.
+      await new Promise((resolve) => {
+        const io = new IntersectionObserver((entries) => {
+          if (!entries.some(e => e.isIntersecting)) return;
+          io.disconnect();
+          resolve();
+        }, { rootMargin: '200px' });
+        io.observe(list);
+      });
+
+      let previews;
+      try {
+        const mod = await import('./src/item-preview.js');
+        previews = await mod.ensureItemPreviews(items);
+      } catch (e) {
+        console.warn('[previews] unavailable:', e);
+        return;
+      }
+      for (const item of items) {
+        const dataUrl = previews.get(item.id);
+        if (!dataUrl) continue;
+        const anchor = [...list.querySelectorAll('.profile-equipped-item')]
+          .find(a => a.getAttribute('href')?.endsWith(`/catalog/${item.id}`));
+        const img = anchor?.querySelector('img');
+        if (!img) continue;
+        // Only upgrade; never replace a letter tile with a failed render.
+        if (img.dataset.fallback) delete img.dataset.fallback;
+        img.src = dataUrl;
+      }
+    };
+
+    window.__ensureEquippedPreviews = _ensureEquippedPreviews;
+
+    // 3D avatar preview, mirroring the reference's `section.viewerReady`
+    // (unused/uirevamp/profile.js:489-493): the canvas is only revealed once
+    // the outfit has actually loaded, so a failed load leaves the Cloudinary
+    // still in place instead of a blank 420px box.
+    let _avatarViewer = null;
+
+    function _disposeAvatarViewer() {
+      _avatarViewer?.dispose?.();
+      _avatarViewer = null;
+    }
+
+    async function _mountAvatarViewer(userData) {
+      _disposeAvatarViewer();
+      const preview = document.querySelector('.profile-equipped-preview');
+      const canvas = preview?.querySelector('.profile-equipped-canvas');
+      const still = preview?.querySelector('.profile-equipped-still');
+      if (!canvas || !still || still.hidden) return;
+
+      let viewer;
+      try {
+        const mod = await import('./src/avatar-viewer.js');
+        viewer = await mod.createViewer(canvas, { width: 336, height: 420, transparent: true });
+      } catch (e) {
+        console.warn('[avatar-viewer] unavailable:', e);
+        return;
+      }
+      // Re-render swapped the DOM out from under us, or WebGL is missing.
+      if (!viewer || !canvas.isConnected) { viewer?.dispose?.(); return; }
+
+      let loaded = false;
+      try {
+        loaded = await viewer.loadOutfit({
+          avatarBodyType: userData.avatarBodyType || userData.bodyType || 'male',
+          avatarColors: userData.avatarColors || null,
+          avatarClothing: userData.avatarClothing || null,
+          avatarPants: userData.avatarPants || null,
+          avatarAccessories: userData.avatarAccessories || null,
+          avatarFace: userData.avatarFace || null,
+        });
+      } catch (e) {
+        console.warn('[avatar-viewer] outfit failed:', e);
+      }
+      if (!loaded || !canvas.isConnected) { viewer.dispose(); return; }
+
+      _avatarViewer = viewer;
+      canvas.hidden = false;
+      still.hidden = true;
+    }
+
+    window.__mountAvatarViewer = _mountAvatarViewer;
 
     // Paint the profile page content straight from cache before auth resolves,
     // so the page is visible instantly on repeat visits. The onAuthStateChanged
@@ -594,84 +1068,107 @@
       const friendIds = userData.friends || [];
       const followerIds = userData.followers || [];
       const followingIds = userData.following || [];
-      const createdAt = userData.createdAt ? new Date(userData.createdAt).toLocaleDateString() : 'Unknown';
+      const createdAt = _joinedLabel(userData.createdAt);
       const initial = username.charAt(0).toUpperCase();
       const _cb = Date.now();
       const friendsList = page.friendsList || [];
       const badgeHtml = (page.viewingRoles || []).map(roleBadgeHtml).join('');
       const renderAvatarThumb = (preview, initial) => preview
         ? `<img src="${preview}?_cb=${_cb}" alt="" loading="lazy" />`
-        : `<div style="font-size: 32px; color: var(--text-secondary); font-weight: bold; line-height: 80px; text-align: center; background: #fff; width: 100%; height: 100%;">${initial}</div>`;
+        : `<span>${initial}</span>`;
+      const statNum = userData.userIdNum || uid;
+      const statPrefix = statNum
+        ? `/bloxverse/friends?user=${encodeURIComponent(statNum)}&tab=`
+        : '/bloxverse/friends?tab=';
 
       profilePage.innerHTML = `
-        <div class="profile-banner">
-          <div class="profile-avatar-centered">
-            ${userData.avatarPreview
-              ? `<div class="profile-avatar-large"><img src="${userData.avatarPreview}?_cb=${_cb}" alt="" class="profile-avatar-img" /></div>`
-              : `<div class="profile-avatar-large">${initial}</div>`}
+        <header class="profile-header">
+          <div class="profile-avatar-wrap avatar-frame">
+            ${userData.avatarPreviewHead || userData.avatarPreview
+              ? `<img class="profile-avatar avatar-image" src="${(userData.avatarPreviewHead || userData.avatarPreview)}?_cb=${_cb}" alt="" />`
+              : `<span class="profile-avatar">${initial}</span>`}
+            <span class="profile-presence presence-indicator offline" id="profileStatusDotHeader" role="img" aria-label="Offline" tooltip="Offline"></span>
           </div>
-        </div>
-
-        <div class="profile-header">
-          <div class="avatar-with-status">
-            <div class="profile-header-avatar">
-              ${userData.avatarPreviewHead || userData.avatarPreview
-                ? `<img src="${(userData.avatarPreviewHead || userData.avatarPreview)}?_cb=${_cb}" alt="" />`
-                : `<span>${initial}</span>`}
+          <div class="profile-header-body">
+            <div class="profile-heading-row">
+              <div class="profile-identity">
+                <h1 class="profile-username">${username}</h1>
+                ${badgeHtml ? `<div class="profile-badges">${badgeHtml}</div>` : ''}
+              </div>
             </div>
-            <div class="status-dot-blue" id="profileStatusDotHeader"></div>
-          </div>
-          <div class="profile-header-info">
-            <h1>${username}${badgeHtml}</h1>
-            <div class="inline-stats">
-              <div><span class="stat-value">${friendIds.length}</span> <span class="stat-label">Friends</span></div>
-              <div><span class="stat-value" id="profileFollowerCount">${followerIds.length}</span> <span class="stat-label">Followers</span></div>
-              <div><span class="stat-value">${followingIds.length}</span> <span class="stat-label">Following</span></div>
+            <div class="profile-header-meta">
+              <div class="profile-stats">
+                ${_statLink(`${statPrefix}friends`, friendIds.length, 'Friends')}
+                ${_statLink(`${statPrefix}followers`, followerIds.length, 'Followers', 'profileFollowerCount')}
+                ${_statLink(`${statPrefix}following`, followingIds.length, 'Following')}
+              </div>
             </div>
           </div>
-        </div>
+        </header>
+        ${_aboutHtml(bio, false)}
+        ${_equippedHtml(userData.avatarPreview
+          ? `<img src="${userData.avatarPreview}?_cb=${_cb}" alt="Full body avatar" />`
+          : `<span>${initial}</span>`, page.equippedItems || [])}
 
-        <div class="profile-content">
-          <div class="profile-section">
-            <div class="profile-section-header"><h2>ABOUT</h2></div>
-            ${bio ? `<div class="profile-bio">${_escapeHtml(bio)}</div>` : `<div class="profile-bio profile-bio-empty">No bio yet.</div>`}
+        <section class="profile-section" aria-roledescription="carousel" aria-labelledby="profile-friends-heading">
+          <div class="section-header">
+            <h2 class="section-title" id="profile-friends-heading">Friends <span class="ui-count-badge profile-section-count">${friendsList.length.toLocaleString()}</span></h2>
+            ${friendsList.length ? `<a class="section-link" href="${statPrefix}friends" aria-label="View all friends">View all</a>` : ''}
+            ${friendsList.length ? _carouselNavHtml() : ''}
           </div>
-
-          <div class="friends-header-row">
-            <h2>Friends (${friendIds.length})</h2>
-            <div class="friends-pagination" id="friendsPagination" style="visibility:hidden;"><button id="friendsPrev">&lt;</button><button id="friendsNext">&gt;</button></div>
-          </div>
-          <div class="friends-carousel">
-            <div class="friends-list" id="friendsList">
-              ${friendsList.length === 0 ? '<div style="color: #888; font-size: 13px;">No friends yet</div>' :
-                friendsList.map(f => `
-                  <div class="friend-card" onclick="window.location.href='/bloxverse/profile?user=${f.num}'" style="cursor:pointer;">
-                    <div class="friend-avatar-wrapper">
-                      ${renderAvatarThumb(f.avatarPreviewHead || f.avatarPreview, (f.username || 'U').charAt(0).toUpperCase())}
-                    </div>
-                    <div class="friend-name">${f.username}</div>
-                    <div class="friend-status">Offline</div>
+          <div class="profile-friends-carousel ui-scroll-shelf" id="friendsList" role="group" aria-label="Friends. Use left and right arrow keys to scroll." tabindex="0">
+            ${friendsList.length === 0 ? '<p class="profile-empty ui-card">No friends yet.</p>' :
+              friendsList.map(f => `
+                <a class="friend-card" href="/bloxverse/profile?user=${f.num}">
+                  <div class="avatar-frame friend-avatar-wrap has-presence">
+                    ${renderAvatarThumb(f.avatarPreviewHead || f.avatarPreview, (f.username || 'U').charAt(0).toUpperCase())}
                   </div>
-                `).join('')
-              }
-            </div>
+                  <span class="friend-name">${_escapeHtml(f.username || 'Unknown')}</span>
+                </a>
+              `).join('')
+            }
           </div>
-
-          <div class="footer-stats-grid">
-            <div class="footer-stat-card"><div class="footer-stat-label">VISITS</div><div class="footer-stat-value" id="profileVisitCount">0</div></div>
-            <div class="footer-stat-card"><div class="footer-stat-label">JOINED</div><div class="footer-stat-value">${createdAt}</div></div>
+        </section>
+        <section class="profile-section" aria-labelledby="profile-groups-heading">
+          <div class="section-header">
+            <h2 class="section-title" id="profile-groups-heading">Groups</h2>
           </div>
-        </div>
+          <div class="ui-card profile-empty">No groups yet.</div>
+        </section>
+        ${_profileWidgetsHtml(page.visitTotal != null ? Number(page.visitTotal).toLocaleString() : '0', createdAt)}
       `;
 
-      if (page.visitTotal != null) {
-        const el = document.getElementById('profileVisitCount');
-        if (el) el.textContent = Number(page.visitTotal).toLocaleString();
-      }
+      window.BloxVerseMotion?.reveal?.(profilePage);
+      _ensureEquippedPreviews(page.equippedItems);
+      _mountAvatarViewer(page.userData);
       return true;
     }
 
-    _paintFromCache();
+    // Reference shows a skeleton while the profile resolves. The cache paint
+    // below overwrites this instantly on repeat visits, so it only shows on a
+    // cold first load instead of an empty page.
+    function _paintSkeleton() {
+      if (profilePage.querySelector('.profile-header')) return;
+      profilePage.innerHTML = `
+        <header class="profile-header">
+          <div class="skel-avatar skeleton" aria-hidden="true"></div>
+          <div class="profile-header-body">
+            <div class="profile-heading-row">
+              <div class="profile-identity">
+                <span class="skel-name skeleton"></span>
+                <span class="skel-name skeleton"></span>
+              </div>
+            </div>
+            <div class="profile-header-meta">
+              <div class="profile-skel-lines"><span class="skel-name skeleton"></span><span class="skel-name skeleton"></span></div>
+            </div>
+          </div>
+        </header>
+        <p class="profile-loading">Loading profile…</p>`;
+    }
+
+    const _paintedFromCache = _paintFromCache();
+    if (!_paintedFromCache) _paintSkeleton();
 
     onAuthStateChanged(auth, async (user) => {
       document.querySelectorAll('[data-needs-auth]').forEach(el => { el.style.display = user ? '' : 'none'; });
@@ -681,13 +1178,13 @@
 
         trackPresence(user.uid, null, 'profile');
 
-        // ── Real-time ban listener ────────────────────────────────────
+        // -- Real-time ban listener ------------------------------------
         onSnapshot(doc(db, 'bans', user.uid), (snap) => {
           if (snap.exists() && snap.data().banned) {
             window.location.href = '/bloxverse/ban';
           }
         });
-        // ──────────────────────────────────────────────────────────────
+        // --------------------------------------------------------------
       }
 
       // Resolve profile view target: handle numeric userIdNum or UID.
@@ -705,13 +1202,16 @@
 
       const [resolvedUid, readOwnUserData] = await Promise.all([resolvePromise, ownDocPromise]);
       if (rawTarget && !resolvedUid) {
-        profilePage.innerHTML = '<p style="text-align:center;color:#8a8c8e;padding:48px;">User not found</p>';
+        // Reference: unused/uirevamp/profile.js:522-525.
+        profilePage.innerHTML = '<section class="profile-state"><h1>Player not found</h1><p>This profile is unavailable.</p><a class="btn-secondary" href="/bloxverse/">Back to Home</a></section>';
         return;
       }
       const viewingUserId = resolvedUid || (user ? user.uid : null);
       if (!viewingUserId) {
-        navRight.innerHTML = `<button class="login-btn" onclick="window.location.href='/bloxverse/auth'">Login / Sign Up</button>`;
-        profilePage.innerHTML = '<div style="text-align:center;padding:64px 24px;"><h2 style="margin:0 0 8px;font-size:20px;color:var(--text-primary);">Welcome to BloxVerse</h2><p style="margin:0;color:var(--text-muted);font-size:14px;">Log in to view your profile.</p><button class="profile-btn profile-btn-primary" style="margin-top:20px;" onclick="window.location.href=\'/bloxverse/auth\'">Login / Sign Up</button></div>';
+        // Reference: unused/uirevamp/profile.js:504-505. With no signed-in user
+        // and no ?user= there is no profile to render, so send the visitor home
+        // rather than showing a one-off card the reference does not have.
+        window.location.replace('/bloxverse/');
         return;
       }
       const isOwnProfile = user ? viewingUserId === user.uid : false;
@@ -733,7 +1233,7 @@
       const friendIds = userData.friends || [];
       const followerIds = userData.followers || [];
       const followingIds = userData.following || [];
-      const createdAt = userData.createdAt ? new Date(userData.createdAt).toLocaleDateString() : 'Unknown';
+      const createdAt = _joinedLabel(userData.createdAt);
       const birthday = userData.birthday || '';
       const userIdNum = userData.userIdNum;
       const hasUserIdNum = !!userIdNum;
@@ -761,7 +1261,7 @@
         return total;
       })().catch(() => 0);
 
-      // ── Privacy check: friends-only profiles ──────────────────────────
+      // -- Privacy check: friends-only profiles --------------------------
       let ownUserData = isOwnProfile ? userData : {};
       if (!isOwnProfile && user) {
         ownUserData = profileCacheGet('user:' + user.uid);
@@ -774,59 +1274,60 @@
       const ownNum = ownUserData.userIdNum;
       const ownProfileLink = ownNum ? `/bloxverse/profile?user=${ownNum}` : '/bloxverse/profile';
       const ownInitial = (ownUserData.username || 'P').charAt(0).toUpperCase();
+      const _ownUsername = _escapeHtml(ownUserData.username || 'Account');
       const ownPreview = ownUserData.avatarPreviewHead || ownUserData.avatarPreview || null;
 
       const _cb = Date.now();
 
       if (user) {
+        // Reference: index.html:914-940 (account cluster) and
+        // unused/uirevamp/profile.html. The old inline .user-info / .bux-btn /
+        // .settings-wrapper cluster is gone; the topbar now renders the same
+        // Bux pill + account <details> popups as the homepage, so the animated
+        // wiring in src/shell.js drives both pages identically.
         navRight.innerHTML = `
-        <div class="user-info">
-          <div class="bux-wrapper" id="buxWrapper">
-            <button class="bux-btn" id="buxBtn">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <text x="12" y="17" text-anchor="middle" font-size="14" font-weight="bold">B</text>
-              </svg>
-              <span id="ownBuxVal">${ownBux.toLocaleString()}</span>
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="margin-left:4px;"><path d="M7 10l5 5 5-5z"/></svg>
-            </button>
-            <div class="bux-dropdown">
-              <div class="bux-dropdown-header">
-                <span class="bux-dropdown-label">Balance</span>
-                <span class="bux-dropdown-balance" id="buxDropdownBalance">${ownBux.toLocaleString()}</span>
-              </div>
-              <button class="bux-dropdown-item" onclick="window.openSendBuxModal()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-2 8-10V5l-8-3-8 3v7c0 8 8 10 8 10z"/></svg>
-                Send Bux
-              </button>
-              <button class="bux-dropdown-item" onclick="window.location.href='/bloxverse/transactions'">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                Transactions
-              </button>
-            </div>
+        <details class="site-bux-menu" id="site-bux-menu">
+          <summary class="site-balance" aria-label="Your Bux balance" tooltip="${ownBux.toLocaleString()} Bux">
+            <img class="site-icon" src="assets/icons/bux.svg" alt="" width="24" height="24" draggable="false" /><span id="bux-count">${ownBux.toLocaleString()}</span>
+          </summary>
+          <div class="site-account-links">
+            <a href="/bloxverse/transactions">Transactions</a>
+            <button type="button" id="open-send-bux">Send Bux</button>
           </div>
-          <div class="settings-wrapper">
-            <button class="settings-nav-btn" id="navSettingsBtn" title="Settings">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="3"/>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-              </svg>
-            </button>
-            <div class="settings-dropdown" id="navSettingsDropdown">
-              <button onclick="window.location.href='/bloxverse/settings'">Settings</button>
-              <button onclick="window._logout()">Log Out</button>
-            </div>
-          </div>
+        </details>
+
+        <a id="my-profile" class="site-profile" href="${ownProfileLink}" aria-label="Your profile">
           ${ownPreview
-            ? `<img src="${ownPreview}?_cb=${_cb}" alt="" class="avatar-circle-img" onclick="window.location.href='${ownProfileLink}'" data-initial="${ownInitial}" onerror="window.__handleBrokenAvatar(this, '${user.uid}')"/>`
-            : `<div class="avatar-circle" onclick="window.location.href='${ownProfileLink}'">${ownInitial}</div>`}
-        </div>
-      `;
+            ? `<img src="${ownPreview}?_cb=${_cb}" alt="" data-fallback-initial="${ownInitial}" data-fallback-class="site-profile-initial" onerror="window.__handleBrokenAvatar(this, '${user.uid}')" />`
+            : `<span class="site-profile-initial">${ownInitial}</span>`}
+        </a>
+
+        <details class="site-account-menu" id="site-account-menu">
+          <summary aria-label="Account menu for ${ownInitial}">
+            <span>${_ownUsername}</span>
+            <img class="site-icon" src="assets/icons/chevron-small.svg" alt="" width="12" height="12" />
+          </summary>
+          <div class="site-account-links">
+            <a href="${ownProfileLink}">Profile</a>
+            <a href="/bloxverse/avatar">Customize avatar</a>
+            <a href="/bloxverse/settings">Settings</a>
+            <button type="button" id="logout">Sign out</button>
+          </div>
+        </details>`;
+
+        // The popups only exist after the innerHTML above, so the wiring runs
+        // per-render. wireAccountMenus() dedupes its own document listeners.
+        wireAccountMenus();
+        // Resolved at click time: window.openSendBuxModal is assigned further
+        // down this module, after this render runs.
+        document.getElementById('open-send-bux')?.addEventListener('click', () => window.openSendBuxModal?.());
+        document.getElementById('logout')?.addEventListener('click', () => window._logout?.());
       } else {
         navRight.innerHTML = `<button class="login-btn" onclick="window.location.href='/bloxverse/auth'">Login / Sign Up</button>`;
       }
 
       if (!isOwnProfile && userData.profilePrivacy === 'friends' && !(user && friendIds.includes(user.uid))) {
-        profilePage.innerHTML = '<div style="text-align:center;padding:64px 24px;"><div style="font-size:48px;margin-bottom:16px;">🔒</div><h2 style="margin:0 0 8px;font-size:20px;color:var(--text-primary);">Friends Only</h2><p style="margin:0;color:var(--text-muted);font-size:14px;">This profile is only visible to friends.</p></div>';
+        profilePage.innerHTML = '<section class="profile-state"><h1>Friends Only</h1><p>This profile is only visible to friends.</p><a class="btn-secondary" href="/bloxverse/friends">Your friends</a></section>';
         return;
       }
 
@@ -843,18 +1344,21 @@
       // Show Cloudinary preview image if available, otherwise initial letter
       window.__handleBrokenAvatar = async function(imgEl, uid) {
         try {
-          const initial = imgEl.getAttribute('data-initial') || 'U';
-          const letter = document.createElement('div');
+          // The topbar cluster uses the shared site-profile fallback attributes
+          // (index.html); the profile/friend/equipped images still carry
+          // data-initial.
+          const initial = imgEl.getAttribute('data-fallback-initial')
+            || imgEl.getAttribute('data-initial') || 'U';
+          const letter = document.createElement('span');
           const parent = imgEl.parentElement;
-          if (parent && parent.classList.contains('profile-header-avatar')) {
-            letter.className = 'profile-header-avatar';
-            letter.textContent = initial;
-            imgEl.replaceWith(letter);
-            return;
-          } else if (imgEl.className.includes('profile-avatar-img')) {
-            letter.className = 'profile-avatar-large';
-          } else if (imgEl.className.includes('avatar-circle-img')) {
-            letter.className = 'avatar-circle';
+          if (imgEl.className.includes('profile-avatar')) {
+            letter.className = 'profile-avatar';
+          } else if (imgEl.className.includes('friend-avatar')) {
+            letter.className = 'friend-avatar';
+          } else if (parent && parent.classList.contains('profile-equipped-preview')) {
+            letter.className = 'equipped-fallback';
+          } else if (parent && parent.classList.contains('site-profile')) {
+            letter.className = imgEl.getAttribute('data-fallback-class') || 'site-profile-initial';
           } else {
             letter.className = 'profile-thumb-letter';
           }
@@ -876,27 +1380,45 @@
 
       const renderAvatarThumb = (preview, initial, uid) => {
         if (preview) {
-          return `<img src="${preview}?_cb=${_cb}" alt="" loading="lazy" data-initial="${initial}" onerror="window.__handleBrokenAvatar(this, '${uid}')"/>`;
+          return `<img class="friend-avatar avatar-image" src="${preview}?_cb=${_cb}" alt="" loading="lazy" data-initial="${initial}" onerror="window.__handleBrokenAvatar(this, '${uid}')"/>`;
         }
-        return `<div style="font-size: 32px; color: var(--text-secondary); font-weight: bold; line-height: 80px; text-align: center; background: #fff; width: 100%; height: 100%;">${initial}</div>`;
+        return `<span>${initial}</span>`;
       };
 
-      const _escapeHtml = (str) => {
-        const div = document.createElement('div');
-        div.appendChild(document.createTextNode(str));
-        return div.innerHTML;
+      // _escapeHtml is the module-level helper (above). It used to be
+      // redeclared here, which shadowed it for this whole function body and put
+      // every earlier use into the temporal dead zone.
+
+      // Reference editor: the row `Edit` disclosure toggles the editor and the
+      // Save button stays disabled until the text actually differs.
+      window.__toggleBioEditor = function(editBtn) {
+        const editor = document.getElementById('profile-bio-editor');
+        if (!editor) return;
+        const opening = editor.hidden;
+        editor.hidden = !opening;
+        editBtn.setAttribute('aria-expanded', String(opening));
+        if (opening) document.getElementById('bioTextarea')?.focus();
+      };
+      window.__cancelBioEdit = function() {
+        const editor = document.getElementById('profile-bio-editor');
+        if (editor) editor.hidden = true;
+        const editBtn = document.querySelector('.bio-box .row-edit');
+        if (editBtn) editBtn.setAttribute('aria-expanded', 'false');
       };
 
       window.saveBio = async function() {
         const textarea = document.getElementById('bioTextarea');
         const newBio = textarea.value.trim();
+        const errorEl = document.getElementById('bioError');
+        if (newBio.length > 1000) {
+          if (errorEl) { errorEl.textContent = 'Bio must be 1000 characters or fewer.'; errorEl.hidden = false; }
+          return;
+        }
         try {
           await setDoc(doc(db, 'users', user.uid), { bio: newBio }, { merge: true });
-          document.getElementById('bioEditor').style.display = 'none';
-          document.querySelector('.bio-edit-btn').style.display = '';
           location.reload();
         } catch (e) {
-          alert('Failed to save bio: ' + e.message);
+          if (errorEl) { errorEl.textContent = 'Failed to save bio. Please try again.'; errorEl.hidden = false; }
         }
       };
 
@@ -934,102 +1456,97 @@
       let areFriends = !isOwnProfile && (ownUserData.friends || []).includes(viewingUserId);
       let isFollowing = !isOwnProfile && (ownUserData.following || []).includes(viewingUserId);
 
+      // Resolve the equipped outfit from the real item catalogs. This is
+      // viewer-agnostic, so it is cached with the rest of the page payload and
+      // the instant cache paint can render the same grid.
+      const equippedItems = await _equippedItemsFor(userData);
+
       // Cache the viewer-agnostic page payload for the instant paint on the next visit.
-      profileCacheSet('page:' + viewingUserId, { userData, friendsList, viewingRoles });
+      profileCacheSet('page:' + viewingUserId, { userData, friendsList, viewingRoles, equippedItems });
 
       const badgeHtml = viewingRoles.map(roleBadgeHtml).join(' ');
+      const statPrefix = (userIdNum || viewingUserId)
+        ? `/bloxverse/friends?user=${encodeURIComponent(userIdNum || viewingUserId)}&tab=`
+        : '/bloxverse/friends?tab=';
+
+      // Reference puts the action buttons on the same row as the username, and
+      // renders the friend and follow controls in their own wrappers so an empty
+      // box collapses instead of leaving a gap.
+      const actionsHtml = isOwnProfile ? `
+            <div>
+              <a class="btn-primary" href="/bloxverse/avatar" data-needs-auth>Customize avatar</a>
+              <a class="btn-secondary" href="/bloxverse/settings" data-needs-auth>Settings</a>
+            </div>` : user ? `
+            <div>
+              <button class="${areFriends ? 'btn-danger' : 'btn-primary'}" id="btnFriendAction" type="button" ${hasOutgoingRequest ? 'disabled' : ''}>${areFriends ? 'Remove Friend' : hasOutgoingRequest ? 'Request Sent' : 'Add Friend'}</button>
+            </div>
+            <div>
+              <button class="${isFollowing ? 'btn-secondary' : 'btn-primary'}" id="btnFollowAction" type="button"${isFollowing ? ' tooltip="Click to unfollow"' : ''}>${isFollowing ? 'Following' : 'Follow'}</button>
+            </div>
+            <!-- Reference (unused/uirevamp/profile.js:98-106, :591-593): the
+                 report button is a DIRECT child of .profile-actions, appended
+                 after the friend/follow wrappers, so it flexes to the far right
+                 of the actions row. -->
+            <button class="btn-ghost btn-icon report-btn has-tooltip" id="btnReportAction" type="button" tooltip="Report user" aria-label="Report user"><i class="fa-solid fa-flag" aria-hidden="true"></i></button>` : '';
 
       profilePage.innerHTML = `
-        <!-- Banner with centered avatar preview -->
-        <div class="profile-banner">
-          <div class="profile-avatar-centered">
-            ${userData.avatarPreview
-              ? `<div class="profile-avatar-large"><img src="${userData.avatarPreview}?_cb=${_cb}" alt="" class="profile-avatar-img" data-initial="${initial}" onerror="window.__handleBrokenAvatar(this,'${viewingUserId}')"/></div>`
-              : `<div class="profile-avatar-large">${initial}</div>`}
+        <header class="profile-header">
+          <div class="profile-avatar-wrap avatar-frame">
+            ${userData.avatarPreviewHead || userData.avatarPreview
+              ? `<img class="profile-avatar avatar-image" src="${(userData.avatarPreviewHead || userData.avatarPreview)}?_cb=${_cb}" alt="" data-initial="${initial}" onerror="window.__handleBrokenAvatar(this,'${viewingUserId}')"/>`
+              : `<span class="profile-avatar">${initial}</span>`}
+            <span class="profile-presence presence-indicator offline" id="profileStatusDotHeader" role="img" aria-label="Offline" tooltip="Offline"></span>
           </div>
-        </div>
-
-        <div class="profile-header">
-          <div class="avatar-with-status">
-            <div class="profile-header-avatar">
-              ${userData.avatarPreviewHead || userData.avatarPreview
-                ? `<img src="${(userData.avatarPreviewHead || userData.avatarPreview)}?_cb=${_cb}" alt="" data-initial="${initial}" onerror="window.__handleBrokenAvatar(this,'${viewingUserId}')"/>`
-                : `<span>${initial}</span>`}
-            </div>
-            <div class="status-dot-blue" id="profileStatusDotHeader"></div>
-          </div>
-          <div class="profile-header-info">
-            <h1>${username}${badgeHtml}</h1>
-            <div class="inline-stats">
-              <div><span class="stat-value">${friendIds.length}</span> <span class="stat-label">Friends</span></div>
-              <div><span class="stat-value" id="profileFollowerCount">${followerIds.length}</span> <span class="stat-label">Followers</span></div>
-              <div><span class="stat-value">${followingIds.length}</span> <span class="stat-label">Following</span></div>
-            </div>
-            ${!isOwnProfile && user ? `
-              <div class="profile-actions">
-                <button class="profile-btn ${areFriends ? 'profile-btn-danger' : 'profile-btn-primary'}" id="btnFriendAction" ${hasOutgoingRequest ? 'disabled' : ''}>${areFriends ? 'Remove Friend' : hasOutgoingRequest ? 'Request Sent' : 'Add Friend'}</button>
-                <button class="profile-btn" id="btnFollowAction">${isFollowing ? 'Following' : 'Follow'}</button>
+          <div class="profile-header-body">
+            <div class="profile-heading-row">
+              <div class="profile-identity">
+                <h1 class="profile-username">${username}</h1>
+                ${badgeHtml ? `<div class="profile-badges">${badgeHtml}</div>` : ''}
               </div>
-            ` : ''}
-          </div>
-        </div>
-
-        <div class="profile-content">
-          <div class="profile-section">
-            <div class="profile-section-header">
-              <h2>ABOUT</h2>
-              ${isOwnProfile ? `<button class="bio-edit-btn" onclick="document.getElementById('bioEditor').style.display='block';this.style.display='none'">Edit</button>` : ''}
+              <div class="profile-actions">${actionsHtml}</div>
             </div>
-            ${bio ? `<div class="profile-bio">${_escapeHtml(bio)}</div>` : `<div class="profile-bio profile-bio-empty">${isOwnProfile ? 'Tell people about yourself...' : 'No bio yet.'}</div>`}
-            ${isOwnProfile ? `
-              <div id="bioEditor" class="bio-editor" style="display:none">
-                <textarea id="bioTextarea" maxlength="500" rows="3" class="bio-textarea">${_escapeHtml(bio)}</textarea>
-                <div class="bio-editor-actions">
-                  <span class="bio-char-count"><span id="bioCount">${bio.length}</span>/500</span>
-                  <div>
-                    <button class="bio-btn bio-btn-cancel" onclick="document.getElementById('bioEditor').style.display='none';document.querySelector('.bio-edit-btn').style.display=''">Cancel</button>
-                    <button class="bio-btn bio-btn-save" onclick="saveBio()">Save</button>
-                  </div>
-                </div>
+            <div class="profile-header-meta">
+              <div class="profile-stats">
+                ${_statLink(`${statPrefix}friends`, friendIds.length, 'Friends')}
+                ${_statLink(`${statPrefix}followers`, followerIds.length, 'Followers', 'profileFollowerCount')}
+                ${_statLink(`${statPrefix}following`, followingIds.length, 'Following')}
               </div>
-            ` : ''}
-          </div>
-
-          <div class="friends-header-row">
-            <h2>Friends (${friendIds.length})</h2>
-            <div class="friends-pagination" id="friendsPagination">
-              <button id="friendsPrev">&lt;</button>
-              <button id="friendsNext">&gt;</button>
             </div>
           </div>
-          <div class="friends-carousel">
-            <div class="friends-list" id="friendsList">
-              ${friendsList.length === 0 ? '<div style="color: #888; font-size: 13px;">No friends yet</div>' : 
-                friendsList.map(f => `
-                  <div class="friend-card" onclick="window.location.href='/bloxverse/profile?user=${f.num}'" style="cursor:pointer;">
-                    <div class="friend-avatar-wrapper">
-                      ${renderAvatarThumb(f.avatarPreviewHead || f.avatarPreview, (f.username || 'U').charAt(0).toUpperCase(), f.id)}
-                    </div>
-                    <div class="friend-name">${f.username}</div>
-                    <div class="friend-status" data-uid="${f.id}">Offline</div>
+        </header>
+
+        ${_aboutHtml(bio, isOwnProfile)}
+        ${_equippedHtml(userData.avatarPreview
+          ? `<img src="${userData.avatarPreview}?_cb=${_cb}" alt="Full body avatar" data-initial="${initial}" onerror="window.__handleBrokenAvatar(this,'${viewingUserId}')"/>`
+          : `<span>${initial}</span>`, equippedItems)}
+
+        <section class="profile-section" aria-roledescription="carousel" aria-labelledby="profile-friends-heading">
+          <div class="section-header">
+            <h2 class="section-title" id="profile-friends-heading">Friends <span class="ui-count-badge profile-section-count">${friendsList.length.toLocaleString()}</span></h2>
+            ${friendsList.length ? `<a class="section-link" href="${statPrefix}friends" aria-label="View all friends">View all</a>` : ''}
+            ${friendsList.length ? _carouselNavHtml() : ''}
+          </div>
+          <div class="profile-friends-carousel ui-scroll-shelf" id="friendsList" role="group" aria-label="Friends. Use left and right arrow keys to scroll." tabindex="0">
+            ${friendsList.length === 0 ? '<p class="profile-empty ui-card">No friends yet.</p>' :
+              friendsList.map(f => `
+                <a class="friend-card" href="/bloxverse/profile?user=${f.num}">
+                  <div class="avatar-frame friend-avatar-wrap has-presence">
+                    ${renderAvatarThumb(f.avatarPreviewHead || f.avatarPreview, (f.username || 'U').charAt(0).toUpperCase(), f.id)}
+                    <span class="friend-presence presence-indicator offline" data-uid="${f.id}" role="img" aria-label="Offline" tooltip="Offline"></span>
                   </div>
-                `).join('')
-              }
-            </div>
+                  <span class="friend-name">${_escapeHtml(f.username || 'Unknown')}</span>
+                </a>
+              `).join('')
+            }
           </div>
-
-          <div class="footer-stats-grid">
-            <div class="footer-stat-card">
-              <div class="footer-stat-label">VISITS</div>
-              <div class="footer-stat-value" id="profileVisitCount">0</div>
-            </div>
-            <div class="footer-stat-card">
-              <div class="footer-stat-label">JOINED</div>
-              <div class="footer-stat-value">${createdAt}</div>
-            </div>
+        </section>
+        <section class="profile-section" aria-labelledby="profile-groups-heading">
+          <div class="section-header">
+            <h2 class="section-title" id="profile-groups-heading">Groups</h2>
           </div>
-
-        </div>
+          <div class="ui-card profile-empty">No groups yet.</div>
+        </section>
+        ${_profileWidgetsHtml('0', createdAt)}
       `;
 
       // Apply the visits total (computed in parallel above) once the panel exists
@@ -1040,30 +1557,63 @@
         profileCacheSet('page:' + viewingUserId, { ...prev, visitTotal: total });
       });
 
-      // Friends carousel: arrows reveal the next/previous set of friends.
+      // Friends carousel. The reference pages by card stride (not viewport
+      // width) so the arrows always land on a card boundary, disables each
+      // arrow at its own end, announces the visible range through the hidden
+      // live region, and supports arrow/Home/End when the track has focus.
       const friendsTrack = document.getElementById('friendsList');
       const friendsPrev = document.getElementById('friendsPrev');
       const friendsNext = document.getElementById('friendsNext');
       const friendsPagination = document.getElementById('friendsPagination');
       if (friendsTrack && friendsPrev && friendsNext && friendsPagination) {
+        const position = friendsPagination.querySelector('.carousel-position');
+        const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
         const updateFriendsArrows = () => {
-          const viewport = friendsTrack.parentElement;
-          const maxScroll = friendsTrack.scrollWidth - viewport.clientWidth;
-          const canScroll = maxScroll > 1;
-          friendsPagination.style.visibility = canScroll ? 'visible' : 'hidden';
-          friendsPrev.disabled = !canScroll || friendsTrack.scrollLeft <= 1;
-          friendsNext.disabled = !canScroll || friendsTrack.scrollLeft >= maxScroll - 1;
+          // Reference (base.js wireCarousel): the controls are never hidden;
+          // each arrow is just disabled at its own end.
+          const maxScroll = friendsTrack.scrollWidth - friendsTrack.clientWidth;
+          friendsPrev.disabled = friendsTrack.scrollLeft <= 1;
+          friendsNext.disabled = friendsTrack.scrollLeft >= maxScroll - 1;
+          if (position) {
+            const bounds = friendsTrack.getBoundingClientRect();
+            const visible = [...friendsTrack.children]
+              .map((card, index) => ({ rect: card.getBoundingClientRect(), index }))
+              .filter(({ rect }) => rect.left >= bounds.left - 1 && rect.right <= bounds.right + 1);
+            position.textContent = visible.length
+              ? `${visible[0].index + 1} to ${visible[visible.length - 1].index + 1} of ${friendsTrack.children.length}`
+              : '';
+          }
         };
-        friendsPrev.addEventListener('click', () => {
-          friendsTrack.scrollBy({ left: -friendsTrack.parentElement.clientWidth, behavior: 'smooth' });
-        });
-        friendsNext.addEventListener('click', () => {
-          friendsTrack.scrollBy({ left: friendsTrack.parentElement.clientWidth, behavior: 'smooth' });
+        const moveFriends = (direction) => {
+          const cards = [...friendsTrack.children];
+          if (!cards.length) return;
+          const stride = cards.length > 1 ? cards[1].offsetLeft - cards[0].offsetLeft : cards[0].offsetWidth;
+          const gap = stride - cards[0].offsetWidth;
+          const pageSize = Math.max(1, Math.floor((friendsTrack.clientWidth + gap + 1) / stride));
+          friendsTrack.scrollTo({
+            left: friendsTrack.scrollLeft + direction * stride * pageSize,
+            behavior: reduceMotion ? 'instant' : 'smooth',
+          });
+        };
+        friendsPrev.addEventListener('click', () => moveFriends(-1));
+        friendsNext.addEventListener('click', () => moveFriends(1));
+        friendsTrack.addEventListener('keydown', (event) => {
+          if (event.target !== friendsTrack || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+          event.preventDefault();
+          if (event.key.startsWith('Arrow')) moveFriends(event.key === 'ArrowLeft' ? -1 : 1);
+          else friendsTrack.scrollTo({ left: event.key === 'Home' ? 0 : friendsTrack.scrollWidth, behavior: 'instant' });
         });
         friendsTrack.addEventListener('scroll', updateFriendsArrows, { passive: true });
-        window.addEventListener('resize', updateFriendsArrows);
+        const friendsResizeObserver = new ResizeObserver(updateFriendsArrows);
+        friendsResizeObserver.observe(friendsTrack);
+        for (const card of friendsTrack.children) friendsResizeObserver.observe(card);
         updateFriendsArrows();
       }
+
+      // Reference reveals each section row as it mounts.
+      window.BloxVerseMotion?.reveal?.(profilePage);
+      _ensureEquippedPreviews(equippedItems);
+      _mountAvatarViewer(userData);
 
       // Trusted Friends button handlers
       if (isOwnProfile) {
@@ -1108,7 +1658,7 @@
             await removeFriend(user.uid, viewingUserId);
             areFriends = false;
             btnFriendAction.textContent = 'Add Friend';
-            btnFriendAction.classList.remove('profile-btn-danger');
+            btnFriendAction.className = 'btn-primary';
           } else if (!hasOutgoingRequest) {
             btnFriendAction.disabled = true;
             btnFriendAction.textContent = 'Request Sent';
@@ -1130,131 +1680,252 @@
             await unfollowUser(user.uid, viewingUserId);
             isFollowing = false;
             btnFollowAction.textContent = 'Follow';
+            btnFollowAction.className = 'btn-primary';
+            // Reference: unused/uirevamp/profile.js:15 drops the tooltip with the
+            // state, so an unfollowed button does not promise an unfollow.
+            btnFollowAction.removeAttribute('tooltip');
             if (followerCountEl) followerCountEl.textContent = String(Math.max(0, (parseInt(followerCountEl.textContent, 10) || 0) - 1));
           } else {
             await followUser(user.uid, viewingUserId);
             isFollowing = true;
             btnFollowAction.textContent = 'Following';
+            btnFollowAction.className = 'btn-secondary';
+            btnFollowAction.setAttribute('tooltip', 'Click to unfollow');
             if (followerCountEl) followerCountEl.textContent = String((parseInt(followerCountEl.textContent, 10) || 0) + 1);
           }
         });
       }
 
-      // Bio textarea character counter
+      // Report -----------------------------------------------------------------
+      // The reference posts to `POST /api/report/{userId}`. This app has no such
+      // route: its real backend is the `reports` Firestore collection, which
+      // admin.html already renders (Player Reports) and which server/index.js
+      // already purges on account deletion. So write that collection directly,
+      // using exactly the field names and `status: 'pending'` value the admin
+      // panel and its `mapReportReason()` helper expect.
+      //
+      // The five reasons below are the values admin.html maps to a ban category.
+      // Mapping the reference's eight labels down to these five keeps the admin
+      // queue meaningful without inventing categories it cannot classify.
+      const REPORT_REASONS = [
+        ['username', 'Inappropriate username'],
+        ['bio', 'Inappropriate bio'],
+        ['harassment', 'Harassment or bullying'],
+        ['hate_speech', 'Hate speech or discrimination'],
+        ['dating', 'Dating or romantic solicitation'],
+        ['spam', 'Spam or advertising'],
+        ['cheating', 'Cheating or exploiting'],
+        ['other', 'Other'],
+      ];
+      let reportPending = false;
+      const btnReportAction = document.getElementById('btnReportAction');
+
+      const openReport = () => {
+        if (document.getElementById('profile-report')) return;
+        const dialog = document.createElement('dialog');
+        dialog.id = 'profile-report';
+        dialog.className = 'ui-dialog report-dialog';
+        dialog.setAttribute('aria-labelledby', 'profile-report-title');
+        dialog.setAttribute('aria-describedby', 'profile-report-description');
+        dialog.innerHTML = `
+          <div class="ui-dialog-header">
+            <h2 id="profile-report-title">Report ${_escapeHtml(username)}</h2>
+            <button type="button" class="btn-ghost btn-icon" aria-label="Close report"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+          </div>
+          <p class="ui-dialog-description" id="profile-report-description">Tell us what happened so moderators can review it.</p>
+          <form>
+            <div class="ui-dialog-body">
+              <label class="ui-field">Category
+                <select class="ui-input" name="category">
+                  ${REPORT_REASONS.map(([value, label]) => `<option value="${value}">${label}</option>`).join('')}
+                </select>
+              </label>
+              <label class="ui-field">Details (optional)
+                <textarea class="ui-input" name="reason" maxlength="500" placeholder="Add any details that would help us understand your report."></textarea>
+              </label>
+            </div>
+            <p class="ui-dialog-error" role="alert" hidden></p>
+            <div class="ui-dialog-actions">
+              <button type="button" class="btn-secondary">Cancel</button>
+              <button type="submit" class="btn-primary">Submit report</button>
+            </div>
+          </form>`;
+        const close = dialog.querySelector('[aria-label="Close report"]');
+        const cancel = dialog.querySelector('.btn-secondary');
+        const submit = dialog.querySelector('.btn-primary');
+        const category = dialog.querySelector('select');
+        const description = dialog.querySelector('textarea');
+        const error = dialog.querySelector('[role="alert"]');
+        const fields = [close, cancel, submit, category, description];
+        const isBusy = () => reportPending;
+
+        close.onclick = cancel.onclick = () => closeDialog(dialog);
+        dialog.querySelector('form').onsubmit = async event => {
+          event.preventDefault();
+          if (reportPending) return;
+          reportPending = true;
+          error.hidden = true;
+          dialog.setAttribute('aria-busy', 'true');
+          fields.forEach(field => { field.disabled = true; });
+          window.BloxVerseMotion?.setPending?.(submit, true, 'Submitting');
+          try {
+            const reporterId = user.uid;
+            const ref = doc(collection(db, 'reports'));
+            await setDoc(ref, {
+              reporterId,
+              reportedId: viewingUserId,
+              reason: category.value,
+              description: description.value.trim(),
+              status: 'pending',
+              createdAt: Timestamp.now(),
+            });
+            // Retire the trigger for this session so a second submit is not
+            // possible from this page. Cross-session dedupe is left to the
+            // Firestore rules: reading `reports` from a client is not something
+            // the app can rely on, since only admins may list it.
+            if (btnReportAction) {
+              btnReportAction.disabled = true;
+              btnReportAction.setAttribute('tooltip', 'Report submitted');
+            }
+            dialog.querySelector('form').remove();
+            dialog.querySelector('#profile-report-description').textContent = 'Your report has been submitted for review.';
+            // The submit controls lived inside the form, which is now gone, so
+            // rebuild a confirmation row as a direct child of the dialog. This
+            // mirrors how action-dialog.js keeps its actions row on the dialog
+            // rather than inside a form.
+            const done = document.createElement('button');
+            done.type = 'button';
+            done.className = 'btn-primary';
+            done.textContent = 'Done';
+            done.onclick = () => closeDialog(dialog);
+            const doneActions = document.createElement('div');
+            doneActions.className = 'ui-dialog-actions';
+            doneActions.append(done);
+            dialog.append(doneActions);
+            reportPending = false;
+            dialog.removeAttribute('aria-busy');
+            done.focus();
+          } catch (e) {
+            console.error('Failed to submit report:', e);
+            error.textContent = 'Your report could not be submitted. Please try again.';
+            error.hidden = false;
+            fields.forEach(field => { field.disabled = false; });
+            window.BloxVerseMotion?.setPending?.(submit, false);
+            reportPending = false;
+            dialog.removeAttribute('aria-busy');
+          }
+        };
+
+        openDialog(dialog, { initialFocus: category, isBusy, removeOnClose: true });
+      };
+
+      if (btnReportAction) btnReportAction.addEventListener('click', openReport);
+
+      // Bio textarea character counter. Save stays disabled until the trimmed
+      // text actually differs from the stored bio, matching the reference.
       const bioTextarea = document.getElementById('bioTextarea');
       if (bioTextarea) {
-        bioTextarea.addEventListener('input', () => {
-          document.getElementById('bioCount').textContent = bioTextarea.value.length;
-        });
+        const bioCount = document.getElementById('bioCount');
+        const bioSave = document.querySelector('.bio-btn-save');
+        const bioError = document.getElementById('bioError');
+        const originalBio = (document.getElementById('bio-text')?.dataset.bio) || '';
+        const syncBioState = () => {
+          if (bioCount) bioCount.textContent = bioTextarea.value.length;
+          if (bioSave) bioSave.disabled = bioTextarea.value.trim() === originalBio.trim();
+          if (bioError) bioError.hidden = true;
+        };
+        bioTextarea.addEventListener('input', syncBioState);
+        syncBioState();
       }
 
-      // Presence / Status listener
-      const statusDotBanner = document.getElementById('profileStatusDotBanner');
-      const statusDotHeader = document.getElementById('profileStatusDotHeader');
-      const updateStatus = (status) => {
-        if (statusDotHeader) { statusDotHeader.className = 'status-dot ' + status; }
+      // Presence / status listener. The reference renders presence as a canvas
+      // cutout badge labelled with the status only -- it has no "last seen"
+      // feature, so nothing here reports a timestamp.
+      const _statusLabel = (status) => status === 'in-studio' ? 'In Studio'
+        : status === 'in-game' ? 'In Game'
+        : status === 'online' ? 'Online' : 'Offline';
+      const _applyPresence = (el, status) => {
+        if (!el) return;
+        el.className = el.className.split(/\s+/)
+          .filter(c => c && !['offline', 'online', 'in-game', 'in-studio'].includes(c)).join(' ')
+          + ' ' + status;
+        const label = _statusLabel(status);
+        el.setAttribute('aria-label', label);
+        // Reference: unused/uirevamp/profile.js:566-567 mirrors the same label
+        // onto `tooltip` so the shared portal explains the dot on hover. No
+        // native `title` here, or the browser tooltip would double up with the
+        // portal.
+        el.setAttribute('tooltip', label);
+        el.removeAttribute('title');
       };
-      updateStatus('offline');
+      const _readPresence = (snap) => {
+        if (!snap.exists()) return 'offline';
+        const p = snap.data();
+        const lastSeen = p.lastSeen?.toMillis?.() ?? p.lastSeen ?? null;
+        if (lastSeen && lastSeen < Date.now() - 120000) return 'offline';
+        // Older clients wrote a single state string; current clients store booleans.
+        const state = p.state;
+        if (p.inStudio || state === 'in-studio') return 'in-studio';
+        if (p.inGame || state === 'in-game') return 'in-game';
+        if (p.online || state === 'online') return 'online';
+        return 'offline';
+      };
+
+      const statusDotHeader = document.getElementById('profileStatusDotHeader');
+      _applyPresence(statusDotHeader, 'offline');
       const presenceUnsub = onSnapshot(doc(db, 'presence', viewingUserId), (snap) => {
-        let status = 'offline';
-        if (snap.exists()) {
-          const p = snap.data();
-          const lastSeen = p.lastSeen?.toMillis?.() ?? p.lastSeen;
-          const twoMinAgo = Date.now() - 120000;
-          if (lastSeen && lastSeen < twoMinAgo) status = 'offline';
-          else if (p.inStudio) status = 'in-studio';
-          else if (p.inGame) status = 'in-game';
-          else if (p.online) status = 'online';
-        }
-        updateStatus(status);
-      }, () => updateStatus('offline'));
+        _applyPresence(statusDotHeader, _readPresence(snap));
+      }, () => _applyPresence(statusDotHeader, 'offline'));
       window.addEventListener('beforeunload', () => presenceUnsub?.());
 
-      // Live friend presence
-      const friendStatusEls = {};
-      document.querySelectorAll('.friend-status[data-uid]').forEach(el => {
-        friendStatusEls[el.dataset.uid] = el;
+      // Live friend presence: the badge on each carousel avatar.
+      const friendDotEls = {};
+      document.querySelectorAll('.friend-presence[data-uid]').forEach(el => {
+        friendDotEls[el.dataset.uid] = el;
       });
       const friendPresenceUnsubs = [];
-      Object.keys(friendStatusEls).forEach(fid => {
-        const el = friendStatusEls[fid];
-        const unsub = onSnapshot(doc(db, 'presence', fid), (snap) => {
-          let text = 'Offline';
-          if (snap.exists()) {
-            const p = snap.data();
-            const lastSeen = p.lastSeen?.toMillis?.() ?? p.lastSeen;
-            const twoMinAgo = Date.now() - 120000;
-            if (lastSeen && lastSeen < twoMinAgo) text = 'Offline';
-            else if (p.inStudio) text = 'In Studio';
-            else if (p.inGame) text = 'In Game';
-            else if (p.online) text = 'Online';
-          }
-          el.textContent = text;
-          el.className = 'friend-status ' + (text === 'Online' ? 'online' : text === 'In Game' ? 'in-game' : text === 'In Studio' ? 'in-studio' : 'offline');
-        }, () => {
-          el.textContent = 'Offline';
-          el.className = 'friend-status offline';
-        });
-        friendPresenceUnsubs.push(unsub);
+      Object.keys(friendDotEls).forEach(fid => {
+        const dot = friendDotEls[fid];
+        friendPresenceUnsubs.push(onSnapshot(doc(db, 'presence', fid), (snap) => {
+          _applyPresence(dot, _readPresence(snap));
+        }, () => _applyPresence(dot, 'offline')));
       });
       window.addEventListener('beforeunload', () => friendPresenceUnsubs.forEach(u => u?.()));
 
-      // Bux dropdown toggle
-      const buxWrapper = document.getElementById('buxWrapper');
-      const buxBtn = document.getElementById('buxBtn');
-      if (buxWrapper && buxBtn) {
-        buxBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          buxWrapper.classList.toggle('open');
-        });
-      }
-
-      // Settings dropdown toggles
-      const closeSettings = () => {
-        document.querySelectorAll('.settings-dropdown').forEach(d => d.classList.remove('open'));
+      // Keep the live badges fresh if a write is missed during a reconnect or the
+      // viewer resumes the page from the background.
+      const refreshPresence = () => {
+        if (document.hidden) return;
+        const ids = new Set([viewingUserId, ...Object.keys(friendDotEls)]);
+        ids.forEach(uid => getDoc(doc(db, 'presence', uid)).then(snap => {
+          const el = uid === viewingUserId ? statusDotHeader : friendDotEls[uid];
+          _applyPresence(el, _readPresence(snap));
+        }).catch(() => {}));
       };
-      ['#navSettingsBtn'].forEach(id => {
-        const btn = document.querySelector(id);
-        if (!btn) return;
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          closeSettings();
-          const dd = btn.closest('.settings-wrapper').querySelector('.settings-dropdown');
-          if (dd) dd.classList.toggle('open');
-        });
-      });
-
-      document.addEventListener('click', (e) => {
-        if (!e.target.closest('.settings-wrapper')) {
-          closeSettings();
-        }
-        if (buxWrapper && !buxWrapper.contains(e.target)) {
-          buxWrapper.classList.remove('open');
-        }
-      });
+      document.addEventListener('visibilitychange', refreshPresence);
+      window.addEventListener('focus', refreshPresence);
+      window.addEventListener('beforeunload', () => {
+        document.removeEventListener('visibilitychange', refreshPresence);
+        window.removeEventListener('focus', refreshPresence);
+      }, { once: true });
+      // The Bux and account popups are <details> driven by wireAccountMenus()
+      // (src/shell.js), which runs right after the cluster is rendered. The old
+      // .bux-wrapper / .settings-dropdown click toggles are gone.
     });
 
-    // Hamburger menu toggle
-    const hamburger = document.getElementById('navHamburger');
-    const navLinks = document.getElementById('navLinks');
-    if (hamburger && navLinks) {
-      hamburger.addEventListener('click', () => {
-        navLinks.classList.toggle('open');
-      });
-      document.addEventListener('click', (e) => {
-        if (!e.target.closest('.navbar')) navLinks.classList.remove('open');
-      });
-    }
+    // The old hamburger nav is gone; src/shell.js wires the nav rail and the
+    // mobile drawer instead.
 
     window._logout = async () => {
       await signOut(auth);
         window.location.href = '/bloxverse/auth';
     };
 
-    // ── Send Bux ─────────────────────────────────────────────────────────
+    // -- Send Bux ---------------------------------------------------------
     window.openSendBuxModal = () => {
       if (!auth.currentUser) return;
-      const bux = Number(String(document.getElementById('buxDropdownBalance')?.textContent || '0').replace(/,/g, '')) || 0;
+      // The balance now lives in the Bux pill summary (#bux-count).
+      const bux = Number(String(document.getElementById('bux-count')?.textContent || '0').replace(/,/g, '')) || 0;
       let selectedUserId = null;
 
       const overlay = document.createElement('div');
@@ -1286,7 +1957,7 @@
               <label>Amount</label>
               <div class="amount-row">
                 <input type="number" id="sendBuxAmount" placeholder="Enter amount…" min="1" max="${bux}" />
-                <span class="bux-label">BUX</span>
+                <span class="bux-label">Bux</span>
               </div>
             </div>
 
@@ -1316,11 +1987,11 @@
             </div>
             <div class="modal-body">
               <p style="color:var(--text-secondary);font-size:14px;line-height:1.5;margin:0 0 16px;">
-                Are you sure you want to send <strong style="color:#4caf50;">${amount.toLocaleString()} BUX</strong>
+                Are you sure you want to send <strong style="color:#4caf50;">${amount.toLocaleString()} Bux</strong>
                 to <strong style="color:var(--text-primary);">${username}</strong>?
               </p>
               <div class="warning-box" style="margin:0;">
-                This transfer is <strong>final</strong>. You will not be able to recover these BUX.
+                This transfer is <strong>final</strong>. You will not be able to recover these Bux.
               </div>
             </div>
             <div class="modal-footer">
@@ -1340,8 +2011,8 @@
             const _sData = _sSnap.data();
             const _rSnap = await getDoc(doc(db, 'users', selectedUserId));
             const _rData = _rSnap.data();
-            await logTransaction(auth.currentUser.uid, -amount, _sData?.bux || 0, 'SendBux', `Sent ${amount.toLocaleString()} BUX to ${username}`);
-            await logTransaction(selectedUserId, amount, _rData?.bux || 0, 'SendBux', `Received ${amount.toLocaleString()} BUX from ${_sData?.username || 'Someone'}`);
+            await logTransaction(auth.currentUser.uid, -amount, _sData?.bux || 0, 'SendBux', `Sent ${amount.toLocaleString()} Bux to ${username}`);
+            await logTransaction(selectedUserId, amount, _rData?.bux || 0, 'SendBux', `Received ${amount.toLocaleString()} Bux from ${_sData?.username || 'Someone'}`);
 
             confirmOverlay.remove();
             overlay.remove();

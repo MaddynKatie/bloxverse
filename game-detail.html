@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <script type="importmap">
   {
@@ -18,1161 +19,263 @@
   <link rel="preconnect" href="https://esm.sh" crossorigin>
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 
-    <meta charset="UTF-8" />
-  <link rel="icon" type="image/png" href="assets/icons/bloxverseLogo.png" />
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BloxVerse - Game</title>
-  <link rel="stylesheet" href="src/main.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  <style>
-    .settings-wrapper {
-      position: relative;
-    }
-    .settings-dropdown {
-      display: none;
-      position: absolute;
-      top: 100%;
-      right: 0;
-      background: var(--bg-secondary);
-      border: 1px solid var(--border-strong);
-      border-radius: 8px;
-      min-width: 140px;
-      z-index: 100;
-      overflow: hidden;
-      margin-top: 4px;
-    }
-    .settings-dropdown.open { display: block; }
-    .settings-dropdown button {
-      display: block;
-      width: 100%;
-      padding: 10px 14px;
-      border: none;
-      background: none;
-      color: var(--text-secondary);
-      font-size: 13px;
-      text-align: left;
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-    .settings-dropdown button:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+  <meta name="description" content="Play this game on BloxVerse." />
+  <link rel="icon" type="image/png" href="assets/icons/bloxverseLogo.png" />
+  <title>Game - BloxVerse</title>
 
-    .detail-header {
-      position: relative;
-      width: 100%;
-      height: 320px;
-      background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
-      overflow: hidden;
-      display: flex;
-      align-items: flex-end;
-      padding: 32px;
-    }
-
-    .detail-header-img {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      opacity: 0.4;
-    }
-
-    .detail-header-overlay {
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(transparent 40%, color-mix(in srgb, var(--bg-primary) 95%, transparent));
-    }
-
-    .detail-header-content {
-      position: relative;
-      z-index: 2;
-      display: flex;
-      align-items: flex-end;
-      gap: 24px;
-      width: 100%;
-      max-width: 1000px;
-      margin: 0 auto;
-    }
-
-    .detail-thumb {
-      width: 120px;
-      height: 120px;
-      border-radius: 16px;
-      object-fit: cover;
-      border: 3px solid var(--border);
-      flex-shrink: 0;
-    }
-
-    .detail-info {
-      flex: 1;
-    }
-
-    .detail-title {
-      font-size: 28px;
-      font-weight: 700;
-      color: var(--text-primary);
-      margin-bottom: 4px;
-      white-space: nowrap;
-    }
-
-    .detail-category {
-      font-size: 13px;
-      color: var(--text-muted);
-      margin-bottom: 12px;
-    }
-
-    .detail-stats {
-      display: flex;
-      gap: 24px;
-    }
-
-    .detail-stat {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 13px;
-      color: var(--text-secondary);
-    }
-
-    .detail-stat svg {
-      color: var(--accent);
-    }
-
-    .detail-play-btn {
-      padding: 14px 40px;
-      background: var(--accent);
-      border: none;
-      border-radius: 10px;
-      color: var(--text-primary);
-      font-size: 16px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.15s ease;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      white-space: nowrap;
-    }
-
-    .detail-play-btn:hover {
-      transform: translateY(-2px);
-      opacity: 0.9;
-    }
-
-    .detail-body {
-      width: 100%;
-      max-width: 1000px;
-      margin: 0 auto;
-      padding: 32px 24px;
-    }
-
-    .detail-body h2 {
-      font-size: 20px;
-      font-weight: 600;
-      margin-bottom: 12px;
-      color: var(--text-primary);
-    }
-
-    .detail-description {
-      font-size: 15px;
-      line-height: 1.6;
-      color: var(--text-secondary);
-      margin-bottom: 32px;
-      white-space: pre-wrap;
-    }
-
-    .detail-section {
-      margin-bottom: 32px;
-    }
-
-    .detail-meta-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 12px;
-    }
-
-    .detail-meta-card {
-      background: var(--bg-tertiary);
-      border-radius: 10px;
-      padding: 16px;
-    }
-
-    .detail-meta-label {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--text-muted);
-      margin-bottom: 4px;
-    }
-
-    .detail-meta-value {
-      font-size: 15px;
-      font-weight: 600;
-      color: var(--text-primary);
-    }
-
-    .back-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      color: var(--text-muted);
-      text-decoration: none;
-      font-size: 13px;
-      margin-bottom: 16px;
-      transition: color 0.15s;
-    }
-
-    .back-link:hover {
-      color: var(--text-primary);
-    }
-
-    .server-cards {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-      gap: 14px;
-    }
-
-    .server-card {
-      background: var(--bg-tertiary);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 10px;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .server-card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .server-card-name {
-      font-size: 15px;
-      font-weight: 600;
-      color: var(--text-primary);
-    }
-
-    .server-card-avatars {
-      display: grid;
-      grid-template-columns: repeat(3, 48px);
-      gap: 8px;
-    }
-
-    .server-avatar-wrap {
-      display: flex;
-    }
-
-    .server-avatar {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      object-fit: cover;
-      display: block;
-      background: #e0e0e0;
-      border: 2px solid var(--bg-tertiary);
-    }
-
-    .server-avatar-letter {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-      font-weight: 700;
-      color: #555;
-    }
-
-    .server-card-players {
-      font-size: 13px;
-      color: var(--text-muted);
-    }
-
-    .server-card-join {
-      width: 100%;
-      padding: 9px 12px;
-      background: var(--accent);
-      border: none;
-      border-radius: 8px;
-      color: var(--text-primary);
-      font-size: 14px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: opacity 0.15s ease;
-    }
-
-    .server-card-join:hover {
-      opacity: 0.9;
-    }
-
-    .server-cards-empty {
-      padding: 20px;
-      text-align: center;
-      border: 1px dashed rgba(255, 255, 255, 0.15);
-      border-radius: 10px;
-      color: var(--text-muted);
-      font-size: 14px;
-    }
-
-    .author-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 13px;
-      color: var(--accent);
-    }
-
-    @media (max-width: 768px) {
-      .detail-header {
-        height: auto;
-        padding: 20px;
-      }
-      .detail-header-content {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-      .detail-thumb {
-        width: 80px;
-        height: 80px;
-      }
-      .detail-title {
-        font-size: 22px;
-        white-space: normal;
-        overflow-wrap: break-word;
-      }
-      .detail-stats {
-        flex-wrap: wrap;
-        gap: 12px;
-      }
-      .detail-play-btn {
-        width: 100%;
-        justify-content: center;
-      }
-    }
-  </style>
-
-  <link rel="stylesheet" href="src/theme.css" />
-  <script type="module" src="src/theme.js"></script>
-  <script src="js/sw-register.js" defer></script>
-</head>
-<body>
-  <nav class="navbar">
-    <div class="nav-left">
-      <button class="nav-hamburger" id="navHamburger" aria-label="Menu">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
-      </button>
-      <div class="logo" onclick="window.location.href='/bloxverse/'">
-        
-        <span class="logo-text">BloxVerse</span>
-      </div>
-      <div class="nav-links" id="navLinks">
-        <button class="nav-link-btn" onclick="window.location.href='/bloxverse'">Home</button>
-        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
-        <button class="nav-link-btn" data-needs-auth onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
-        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/download'">
-          Download
-        </button>
-      </div>
-      <button class="navbar-studio-card" data-open-studio title="Launch BloxVerse Studio">Studio</button>
-      <script type="module" src="src/studio.js"></script>
-    </div>
-    <div class="nav-center"></div>
-    <div class="nav-right" id="navRight"></div>
-  </nav>
-
-  <div class="detail-header" id="detailHeader">
-    <div class="detail-header-content">
-      <img class="detail-thumb" id="detailThumb" src="" alt="" />
-      <div class="detail-info">
-        <h1 class="detail-title" id="detailTitle">Loading...</h1>
-        <div class="detail-category" id="detailCategory"></div>
-        <div class="detail-stats">
-          <div class="detail-stat">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
-            <span id="detailActivePlayers">0</span> active
-          </div>
-          <div class="detail-stat">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-            <span id="detailVisits">0</span> visits
-          </div>
-        </div>
-      </div>
-      <button class="detail-play-btn" id="detailPlayBtn">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-        Play
-      </button>
-    </div>
-  </div>
-
-  <div class="detail-body">
-    <a class="back-link" href="/">← Back to Games</a>
-
-    <div class="detail-section">
-      <h2>Description</h2>
-      <p class="detail-description" id="detailDescription"></p>
-    </div>
-
-    <div class="detail-section">
-      <h2>Details</h2>
-      <div class="detail-meta-grid">
-        <div class="detail-meta-card">
-          <div class="detail-meta-label">Category</div>
-          <div class="detail-meta-value" id="metaCategory">—</div>
-        </div>
-        <div class="detail-meta-card">
-          <div class="detail-meta-label">Created</div>
-          <div class="detail-meta-value" id="metaCreated">—</div>
-        </div>
-        <div class="detail-meta-card">
-          <div class="detail-meta-label">Author</div>
-          <div class="detail-meta-value" id="metaAuthor">BloxVerse</div>
-        </div>
-      </div>
-      <div class="detail-actions" id="detailActions" style="display:none;margin-top:16px;text-align:center;gap:12px;justify-content:center;">
-        <button class="detail-edit-btn" id="detailEditBtn" style="background:rgba(88,101,242,0.8);color:var(--text-primary);border:none;padding:8px 20px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:14px;">Edit Game</button>
-        <button class="detail-delete-btn" id="detailDeleteBtn" style="background:rgba(244,67,54,0.8);color:var(--text-primary);border:none;padding:8px 20px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:14px;">Delete Game</button>
-      </div>
-    </div>
-
-    <div class="detail-section">
-      <h2>Servers</h2>
-      <p class="detail-meta-label" style="margin:0 0 14px 0;text-transform:none;letter-spacing:0;">Live instances of this place. Join one or start a new one.</p>
-      <div class="server-cards" id="serversGrid"></div>
-      <div class="server-cards-empty" id="serversEmpty">No servers running right now. Click Play to start one.</div>
-    </div>
-  </div>
-
-  <!-- Desktop App Prompt -->
-  <div id="appPromptModal" class="modal-overlay" style="display:none;">
-    <div class="modal-content" style="background:var(--bg-surface);border:1px solid rgba(88,101,242,0.4);border-radius:12px;width:420px;max-width:90vw;box-shadow:0 8px 40px rgba(0,0,0,0.5);padding:28px 24px;text-align:center;">
-      <div style="width:64px;height:64px;border-radius:16px;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;background:rgba(88,101,242,0.15);">
-        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#7c8cf8" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-      </div>
-      <h2 style="font-size:20px;font-weight:700;color:var(--text-primary);margin-bottom:8px;">Open in BloxVerse App?</h2>
-      <p style="font-size:14px;color:var(--text-secondary);margin:0;line-height:1.5;">Open this game in the BloxVerse desktop app, or continue playing in your browser. You can choose either way.</p>
-      <div style="display:flex;gap:12px;justify-content:center;margin-top:22px;">
-        <button id="appPromptBrowser" style="background:var(--bg-tertiary);color:var(--text-secondary);padding:10px 22px;border-radius:8px;border:none;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;">Continue in Browser</button>
-        <button id="appPromptOpen" style="background:var(--accent);color:var(--text-primary);padding:10px 22px;border-radius:8px;border:none;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;">Open App</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Edit Modal -->
-  <div id="editModal" class="modal-overlay" style="display:none;">
-    <div class="modal-content" style="background:var(--bg-surface);border:1px solid rgba(88,101,242,0.4);border-radius:12px;width:440px;max-width:90vw;box-shadow:0 8px 40px rgba(0,0,0,0.5);">
-      <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:var(--border);">
-        <h2 style="font-size:18px;font-weight:600;">Edit Game</h2>
-        <button class="modal-close" id="editModalClose" style="background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;">&times;</button>
-      </div>
-      <div class="modal-body" style="padding:20px;display:flex;flex-direction:column;gap:16px;">
-        <div class="modal-field" style="display:flex;flex-direction:column;gap:6px;">
-          <label style="font-size:13px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Game Name</label>
-          <input type="text" id="editName" style="background:var(--bg-primary);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:10px 12px;color:var(--text-primary);font-family:inherit;font-size:14px;" maxlength="50" />
-        </div>
-        <div class="modal-field" style="display:flex;flex-direction:column;gap:6px;">
-          <label style="font-size:13px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Genre</label>
-          <select id="editGenre" style="background:var(--bg-primary);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:10px 12px;color:var(--text-primary);font-family:inherit;font-size:14px;">
-            <option value="Sandbox">Sandbox</option>
-            <option value="Exploration">Exploration</option>
-            <option value="Sports">Sports</option>
-            <option value="Fighting">Fighting</option>
-            <option value="Racing">Racing</option>
-            <option value="Adventure">Adventure</option>
-            <option value="Simulation">Simulation</option>
-            <option value="Puzzle">Puzzle</option>
-            <option value="Horror">Horror</option>
-            <option value="Comedy">Comedy</option>
-            <option value="RPG">RPG</option>
-            <option value="Strategy">Strategy</option>
-            <option value="Other">Other</option>
-          </select>
-        </div>
-        <div class="modal-field" style="display:flex;flex-direction:column;gap:6px;">
-          <label style="font-size:13px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Description</label>
-          <textarea id="editDescription" style="background:var(--bg-primary);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:10px 12px;color:var(--text-primary);font-family:inherit;font-size:14px;resize:vertical;min-height:80px;" rows="4" maxlength="1000"></textarea>
-        </div>
-        <div class="modal-field" style="display:flex;flex-direction:column;gap:6px;">
-          <label style="font-size:13px;color:#aaa;text-transform:uppercase;letter-spacing:0.5px;">Thumbnail</label>
-          <div style="display:flex;gap:12px;align-items:center;">
-            <img id="editThumbPreview" style="width:64px;height:64px;border-radius:6px;object-fit:cover;border:1px solid rgba(255,255,255,0.1);" />
-            <button id="editUploadBtn" style="background:rgba(88,101,242,0.6);color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:13px;">Upload Image</button>
-            <input type="file" id="editThumbInput" accept="image/*" style="display:none;" />
-          </div>
-        </div>
-      </div>
-      <div class="modal-footer" style="display:flex;gap:12px;justify-content:flex-end;padding:16px 20px;border-top:var(--border);">
-        <button id="editCancelBtn" style="background:var(--bg-tertiary);color:var(--text-secondary);padding:8px 20px;border-radius:6px;border:none;font-family:inherit;font-size:14px;cursor:pointer;">Cancel</button>
-        <button id="editConfirmBtn" style="background:rgba(76,175,80,0.8);color:var(--text-primary);padding:8px 20px;border-radius:6px;border:none;font-family:inherit;font-size:14px;cursor:pointer;">Save Changes</button>
-      </div>
-    </div>
-  </div>
-
-  <script src="https://upload-widget.cloudinary.com/global/all.js" type="text/javascript"></script>
-  <script type="module">
-    import { findGame, findGameAsync } from './src/games.js';
-    import { auth, trackPresence, deleteGame, updateGame, db, doc, getDoc, onSnapshot, assignUserIdNum, collection, query, where, getDeviceId, listenBux } from './src/firebase.js';
-    import { onAuthStateChanged } from 'firebase/auth';
-    import { isDesktopApp, buildJoinUrl } from './src/app-detect.js';
-
-    const params = new URLSearchParams(window.location.search);
-    const gameId = params.get('id');
-
-    const detailTitle = document.getElementById('detailTitle');
-    const detailThumb = document.getElementById('detailThumb');
-    const detailCategory = document.getElementById('detailCategory');
-    const detailDescription = document.getElementById('detailDescription');
-    const detailActivePlayers = document.getElementById('detailActivePlayers');
-    const detailVisits = document.getElementById('detailVisits');
-    const detailPlayBtn = document.getElementById('detailPlayBtn');
-    const metaCategory = document.getElementById('metaCategory');
-    const metaCreated = document.getElementById('metaCreated');
-    const metaAuthor = document.getElementById('metaAuthor');
-    const navRight = document.getElementById('navRight');
-    const detailActions = document.getElementById('detailActions');
-    const serversGrid = document.getElementById('serversGrid');
-    const serversEmpty = document.getElementById('serversEmpty');
-
-    function formatNumber(n) {
-      n = Number(n) || 0;
-      if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
-      if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
-      return String(n);
-    }
-    function formatDate(dateStr) {
-      if (!dateStr) return '\u2014';
-      if (/^\d{4}\/\d{2}\/\d{2}$/.test(dateStr)) return dateStr;
-      if (typeof dateStr === 'number') return new Date(dateStr).toLocaleDateString();
-      try { return new Date(dateStr).toLocaleDateString(); } catch { return dateStr; }
-    }
-
-    // ── Desktop app deep links ────────────────────────────────────────────
-    const appPromptModal = document.getElementById('appPromptModal');
-    let _pendingJoin = null;
-
-    function gameSiteUrl(gid, sid) {
-      return '/bloxverse/game?game=' + encodeURIComponent(gid) + (sid ? '&server=' + encodeURIComponent(sid) : '');
-    }
-
-    async function launchGameInApp(gid, sid) {
+  <script>
+    // Resolve theme + nav-rail state before first paint.
+    (function () {
       try {
-        const idToken = await auth.currentUser.getIdToken();
-        const refreshToken = auth.currentUser.refreshToken;
-        // deviceId lets the app's game session share this browser's device
-        // identity, so the app and the website on the same computer don't
-        // trigger the account-conflict detector.
-        const url = buildJoinUrl(gid, sid) + '&idToken=' + encodeURIComponent(idToken) + '&refreshToken=' + encodeURIComponent(refreshToken) + '&deviceId=' + encodeURIComponent(getDeviceId());
-        window.location.href = url;
-        return true;
-      } catch (e) {
-        console.warn('Could not build app link:', e);
-        return false;
-      }
-    }
-
-    function getAuthUser() {
-      return new Promise((resolve) => {
-        if (auth.currentUser) return resolve(auth.currentUser);
-        const unsub = onAuthStateChanged(auth, (u) => { unsub(); resolve(u); });
-      });
-    }
-
-    function requestJoinGame(gid, sid) {
-      const siteUrl = gameSiteUrl(gid, sid);
-      getAuthUser().then((user) => {
-        if (isDesktopApp || !user) {
-          window.location.href = siteUrl;
-          return;
+        var NAMES = ['dark', 'light', 'system',
+          'valley', 'valley-light', 'valley-system',
+          'sky', 'sky-light', 'sky-system',
+          'lava', 'lava-light', 'lava-system',
+          'solar', 'solar-light', 'solar-system'];
+        var ALIASES = { twilight: 'dark', 'twilight-light': 'light', 'twilight-system': 'system' };
+        var raw = localStorage.getItem('bloxverse_theme');
+        var name = ALIASES[raw] || (NAMES.indexOf(raw) > -1 ? raw : 'dark');
+        var mode = (name === 'light' || name.slice(-6) === '-light') ? 'light'
+          : (name === 'system' || name.slice(-7) === '-system') ? 'system' : 'dark';
+        if (mode === 'system') {
+          var family = name === 'system' ? 'default' : name.split('-')[0];
+          var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          name = prefersDark ? family : (family === 'default' ? 'light' : family + '-light');
         }
-        _pendingJoin = { gid, sid, siteUrl };
-        appPromptModal.style.display = 'flex';
-      });
-    }
-
-    document.getElementById('appPromptOpen').addEventListener('click', async () => {
-      if (!_pendingJoin) return;
-      const launched = await launchGameInApp(_pendingJoin.gid, _pendingJoin.sid);
-      if (launched) appPromptModal.style.display = 'none';
-      else window.location.href = _pendingJoin.siteUrl;
-    });
-    document.getElementById('appPromptBrowser').addEventListener('click', () => {
-      appPromptModal.style.display = 'none';
-      if (_pendingJoin) window.location.href = _pendingJoin.siteUrl;
-    });
-    appPromptModal.addEventListener('click', (e) => {
-      if (e.target === appPromptModal) appPromptModal.style.display = 'none';
-    });
-
-    // ── Detail cache (instant paint on repeat visits, like the base site) ──
-    const GAME_CACHE_TTL = 45000;
-    const GAME_CACHE_PREFIX = 'bv:gd:';
-    const gameCache = new Map();
-    const _cacheSafe = (val) => {
-      if (val === null || typeof val !== 'object') return val;
-      if (typeof val.toDate === 'function' && typeof val.toMillis === 'function') return val.toMillis();
-      if (Array.isArray(val)) return val.map(_cacheSafe);
-      const out = {};
-      for (const k in val) out[k] = _cacheSafe(val[k]);
-      return out;
-    };
-    const gameCacheGet = (key) => {
-      const mem = gameCache.get(key);
-      if (mem) {
-        if (Date.now() - mem.at > GAME_CACHE_TTL) gameCache.delete(key);
-        else return mem.data;
-      }
-      try {
-        const raw = localStorage.getItem(GAME_CACHE_PREFIX + key);
-        if (!raw) return null;
-        const entry = JSON.parse(raw);
-        if (Date.now() - entry.at > GAME_CACHE_TTL) {
-          localStorage.removeItem(GAME_CACHE_PREFIX + key);
-          return null;
+        document.documentElement.setAttribute('data-theme', name);
+        document.documentElement.setAttribute(
+          'data-ui',
+          localStorage.getItem('bloxverse_ui_style') === 'compact' ? 'compact' : 'default'
+        );
+        if (localStorage.getItem('bloxverse_rail_expanded') !== 'false'
+          && window.matchMedia('(min-width: 801px)').matches) {
+          document.documentElement.classList.add('site-navigation-expanded');
         }
-        gameCache.set(key, { at: entry.at, data: entry.data });
-        return entry.data;
-      } catch { return null; }
-    };
-    const gameCacheSet = (key, data) => {
-      gameCache.set(key, { at: Date.now(), data });
-      try {
-        const serialized = JSON.stringify({ at: Date.now(), data });
-        if (serialized.length > 400000) return;
-        localStorage.setItem(GAME_CACHE_PREFIX + key, serialized);
-      } catch {}
-    };
-
-    let _gameAuthorId = null;
-    let _gameData = null;
-    let _uploadedIcon = null;
-    const _avatarCache = new Map();
-
-    function paintDetail(game) {
-      if (!game) return false;
-      _gameData = game;
-      _gameAuthorId = game.authorId || null;
-      document.title = `${game.name} - BloxVerse`;
-      detailTitle.textContent = game.name;
-      detailThumb.src = game.icon || './assets/icons/demo.png';
-      detailThumb.alt = game.name;
-      detailCategory.textContent = game.category || 'Game';
-      detailDescription.textContent = game.description || 'No description available.';
-      metaCategory.textContent = game.category || '—';
-      metaCreated.textContent = formatDate(game.createdAt);
-      detailActivePlayers.textContent = formatNumber(game.activePlayers || 0);
-      detailVisits.textContent = formatNumber(game.visits || 0);
-      if (game.deleted) {
-        detailPlayBtn.style.display = 'none';
-        let reviewMsg = document.getElementById('reviewMsg');
-        if (!reviewMsg) {
-          reviewMsg = document.createElement('div');
-          reviewMsg.id = 'reviewMsg';
-          reviewMsg.style.cssText = 'width:100%;text-align:center;padding:20px 16px;background:rgba(244,67,54,0.1);border:1px solid rgba(244,67,54,0.3);border-radius:8px;color:#e74c3c;font-size:14px;font-weight:500;';
-          reviewMsg.textContent = 'Sorry, this place is currently under review. Try again later.';
-          detailPlayBtn.parentNode.insertBefore(reviewMsg, detailPlayBtn);
-        }
-      } else {
-        detailPlayBtn.style.display = '';
-        const reviewMsg = document.getElementById('reviewMsg');
-        if (reviewMsg) reviewMsg.remove();
-        detailPlayBtn.onclick = () => { requestJoinGame(gameId, null); };
-      }
-      return true;
-    }
-
-    // Instant paint: bundled official data + cached snapshot, before any fetch.
-    let _painted = false;
-    (function paintFromCache() {
-      if (!gameId) return;
-      const staticGame = findGame(gameId);
-      const cached = gameCacheGet('page:' + gameId);
-      const game = cached?.game || staticGame;
-      if (game) {
-        _painted = paintDetail(game);
-        if (cached?.authorName) metaAuthor.textContent = cached.authorName;
-        else if (game.authorName) metaAuthor.textContent = game.authorName;
-        paintServersFromCache();
-      }
+      } catch (e) {}
     })();
-
-    async function loadDetail() {
-      try {
-        if (!gameId) {
-          detailTitle.textContent = 'Game not found';
-          return;
-        }
-        const game = await findGameAsync(gameId);
-        if (!game) {
-          if (!_painted) detailTitle.textContent = 'Game not found';
-          return;
-        }
-        _painted = paintDetail(game);
-
-        if (game.creator) {
-          const num = game.creator;
-          const cachedAuthor = gameCacheGet('author:' + num);
-          if (cachedAuthor?.username) {
-            metaAuthor.textContent = cachedAuthor.username;
-            metaAuthor.style.cursor = 'pointer';
-            metaAuthor.onclick = () => { window.location.href = '/bloxverse/profile?user=' + num; };
-          } else {
-            metaAuthor.textContent = 'Loading...';
-            try {
-              const { lookupUserByNum } = await import('./src/firebase.js');
-              const user = await lookupUserByNum(num);
-              if (user) {
-                metaAuthor.textContent = user.username;
-                metaAuthor.style.cursor = 'pointer';
-                metaAuthor.onclick = () => { window.location.href = '/bloxverse/profile?user=' + num; };
-                gameCacheSet('author:' + num, { username: user.username, userIdNum: num });
-              } else {
-                metaAuthor.textContent = 'Unknown';
-                metaAuthor.style.cursor = '';
-              }
-            } catch {
-              metaAuthor.textContent = 'Unknown';
-              metaAuthor.style.cursor = '';
-            }
-          }
-        } else if (game.authorName) {
-          metaAuthor.textContent = game.authorName;
-          metaAuthor.style.color = '#00b06f';
-          metaAuthor.style.cursor = 'pointer';
-          (async () => {
-            try {
-              if (game.authorId) {
-                const uDoc = await getDoc(doc(db, 'users', game.authorId));
-                if (uDoc.exists()) {
-                  const authorNum = uDoc.data().userIdNum;
-                  if (authorNum) {
-                    metaAuthor.onclick = () => { window.location.href = '/bloxverse/profile?user=' + authorNum; };
-                    return;
-                  }
-                }
-              }
-            } catch {}
-            try {
-              const { assignUserIdNum } = await import('./src/firebase.js');
-              const num = await assignUserIdNum(game.authorId);
-              if (num) metaAuthor.onclick = () => { window.location.href = '/bloxverse/profile?user=' + num; };
-            } catch {}
-          })();
-        }
-
-        if (_gameAuthorId && auth.currentUser && auth.currentUser.uid === _gameAuthorId) {
-          detailActions.style.display = 'flex';
-        }
-
-        gameCacheSet('page:' + gameId, _cacheSafe({
-          game,
-          authorName: metaAuthor.textContent === 'Loading...' ? null : metaAuthor.textContent,
-        }));
-
-        setInterval(async () => {
-          try {
-            const fresh = await findGameAsync(gameId);
-            if (fresh) {
-              detailActivePlayers.textContent = formatNumber(fresh.activePlayers || 0);
-              gameCacheSet('page:' + gameId, _cacheSafe({ game: fresh, authorName: metaAuthor.textContent }));
-            }
-          } catch (_) {}
-        }, 10000);
-      } catch (e) {
-        if (!_painted) detailTitle.textContent = 'Game not found';
-        console.warn('Could not load game:', e);
-      }
-    }
-    loadDetail();
-
-    // ─── Servers section ──────────────────────────────────────────────────
-    const detailDeleteBtn = document.getElementById('detailDeleteBtn');
-    const detailEditBtn = document.getElementById('detailEditBtn');
-    const editModal = document.getElementById('editModal');
-    const editName = document.getElementById('editName');
-    const editGenre = document.getElementById('editGenre');
-    const editDescription = document.getElementById('editDescription');
-    const editThumbPreview = document.getElementById('editThumbPreview');
-    const editThumbInput = document.getElementById('editThumbInput');
-    const editUploadBtn = document.getElementById('editUploadBtn');
-    const editConfirmBtn = document.getElementById('editConfirmBtn');
-    const editCancelBtn = document.getElementById('editCancelBtn');
-    const editModalClose = document.getElementById('editModalClose');
-
-    function openEditModal() {
-      editName.value = _gameData?.name || '';
-      editGenre.value = _gameData?.category || 'Sandbox';
-      editDescription.value = _gameData?.description || '';
-      editThumbPreview.src = _gameData?.icon || './assets/icons/demo.png';
-      _uploadedIcon = null;
-      editModal.style.display = 'flex';
-    }
-    function closeEditModal() { editModal.style.display = 'none'; }
-
-    editCancelBtn.addEventListener('click', closeEditModal);
-    editModalClose.addEventListener('click', closeEditModal);
-    editModal.addEventListener('click', (e) => { if (e.target === editModal) closeEditModal(); });
-
-    // Cloudinary upload for thumbnail
-    function uploadThumbnail(file) {
-      const CLOUD_NAME = 'dvkbiobph';
-      const UPLOAD_PRESET = 'bloxverse_thumb'; // create this in Cloudinary Dashboard -> Settings -> Upload -> Add unsigned upload preset
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', UPLOAD_PRESET);
-      return fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
-        method: 'POST',
-        body: formData,
-      }).then(r => r.json()).then(data => {
-        if (data.secure_url) return data.secure_url;
-        throw new Error(data.error?.message || 'Upload failed');
-      });
-    }
-
-    editUploadBtn.addEventListener('click', () => editThumbInput.click());
-    editThumbInput.addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      // Show preview
-      editThumbPreview.src = URL.createObjectURL(file);
-      editUploadBtn.textContent = 'Uploading...';
-      editUploadBtn.disabled = true;
-      try {
-        const url = await uploadThumbnail(file);
-        _uploadedIcon = url;
-        editThumbPreview.src = url;
-        editUploadBtn.textContent = 'Change Image';
-      } catch (err) {
-        alert('Upload failed: ' + err.message);
-        editUploadBtn.textContent = 'Upload Image';
-      }
-      editUploadBtn.disabled = false;
-    });
-
-    editConfirmBtn.addEventListener('click', async () => {
-      const name = editName.value.trim();
-      if (!name) { editName.focus(); return; }
-      const genre = editGenre.value;
-      const desc = editDescription.value.trim();
-      editConfirmBtn.disabled = true;
-      editConfirmBtn.textContent = 'Saving...';
-      try {
-        const updates = { name, description: desc, category: genre };
-        if (_uploadedIcon) updates.icon = _uploadedIcon;
-        await updateGame(gameId, auth.currentUser.uid, updates);
-        closeEditModal();
-        // Reload page to show changes
-        window.location.reload();
-      } catch (err) {
-        alert('Failed to save: ' + err.message);
-      } finally {
-        editConfirmBtn.disabled = false;
-        editConfirmBtn.textContent = 'Save Changes';
-      }
-    });
-
-    // ─── Servers section ──────────────────────────────────────────────────
-    function cachedAvatarUrl(uid) {
-      try {
-        const raw = localStorage.getItem(GAME_CACHE_PREFIX + 'av:' + uid);
-        if (!raw) return null;
-        const entry = JSON.parse(raw);
-        if (Date.now() - entry.at > 86400000) return null;
-        return entry.url;
-      } catch { return null; }
-    }
-    function storeAvatarUrl(uid, url) {
-      if (!url) return;
-      try { localStorage.setItem(GAME_CACHE_PREFIX + 'av:' + uid, JSON.stringify({ at: Date.now(), url })); } catch {}
-    }
-
-    // Paints the last-known server list instantly, before the realtime
-    // listener delivers fresh data.
-    function paintServersFromCache() {
-      if (!gameId) return;
-      const cached = gameCacheGet('servers:' + gameId);
-      if (!cached || !Array.isArray(cached)) return;
-      const servers = cached.slice().sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-      serversEmpty.style.display = servers.length ? 'none' : '';
-      serversGrid.innerHTML = '';
-      for (let i = 0; i < servers.length; i++) serversGrid.appendChild(buildServerCard(servers[i], i));
-    }
-
-    function avatarElFor(uid) {
-      const wrap = document.createElement('div');
-      wrap.className = 'server-avatar-wrap';
-      const img = document.createElement('img');
-      img.className = 'server-avatar';
-      img.alt = '';
-      img.style.opacity = '0';
-      wrap.appendChild(img);
-      if (_avatarCache.has(uid)) {
-        const cached = _avatarCache.get(uid);
-        if (cached && cached.url) { img.src = cached.url; img.style.opacity = ''; }
-        else {
-          const l = document.createElement('div');
-          l.className = 'server-avatar server-avatar-letter';
-          l.textContent = cached ? cached.initial : '?';
-          wrap.replaceChildren(l);
-        }
-        return wrap;
-      }
-      const cachedUrl = cachedAvatarUrl(uid);
-      if (cachedUrl) {
-        _avatarCache.set(uid, { url: cachedUrl, initial: '' });
-        img.src = cachedUrl;
-        img.style.opacity = '';
-        return wrap;
-      }
-      getDoc(doc(db, 'users', uid)).then(snap => {
-        const d = snap.exists() ? snap.data() : {};
-        const url = d.avatarPreviewHead || d.avatarPreview || null;
-        const initial = ((d.username || '?')[0] || '?').toUpperCase();
-        _avatarCache.set(uid, { url, initial });
-        storeAvatarUrl(uid, url);
-        if (url) { img.src = url; img.style.opacity = ''; }
-        else {
-          const l = document.createElement('div');
-          l.className = 'server-avatar server-avatar-letter';
-          l.textContent = initial;
-          wrap.replaceChildren(l);
-        }
-      }).catch(() => {
-        const l = document.createElement('div');
-        l.className = 'server-avatar server-avatar-letter';
-        l.textContent = '?';
-        wrap.replaceChildren(l);
-      });
-      return wrap;
-    }
-
-    function buildServerCard(s, index) {
-      const players = s.players || [];
-      const max = s.maxPlayers || 10;
-      const full = players.length >= max;
-
-      const card = document.createElement('div');
-      card.className = 'server-card';
-
-      const header = document.createElement('div');
-      header.className = 'server-card-header';
-      const name = document.createElement('div');
-      name.className = 'server-card-name';
-      name.textContent = 'Server ' + (index + 1);
-      header.appendChild(name);
-
-      const avatars = document.createElement('div');
-      avatars.className = 'server-card-avatars';
-      for (const uid of players) avatars.appendChild(avatarElFor(uid));
-
-      const count = document.createElement('div');
-      count.className = 'server-card-players';
-      count.textContent = players.length + ' / ' + max + ' players';
-
-      const join = document.createElement('button');
-      join.className = 'server-card-join';
-      join.textContent = full ? 'Join (Queue)' : 'Join';
-      join.addEventListener('click', () => {
-        requestJoinGame(s.gameId, s.id);
-      });
-
-      card.append(header, avatars, count, join);
-      return card;
-    }
-
-    if (gameId) {
-      const q = query(collection(db, 'servers'), where('gameId', '==', gameId));
-      onSnapshot(q, (snap) => {
-        const servers = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => (a.createdAt?.toMillis?.() ?? a.createdAt) - (b.createdAt?.toMillis?.() ?? b.createdAt));
-        gameCacheSet('servers:' + gameId, _cacheSafe(servers));
-        serversEmpty.style.display = servers.length ? 'none' : '';
-        serversGrid.innerHTML = '';
-        servers.forEach((s, i) => serversGrid.appendChild(buildServerCard(s, i)));
-      }, (err) => console.warn('servers listener error:', err));
-    }
-
-    // Real-time listener for game delete/recover
-    if (gameId) {
-      onSnapshot(doc(db, 'publishedGames', gameId), (snap) => {
-        if (snap.exists()) {
-          const wasDeleted = window._gameDeleted;
-          const isDeleted = snap.data().deleted === true;
-          window._gameDeleted = isDeleted;
-          if (wasDeleted !== undefined && wasDeleted !== isDeleted) {
-            window.location.reload();
-          }
-        }
-      }, (err) => console.warn('game listener error:', err));
-    }
-
-    detailDeleteBtn.addEventListener('click', async () => {
-      if (!confirm('Delete this game permanently?')) return;
-      try {
-        await deleteGame(gameId, auth.currentUser.uid);
-        alert('Game deleted.');
-        window.location.href = '/bloxverse/';
-      } catch (err) {
-        alert('Failed to delete: ' + err.message);
-      }
-    });
-
-    detailEditBtn.addEventListener('click', openEditModal);
-
-    onAuthStateChanged(auth, async (user) => {
-      document.querySelectorAll('[data-needs-auth]').forEach(el => { el.style.display = user ? '' : 'none'; });
-      if (user) {
-        trackPresence(user.uid, null, 'game-detail');
-        // ── Real-time ban listener ────────────────────────────────────
-        onSnapshot(doc(db, 'bans', user.uid), (snap) => {
-          if (snap.exists() && snap.data().banned) {
-            window.location.href = '/bloxverse/ban';
-          }
-        }, (err) => console.warn('ban listener error:', err));
-        // ──────────────────────────────────────────────────────────────
-        let userDocData = {};
-        try {
-          const d = await getDoc(doc(db, 'users', user.uid));
-          if (d.exists()) userDocData = d.data();
-        } catch {}
-        const username = userDocData.username || 'Player';
-        const bux = userDocData.bux || 0;
-        const ownPreview = userDocData.avatarPreviewHead || userDocData.avatarPreview || null;
-        const _cb = Date.now();
-        const initial = username.charAt(0).toUpperCase();
-        const ownNum = userDocData.userIdNum || null;
-        const ownProfileLink = ownNum ? '/bloxverse/profile?user=' + ownNum : '/bloxverse/profile';
-        navRight.innerHTML = `
-          <div class="user-info">
-            <div class="bux-wrapper" id="buxWrapper">
-              <button class="bux-btn" id="buxBtn">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <text x="12" y="17" text-anchor="middle" font-size="14" font-weight="bold">B</text>
-                </svg>
-                <span id="buxValue">${bux.toLocaleString()}</span>
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="margin-left:4px;"><path d="M7 10l5 5 5-5z"/></svg>
-              </button>
-              <div class="bux-dropdown">
-                <div class="bux-dropdown-header">
-                  <span class="bux-dropdown-label">Balance</span>
-                  <span class="bux-dropdown-balance" id="buxDropdownBalance">${bux.toLocaleString()}</span>
-                </div>
-                <button class="bux-dropdown-item" onclick="window.openSendBuxModal ? window.openSendBuxModal() : window.location.href='/bloxverse/'">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-                  Send Bux
-                </button>
-                <button class="bux-dropdown-item" onclick="window.location.href='/bloxverse/transactions'">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                  Transactions
-                </button>
-              </div>
-            </div>
-            <div class="settings-wrapper">
-              <button class="settings-nav-btn" id="navSettingsBtn" title="Settings">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="12" cy="12" r="3"/>
-                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-                </svg>
-              </button>
-              <div class="settings-dropdown" id="navSettingsDropdown">
-                <button onclick="window.location.href='/bloxverse/settings'">Settings</button>
-                <button onclick="window._logout()">Log Out</button>
-              </div>
-            </div>
-            ${ownPreview ? `<img src="${ownPreview}?_cb=${_cb}" alt="" class="avatar-circle-img" onclick="window.location.href='${ownProfileLink}'" data-initial="${initial}" onerror="window.__handleBrokenAvatar(this, '${user.uid}')"/>` : `<div class="avatar-circle" onclick="window.location.href='${ownProfileLink}'">${initial}</div>`}
-          </div>
-        `;
-
-        // Bux dropdown
-        let _activeDropdown = null;
-        const buxWrapper = document.getElementById('buxWrapper');
-        document.getElementById('buxBtn').addEventListener('click', (e) => {
-          e.stopPropagation();
-          if (_activeDropdown && _activeDropdown !== buxWrapper) _activeDropdown.classList.remove('open');
-          buxWrapper.classList.toggle('open');
-          _activeDropdown = buxWrapper.classList.contains('open') ? buxWrapper : null;
-        });
-
-        // Settings dropdown
-        document.getElementById('navSettingsBtn').addEventListener('click', (e) => {
-          e.stopPropagation();
-          const dd = document.getElementById('navSettingsDropdown');
-          if (dd) dd.classList.toggle('open');
-        });
-
-        document.addEventListener('click', (e) => {
-          if (!e.target.closest('.settings-wrapper')) {
-            document.querySelectorAll('.settings-dropdown').forEach(d => d.classList.remove('open'));
-          }
-          if (_activeDropdown && !_activeDropdown.contains(e.target)) {
-            _activeDropdown.classList.remove('open');
-            _activeDropdown = null;
-          }
-        });
-
-        // Real-time bux updates
-        listenBux(user.uid, (buxAmount) => {
-          const el = document.getElementById('buxValue');
-          if (el) el.textContent = buxAmount.toLocaleString();
-          const balEl = document.getElementById('buxDropdownBalance');
-          if (balEl) balEl.textContent = buxAmount.toLocaleString();
-        });
-
-        window._logout = async () => {
-          const { signOut } = await import('firebase/auth');
-          await signOut(auth);
-          window.location.href = '/bloxverse/';
-        };
-
-        if (_gameAuthorId && user.uid === _gameAuthorId) {
-          detailActions.style.display = 'flex';
-        }
-      } else {
-        navRight.innerHTML = `<button class="login-btn" onclick="window.location.href='/bloxverse/auth'">Login / Sign Up</button>`;
-        detailActions.style.display = 'none';
-      }
-    });
-
-    // Hamburger menu toggle
-    const _hamburger = document.getElementById('navHamburger');
-    const _navLinks = document.getElementById('navLinks');
-    if (_hamburger && _navLinks) {
-      _hamburger.addEventListener('click', () => {
-        _navLinks.classList.toggle('open');
-      });
-      document.addEventListener('click', (e) => {
-        if (!e.target.closest('.navbar')) _navLinks.classList.remove('open');
-      });
-    }
-
-    window.__handleBrokenAvatar = async function(imgEl, uid) {
-      try {
-        const initial = imgEl.getAttribute('data-initial') || 'U';
-        const letter = document.createElement('div');
-        letter.className = 'friend-thumb-avatar';
-        letter.textContent = initial;
-        imgEl.replaceWith(letter);
-        try {
-          if (auth && auth.currentUser && auth.currentUser.uid === uid) {
-            const { setDoc, doc } = await import('https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js');
-            await setDoc(doc(db, 'users', uid), { avatarPreview: null, avatarPreviewHead: null }, { merge: true });
-          }
-        } catch (e) { console.warn('Could not clear avatarPreview:', e); }
-      } catch (e) { console.warn('Broken avatar handler error:', e); }
-    };
   </script>
 
-  <footer class="site-footer">
-    <div class="footer-inner">
-      <div class="logo" onclick="window.location.href='/bloxverse/'">
-        <img src="assets/icons/bloxverseLogo.png" alt="" class="footer-logo-img" />
-        <span class="logo-text">BloxVerse</span>
-      </div>
-      <div class="footer-links">
-        <a href="/bloxverse/terms">Terms of Service</a>
-        <a href="/bloxverse/privacy">Privacy Policy</a>
-        <a class="footer-discord" href="https://discord.gg/Uh6WF5NDDK" target="_blank" rel="noopener" title="Join our Discord"><i class="fab fa-discord"></i></a>
-      </div>
+  <link rel="stylesheet" href="src/theme.css" />
+  <link rel="stylesheet" href="src/auth.css" />
+  <link rel="stylesheet" href="src/main.css" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" />
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://esm.sh" crossorigin />
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-solid-900.woff2" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-brands-400.woff2" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <script type="module" src="src/theme.js"></script>
+
+  <!-- home.css: tokens + shell; game_page.css: game-specific layout -->
+  <link rel="stylesheet" href="src/home.css" />
+  <link rel="stylesheet" href="src/game_page.css" />
+
+  <script src="src/motion.js" defer></script>
+  <script src="src/action-dialog.js" defer></script>
+  <script src="src/navigation-indicator.js" defer></script>
+  <script src="src/tooltips.js" defer></script>
+  <script src="js/sw-register.js" defer></script>
+</head>
+
+<body class="site-page game-page">
+  <a class="site-skip" href="#site-content">Skip to content</a>
+
+  <!-- ── Topbar ──────────────────────────────────────────────────────────── -->
+  <header class="site-topbar">
+    <div class="site-brand">
+      <button type="button" id="site-nav-toggle" class="site-icon-button"
+              aria-label="Expand navigation" aria-expanded="false" aria-controls="site-navigation">
+        <i class="site-nav-toggle-icon site-nav-toggle-collapsed fa-solid fa-bars" aria-hidden="true"></i>
+        <i class="site-nav-toggle-icon site-nav-toggle-expanded fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
+      <a href="/bloxverse/" class="site-wordmark" aria-label="BloxVerse home">
+        <img class="site-wordmark-mark" src="assets/icons/bloxverseLogo.png" alt="" width="34" height="34" draggable="false" />
+        <span>BloxVerse</span>
+      </a>
     </div>
-    <div class="footer-copyright">© 2026 BloxVerse. All rights reserved.</div>
-  </footer>
+
+    <form action="/bloxverse/search" method="get" id="search-form"
+          class="site-global-search" role="search" aria-label="Player search" autocomplete="off">
+      <img class="site-icon" src="assets/icons/search.svg" alt="" width="16" height="16" draggable="false" />
+      <input type="search" name="q" id="search-input" placeholder="Search players..." aria-label="Search players" />
+      <div class="site-search-results" id="search-results" hidden></div>
+    </form>
+
+    <div class="site-account" id="site-account">
+      <button type="button" id="site-theme-toggle" class="site-icon-button"
+              aria-label="Switch to light mode" title="Switch to light mode">
+        <i class="site-font-icon fa-solid fa-sun" aria-hidden="true"></i>
+      </button>
+      <div id="navRight" class="site-account-slot"></div>
+    </div>
+  </header>
+
+  <div class="notice" id="notice" role="status" aria-live="polite" hidden>
+    <div class="notice-content">
+      <i class="notice-icon fa-solid fa-triangle-exclamation" id="notice-icon" aria-hidden="true"></i>
+      <span class="notice-message" id="notice-text"></span>
+    </div>
+  </div>
+
+  <div class="site-shell">
+    <!-- ── Nav rail ───────────────────────────────────────────────────────── -->
+    <div class="site-nav-rail">
+      <nav class="site-navigation" id="site-navigation" aria-label="Main navigation">
+        <div class="site-navigation-upper">
+          <div class="site-navigation-top">
+            <a href="/bloxverse/" title="Home" aria-label="Home">
+              <i class="site-font-icon fa-solid fa-house" aria-hidden="true"></i>
+              <span class="site-nav-label">Home</span>
+            </a>
+            <a href="/bloxverse/profile" title="Profile" aria-label="Profile" data-needs-auth>
+              <i class="site-font-icon fa-solid fa-user" aria-hidden="true"></i>
+              <span class="site-nav-label">Profile</span>
+            </a>
+            <a href="/bloxverse/social" title="Friends" aria-label="Friends">
+              <i class="site-font-icon fa-solid fa-user-group" aria-hidden="true"></i>
+              <span class="site-nav-label">Friends</span>
+            </a>
+            <a href="/bloxverse/catalog" title="Catalog" aria-label="Catalog" id="nav-catalog">
+              <i class="site-font-icon fa-solid fa-store" aria-hidden="true"></i>
+              <span class="site-nav-label">Catalog</span>
+            </a>
+            <a href="/bloxverse/inventory" title="Inventory" aria-label="Inventory">
+              <i class="site-font-icon fa-solid fa-box-open" aria-hidden="true"></i>
+              <span class="site-nav-label">Inventory</span>
+            </a>
+            <a href="/bloxverse/avatar" title="Avatar" aria-label="Avatar">
+              <i class="site-font-icon fa-solid fa-shirt" aria-hidden="true"></i>
+              <span class="site-nav-label">Avatar</span>
+            </a>
+            <a href="/bloxverse/groups" title="Groups" aria-label="Groups">
+              <i class="site-font-icon fa-solid fa-users" aria-hidden="true"></i>
+              <span class="site-nav-label">Groups</span>
+            </a>
+            <a href="/bloxverse/settings" title="Settings" aria-label="Settings" id="nav-settings" data-needs-auth>
+              <i class="site-font-icon fa-solid fa-gear" aria-hidden="true"></i>
+              <span class="site-nav-label">Settings</span>
+            </a>
+          </div>
+          <div class="site-navigation-tools" role="group" aria-label="Tools">
+            <button type="button" class="site-nav-studio" data-open-studio title="Launch BloxVerse Studio" aria-label="Launch BloxVerse Studio">
+              <i class="site-font-icon fa-solid fa-hammer" aria-hidden="true"></i>
+              <span class="site-nav-label">Studio</span>
+            </button>
+            <a href="/bloxverse/download" title="Download" aria-label="Download"
+               id="site-nav-download" class="site-nav-download">
+              <i class="site-font-icon fa-solid fa-download" aria-hidden="true"></i>
+              <span class="site-nav-label">Download</span>
+            </a>
+          </div>
+        </div>
+        <div class="site-navigation-bottom">
+          <a href="https://discord.gg/Uh6WF5NDDK" target="_blank" rel="noopener" title="Discord" aria-label="Discord">
+            <i class="site-font-icon fa-brands fa-discord" aria-hidden="true"></i>
+            <span class="site-nav-label">Discord</span>
+          </a>
+        </div>
+      </nav>
+    </div>
+
+    <!-- ── Mobile bar ─────────────────────────────────────────────────────── -->
+    <nav class="ui-card site-mobile-bar" id="site-mobile-bar" aria-label="Mobile navigation">
+      <a href="/bloxverse/" data-nav-key="home" class="site-mobile-link btn-ghost">
+        <i class="site-font-icon fa-solid fa-house" aria-hidden="true"></i><span>Home</span>
+      </a>
+      <a href="/bloxverse/social" data-nav-key="friends" class="site-mobile-link btn-ghost">
+        <i class="site-font-icon fa-solid fa-user-group" aria-hidden="true"></i><span>Friends</span>
+      </a>
+      <a href="/bloxverse/catalog" data-nav-key="catalog" class="site-mobile-link btn-ghost">
+        <i class="site-font-icon fa-solid fa-store" aria-hidden="true"></i><span>Catalog</span>
+      </a>
+      <a href="/bloxverse/avatar" data-nav-key="avatar" class="site-mobile-link btn-ghost">
+        <i class="site-font-icon fa-solid fa-shirt" aria-hidden="true"></i><span>Avatar</span>
+      </a>
+      <button type="button" data-nav-key="more" class="site-mobile-link btn-ghost"
+              id="site-mobile-more" aria-label="More navigation" aria-haspopup="dialog"
+              aria-expanded="false" aria-controls="site-mobile-menu">
+        <i class="site-font-icon fa-solid fa-bars" aria-hidden="true"></i><span>More</span>
+      </button>
+    </nav>
+
+    <!-- ── Main content ───────────────────────────────────────────────────── -->
+    <dialog class="ui-dialog ui-bottom-sheet site-mobile-menu" id="site-mobile-menu" aria-label="More navigation">
+      <div class="ui-dialog-header">
+        <h2>More</h2>
+        <button type="button" class="btn-ghost btn-icon" id="site-mobile-menu-close" aria-label="Close">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </div>
+      <nav class="site-navigation" aria-label="More navigation">
+        <div class="site-navigation-upper">
+          <div class="site-navigation-top">
+            <a href="/bloxverse/profile" data-needs-auth><i class="site-font-icon fa-solid fa-user" aria-hidden="true"></i><span class="site-nav-label">Profile</span></a>
+            <a href="/bloxverse/settings" data-needs-auth><i class="site-font-icon fa-solid fa-gear" aria-hidden="true"></i><span class="site-nav-label">Settings</span></a>
+            <a href="/bloxverse/inventory"><i class="site-font-icon fa-solid fa-box-open" aria-hidden="true"></i><span class="site-nav-label">Inventory</span></a>
+            <a href="/bloxverse/download"><i class="site-font-icon fa-solid fa-download" aria-hidden="true"></i><span class="site-nav-label">Download</span></a>
+          </div>
+        </div>
+      </nav>
+    </dialog>
+
+    <div class="site-main" id="site-main">
+      <main class="page-content page-shell" id="site-content" tabindex="-1">
+
+        <!-- Skeleton shown while game.js loads the data -->
+        <div class="page game-content" id="page" aria-busy="true">
+          <div class="game-shell" aria-hidden="true">
+            <div class="ui-card game-banner skeleton"></div>
+            <div class="game-heading game-skeleton-heading">
+              <div class="game-identity">
+                <div class="skeleton game-skeleton-title"></div>
+                <div class="skeleton game-skeleton-metrics"></div>
+                <div class="skeleton game-skeleton-creator"></div>
+              </div>
+              <div class="skeleton game-skeleton-play"></div>
+            </div>
+            <div class="game-skeleton-tabs skeleton"></div>
+          </div>
+          <p class="sr-only" role="status">Loading game</p>
+        </div>
+
+        <script type="module">
+          import { initShell } from './src/shell.js';
+          initShell();
+        </script>
+        <script type="module" src="src/game_page.js"></script>
+
+      </main>
+
+      <footer class="footer" aria-label="Site information">
+        <div class="footer-inner">
+          <nav class="footer-links" aria-label="Resources and policies">
+            <a href="https://bloxverse.discourse.group/" target="_blank" rel="noopener">Forum</a>
+            <a href="/bloxverse/community-guidelines">Community Guidelines</a>
+            <a href="/bloxverse/terms">Terms of Service</a>
+            <a href="/bloxverse/privacy">Privacy Policy</a>
+            <a href="/bloxverse/support">Support</a>
+          </nav>
+          <p class="footer-copyright">&copy; 2026 BloxVerse. All rights reserved.</p>
+          <div class="footer-socials" role="group" aria-label="Follow BloxVerse">
+            <a class="btn-ghost btn-icon footer-icon" href="https://discord.gg/Uh6WF5NDDK" target="_blank" rel="noopener" aria-label="Discord">
+              <i class="fa-brands fa-discord" aria-hidden="true"></i>
+            </a>
+          </div>
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <!-- ── Desktop app prompt dialog ────────────────────────────────────────── -->
+  <div id="app-prompt-dialog" hidden aria-hidden="true"></div>
+
 </body>
 </html>

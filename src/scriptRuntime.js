@@ -94,51 +94,101 @@ export function luaToJS(lua) {
             }
             return lines.join('\n');
         },
-        // Convert Lua table constructors to JS syntax. At this point in the
-        // pipeline nothing but genuine `{ ... }` table literals use braces
-        // yet (Lua blocks still use then/do/end, not braces), so it's safe
-        // to transform every non-nested `{...}` span found. Dict-style
-        // tables `{a = 1, b = 2}` become object literals `{a: 1, b: 2}`;
-        // plain value lists `{1, 2, 3}` become array literals `[1, 2, 3]`.
-        // Run multiple passes to resolve nested tables (each pass can only
-        // convert the innermost `{}` it finds, since `[^{}]*` can't span
-        // into a nested brace - a later pass then sees the now-bracketed
-        // inner value and can convert the outer one).
-        //
-        // NOTE: the previous two-step version of this used
-        // `_s.replace(/(,\s*)(\w+)\s*=\s*/g, '$1$2: ')` to catch a table's
-        // 2nd+ key=value pairs, with NO requirement that it be inside a
-        // `{...}` at all - it matched ", word =" ANYWHERE in the source,
-        // which silently corrupted ordinary multi-assignment statements
-        // like `local ok, err = pcall(...)` into `local ok, err: pcall(...)`
-        // (invalid JS). Scoping the match to text actually captured from
-        // inside a brace pair (as done here) fixes that.
+        // Convert Lua table constructors to JS syntax. Braces ALWAYS mean a
+        // table here (Lua blocks still use then/do/end, not braces), so this
+        // walks `{ ... }` spans recursively, deciding dict-vs-array from a
+        // span's TOP-LEVEL members (`key = v` items -> object literal,
+        // otherwise -> array literal). Unlike the old innermost-only pass,
+        // this handles real tables-of-tables - `{{x = 1}, {x = 2}}`,
+        // `{["A"] = {model = m, width = 1}}`, `{foo, Vector3.new(1, 2, 3)}`
+        // - which previously left an outer list brace as `{`, producing
+        // invalid JS like `let m = {{x: 1}}` (SyntaxError "Unexpected {")
+        // in model/font/grid data scripts.
         (_s) => {
-            const convertOnce = (s) => s.replace(/\{([^{}]*)\}/g, (m, inner) => {
-                if (/^\s*$/.test(inner)) return '[]';
-                // Also recognize an ALREADY-converted `key: value` shape (from
-                // a previous pass over a nested table) so re-scanning it here
-                // doesn't misclassify it as a plain array once its `=` signs
-                // are already gone - without this, a 2nd pass would find no
-                // `=` left, decide it must be an array, and wrap an already-
-                // correct `{a: 1, b: 2}` object literal in `[...]` instead.
-                let isDict = /(^|,)\s*(\[[^\]]+\]|\w+)\s*:\s*/.test(inner);
-                const asDict = inner.replace(/(^|,)(\s*)(\[[^\]]+\]|\w+)(\s*)=(?!=)\s*/g, (mm, sep, ws1, key, ws2) => {
-                    isDict = true;
-                    const k = key.startsWith('[') ? key.slice(1, -1) : key;
-                    return `${sep}${ws1}${k}: `;
-                });
-                return isDict ? `{${asDict}}` : `[${inner}]`;
-            });
-            let out = _s;
-            for (let i = 0; i < 6; i++) out = convertOnce(out);
-            return out;
+            const splitItems = (str) => {
+                const items = [];
+                let b = 0, p = 0, q = 0, cur = '';
+                let s = null;
+                for (let i = 0; i < str.length; i++) {
+                    const c = str[i];
+                    if (s) {
+                        cur += c;
+                        if (c === '\\') { if (i + 1 < str.length) { cur += str[i + 1]; i++; } continue; }
+                        if (c === s) s = null;
+                        continue;
+                    }
+                    if (c === '"' || c === "'") { s = c; cur += c; continue; }
+                    if (c === '{') b++;
+                    else if (c === '}') b--;
+                    else if (c === '(') p++;
+                    else if (c === ')') p--;
+                    else if (c === '[') q++;
+                    else if (c === ']') q--;
+                    if (c === ',' && b === 0 && p === 0 && q === 0) {
+                        items.push(cur.trim());
+                        cur = '';
+                        continue;
+                    }
+                    cur += c;
+                }
+                if (cur.trim()) items.push(cur.trim());
+                return items.filter((it) => it.length > 0);
+            };
+            const convert = (str) => {
+                let out = '';
+                let i = 0;
+                while (i < str.length) {
+                    const c = str[i];
+                    if (c === '"' || c === "'") {
+                        let j = i + 1;
+                        while (j < str.length) {
+                            if (str[j] === '\\') { j += 2; continue; }
+                            if (str[j] === c) break;
+                            j++;
+                        }
+                        out += str.slice(i, Math.min(j + 1, str.length));
+                        i = j + 1;
+                        continue;
+                    }
+                    if (c === '{') {
+                        let depth = 1;
+                        let s = null;
+                        let j = i + 1;
+                        for (; j < str.length; j++) {
+                            const ch = str[j];
+                            if (s) {
+                                if (ch === '\\') { j++; continue; }
+                                if (ch === s) s = null;
+                                continue;
+                            }
+                            if (ch === '"' || ch === "'") { s = ch; continue; }
+                            if (ch === '{') depth++;
+                            else if (ch === '}') { depth--; if (depth === 0) break; }
+                        }
+                        const inner = str.slice(i + 1, j);
+                        const items = splitItems(convert(inner));
+                        let body;
+                        if (!items.length) {
+                            body = '[]';
+                        } else {
+                            const isDict = items.some((it) => /^\s*(\[[^\]]+\]|\w+)\s*=(?!=)/.test(it));
+                            if (isDict) {
+                                body = '{' + items.map((it) => it.replace(/^(\s*)(\[[^\]]+\]|\w+)(\s*)=(?!=)/, '$1$2$3:')).join(',') + '}';
+                            } else {
+                                body = '[' + items.join(',') + ']';
+                            }
+                        }
+                        out += body;
+                        i = j + 1;
+                        continue;
+                    }
+                    out += c;
+                    i++;
+                }
+                return out;
+            };
+            return convert(_s);
         },
-        // An outer table can still contain braces after the inner table was
-        // converted, so the innermost-only pass cannot see its first key.
-        // Restrict this follow-up to keys immediately after `{` to avoid
-        // rewriting ordinary assignments elsewhere in the script.
-        (_s) => _s.replace(/(\{\s*)(\w+)\s*=(?!=)/g, '$1$2: '),
         (_s) => _s.replace(/\blocal\s+function\s+(\w+)\s*\(/g, 'let $1 = async function('),
         (_s) => {
             // Auto-await calls to (a) locally-declared async functions, and
@@ -159,7 +209,14 @@ export function luaToJS(lua) {
             }
             return _s;
         },
-        (_s) => _s.replace(/\bfunction\s+(\w+)\s*\(/g, 'exports.$1 = async function('),
+        // Global `function name(...)` declarations. Bind BOTH a bare local
+        // (`let name`) and the exports slot: exports keeps the function
+        // reachable from other scripts/require, while the bare binding is
+        // what lets the script reference its own global function by name -
+        // e.g. `RunService.Heartbeat:Connect(OnHeartbeat)` after defining
+        // `function OnHeartbeat(dt) ... end`. Without the local binding that
+        // reference threw "OnHeartbeat is not defined" at runtime.
+        (_s) => _s.replace(/\bfunction\s+(\w+)\s*\(/g, 'let $1 = exports.$1 = async function('),
         (_s) => _s.replace(/(?<!\basync\s)\bfunction\s*\(/g, 'async function('),
         // Convert every remaining bare `end` keyword to `}`, regardless of
         // where it appears on its line. This used to only match `end` at
@@ -209,6 +266,17 @@ export function luaToJS(lua) {
         (_s) => _s.replace(/\bthen\b/g, '{'),
         (_s) => _s.replace(/\belseif\b/g, '} else if'),
         (_s) => _s.replace(/\belse\b(?![^\S\n]*(?:\{|if\b))/g, '} else {'),
+        // Lua string methods invoked with colon syntax on a string value,
+        // e.g. `name:upper()`, `text:sub(i, j)`, `csv:split(",")`. The
+        // generic colon->dot rule below would emit `name.upper()`, but JS
+        // strings have no such methods and patching String.prototype
+        // globally is unsafe (it would clobber native `.match`/`.split`
+        // used by the editor/engine itself). Rewrite to
+        // `string.<m>(<base>, ...)`, using the `string` (=LuaString) library
+        // the runtime already exposes. The `(` is part of the match so it is
+        // re-emitted; the original closing `)` still balances it.
+        (_s) => _s.replace(/(\w+(?:\.\w+)*(?:\[[^\]]*\])*):(sub|upper|lower|len|rep|reverse|byte|char|find|gmatch|gsub|match|split|format|pack|packsize|unpack)\s*\(/g,
+            (_m, _base, _meth) => `string.${_meth}(${_base}, `),
         // Convert `:` method calls to `.` BEFORE pairs/ipairs conversion
         (_s) => _s.replace(/(\w+(?:\.\w+)*(?:\[[^\]]*\])*):([\w]+)\s*\(/g, '$1.$2('),
         (_s) => _s.replace(/([\)\]])\s*:\s*([\w]+)\s*\(/g, '$1.$2('),
@@ -261,7 +329,7 @@ export function luaToJS(lua) {
                     return `for (let ${_v}=${_start.trim()}; ${_v}${_cmp}${_stop.trim()}; ${_v}+=(${_st})) {`;
                 });
         },
-        // Convert bare Lua do...end to { ... } — must run AFTER for-loop conversions above
+        // Convert bare Lua do...end to { ... } -- must run AFTER for-loop conversions above
         (_s) => _s.replace(/\bdo\b(?!\s*\{)/g, '{'),
         // Convert repeat...until to do...while
         (_s) => _s.replace(/\brepeat\b/g, 'do {'),
@@ -321,7 +389,7 @@ export function luaToJS(lua) {
         // receiver chain (game.ReplicatedStorage.MyFunc:InvokeServer(...))
         // so `await` lands at the start of the whole expression, not
         // wedged in front of just the last segment.
-        (_s) => _s.replace(/(?<![\w).\]])((?:\w+\.)*\w+)\.(InvokeServer|InvokeClient|Invoke)\s*\(/g, (m, obj, method) => `await ${obj}.${method}(`),
+        (_s) => _s.replace(/(?<![\w).\]])((?:\w+\.)*\w+)\.(InvokeServer|InvokeClient|Invoke|Wait|WaitForChild)\s*\(/g, (m, obj, method) => `await ${obj}.${method}(`),
         (_s) => _s.replace(/\btostring\s*\(/g, 'String('),
         (_s) => _s.replace(/\btonumber\s*\(/g, 'Number('),
         (_s) => _s.replace(/\btype\s*\(/g, '_luaType('),
@@ -334,7 +402,7 @@ export function luaToJS(lua) {
         (_s) => _s.replace(/\bgame\.PurchaseDeveloperProduct\s*\(/g, 'await game.PurchaseDeveloperProduct('),
         (_s) => _s.replace(/\bgame\.PromptDeveloperProduct\s*\(/g, 'await game.PromptDeveloperProduct('),
         // Compound assignment operators: += -= *= /= //= %= ^= ..=
-        // Placed after table-key transforms to avoid {x = …} → {x: …} conflict
+        // Placed after table-key transforms to avoid {x = ...} → {x: ...} conflict
         (_s) => _s.replace(
             /(\w+(?:\s*\.\s*\w+)*(?:\s*\[[^\]]+\])*)\s*([+\-*/%]|\.\.)=\s*/g,
             (_m, _v, _op) => {
@@ -346,7 +414,7 @@ export function luaToJS(lua) {
         (_s) => _s.replace(/\^=(?=\s|$)/g, '**='),
         // ^  →  **  (exponentiation, must run AFTER ^= is already converted)
         (_s) => _s.replace(/\^/g, '**'),
-        // //=  →  Math.floor(x / rhs) — capture RHS up to ; or newline
+        // //=  →  Math.floor(x / rhs) -- capture RHS up to ; or newline
         (_s) => _s.replace(
             /(\w+(?:\s*\.\s*\w+)*(?:\s*\[[^\]]+\])*)\s*\/\/=\s*([^;\n]+)/g,
             (_m, _v, _rhs) => `${_v} = Math.floor(${_v} / ${_rhs})`
@@ -376,6 +444,39 @@ export function luaToJS(lua) {
             /(\d+(?:\.\d+)?)\s*\*\s*(Vector3\.new\s*\([^()]*\))/g,
             (m, n, b) => `_bvMath('*', ${b}, ${n})`
         ),
+        // Bare variable-to-variable datatype arithmetic where neither side is
+        // a literal `Vector3.new(...)`: `pos + offset`, `a.Position - b.Position`,
+        // `cf.Pivot + delta`. JS `+`/`-` on two objects only stringifies, so
+        // route any expression with a `.Position`/`.CFrame`/`.Pivot`/`.Size`
+        // datatype signal on ONE side through _bvMath (which handles
+        // Vector3/CFrame values and falls back to native for scalars). The
+        // negative lookahead means a scalar component read like `a.Position.x`
+        // is not treated as vector math.
+        (_s) => _s.replace(
+            /([\w$.]+\.(?:Position|CFrame|Pivot|Size)(?!\.))\s*([+\-])\s*([a-zA-Z_$][\w$]*(?:\.[\w$]+(?:\([^()]*\))?)*)/g,
+            (_m, a, op, b) => `_bvMath('${op}', ${a}, ${b})`
+        ),
+        (_s) => _s.replace(
+            /([a-zA-Z_$][\w$]*(?:\.[\w$]+(?:\([^()]*\))?)*)\s*([+\-])\s*([\w$.]+\.(?:Position|CFrame|Pivot|Size)(?!\.))/g,
+            (_m, a, op, b) => `_bvMath('${op}', ${a}, ${b})`
+        ),
+        // CFrame math: `cf * CFrame.new(...)`, `CFrame.new(...) * cf`, and
+        // `cf + CFrame.new(...)`. JS `*` on objects would just stringify, so
+        // route them through _bvMath like the Vector3 cases above. lookup is
+        // the common "compose a local transform" form - `cf * CFrame.new(dx,
+        // dy, dz)` must move along cf's own axes, not the world's.
+        (_s) => _s.replace(
+            /([a-zA-Z_$][\w$]*(?:\s*\.\s*[\w$]+(?:\s*\([^()]*\))?)*)\s*\*\s*(CFrame\.(?:new|Angles|lookAt)\s*\([^()]*\))/g,
+            (m, a, b) => `_bvMath('*', ${a}, ${b})`
+        ),
+        (_s) => _s.replace(
+            /(CFrame\.(?:new|Angles|lookAt)\s*\([^()]*\))\s*\*\s*([a-zA-Z_$][\w$]*(?:\s*\.\s*[\w$]+(?:\s*\([^()]*\))?)*)/g,
+            (m, a, b) => `_bvMath('*', ${a}, ${b})`
+        ),
+        (_s) => _s.replace(
+            /([a-zA-Z_$][\w$]*(?:\s*\.\s*[\w$]+(?:\s*\([^()]*\))?)*)\s*([+\-])\s*CFrame\.new\s*\(([^()]*)\)/g,
+            (m, a, op, args) => `_bvMath('${op}', ${a}, CFrame.new(${args}))`
+        ),
     ];
 
     return _transforms.reduce((_acc, _fn) => _fn(_acc), lua);
@@ -393,7 +494,7 @@ function _v3ToObj(v) {
     return new Vector3Class(arr[0], arr[1], arr[2]);
 }
 
-// ── GUI element wrapper ────────────────────────────────────────────────────────
+// -- GUI element wrapper --------------------------------------------------------
 function createGuiElement(type, props, screenEl) {
     const el = document.createElement(type === 'Frame' ? 'div' : type === 'TextLabel' ? 'div' : 'button');
     el.dataset.guiType = type;
@@ -523,7 +624,7 @@ function cssColorToRgb(color) {
     return null;
 }
 
-// ── ScreenGui wrapper ──────────────────────────────────────────────────────────
+// -- ScreenGui wrapper ----------------------------------------------------------
 function createScreenGuiContainer(name) {
     const container = document.createElement('div');
     container.dataset.screenGui = name;
@@ -554,7 +655,7 @@ function createScreenGuiContainer(name) {
     return api;
 }
 
-// ── Metatables (Lua OOP support) ──────────────────────────────────────────────
+// -- Metatables (Lua OOP support) ----------------------------------------------
 function createMetatable(obj, mt) {
     if (!mt) return obj;
     // Stored (non-enumerably, so it doesn't show up in pairs()/Object.keys())
@@ -680,11 +781,26 @@ export function createInstanceProxy(inst) {
                     return _v3ToObj(target.Position);
                 }
                 if (prop === 'Size') return _v3ToObj(target.Size);
+                if (prop === 'Rotation') {
+                    // Roblox's .Rotation is a Vector3 in DEGREES, while the
+                    // THREE mesh stores orientation in radians (the same unit
+                    // CFrameClass uses). Convert on the way out so
+                    // `math.rad(part.Rotation.X)` matches real Roblox.
+                    if (target.mesh && target.mesh.rotation) {
+                        const D = 180 / Math.PI;
+                        return new Vector3Class(
+                            target.mesh.rotation.x * D,
+                            target.mesh.rotation.y * D,
+                            target.mesh.rotation.z * D
+                        );
+                    }
+                    return _v3ToObj(target.Rotation ?? [0, 0, 0]);
+                }
                 if (prop === 'Color') {
                     if (target.Color && typeof target.Color === 'object' && 'r' in target.Color) return target.Color;
                     const mat = Array.isArray(target.mesh?.material) ? target.mesh.material[0] : target.mesh?.material;
                     if (mat?.color) return mat.color;
-                    return { r: 163 / 255, g: 162 / 255, b: 165 / 255 };
+                    return { r: 163 / 255, g: 163 / 255, b: 163 / 255 };
                 }
                 if (prop === 'SetVelocity') {
                     return (vx, vy, vz) => {
@@ -816,8 +932,14 @@ export function createInstanceProxy(inst) {
             if (prop === 'IsA') return (className) => target.IsA ? target.IsA(className) : target.ClassName === className;
             if (prop === 'WaitForChild') {
                 return (name, timeout) => {
-                    const p = target.WaitForChild(name, timeout);
-                    return p && p.then ? p.then(c => createInstanceProxy(c)) : Promise.resolve(createInstanceProxy(p));
+                    let p = null;
+                    if (typeof target.WaitForChild === 'function') {
+                        p = target.WaitForChild(name, timeout);
+                    } else if (target.FindFirstChild) {
+                        p = target.FindFirstChild(name);
+                    }
+                    if (p && p.then) return p.then(c => createInstanceProxy(c));
+                    return Promise.resolve(p ? createInstanceProxy(p) : null);
                 };
             }
             if (prop === 'GetAttribute') return (name) => target._attrs ? target._attrs[name] : null;
@@ -834,7 +956,9 @@ export function createInstanceProxy(inst) {
 
             if (prop in target) {
                 const val = target[prop];
-                return typeof val === 'function' ? val.bind(target) : val;
+                if (typeof val === 'function') return val.bind(target);
+                if (val && typeof val === 'object' && (val.ClassName || Array.isArray(val.Children))) return createInstanceProxy(val);
+                return val;
             }
 
             // Child lookup by name
@@ -856,7 +980,7 @@ export function createInstanceProxy(inst) {
                 return true;
             }
 
-            // GUI Text setter — calls setProperty which triggers _applyDOM on the instance
+            // GUI Text setter -- calls setProperty which triggers _applyDOM on the instance
             if ((isGui || target.ClassName === 'TextLabel' || target.ClassName === 'TextButton') && prop === 'Text') {
                 if (target.setProperty) target.setProperty('Text', value);
                 else target.Text = value;
@@ -908,6 +1032,18 @@ export function createInstanceProxy(inst) {
                     const arr = _v3ToArray(value);
                     target.Size = arr;
                     target.setProperty?.('Size', arr);
+                    return true;
+                }
+                if (prop === 'Rotation') {
+                    // Accepts degrees (Roblox semantics); the mesh Euler is
+                    // radians, so convert before applying.
+                    const arr = _v3ToArray(value);
+                    if (isPart) target.Rotation = arr;
+                    const RAD = Math.PI / 180;
+                    if (target.mesh && target.mesh.rotation) {
+                        target.mesh.rotation.set(arr[0] * RAD, arr[1] * RAD, arr[2] * RAD);
+                    }
+                    target.setProperty?.('Rotation', arr);
                     return true;
                 }
                 if (prop === 'CanCollide') {
@@ -1000,7 +1136,7 @@ export function createInstanceProxy(inst) {
     });
 }
 
-// ── sprintf ────────────────────────────────────────────────────────────────────
+// -- sprintf --------------------------------------------------------------------
 function sprintf(fmt, ...args) {
     let i = 0;
     return fmt.replace(/%(-?)(\d*)(\.?\d*)([xXdsf%])/g, (m, minus, width, prec, type) => {
@@ -1150,12 +1286,9 @@ const LuaOs = {
     },
 };
 
-// ── Color3 / Vector3 ───────────────────────────────────────────────────────────
-function Color3(r, g, b) {
-    if (r === undefined) return { r: 0, g: 0, b: 0 };
-    if (typeof r === 'number' && g === undefined) return { r: r, g: r, b: r };
-    return { r: r, g: g, b: b };
-}
+// -- Color3 / Vector3 -----------------------------------------------------------
+// Color3, like Vector3, is not callable directly in real Roblox - only
+// Color3.new/.fromRGB/.fromHSV work.
 function _color3Value(r, g, b) {
     return {
         r: r ?? 0, g: g ?? 0, b: b ?? 0,
@@ -1174,31 +1307,52 @@ function _color3Value(r, g, b) {
         }
     };
 }
-Color3.new = (r, g, b) => _color3Value(r, g, b);
-Color3.fromRGB = (r, g, b) => _color3Value(r / 255, g / 255, b / 255);
-Color3.fromHSV = (h, s, v) => {
-    let r, g, b;
-    const i = Math.floor(h * 6);
-    const f = h * 6 - i;
-    const p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
-    switch (i % 6) {
-        case 0: r=v; g=t; b=p; break; case 1: r=q; g=v; b=p; break;
-        case 2: r=p; g=v; b=t; break; case 3: r=p; g=q; b=v; break;
-        case 4: r=t; g=p; b=v; break; case 5: r=v; g=p; b=q; break;
-    }
-    return _color3Value(r, g, b);
+const Color3 = {
+    new: (r, g, b) => {
+        if (r === undefined) return _color3Value(0, 0, 0);
+        if (typeof r === 'number' && g === undefined) return _color3Value(r, r, r);
+        return _color3Value(r, g, b);
+    },
+    fromRGB: (r, g, b) => _color3Value(r / 255, g / 255, b / 255),
+    fromHSV: (h, s, v) => {
+        let r, g, b;
+        const i = Math.floor(h * 6);
+        const f = h * 6 - i;
+        const p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
+        switch (i % 6) {
+            case 0: r=v; g=t; b=p; break; case 1: r=q; g=v; b=p; break;
+            case 2: r=p; g=v; b=t; break; case 3: r=p; g=q; b=v; break;
+            case 4: r=t; g=p; b=v; break; case 5: r=v; g=p; b=q; break;
+        }
+        return _color3Value(r, g, b);
+    },
 };
 
-function Vector2(x, y) { return { x: x ?? 0, y: y ?? 0, X: x ?? 0, Y: y ?? 0 }; }
-Vector2.new = Vector2;
-function Ray(origin, direction) { return { Origin: origin, Direction: direction }; }
-Ray.new = Ray;
-function Region3(min, max) { return { CFrame: CFrame.lookAt(min, max), Size: max.Sub(min) }; }
-Region3.new = Region3;
-function RaycastParams() { return { FilterType: null, FilterDescendantsInstances: [], IgnoreWater: false }; }
-RaycastParams.new = RaycastParams;
-function OverlapParams() { return { FilterType: null, FilterDescendantsInstances: [], MaxParts: 0 }; }
-OverlapParams.new = OverlapParams;
+// Same story for the rest of Roblox's datatype constructors below -
+// Vector2, Ray, Region3, RaycastParams, OverlapParams, BrickColor,
+// NumberRange, NumberSequence, ColorSequence, PhysicalProperties, TweenInfo,
+// Random, CFrame, UDim2, UDim. None of these are callable directly in real
+// Roblox; every one of them requires .new() (or, for BrickColor, one of its
+// other named constructors). Only exposing `.new`/statics on a plain object
+// (rather than a callable function) means calling e.g. `CFrame(1,2,3)`
+// correctly errors instead of silently working like Lua doesn't allow.
+const Vector2 = { new: (x, y) => ({ x: x ?? 0, y: y ?? 0, X: x ?? 0, Y: y ?? 0 }) };
+const Ray = { new: (origin, direction) => ({ Origin: origin, Direction: direction }) };
+const Region3 = { new: (min, max) => ({ CFrame: CFrame.lookAt(min, max), Size: max.Sub(min) }) };
+const RaycastParams = {
+    new: () => ({
+        FilterType: Enum.RaycastFilterType.Exclude,
+        FilterDescendantsInstances: [],
+        IgnoreWater: false,
+        CollisionGroup: '',
+        RespectCanCollide: false,
+        AddToFilter(instances) {
+            const list = Array.isArray(instances) ? instances : [instances];
+            for (const inst of list) if (inst) this.FilterDescendantsInstances.push(inst);
+        },
+    }),
+};
+const OverlapParams = { new: () => ({ FilterType: null, FilterDescendantsInstances: [], MaxParts: 0 }) };
 
 // BrickColor - a small named-color palette (the full Roblox set has 100+
 // entries; these are the common ones scripts actually reach for) plus
@@ -1219,65 +1373,65 @@ function _brickColorFromName(name) {
     const rgb = _brickColorPalette[name] || _brickColorPalette['Medium stone grey'] || [163, 162, 165];
     return { Name: name, Number: 1, Color: Color3.fromRGB(rgb[0], rgb[1], rgb[2]), r: rgb[0] / 255, g: rgb[1] / 255, b: rgb[2] / 255 };
 }
-function BrickColor(v) {
-    if (typeof v === 'string') return _brickColorFromName(v);
-    if (typeof v === 'number') {
+const BrickColor = {
+    new: (v) => {
+        if (typeof v === 'string') return _brickColorFromName(v);
+        if (typeof v === 'number') {
+            const names = Object.keys(_brickColorPalette);
+            return _brickColorFromName(names[v % names.length]);
+        }
+        return _brickColorFromName('Medium stone grey');
+    },
+    random: () => {
         const names = Object.keys(_brickColorPalette);
-        return _brickColorFromName(names[v % names.length]);
-    }
-    return _brickColorFromName('Medium stone grey');
-}
-BrickColor.new = BrickColor;
-BrickColor.random = () => {
-    const names = Object.keys(_brickColorPalette);
-    return _brickColorFromName(names[Math.floor(Math.random() * names.length)]);
+        return _brickColorFromName(names[Math.floor(Math.random() * names.length)]);
+    },
+    White: () => _brickColorFromName('White'),
+    Black: () => _brickColorFromName('Black'),
+    Gray: () => _brickColorFromName('Grey'),
 };
-BrickColor.White = () => _brickColorFromName('White');
-BrickColor.Black = () => _brickColorFromName('Black');
-BrickColor.Gray = () => _brickColorFromName('Grey');
 
 // NumberRange / NumberSequence / ColorSequence - simple data-holders used
 // mainly for ParticleEmitter-style properties. Keypoint arrays are accepted
 // as-is (already plain {Time, Value, Envelope} / {Time, Value} objects).
-function NumberRange(min, max) { return { Min: min, Max: max ?? min }; }
-NumberRange.new = NumberRange;
-function NumberSequence(a, b) {
-    if (Array.isArray(a)) return { Keypoints: a };
-    if (b !== undefined) return { Keypoints: [{ Time: 0, Value: a, Envelope: 0 }, { Time: 1, Value: b, Envelope: 0 }] };
-    return { Keypoints: [{ Time: 0, Value: a, Envelope: 0 }, { Time: 1, Value: a, Envelope: 0 }] };
-}
-NumberSequence.new = NumberSequence;
-NumberSequence.Keypoint = (time, value, envelope) => ({ Time: time, Value: value, Envelope: envelope ?? 0 });
-function ColorSequence(a, b) {
-    if (Array.isArray(a)) return { Keypoints: a };
-    if (b !== undefined) return { Keypoints: [{ Time: 0, Value: a }, { Time: 1, Value: b }] };
-    return { Keypoints: [{ Time: 0, Value: a }, { Time: 1, Value: a }] };
-}
-ColorSequence.new = ColorSequence;
-ColorSequence.Keypoint = (time, value) => ({ Time: time, Value: value });
+const NumberRange = { new: (min, max) => ({ Min: min, Max: max ?? min }) };
+const NumberSequence = {
+    new: (a, b) => {
+        if (Array.isArray(a)) return { Keypoints: a };
+        if (b !== undefined) return { Keypoints: [{ Time: 0, Value: a, Envelope: 0 }, { Time: 1, Value: b, Envelope: 0 }] };
+        return { Keypoints: [{ Time: 0, Value: a, Envelope: 0 }, { Time: 1, Value: a, Envelope: 0 }] };
+    },
+    Keypoint: (time, value, envelope) => ({ Time: time, Value: value, Envelope: envelope ?? 0 }),
+};
+const ColorSequence = {
+    new: (a, b) => {
+        if (Array.isArray(a)) return { Keypoints: a };
+        if (b !== undefined) return { Keypoints: [{ Time: 0, Value: a }, { Time: 1, Value: b }] };
+        return { Keypoints: [{ Time: 0, Value: a }, { Time: 1, Value: a }] };
+    },
+    Keypoint: (time, value) => ({ Time: time, Value: value }),
+};
 
 // PhysicalProperties - plain data, matches Roblox's constructor signature.
-function PhysicalProperties(density, friction, elasticity, frictionWeight, elasticityWeight) {
-    return {
+const PhysicalProperties = {
+    new: (density, friction, elasticity, frictionWeight, elasticityWeight) => ({
         Density: density ?? 1, Friction: friction ?? 0.3, Elasticity: elasticity ?? 0.5,
         FrictionWeight: frictionWeight ?? 1, ElasticityWeight: elasticityWeight ?? 1,
-    };
-}
-PhysicalProperties.new = PhysicalProperties;
+    }),
+};
 
 // TweenInfo - plain data with Roblox's real defaults, consumed by
 // TweenService (implemented elsewhere against the game/Instance layer).
-function TweenInfo(time, easingStyle, easingDirection, repeatCount, reverses, delayTime) {
-    return {
+const TweenInfo = {
+    new: (time, easingStyle, easingDirection, repeatCount, reverses, delayTime) => ({
         Time: time ?? 1,
         EasingStyle: easingStyle ?? Enum.EasingStyle.Quad,
         EasingDirection: easingDirection ?? Enum.EasingDirection.Out,
         RepeatCount: repeatCount ?? 0,
         Reverses: reverses ?? false,
         DelayTime: delayTime ?? 0,
-    };
-}
-TweenInfo.new = TweenInfo;
+    }),
+};
 
 // Random - an actually-seedable PRNG (mulberry32), unlike math.random/
 // math.randomseed which can't reseed JS's built-in Math.random.
@@ -1290,7 +1444,7 @@ function _mulberry32(seed) {
         return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
 }
-function Random(seed) {
+function _makeRandom(seed) {
     const rng = _mulberry32(seed ?? Math.floor(Math.random() * 2 ** 31));
     return {
         NextNumber(min, max) {
@@ -1305,7 +1459,7 @@ function Random(seed) {
             const r = Math.sqrt(1 - z * z);
             return new Vector3Class(r * Math.cos(theta), r * Math.sin(theta), z);
         },
-        Clone() { return Random(Math.floor(rng() * 2 ** 31)); },
+        Clone() { return _makeRandom(Math.floor(rng() * 2 ** 31)); },
         Shuffle(t) {
             const a = Array.isArray(t) ? t.slice() : Object.values(t);
             for (let i = a.length - 1; i > 0; i--) {
@@ -1316,7 +1470,7 @@ function Random(seed) {
         },
     };
 }
-Random.new = Random;
+const Random = { new: _makeRandom };
 
 // DateTime - covers the common instance methods/statics scripts actually
 // call (Format-string parsing for FromIsoDate/etc is intentionally not
@@ -1405,8 +1559,10 @@ class Vector3Class {
     FuzzyEq(o, eps = 1e-5) { return Math.abs(this.x - o.x) <= eps && Math.abs(this.y - o.y) <= eps && Math.abs(this.z - o.z) <= eps; }
     toString() { return `${this.x}, ${this.y}, ${this.z}`; }
 }
-function Vector3(x, y, z) { return new Vector3Class(x ?? 0, y ?? 0, z ?? 0); }
-Vector3.new = (x, y, z) => new Vector3Class(x ?? 0, y ?? 0, z ?? 0);
+// Vector3 is NOT callable directly - matching real Roblox, where you must
+// use Vector3.new(...); calling Vector3(...) itself errors ("attempt to
+// call a table value") since Vector3 is a constructor table, not a function.
+const Vector3 = { new: (x, y, z) => new Vector3Class(x ?? 0, y ?? 0, z ?? 0) };
 Object.defineProperty(Vector3, 'zero', { get: () => new Vector3Class(0, 0, 0) });
 Object.defineProperty(Vector3, 'one', { get: () => new Vector3Class(1, 1, 1) });
 
@@ -1459,14 +1615,14 @@ class CFrameClass {
     ToEulerAnglesXYZ() { return [this._rx, this._ry, this._rz]; }
     toString() { return `${this.x}, ${this.y}, ${this.z}`; }
 }
-function CFrame(x, y, z) {
+function _cframeCtor(x, y, z) {
     if (x && typeof x === 'object') {
         if (y && typeof y === 'object') return CFrame.lookAt(x, y);
         return new CFrameClass(x.x ?? 0, x.y ?? 0, x.z ?? 0);
     }
     return new CFrameClass(x ?? 0, y ?? 0, z ?? 0);
 }
-CFrame.new = CFrame;
+const CFrame = { new: _cframeCtor };
 Object.defineProperty(CFrame, 'identity', { get: () => new CFrameClass(0, 0, 0) });
 CFrame.Angles = (rx, ry, rz) => new CFrameClass(0, 0, 0, rx ?? 0, ry ?? 0, rz ?? 0);
 CFrame.fromEulerAnglesXYZ = CFrame.Angles;
@@ -1483,12 +1639,28 @@ CFrame.lookAt = (from, to) => {
 // Vector3/CFrame math for `+ - * /` and falls back to the native JS operator
 // for anything else (plain numbers/strings), so ordinary arithmetic behaves
 // exactly as before.
+function _applyEulerXYZ(v, rx, ry, rz) {
+    const cx = Math.cos(rx || 0), sx = Math.sin(rx || 0);
+    const cy = Math.cos(ry || 0), sy = Math.sin(ry || 0);
+    const cz = Math.cos(rz || 0), sz = Math.sin(rz || 0);
+    const x = v.x, y = v.y, z = v.z;
+    return new Vector3Class(
+        (cy * cz) * x + (-cy * sz) * y + (sy) * z,
+        (cx * sz + sx * sy * cz) * x + (cx * cz - sx * sy * sz) * y + (-sx * cy) * z,
+        (sx * sz - cx * sy * cz) * x + (sx * cz + cx * sy * sz) * y + (cx * cy) * z
+    );
+}
+
 function _bvMath(op, a, b) {
     const isV = (v) => v && typeof v === 'object' && !Array.isArray(v) && typeof v.x === 'number' && typeof v.y === 'number' && typeof v.z === 'number';
+    // CFrame detection accepts both real CFrameClass instances AND the plain
+    // CFrame-shaped objects (x/y/z + _rx/_ry/_rz) returned by character/model
+    // CFrame getters, since getters like studio's characterProxy return a
+    // light-weight plain object rather than a CFrameClass instance.
+    const isC = (v) => isV(v) && (v.constructor === CFrameClass || typeof v._rx === 'number' || (v.Position && typeof v.Position.x === 'number'));
     const av = isV(a), bv = isV(b);
+    const cfa = isC(a), cfb = isC(b);
     if (av && bv) {
-        const cfa = a.constructor === CFrameClass;
-        const cfb = b.constructor === CFrameClass;
         if (op === '+') {
             if (cfa && !cfb) return new CFrameClass(a.x + b.x, a.y + b.y, a.z + b.z, a._rx, a._ry, a._rz);
             if (!cfa && cfb) return new CFrameClass(b.x + a.x, b.y + a.y, b.z + a.z, b._rx, b._ry, b._rz);
@@ -1499,7 +1671,23 @@ function _bvMath(op, a, b) {
             if (cfa && !cfb) return new CFrameClass(a.x - b.x, a.y - b.y, a.z - b.z, a._rx, a._ry, a._rz);
             return new Vector3Class(a.x - b.x, a.y - b.y, a.z - b.z);
         }
-        if (op === '*') return new Vector3Class(a.x * b.x, a.y * b.y, a.z * b.z);
+        if (op === '*') {
+            // CFrame * CFrame: compose - translate b's offset into a's rotated
+            // frame (so `cf * CFrame.new(dx,0,0)` moves along cf's local X),
+            // then add the rotations.
+            if (cfa && cfb) {
+                const off = _applyEulerXYZ(b, a._rx || 0, a._ry || 0, a._rz || 0);
+                return new CFrameClass(a.x + off.x, a.y + off.y, a.z + off.z,
+                    (a._rx || 0) + (b._rx || 0), (a._ry || 0) + (b._ry || 0), (a._rz || 0) + (b._rz || 0));
+            }
+            // CFrame * Vector3: rotate the point into world space, then offset
+            if (cfa && !cfb) {
+                const w = _applyEulerXYZ(b, a._rx || 0, a._ry || 0, a._rz || 0);
+                return new Vector3Class(a.x + w.x, a.y + w.y, a.z + w.z);
+            }
+            if (!cfa && cfb) return new CFrameClass(a.x + b.x, a.y + b.y, a.z + b.z, b._rx, b._ry, b._rz);
+            return new Vector3Class(a.x * b.x, a.y * b.y, a.z * b.z);
+        }
         if (op === '/') return new Vector3Class(a.x / b.x, a.y / b.y, a.z / b.z);
     }
     if (op === '*' && av && typeof b === 'number') return new Vector3Class(a.x * b, a.y * b, a.z * b);
@@ -1517,7 +1705,7 @@ function _bvMath(op, a, b) {
 }
 globalThis._bvMath = _bvMath;
 
-// ── Enum (best-effort subset covering the commonly-used namespaces) ──────────
+// -- Enum (best-effort subset covering the commonly-used namespaces) ----------
 function _mkEnumItem(enumName, name, value) {
     return { EnumType: enumName, Name: name, Value: value, toString: () => `Enum.${enumName}.${name}` };
 }
@@ -1533,13 +1721,15 @@ const Enum = {
     EasingStyle: _mkEnum('EasingStyle', ['Linear', 'Sine', 'Back', 'Quad', 'Quart', 'Quint', 'Bounce', 'Elastic', 'Exponential', 'Circular', 'Cubic']),
     EasingDirection: _mkEnum('EasingDirection', ['In', 'Out', 'InOut']),
     UserInputType: _mkEnum('UserInputType', ['MouseButton1', 'MouseButton2', 'MouseButton3', 'MouseWheel', 'MouseMovement', 'Keyboard', 'Touch', 'Gamepad1']),
+    UserInputState: _mkEnum('UserInputState', ['Begin', 'Change', 'End']),
     HumanoidStateType: _mkEnum('HumanoidStateType', ['Running', 'Jumping', 'Freefall', 'Landed', 'Climbing', 'Swimming', 'Dead', 'Seated', 'GettingUp', 'Ragdoll', 'None']),
     PartType: _mkEnum('PartType', ['Ball', 'Block', 'Cylinder', 'Wedge', 'CornerWedge']),
     RaycastFilterType: _mkEnum('RaycastFilterType', ['Exclude', 'Include']),
     NormalId: _mkEnum('NormalId', ['Top', 'Bottom', 'Front', 'Back', 'Right', 'Left']),
+    PlaybackState: _mkEnum('PlaybackState', ['Begin', 'Delayed', 'Playing', 'Paused', 'Completed', 'Cancelled']),
 };
 
-// ── Coroutines (best-effort) ──────────────────────────────────────────────────
+// -- Coroutines (best-effort) --------------------------------------------------
 // True Lua coroutines need real continuations (fibers/generators). Script
 // bodies here are transpiled into plain `async function`s, not generators,
 // so this emulates coroutine semantics with a promise handshake instead:
@@ -1635,13 +1825,11 @@ const LuaCoroutine = {
     running: () => _coroStack[_coroStack.length - 1] || null,
 };
 
-// ── UDim2 / UDim (Roblox-style, accepted but simplified) ─────────────────────
-function UDim2(sx, ox, sy, oy) { return { ScaleX: sx ?? 0, OffsetX: ox ?? 0, ScaleY: sy ?? 0, OffsetY: oy ?? 0 }; }
-UDim2.new = UDim2;
-function UDim(s, o) { return { Scale: s ?? 0, Offset: o ?? 0 }; }
-UDim.new = UDim;
+// -- UDim2 / UDim (Roblox-style, accepted but simplified) ---------------------
+const UDim2 = { new: (sx, ox, sy, oy) => ({ ScaleX: sx ?? 0, OffsetX: ox ?? 0, ScaleY: sy ?? 0, OffsetY: oy ?? 0 }) };
+const UDim = { new: (s, o) => ({ Scale: s ?? 0, Offset: o ?? 0 }) };
 
-// ── Lua type helper ───────────────────────────────────────────────────────────
+// -- Lua type helper -----------------------------------------------------------
 function _luaType(v) {
     if (v === null) return 'nil';
     if (typeof v === 'boolean') return 'boolean';
@@ -1690,7 +1878,7 @@ function _luaTypeOf(v) {
     return 'userdata';
 }
 
-// ── Math extras ───────────────────────────────────────────────────────────────
+// -- Math extras ---------------------------------------------------------------
 const LuaMath = {
     ...Math,
     clamp: (v, min, max) => Math.min(Math.max(v, min), max),
@@ -1726,7 +1914,7 @@ const LuaMath = {
     modf: (a) => [Math.trunc(a), a % 1],
 };
 
-// ── String extras ─────────────────────────────────────────────────────────────
+// -- String extras -------------------------------------------------------------
 const LuaString = {
     format: sprintf,
     sub: (s, start, last) => {
@@ -1832,7 +2020,7 @@ const LuaString = {
     },
 };
 
-// ── Table extras ──────────────────────────────────────────────────────────────
+// -- Table extras --------------------------------------------------------------
 const _toArray = (t) => { if (!t) return []; if (Array.isArray(t)) return t; const a = Object.values(t); Object.keys(t).forEach((k, i) => { delete t[k]; t[i] = a[i]; }); t.length = a.length; Object.setPrototypeOf(t, Array.prototype); return t; };
 const LuaTable = {
     insert: (t, pos, val) => {
@@ -1872,7 +2060,7 @@ const LuaTable = {
     isfrozen: (t) => Object.isFrozen(t),
 };
 
-// ── Script context factory ────────────────────────────────────────────────────
+// -- Script context factory ----------------------------------------------------
 export function createScriptContext(api) {
     const _guiScreens = [];
     const _eventHandlers = {};
@@ -1884,6 +2072,162 @@ export function createScriptContext(api) {
         window.addEventListener('keydown', e => { window._bloxverseKeys = window._bloxverseKeys || {}; window._bloxverseKeys[e.code] = true; });
         window.addEventListener('keyup', e => { if (window._bloxverseKeys) window._bloxverseKeys[e.code] = false; });
     }
+
+    const _activeTweens = [];
+    if (api.RunService) {
+        api.RunService.Heartbeat.Connect((dt) => {
+            const now = Date.now() / 1000;
+            for (let i = _activeTweens.length - 1; i >= 0; i--) {
+                const tween = _activeTweens[i];
+                if (tween.PlaybackState.Name !== 'Playing' && tween.PlaybackState.Name !== 'Delayed') continue;
+                
+                const elapsed = now - tween._startTime;
+                let alpha = 0;
+                let isCompleted = false;
+                
+                const time = tween.TweenInfo.Time || 1;
+                const delay = tween.TweenInfo.DelayTime || 0;
+                const reverses = !!tween.TweenInfo.Reverses;
+                const repeat = tween.TweenInfo.RepeatCount || 0;
+                
+                const cycleDuration = delay + time + (reverses ? time : 0);
+                
+                if (repeat >= 0 && elapsed >= cycleDuration * (repeat + 1)) {
+                    isCompleted = true;
+                    alpha = reverses ? 0 : 1;
+                } else {
+                    const currentCycleElapsed = repeat < 0 ? (elapsed % cycleDuration) : (elapsed - Math.floor(elapsed / cycleDuration) * cycleDuration);
+                    
+                    if (currentCycleElapsed < delay) {
+                        alpha = 0;
+                        tween.PlaybackState = Enum.PlaybackState.Delayed;
+                    } else {
+                        tween.PlaybackState = Enum.PlaybackState.Playing;
+                        const tPhase = currentCycleElapsed - delay;
+                        if (tPhase <= time) {
+                            alpha = tPhase / time;
+                        } else {
+                            alpha = 1 - ((tPhase - time) / time);
+                        }
+                    }
+                }
+                
+                if (alpha < 0) alpha = 0;
+                if (alpha > 1) alpha = 1;
+                
+                const styleName = tween.TweenInfo.EasingStyle.Name;
+                const dirName = tween.TweenInfo.EasingDirection.Name;
+                
+                if (styleName !== 'Linear' && alpha > 0 && alpha < 1) {
+                    const _bounceOut = (x) => {
+                        const n1 = 7.5625, d1 = 2.75;
+                        if (x < 1 / d1) return n1 * x * x;
+                        if (x < 2 / d1) return n1 * (x -= 1.5 / d1) * x + 0.75;
+                        if (x < 2.5 / d1) return n1 * (x -= 2.25 / d1) * x + 0.9375;
+                        return n1 * (x -= 2.625 / d1) * x + 0.984375;
+                    };
+
+                    const easeIn = (style, x) => {
+                        switch (style) {
+                            case 'Sine': return 1 - Math.cos((x * Math.PI) / 2);
+                            case 'Quad': return x * x;
+                            case 'Cubic': return x * x * x;
+                            case 'Quart': return x * x * x * x;
+                            case 'Quint': return x * x * x * x * x;
+                            case 'Exponential': return Math.pow(2, 10 * x - 10);
+                            case 'Circular': return 1 - Math.sqrt(1 - x * x);
+                            case 'Back': return 2.70158 * x * x * x - 1.70158 * x * x;
+                            case 'Elastic': return -Math.pow(2, 10 * x - 10) * Math.sin((x * 10 - 10.75) * ((2 * Math.PI) / 3));
+                            case 'Bounce': return 1 - _bounceOut(1 - x);
+                            default: return x;
+                        }
+                    };
+
+                    let t = alpha;
+                    if (dirName === 'In') {
+                        alpha = easeIn(styleName, t);
+                    } else if (dirName === 'Out') {
+                        if (styleName === 'Bounce') alpha = _bounceOut(t);
+                        else if (styleName === 'Elastic') alpha = Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * ((2 * Math.PI) / 3)) + 1;
+                        else alpha = 1 - easeIn(styleName, 1 - t);
+                    } else { // InOut
+                        if (styleName === 'Bounce') {
+                            alpha = t < 0.5 ? (1 - _bounceOut(1 - 2 * t)) / 2 : (1 + _bounceOut(2 * t - 1)) / 2;
+                        } else if (styleName === 'Elastic') {
+                            const c5 = (2 * Math.PI) / 4.5;
+                            alpha = t < 0.5
+                                ? -(Math.pow(2, 20 * t - 10) * Math.sin((20 * t - 11.125) * c5)) / 2
+                                : (Math.pow(2, -20 * t + 10) * Math.sin((20 * t - 11.125) * c5)) / 2 + 1;
+                        } else {
+                            alpha = t < 0.5 ? easeIn(styleName, t * 2) / 2 : 1 - easeIn(styleName, 2 - t * 2) / 2;
+                        }
+                    }
+                }
+                
+                for (const k in tween._goals) {
+                    const start = tween._startProps[k];
+                    const goal = tween._goals[k];
+                    if (typeof start === 'number' && typeof goal === 'number') {
+                        tween.Instance[k] = start + (goal - start) * alpha;
+                    } else if (start && goal && typeof start === 'object' && typeof goal === 'object') {
+                        if (start.Lerp) {
+                            tween.Instance[k] = start.Lerp(goal, alpha);
+                        } else if (start.lerp) {
+                            tween.Instance[k] = start.lerp(goal, alpha);
+                        }
+                    }
+                }
+                
+                if (isCompleted) {
+                    tween.PlaybackState = Enum.PlaybackState.Completed;
+                    if (tween.Completed && tween.Completed.Fire) tween.Completed.Fire(Enum.PlaybackState.Completed);
+                    _activeTweens.splice(i, 1);
+                }
+            }
+        });
+    }
+
+    const _tweenService = {
+        ClassName: 'TweenService',
+        Name: 'TweenService',
+        Create: (instance, tweenInfo, goals) => {
+            const tween = {
+                Instance: instance,
+                TweenInfo: tweenInfo,
+                PlaybackState: Enum.PlaybackState.Begin,
+                Completed: new Signal(),
+                _startTime: 0,
+                _elapsedBeforePause: 0,
+                _startProps: {},
+                _goals: goals,
+                Play: () => {
+                    if (tween.PlaybackState.Name === 'Playing' || tween.PlaybackState.Name === 'Delayed') return;
+                    if (tween.PlaybackState.Name !== 'Paused') {
+                        tween._elapsedBeforePause = 0;
+                        for (const k in goals) {
+                            tween._startProps[k] = instance[k];
+                        }
+                    }
+                    tween.PlaybackState = Enum.PlaybackState.Playing;
+                    tween._startTime = (Date.now() / 1000) - tween._elapsedBeforePause;
+                    if (!_activeTweens.includes(tween)) _activeTweens.push(tween);
+                },
+                Pause: () => { 
+                    if (tween.PlaybackState.Name === 'Playing' || tween.PlaybackState.Name === 'Delayed') {
+                        tween._elapsedBeforePause = (Date.now() / 1000) - tween._startTime;
+                        tween.PlaybackState = Enum.PlaybackState.Paused; 
+                    }
+                },
+                Cancel: () => {
+                    tween.PlaybackState = Enum.PlaybackState.Cancelled;
+                    tween._elapsedBeforePause = 0;
+                    const idx = _activeTweens.indexOf(tween);
+                    if (idx >= 0) _activeTweens.splice(idx, 1);
+                }
+            };
+            return tween;
+        }
+    };
 
     const gameApi = {
         // Players
@@ -1948,7 +2292,12 @@ export function createScriptContext(api) {
         // direct property access (game.X) does, plus RunService which lives
         // outside the instance tree (it's handed in separately via `api`).
         GetService: (name) => {
+            if (name === 'TweenService') return _tweenService;
             if (name === 'RunService') return api.RunService || null;
+            // UserInputService is client-only: a server-side Script can't
+            // read the player's inputs, so it resolves to nil there exactly
+            // like in real Roblox (the host wires the bridge in per-play).
+            if (name === 'UserInputService') return api.side === 'client' ? (api.UserInputService || null) : null;
             if (name === 'Players') return makePlayersProxy(api.game || {});
             // Canonical service names always resolve by ClassName, even if a
             // service has been renamed in the explorer.
@@ -1996,6 +2345,8 @@ export function createScriptContext(api) {
                 return makePlayersProxy(target);
             case 'RunService':
                 return api.RunService || null;
+            case 'UserInputService':
+                return api.side === 'client' ? (api.UserInputService || null) : null;
             default:
                 return null;
         }
@@ -2201,6 +2552,10 @@ export function createScriptContext(api) {
         Workspace: serviceChild(api.game || {}, 'Workspace'),
         ReplicatedStorage: serviceChild(api.game || {}, 'ReplicatedStorage'),
         ServerScriptService: serviceChild(api.game || {}, 'ServerScriptService'),
+        // UserInputService is client-only: only a LocalScript (side === 'client')
+        // can see it; server-side Scripts resolve it to nil. The host wires
+        // the bridge in through `api` per-play.
+        UserInputService: api.side === 'client' ? (api.UserInputService || null) : null,
         Instance: Instance,
         Color3: Color3,
         Vector3: Vector3,
@@ -2230,7 +2585,7 @@ export function createScriptContext(api) {
     ctx.Color3.fromRGB = Color3.fromRGB;
     ctx.Color3.fromHSV = Color3.fromHSV;
 
-    // `require` stub — returns exports of a named script if available via
+    // `require` stub -- returns exports of a named script if available via
     // api. Real Roblox require() takes a ModuleScript *instance* (or an asset
     // id), not a string name, so `name` here is usually an Instance proxy -
     // describe it sensibly either way instead of printing "[object Object]".
@@ -2289,6 +2644,122 @@ export function createScriptContext(api) {
     return ctx;
 }
 
+// -- UserInputService bridge ---------------------------------------------------
+// Roblox's UserInputService is client-only, so there's no canonical instance to
+// resolve - the host page creates one per playtest via this factory (see
+// _studioApi.UserInputService wiring) and disposes it on stop. The bridge maps
+// real DOM keyboard/mouse events onto InputObjects whose KeyCode/
+// UserInputType/UserInputState are the SAME Enum singletons the script sees
+// (Enum.KeyCode.E etc.), so `input.KeyCode == Enum.KeyCode.E` identity
+// comparisons actually succeed instead of comparing two unrelated objects.
+export function createUserInputBridge() {
+    let disposed = false;
+    const svc = {
+        InputBegan: new Signal(),
+        InputEnded: new Signal(),
+        InputChanged: new Signal(),
+        KeyboardEnabled: true,
+        MouseEnabled: true,
+        TouchEnabled: false,
+        GamepadEnabled: false,
+        dispose() { disposed = true; cleanup(); },
+    };
+
+    const _domToCode = {
+        Space: 'Space', Escape: 'Escape', Tab: 'Tab', Backspace: 'Backspace',
+        Enter: 'Return', NumpadEnter: 'Return',
+        ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right',
+        ShiftLeft: 'LeftShift', ShiftRight: 'RightShift',
+        ControlLeft: 'LeftControl', ControlRight: 'RightControl',
+        AltLeft: 'LeftAlt', AltRight: 'RightAlt',
+    };
+    function keyCodeFor(e) {
+        if (typeof e.code !== 'string') return Enum.KeyCode.Unknown;
+        if (/^Key[A-Z]$/.test(e.code)) return Enum.KeyCode[e.code.slice(3).toUpperCase()] || Enum.KeyCode.Unknown;
+        if (/^Digit[0-9]$/.test(e.code)) {
+            const d = e.code.slice(5);
+            const name = d === '0' ? 'Zero' : ['One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'][Number(d) - 1];
+            return Enum.KeyCode[name] || Enum.KeyCode.Unknown;
+        }
+        if (/^F(1[0-2]|[1-9])$/.test(e.code)) return Enum.KeyCode[e.code] || Enum.KeyCode.Unknown;
+        return _domToCode[e.code] ? Enum.KeyCode[_domToCode[e.code]] : Enum.KeyCode.Unknown;
+    }
+    function mkInput(type, state, extra) {
+        return Object.assign({
+            UserInputType: type,
+            UserInputState: state,
+            KeyCode: Enum.KeyCode.Unknown,
+            Position: { x: 0, y: 0 },
+            Delta: { x: 0, y: 0 },
+        }, extra || {});
+    }
+    // Events typed into a text-entry field (chat, script editor, any input)
+    // still fire into the game - matching real Roblox, where UserInputService
+    // sees those presses too - but they arrive with gameProcessed=true so
+    // scripts that check `if gameProcessed then return end` skip them, while
+    // raw gameplay input (pointer-locked WASD, etc.) arrives with false.
+    // The check uses the event's own target (the element that had focus at
+    // dispatch time) rather than document.activeElement, since a handler can
+    // blur() the field while processing the same event (chat's Enter does),
+    // which would otherwise make that very press look unprocessed.
+    function isTypingTarget(e) {
+        const t = e?.target;
+        return !!(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable));
+    }
+
+    const onKeyDown = (e) => {
+        if (disposed || e.repeat) return;
+        const processed = isTypingTarget(e);
+        svc.InputBegan.Fire(mkInput(Enum.UserInputType.Keyboard, Enum.UserInputState.Begin, { KeyCode: keyCodeFor(e) }), processed);
+    };
+    const onKeyUp = (e) => {
+        if (disposed) return;
+        svc.InputEnded.Fire(mkInput(Enum.UserInputType.Keyboard, Enum.UserInputState.End, { KeyCode: keyCodeFor(e) }), isTypingTarget(e));
+    };
+    const onMouseDown = (e) => {
+        if (disposed) return;
+        const btns = [null, Enum.UserInputType.MouseButton1, Enum.UserInputType.MouseButton2, Enum.UserInputType.MouseButton3];
+        const type = btns[e.button] || Enum.UserInputType.MouseButton1;
+        svc.InputBegan.Fire(mkInput(type, Enum.UserInputState.Begin, { Position: { x: e.clientX, y: e.clientY } }), isTypingTarget(e));
+    };
+    const onMouseUp = (e) => {
+        if (disposed) return;
+        const btns = [null, Enum.UserInputType.MouseButton1, Enum.UserInputType.MouseButton2, Enum.UserInputType.MouseButton3];
+        const type = btns[e.button] || Enum.UserInputType.MouseButton1;
+        svc.InputEnded.Fire(mkInput(type, Enum.UserInputState.End, { Position: { x: e.clientX, y: e.clientY } }), isTypingTarget(e));
+    };
+    const onWheel = (e) => {
+        if (disposed) return;
+        svc.InputBegan.Fire(mkInput(Enum.UserInputType.MouseWheel, Enum.UserInputState.Begin, { Position: { x: e.clientX, y: e.clientY }, Delta: { x: 0, y: e.deltaY } }), isTypingTarget(e));
+    };
+    let _lastMX = 0, _lastMY = 0;
+    const onMouseMove = (e) => {
+        if (disposed) return;
+        svc.InputChanged.Fire(mkInput(Enum.UserInputType.MouseMovement, Enum.UserInputState.Change, {
+            Position: { x: e.clientX, y: e.clientY },
+            Delta: { x: e.clientX - _lastMX, y: e.clientY - _lastMY },
+        }), isTypingTarget(e));
+        _lastMX = e.clientX; _lastMY = e.clientY;
+    };
+
+    const cleanup = () => {
+        window.removeEventListener('keydown', onKeyDown);
+        window.removeEventListener('keyup', onKeyUp);
+        window.removeEventListener('mousedown', onMouseDown);
+        window.removeEventListener('mouseup', onMouseUp);
+        window.removeEventListener('wheel', onWheel);
+        window.removeEventListener('mousemove', onMouseMove);
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mouseup', onMouseUp);
+    window.addEventListener('wheel', onWheel);
+    window.addEventListener('mousemove', onMouseMove);
+    return svc;
+}
+
 export function executeScript(code, api) {
     // Track which player is "the active client" for RemoteEvent/
     // RemoteFunction handlers fired from this call (see createInstanceProxy)
@@ -2312,6 +2783,34 @@ export function executeScript(code, api) {
             return null;
         }
 
+        // Match real Roblox's default BasePart properties so a fresh
+        // Instance.new("Part") behaves identically whether or not a script
+        // bothers to set them explicitly, regardless of what instances.js's
+        // own generic Instance class happens to initialize (or not). Set
+        // directly on the raw instance (not through createInstanceProxy)
+        // and before any parenting, so _maybeInstantiateVisual below sees
+        // these defaults immediately if a parent is passed right here.
+        if (_visualClassNames.has(className)) {
+            if (inst.Size === undefined) inst.Size = [4, 1, 2];
+            // Parts are anchored by default in this engine: scripts that build
+            // geometry (text/font generators, model builders) expect freshly
+            // created parts to stay put instead of falling under gravity.
+            // Scripts that want physics can still set `part.Anchored = false`.
+            inst.Anchored = true;
+            if (inst.CanCollide === undefined) inst.CanCollide = true;
+            if (inst.Transparency === undefined) inst.Transparency = 0;
+            // #A3A3A3 - Roblox's default part color ("Medium stone grey").
+            // Applied unconditionally (not just when undefined) because some
+            // host instance implementations preinitialize Color (instances.js's
+            // PartInstance used to default to #808080) - a fresh part is
+            // #A3A3A3 in real Roblox no matter what the raw class starts at.
+            inst.Color = {
+                r: 163 / 255, g: 163 / 255, b: 163 / 255,
+                setRGB(r, g, b) { this.r = r; this.g = g; this.b = b; },
+                setHex(h) { this.r = ((h >> 16) & 255) / 255; this.g = ((h >> 8) & 255) / 255; this.b = (h & 255) / 255; },
+            };
+        }
+
         if (parent) {
             inst.setParent(parent?._target || parent);
             _maybeInstantiateVisual(inst);
@@ -2333,7 +2832,7 @@ export function executeScript(code, api) {
             'exports', 'game', 'workspace', 'script',
             'Instance', 'Color3', 'Vector3', 'Vector2', 'CFrame', 'Ray', 'Region3', 'RaycastParams', 'OverlapParams', 'UDim2', 'UDim', 'Enum',
             'BrickColor', 'NumberRange', 'NumberSequence', 'ColorSequence', 'PhysicalProperties', 'TweenInfo', 'Random', 'DateTime',
-            'RunService', 'Players', 'Workspace', 'ReplicatedStorage', 'ServerScriptService',
+            'RunService', 'Players', 'Workspace', 'ReplicatedStorage', 'ServerScriptService', 'UserInputService',
             'print', 'warn', 'error', 'assert',
             'wait', 'spawn', 'delay', 'task', 'coroutine',
             'pcall', 'xpcall',
@@ -2349,7 +2848,7 @@ export function executeScript(code, api) {
             ctx.exports, gameProxy, ctx.workspace, scriptProxy,
             proxiedInstance, ctx.Color3, ctx.Vector3, ctx.Vector2, ctx.CFrame, ctx.Ray, ctx.Region3, ctx.RaycastParams, ctx.OverlapParams, ctx.UDim2, ctx.UDim, ctx.Enum,
             ctx.BrickColor, ctx.NumberRange, ctx.NumberSequence, ctx.ColorSequence, ctx.PhysicalProperties, ctx.TweenInfo, ctx.Random, ctx.DateTime,
-            ctx.RunService, ctx.Players, ctx.Workspace, ctx.ReplicatedStorage, ctx.ServerScriptService,
+            ctx.RunService, ctx.Players, ctx.Workspace, ctx.ReplicatedStorage, ctx.ServerScriptService, ctx.UserInputService,
             ctx.print, ctx.warn, ctx.error, ctx.assert,
             ctx.wait, ctx.spawn, ctx.delay, ctx.task, ctx.coroutine,
             ctx.pcall, ctx.xpcall,
@@ -2385,6 +2884,8 @@ export function loadScriptsFromStorage() {
     }
     return {};
 }
+
+export { Vector3, CFrame, Color3, Enum };
 
 export function saveScriptsToStorage(scripts) {
     try {

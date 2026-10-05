@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark" data-ui="default">
 
 <head>
   <script type="importmap">
@@ -19,921 +19,1214 @@
   <link rel="preconnect" href="https://esm.sh" crossorigin>
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 
-    <meta charset="UTF-8" />
+  <meta charset="UTF-8" />
   <link rel="icon" type="image/png" href="assets/icons/bloxverseLogo.png" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>BloxVerse</title>
-  <link rel="stylesheet" href="src/main.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  <style>
-    .settings-wrapper {
-      position: relative;
-    }
-    .settings-dropdown {
-      display: none;
-      position: absolute;
-      top: 100%;
-      right: 0;
-      background: var(--bg-secondary);
-      border: 1px solid var(--border-strong);
-      border-radius: 8px;
-      min-width: 140px;
-      z-index: 100;
-      overflow: hidden;
-      margin-top: 4px;
-    }
-    .settings-dropdown.open { display: block; }
-    .settings-dropdown button {
-      display: block;
-      width: 100%;
-      padding: 10px 14px;
-      border: none;
-      background: none;
-      color: var(--text-secondary);
-      font-size: 13px;
-      text-align: left;
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-    .settings-dropdown button:hover { background: var(--bg-tertiary); color: var(--text-primary); }
-  </style>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" />
 
   <link rel="stylesheet" href="src/theme.css" />
+  <link rel="stylesheet" href="src/home.css" />
+
+  <!-- Third-party origins the import map, font CSS and Firestore RPC all pull
+       from. Preconnecting starts DNS + TLS while the HTML is still parsing,
+       instead of serialising three handshakes into the critical path. -->
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://esm.sh" crossorigin />
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-solid-900.woff2" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-brands-400.woff2" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <!-- defer keeps the HTML parser unblocked. Deferred classic scripts and module
+       scripts share a single execution queue and run in document order, so these
+       still publish BloxVerseMotion / openDialog ahead of the module graph below. -->
+  <script src="src/motion.js" defer></script>
+  <script src="src/action-dialog.js" defer></script>
+  <script src="src/navigation-indicator.js" defer></script>
+  <script src="src/tooltips.js" defer></script>
+
   <script type="module" src="src/theme.js"></script>
+  <script type="module" src="src/studio.js"></script>
   <script src="js/sw-register.js" defer></script>
+
+  <script>
+    // Resolve the stored theme and nav-rail state before first paint so the
+    // shell never flashes the wrong surface colours. Mirrors src/theme.js.
+    (function () {
+      try {
+        var NAMES = ['dark', 'light', 'system',
+          'valley', 'valley-light', 'valley-system',
+          'sky', 'sky-light', 'sky-system',
+          'lava', 'lava-light', 'lava-system',
+          'solar', 'solar-light', 'solar-system'];
+        // 'twilight' was merged into the default family; keep stored values working.
+        var ALIASES = { twilight: 'dark', 'twilight-light': 'light', 'twilight-system': 'system' };
+
+        var raw = localStorage.getItem('bloxverse_theme');
+        var name = ALIASES[raw] || (NAMES.indexOf(raw) > -1 ? raw : 'dark');
+        var mode = (name === 'light' || name.slice(-6) === '-light') ? 'light'
+          : (name === 'system' || name.slice(-7) === '-system') ? 'system'
+            : 'dark';
+
+        if (mode === 'system') {
+          var family = name === 'system' ? 'default' : name.split('-')[0];
+          var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          name = prefersDark ? family : (family === 'default' ? 'light' : family + '-light');
+        }
+        document.documentElement.setAttribute('data-theme', name);
+        document.documentElement.setAttribute(
+          'data-ui',
+          localStorage.getItem('bloxverse_ui_style') === 'compact' ? 'compact' : 'default'
+        );
+
+        if (localStorage.getItem('bloxverse_rail_expanded') !== 'false'
+          && window.matchMedia('(min-width: 801px)').matches) {
+          document.documentElement.classList.add('site-navigation-expanded');
+        }
+      } catch (e) { /* storage blocked - fall through to the defaults above */ }
+    })();
+  </script>
 </head>
 
-<body>
-  <!-- Navbar -->
-  <nav class="navbar">
-    <div class="nav-left">
-      <button class="nav-hamburger" id="navHamburger" aria-label="Menu">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+<body class="site-page site-page-guest home-page">
+
+  <a class="site-skip" href="#site-content">Skip to content</a>
+
+  <header class="site-topbar">
+    <div class="site-brand">
+      <button type="button" id="site-nav-toggle" class="site-icon-button" aria-label="Expand navigation" aria-expanded="false" aria-controls="site-navigation">
+        <i class="site-nav-toggle-icon site-nav-toggle-collapsed fa-solid fa-bars" aria-hidden="true"></i>
+        <i class="site-nav-toggle-icon site-nav-toggle-expanded fa-solid fa-xmark" aria-hidden="true"></i>
       </button>
-      <div class="logo" onclick="window.location.reload()">
-        
-        <span class="logo-text">BloxVerse</span>
-      </div>
-      <div class="nav-links" id="navLinks">
-        <button class="nav-link-btn" onclick="window.location.href='/bloxverse'">Home</button>
-        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
-        <button class="nav-link-btn" data-needs-auth onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
-        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/download'">
-          Download
-        </button>
-      </div>
-      <button class="navbar-studio-card" data-open-studio title="Launch BloxVerse Studio">Studio</button>
-      <script type="module" src="src/studio.js"></script>
+      <a href="/bloxverse/" class="site-wordmark" aria-label="BloxVerse home">
+        <img class="site-wordmark-mark" src="assets/icons/bloxverseLogo.png" alt="" width="34" height="34" draggable="false" />
+        <span>BloxVerse</span>
+      </a>
     </div>
-    <div class="nav-center" id="navCenter"></div>
-    <div class="nav-right" id="navRight">
-      <button class="login-btn" onclick="window.location.href='/bloxverse/auth'">Login / Sign Up</button>
+
+    <form action="/bloxverse/search" method="get" id="search-form" class="site-global-search" role="search" aria-label="Player search" autocomplete="off">
+      <img class="site-icon" src="assets/icons/search.svg" alt="" width="16" height="16" draggable="false" />
+      <input type="search" name="q" id="search-input" placeholder="Search players..." aria-label="Search players" />
+      <div class="site-search-results" id="search-results" hidden></div>
+    </form>
+
+    <div class="site-account" id="site-account">
+      <button type="button" id="site-theme-toggle" class="site-icon-button" aria-label="Switch to light mode" title="Switch to light mode">
+        <i class="site-font-icon fa-solid fa-sun" aria-hidden="true"></i>
+      </button>
+      <a class="btn-primary btn-sm site-signin" id="site-signin" href="/bloxverse/auth">Sign in</a>
     </div>
-  </nav>
+  </header>
 
-  <!-- Main Content -->
-  <main class="main-content">
-    <!-- Friends Section (only when logged in) -->
-    <section class="game-section" id="friendsSection" style="display:none;">
-      <h2>Friends</h2>
-      <div class="friends-grid" id="friendsGrid"></div>
-    </section>
-
-    <!-- Trending Section -->
-    <section class="game-section">
-      <h2>🔥 Trending</h2>
-      <div class="game-grid" id="trendingGrid"></div>
-    </section>
-
-    <!-- Official Section -->
-    <section class="game-section">
-      <h2>Official</h2>
-      <div class="game-grid" id="officialGrid"></div>
-    </section>
-
-    <!-- All Games Section -->
-    <section class="game-section">
-      <h2>Games</h2>
-      <div class="game-grid" id="gameGrid"></div>
-    </section>
-  </main>
-
-  <!-- Daily Reward Toast -->
-  <div id="dailyRewardToast" class="daily-reward-toast">
-    <span>+5 BUX</span> Daily Login Reward
+  <div class="notice" id="notice" hidden>
+    <i class="fa-solid fa-triangle-exclamation" id="notice-icon"></i>
+    <span id="notice-text"></span>
   </div>
 
+  <div class="site-shell">
+
+    <div class="site-nav-rail">
+      <nav class="site-navigation" id="site-navigation" aria-label="Main navigation">
+        <div class="site-navigation-upper">
+          <div class="site-navigation-top">
+            <a href="/bloxverse/" title="Home" aria-label="Home" aria-current="page">
+              <i class="site-font-icon fa-solid fa-house" aria-hidden="true"></i>
+              <span class="site-nav-label">Home</span>
+            </a>
+            <a href="/bloxverse/profile" title="Profile" aria-label="Profile" data-needs-auth>
+              <i class="site-font-icon fa-solid fa-user" aria-hidden="true"></i>
+              <span class="site-nav-label">Profile</span>
+            </a>
+            <a href="/bloxverse/friends" title="Friends" aria-label="Friends">
+              <i class="site-font-icon fa-solid fa-user-group" aria-hidden="true"></i>
+              <span class="site-nav-label">Friends</span>
+            </a>
+            <a href="/bloxverse/catalog" title="Catalog" aria-label="Catalog">
+              <i class="site-font-icon fa-solid fa-store" aria-hidden="true"></i>
+              <span class="site-nav-label">Catalog</span>
+            </a>
+            <a href="/bloxverse/inventory" title="Inventory" aria-label="Inventory">
+              <i class="site-font-icon fa-solid fa-box-open" aria-hidden="true"></i>
+              <span class="site-nav-label">Inventory</span>
+            </a>
+            <a href="/bloxverse/avatar" title="Avatar" aria-label="Avatar" data-needs-auth>
+              <i class="site-font-icon fa-solid fa-shirt" aria-hidden="true"></i>
+              <span class="site-nav-label">Avatar</span>
+            </a>
+            <a href="/bloxverse/groups" title="Groups" aria-label="Groups">
+              <i class="site-font-icon fa-solid fa-users" aria-hidden="true"></i>
+              <span class="site-nav-label">Groups</span>
+            </a>
+            <a href="/bloxverse/settings" title="Settings" aria-label="Settings" data-needs-auth>
+              <i class="site-font-icon fa-solid fa-gear" aria-hidden="true"></i>
+              <span class="site-nav-label">Settings</span>
+            </a>
+          </div>
+
+          <div class="site-navigation-tools" role="group" aria-label="Tools">
+            <button type="button" class="site-nav-studio" data-open-studio title="Launch BloxVerse Studio" aria-label="Launch BloxVerse Studio">
+              <i class="site-font-icon fa-solid fa-hammer" aria-hidden="true"></i>
+              <span class="site-nav-label">Studio</span>
+            </button>
+            <a href="/bloxverse/download" title="Download" aria-label="Download" class="site-nav-download">
+              <i class="site-font-icon fa-solid fa-download" aria-hidden="true"></i>
+              <span class="site-nav-label">Download</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="site-navigation-bottom">
+          <a href="https://discord.gg/Uh6WF5NDDK" target="_blank" rel="noopener" title="Discord" aria-label="Discord">
+            <i class="site-font-icon fa-brands fa-discord" aria-hidden="true"></i>
+            <span class="site-nav-label">Discord</span>
+          </a>
+        </div>
+      </nav>
+    </div>
+
+    <nav class="ui-card site-mobile-bar" id="site-mobile-bar" aria-label="Mobile navigation">
+      <a href="/bloxverse/" data-nav-key="home" class="site-mobile-link btn-primary" aria-current="page">
+        <img class="site-icon" src="assets/icons/home.svg" alt="" width="24" height="24" draggable="false" /><span>Home</span>
+      </a>
+      <a href="/bloxverse/friends" data-nav-key="friends" class="site-mobile-link btn-ghost">
+        <img class="site-icon" src="assets/icons/friends.svg" alt="" width="24" height="24" draggable="false" /><span>Friends</span>
+      </a>
+      <a href="/bloxverse/catalog" data-nav-key="catalog" class="site-mobile-link btn-ghost">
+        <img class="site-icon" src="assets/icons/catalog.svg" alt="" width="24" height="24" draggable="false" /><span>Catalog</span>
+      </a>
+      <a href="/bloxverse/avatar" data-nav-key="avatar" class="site-mobile-link btn-ghost" data-needs-auth>
+        <img class="site-icon" src="assets/icons/avatar.svg" alt="" width="24" height="24" draggable="false" /><span>Avatar</span>
+      </a>
+      <button type="button" data-nav-key="more" class="site-mobile-link btn-ghost" id="site-mobile-more" aria-label="More navigation" aria-haspopup="dialog" aria-expanded="false" aria-controls="site-mobile-menu">
+        <i class="site-font-icon fa-solid fa-bars" aria-hidden="true"></i><span>More</span>
+      </button>
+    </nav>
+
+    <dialog class="ui-dialog ui-bottom-sheet site-mobile-menu" id="site-mobile-menu" aria-label="More navigation">
+      <div class="ui-dialog-header">
+        <h2>More</h2>
+        <button type="button" class="btn-ghost btn-icon" id="site-mobile-menu-close" aria-label="Close">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </div>
+      <nav class="site-navigation" aria-label="More navigation">
+        <div class="site-navigation-upper">
+          <div class="site-navigation-top">
+            <a href="/bloxverse/profile" data-needs-auth>
+              <i class="site-font-icon fa-solid fa-user" aria-hidden="true"></i>
+              <span class="site-nav-label">Profile</span>
+            </a>
+            <a href="/bloxverse/settings" data-needs-auth>
+              <i class="site-font-icon fa-solid fa-gear" aria-hidden="true"></i>
+              <span class="site-nav-label">Settings</span>
+            </a>
+            <a href="/bloxverse/inventory">
+              <i class="site-font-icon fa-solid fa-box-open" aria-hidden="true"></i>
+              <span class="site-nav-label">Inventory</span>
+            </a>
+            <a href="/bloxverse/groups">
+              <i class="site-font-icon fa-solid fa-users" aria-hidden="true"></i>
+              <span class="site-nav-label">Groups</span>
+            </a>
+            <a href="/bloxverse/download">
+              <i class="site-font-icon fa-solid fa-download" aria-hidden="true"></i>
+              <span class="site-nav-label">Download</span>
+            </a>
+          </div>
+          <div class="site-navigation-tools" role="group" aria-label="Tools">
+            <a href="/bloxverse/catalog">
+              <i class="site-font-icon fa-solid fa-store" aria-hidden="true"></i>
+              <span class="site-nav-label">Catalog</span>
+            </a>
+            <a href="/bloxverse/transactions" data-needs-auth>
+              <i class="site-font-icon fa-solid fa-receipt" aria-hidden="true"></i>
+              <span class="site-nav-label">Transactions</span>
+            </a>
+          </div>
+        </div>
+        <div class="site-navigation-bottom">
+          <a href="https://discord.gg/Uh6WF5NDDK" target="_blank" rel="noopener">
+            <i class="site-font-icon fa-brands fa-discord" aria-hidden="true"></i>
+            <span class="site-nav-label">Discord</span>
+          </a>
+        </div>
+      </nav>
+    </dialog>
+
+    <div class="site-main" id="site-main">
+      <main class="page-content" id="site-content" tabindex="-1">
+        <div class="home-content">
+
+          <h1 class="home-guest-heading" id="home-guest">Discover BloxVerse</h1>
+
+          <section class="home-welcome" id="home-intro" aria-label="Welcome">
+            <a class="home-avatar" id="home-avatar" href="/bloxverse/avatar" aria-label="Customize your avatar" hidden>
+              <img id="home-preview" alt="" width="166" height="227" draggable="false" />
+            </a>
+
+            <div class="home-greeting-block">
+              <h1 id="home-greeting" hidden>Hello!</h1>
+            </div>
+
+            <section class="home-friends" id="friends-section" aria-labelledby="friends-title" hidden>
+              <div class="home-section-heading">
+                <h2 id="friends-title">Friends <span class="ui-count-badge home-friends-count" id="friends-count" hidden></span></h2>
+              </div>
+              <div class="home-friends-row" id="friends-row" aria-busy="true"></div>
+              <p id="friends-status" class="home-status" role="status" hidden></p>
+            </section>
+          </section>
+
+          <div class="home-game-sections" id="game-sections" aria-busy="true"></div>
+
+          <div class="home-load-state" id="home-game-status" role="status" hidden>
+            <p id="home-game-status-text"></p>
+            <button type="button" id="home-game-retry" hidden>Try again</button>
+          </div>
+
+        </div>
+      </main>
+
+      <footer class="footer" aria-label="Site information">
+        <div class="footer-inner">
+          <nav class="footer-links" aria-label="Resources and policies">
+            <a href="https://bloxverse.discourse.group/" target="_blank" rel="noopener">Forum</a>
+            <a href="/bloxverse/community-guidelines">Community Guidelines</a>
+            <a href="/bloxverse/terms">Terms of Service</a>
+            <a href="/bloxverse/privacy">Privacy Policy</a>
+            <a href="/bloxverse/support">Support</a>
+          </nav>
+          <p class="footer-copyright">&copy; 2026 BloxVerse. All rights reserved.</p>
+          <div class="footer-socials" role="group" aria-label="Follow BloxVerse">
+            <a class="btn-ghost btn-icon footer-icon" href="https://discord.gg/Uh6WF5NDDK" target="_blank" rel="noopener" aria-label="Discord">
+              <i class="fa-brands fa-discord" aria-hidden="true"></i>
+            </a>
+          </div>
+        </div>
+      </footer>
+    </div>
+
+  </div>
+
+  <dialog class="ui-dialog" id="send-bux-dialog" aria-labelledby="send-bux-title">
+    <div class="ui-dialog-header">
+      <h2 id="send-bux-title">Send Bux</h2>
+      <button type="button" class="btn-ghost btn-icon" id="send-bux-close" aria-label="Close">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
+    </div>
+    <p class="ui-dialog-description">Search for a player, choose an amount, and confirm.</p>
+    <div class="ui-dialog-body">
+      <label class="ui-field" for="send-bux-search">
+        Player
+        <input class="ui-input" type="search" id="send-bux-search" placeholder="Search players..." autocomplete="off" />
+      </label>
+      <div class="site-bux-results" id="send-bux-results" hidden></div>
+      <label class="ui-field" for="send-bux-amount">
+        Amount
+        <input class="ui-input" type="number" id="send-bux-amount" min="1" step="1" value="1" />
+      </label>
+      <p class="ui-dialog-error" id="send-bux-error" hidden></p>
+    </div>
+    <div class="ui-dialog-actions">
+      <button type="button" class="btn-ghost" id="send-bux-cancel">Cancel</button>
+      <button type="button" class="btn-primary" id="send-bux-confirm" disabled>Send</button>
+    </div>
+  </dialog>
+
+  <div class="daily-reward-toast" id="daily-reward-toast" role="status" aria-live="polite"></div>
+
   <script type="module">
-    import { games } from './src/games.js';
-    import { auth, db, trackPresence, listenBux, getBux, checkBan, banGuard, claimDailyBux, assignUserIdNum, setBux, updateBux, logTransaction } from './src/firebase.js';
+    import { games as seedGames } from './src/games.js';
+    import {
+      auth, db, trackPresence, listenBux, checkBan, claimDailyBux,
+      assignUserIdNum, updateDoc, setDoc, doc, getDoc, collection,
+      onSnapshot, logTransaction,
+    } from './src/firebase.js';
     import { sitePath } from './src/paths.js';
+    import { toggleThemeMode, isDarkActive } from './src/theme.js';
+    import { gameSections as buildGameSections, visibleFriends, compactNumber } from './src/home_model.js';
 
     import { onAuthStateChanged, signOut } from 'firebase/auth';
-    import { doc, getDoc, setDoc, updateDoc, collection, getDocs, query, where, onSnapshot, increment, limit } from 'firebase/firestore';
-    import { searchUsers, sendFriendRequest, removeFriend, getFriends } from './src/friends.js';
+    // src/firebase.js uses these internally but does not re-export them.
+    import { increment, getDocs } from 'firebase/firestore';
+    import { searchUsers, sendFriendRequest, getFriends } from './src/friends.js';
+    // The nav rail and mobile drawer are inlined here, but the animated account
+    // popups are shared with the other new-UI pages via src/shell.js.
+    import { wireAccountMenus, initNotice } from './src/shell.js';
 
-    const navCenter = document.getElementById('navCenter');
-    const navRight = document.getElementById('navRight');
-    const grid = document.getElementById('gameGrid');
-    const trendingGrid = document.getElementById('trendingGrid');
-    const officialGrid = document.getElementById('officialGrid');
-    const friendsSection = document.getElementById('friendsSection');
-    const friendsGrid = document.getElementById('friendsGrid');
+    const $ = (id) => document.getElementById(id);
 
-    function createGameCard(game) {
-      const card = document.createElement('div');
-      card.className = 'game-card';
-      card.dataset.gameId = game.id;
-      card.onclick = () => window.location.href = '/bloxverse/game-detail?id=' + game.id;
-      card.innerHTML = `
-        <div class="game-thumbnail">
-          <img src="${game.icon}" alt="${game.name}" />
-          <div class="play-overlay">
-            <div class="play-btn">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            </div>
-          </div>
-          <div class="active-players-badge">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
-            <span>${game.activePlayers || 0}</span>
-          </div>
-        </div>
-        <div class="game-info">
-          <h3>${game.name}</h3>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${(game.visits || 0).toLocaleString()} visits</div>
-        </div>
-      `;
-      return card;
+    const accountEl = $('site-account');
+    const searchForm = $('search-form');
+    const searchInput = $('search-input');
+    const searchResults = $('search-results');
+    const gameSections = $('game-sections');
+    const gameStatus = $('home-game-status');
+    const gameStatusText = $('home-game-status-text');
+    const gameRetry = $('home-game-retry');
+    const friendsSection = $('friends-section');
+    const friendsRow = $('friends-row');
+    const friendsCount = $('friends-count');
+    const navToggle = $('site-nav-toggle');
+    const mobileMore = $('site-mobile-more');
+    const mobileMenu = $('site-mobile-menu');
+    const toast = $('daily-reward-toast');
+
+    const RAIL_KEY = 'bloxverse_rail_expanded';
+    const CACHE_KEY = 'bvHomeCatalog';
+    const CACHE_TTL = 60 * 1000;
+    const AVATAR_BUST = Date.now();
+
+    // The seed catalog from games.js is treated as read-only here; the live
+    // publishedGames listener below adds, updates and removes entries, so the
+    // page works on a mutable copy of the array.
+    let games = [...seedGames];
+
+    const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    ));
+
+    // -- Nav rail ------------------------------------------------------
+    // The class lives on <html> so the head script can restore it before the
+    // first paint; the toggle only mirrors it into the accessible state.
+    // Mirrors src/shell.js (which the other new-UI pages use) and
+    // unused/uirevamp/site.js:32-97.
+    const narrowNavigation = matchMedia('(max-width: 800px)');
+
+    function syncNav() {
+      const expanded = document.documentElement.classList.contains('site-navigation-expanded');
+      navToggle.setAttribute('aria-expanded', String(expanded));
+      navToggle.setAttribute('aria-label', expanded ? 'Collapse navigation' : 'Expand navigation');
     }
 
-    function shuffleAndTake(arr, n) {
-      const copy = [...arr];
-      for (let i = copy.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [copy[i], copy[j]] = [copy[j], copy[i]];
+    // `animate = false` suppresses the width tween so a breakpoint change snaps.
+    function setNavExpanded(open, animate = true) {
+      document.documentElement.classList.toggle('site-navigation-resizing', !animate);
+      document.documentElement.classList.toggle('site-navigation-expanded', open);
+      syncNav();
+      if (!narrowNavigation.matches) {
+        try { localStorage.setItem(RAIL_KEY, String(open)); } catch { /* storage blocked */ }
       }
-      return copy.slice(0, n);
     }
 
-    function updateCard(game) {
-      document.querySelectorAll('.game-card').forEach(card => {
-        if (card.dataset.gameId !== game.id) return;
-        const visits = card.querySelector('[style*="font-size:11px"]');
-        if (visits) visits.textContent = (game.visits || 0).toLocaleString() + ' visits';
-        const badge = card.querySelector('.active-players-badge span');
-        if (badge) badge.textContent = game.activePlayers || 0;
+    navToggle.addEventListener('click', () => {
+      setNavExpanded(!document.documentElement.classList.contains('site-navigation-expanded'));
+    });
+
+    narrowNavigation.addEventListener('change', () => {
+      let expanded = false;
+      try {
+        expanded = !narrowNavigation.matches && localStorage.getItem(RAIL_KEY) !== 'false';
+      } catch { /* storage blocked */ }
+      setNavExpanded(expanded, false);
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      if (mobileMenu?.open) return;
+      if (document.querySelector('.site-account-menu[open], .site-bux-menu[open]')) return;
+      if (document.documentElement.classList.contains('site-navigation-expanded')) {
+        setNavExpanded(false);
+        navToggle.focus();
+      }
+    });
+
+    setNavExpanded(document.documentElement.classList.contains('site-navigation-expanded'));
+
+    // -- Mobile drawer -------------------------------------------------
+    // Routed through openDialog/closeDialog so it gets the same focus trap,
+    // escape/backdrop dismissal and open/close animation as every other dialog.
+    function openMobileMenu() {
+      if (mobileMenu.open) return;
+      // This dialog is static markup, so it must survive the close animation.
+      openDialog(mobileMenu, { initialFocus: $('site-mobile-menu-close'), removeOnClose: false });
+      mobileMore.setAttribute('aria-expanded', 'true');
+      // The sheet lives behind "More", so the pill moves onto More while it is
+      // open rather than staying parked on the page you are viewing.
+      navIndicator.select(mobileMore);
+    }
+
+    function closeMobileMenu() {
+      if (!mobileMenu.open) return;
+      closeDialog(mobileMenu);
+      mobileMore.setAttribute('aria-expanded', 'false');
+      navIndicator.reset();
+    }
+
+    mobileMore.addEventListener('click', () => {
+      if (mobileMenu.open) closeMobileMenu();
+      else openMobileMenu();
+    });
+    $('site-mobile-menu-close').addEventListener('click', closeMobileMenu);
+    mobileMenu.addEventListener('close', () => {
+      mobileMore.setAttribute('aria-expanded', 'false');
+      navIndicator.reset();
+    });
+    mobileMenu.addEventListener('click', (e) => {
+      if (e.target.closest('a, button') && e.target.closest('#site-mobile-menu-close') === null) {
+        closeMobileMenu();
+      }
+    });
+
+    // -- Theme ---------------------------------------------------------
+    // The corner control is a plain light/dark switch for whichever family the
+    // user picked in Settings, mirroring the reference sun/moon button.
+    function themeToggleMarkup() {
+      const dark = isDarkActive();
+      const label = dark ? 'Switch to light mode' : 'Switch to dark mode';
+      return `<button type="button" id="site-theme-toggle" class="site-icon-button" aria-label="${label}" title="${label}">
+        <i class="site-font-icon fa-solid ${dark ? 'fa-sun' : 'fa-moon'}" aria-hidden="true"></i>
+      </button>`;
+    }
+
+    function wireThemeToggle() {
+      $('site-theme-toggle')?.addEventListener('click', () => {
+        toggleThemeMode();
+        // The button sits inside the account cluster, which gets re-rendered on
+        // auth change; refresh just the button in place.
+        const current = $('site-theme-toggle');
+        if (!current) return;
+        const dark = isDarkActive();
+        const label = dark ? 'Switch to light mode' : 'Switch to dark mode';
+        current.setAttribute('aria-label', label);
+        current.title = label;
+        current.querySelector('i').className = `site-font-icon fa-solid ${dark ? 'fa-sun' : 'fa-moon'}`;
       });
     }
 
-    // ── Catalog snapshot cache (instant paint on repeat visits) ─────────
-    const GAMES_CACHE_KEY = 'bvHomeCatalog';
-    const GAMES_CACHE_TTL = 60000;
+    wireThemeToggle();
+    // The homepage keeps its own local wireThemeToggle/themeToggleMarkup rather
+    // than initShell(), so the announcement bar is started explicitly. This has
+    // to run at module top level: initShell() does the same thing for every other
+    // revamped page, and putting it inside renderAccount() left the bar dead for
+    // signed-in visitors.
+    initNotice();
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+      // 'system' resolves live, so keep the icon honest.
+      const current = $('site-theme-toggle');
+      if (!current || document.documentElement.dataset.theme?.endsWith('system')) return;
+      const dark = isDarkActive();
+      const label = dark ? 'Switch to light mode' : 'Switch to dark mode';
+      current.setAttribute('aria-label', label);
+      current.title = label;
+      current.querySelector('i').className = `site-font-icon fa-solid ${dark ? 'fa-sun' : 'fa-moon'}`;
+    });
+
+    // -- Nav + motion --------------------------------------------------
+    const mobileBar = $('site-mobile-bar');
+    // The pill belongs to the mobile bar only, so the guard is max-width. This
+    // was inverted, which left enabled.matches false and hid the highlight.
+    const navIndicator = createNavigationIndicator(mobileBar, narrowNavigation);
+    // Reference: unused/uirevamp/site.js:97 -- the rail's links stagger in as
+    // one group. Revealing the upper/lower containers separately was not the
+    // reference behaviour and animated the wrong elements.
+    BloxVerseMotion.reveal(document.getElementById('site-navigation'), 'a');
+    // Leaving the mobile range with the sheet open would strand the "More"
+    // highlight on a bar that is no longer visible.
+    narrowNavigation.addEventListener('change', (event) => {
+      if (!event.matches && mobileMenu.open) closeMobileMenu();
+    });
+
+    // -- Player search -------------------------------------------------
+    function closeSearchResults() {
+      searchResults.hidden = true;
+      searchResults.replaceChildren();
+    }
+
+    function renderSearchResults(users) {
+      if (!users.length) {
+        searchResults.innerHTML = auth.currentUser
+          ? '<p class="site-search-empty">No players found.</p>'
+          : `<p class="site-search-empty">Player search needs an account.
+             <a class="site-search-empty-link" href="${sitePath('/auth')}">Sign in</a></p>`;
+        searchResults.hidden = false;
+        return;
+      }
+      const signedIn = !!auth.currentUser;
+      searchResults.innerHTML = users.map((u) => {
+        const initial = escapeHtml((u.username || '?').charAt(0).toUpperCase());
+        let action;
+        if (!signedIn) {
+          // Guests cannot send requests, so offer sign-in instead of a dead button.
+          action = `<a class="btn-ghost btn-sm" href="${sitePath('/auth')}">Sign in to add</a>`;
+        } else {
+          const isFriend = friendIdSet.has(u.id);
+          const isSent = sentRequests.has(u.id);
+          const label = isFriend ? 'Friends' : isSent ? 'Request sent' : 'Add friend';
+          const variant = isFriend ? 'btn-ghost' : isSent ? 'btn-ghost is-sent' : 'btn-secondary';
+          const disabled = isFriend || isSent ? ' disabled' : '';
+          action = `<button type="button" class="${variant}" data-send-friend="${escapeHtml(u.id)}"${disabled}>${label}</button>`;
+        }
+        return `
+          <div class="site-search-result">
+            <a class="site-search-result-link" href="${sitePath(`/profile?user=${encodeURIComponent(u.userIdNum || '')}`)}">
+              ${avatarMarkup(u, initial)}
+              <span class="site-search-name">${escapeHtml(u.username)}</span>
+            </a>
+            ${action}
+          </div>`;
+      }).join('');
+      searchResults.hidden = false;
+    }
+
+    // The reference uses a 2D head picture for every avatar-frame (only the
+    // large welcome slot renders the full body). avatarPreviewHead is BloxVerse's
+    // head shot; avatarPreview is the full-body render and is the last resort.
+    const AVATAR_HEAD_FALLBACK = 'assets/icons/profile.svg';
+
+    function avatarSrc(user) {
+      const head = user.avatarPreviewHead || user.avatarPreview;
+      if (!head) return '';
+      return `${head}${head.includes('?') ? '&' : '?'}_cb=${AVATAR_BUST}`;
+    }
+
+    function avatarMarkup(user, initial) {
+      const src = avatarSrc(user);
+      if (src) {
+        return `<img class="avatar-image friend-avatar" src="${escapeHtml(src)}" alt="" loading="lazy"
+          data-fallback-initial="${initial}" data-fallback-class="avatar-image friend-avatar friend-initial">`;
+      }
+      return `<img class="avatar-image friend-avatar" src="${AVATAR_HEAD_FALLBACK}" alt="" loading="lazy"
+        data-fallback-initial="${initial}" data-fallback-class="avatar-image friend-avatar friend-initial">`;
+    }
+
+    // Broken avatar URLs fall back to the username initial without inline JS.
+    document.addEventListener('error', (e) => {
+      const img = e.target;
+      if (!(img instanceof HTMLImageElement) || !img.dataset.fallbackInitial) return;
+      const span = document.createElement('span');
+      span.className = img.dataset.fallbackClass || 'friend-avatar friend-initial';
+      span.textContent = img.dataset.fallbackInitial;
+      img.replaceWith(span);
+    }, true);
+
+    let searchToken = 0;
+    let searchTimer;
+    searchInput.addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      const term = searchInput.value.trim();
+      const token = ++searchToken;
+      if (term.length === 0) { closeSearchResults(); return; }
+      searchTimer = setTimeout(async () => {
+        let users = [];
+        try {
+          users = await searchUsers(term);
+        } catch (err) {
+          console.warn('Player search failed:', err);
+        }
+        if (token !== searchToken) return;
+        renderSearchResults(users);
+      }, 200);
+    });
+
+    searchForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const term = searchInput.value.trim();
+      if (term) window.location.href = sitePath(`/search?q=${encodeURIComponent(term)}`);
+    });
+
+    searchResults.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-send-friend]');
+      if (!btn) return;
+      e.preventDefault();
+      const targetId = btn.dataset.sendFriend;
+      btn.disabled = true;
+      btn.textContent = 'Sending...';
+      sendFriendRequest(auth.currentUser.uid, targetId)
+        .then(() => {
+          sentRequests.add(targetId);
+          btn.textContent = 'Request sent';
+          btn.classList.remove('btn-secondary');
+          btn.classList.add('btn-ghost', 'is-sent');
+        })
+        .catch((err) => {
+          console.warn('Friend request failed:', err);
+          btn.disabled = false;
+          btn.textContent = 'Add friend';
+        });
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#search-form')) closeSearchResults();
+      document.querySelectorAll('details[open]').forEach((d) => {
+        if (!d.contains(e.target)) d.removeAttribute('open');
+      });
+    });
+
+    // -- Catalog -------------------------------------------------------
+    const THUMB_FALLBACK = 'assets/icons/demo.png';
+    const PLAYERS_ICON = 'assets/icons/players.svg';
+
+    function thumbSrc(game) {
+      const icon = String(game.icon || game.thumbnail || '');
+      if (!icon) return THUMB_FALLBACK;
+      if (/^https?:|^\//.test(icon)) return icon;
+      return icon.replace(/^\.\//, '');
+    }
+
+    function createGameCard(game) {
+      const active = Number(game.activePlayers) || 0;
+      const card = document.createElement('a');
+      card.className = 'ui-card ui-card-flat home-game-card';
+      card.href = sitePath(`/game-detail?id=${encodeURIComponent(game.id)}`);
+      card.dataset.gameId = game.id;
+      card.innerHTML = `
+        <span class="ui-thumbnail">
+          <img class="home-game-image" src="${escapeHtml(thumbSrc(game))}"
+            alt="" loading="lazy" decoding="async" width="200" height="200" />
+        </span>
+        <div class="home-game-info">
+          <span class="home-game-title">${escapeHtml(game.name)}</span>
+          <div class="home-game-stats">
+            <span class="home-game-players" aria-label="${active.toLocaleString()} playing">
+              <img src="${PLAYERS_ICON}" alt="" width="16" height="16" draggable="false" />
+              <span class="home-game-players-count">${escapeHtml(compactNumber(active))}</span>
+            </span>
+          </div>
+        </div>`;
+      return card;
+    }
+
+    function renderGameSections() {
+      const fragment = document.createDocumentFragment();
+      for (const group of buildGameSections(games)) {
+        const section = document.createElement('section');
+        section.className = 'home-game-section';
+        section.setAttribute('aria-label', group.title);
+        const heading = document.createElement('h2');
+        heading.textContent = group.title;
+        const grid = document.createElement('div');
+        grid.className = 'home-games-grid';
+        grid.dataset.section = group.key;
+        for (const game of group.games) grid.appendChild(createGameCard(game));
+        section.append(heading, grid);
+        fragment.appendChild(section);
+      }
+      gameSections.replaceChildren(fragment);
+      if (gameSections.firstElementChild) {
+        BloxVerseMotion.reveal(gameSections, '.home-game-card');
+      }
+    }
+
     function readGamesCache(ttlMs) {
       try {
-        const raw = localStorage.getItem(GAMES_CACHE_KEY);
+        const raw = localStorage.getItem(CACHE_KEY);
         if (!raw) return null;
         const data = JSON.parse(raw);
-        if (!data || Date.now() - data.at > (ttlMs ?? GAMES_CACHE_TTL)) return null;
+        if (!data || Date.now() - data.at > (ttlMs ?? CACHE_TTL)) return null;
         return data;
       } catch { return null; }
     }
+
     function writeGamesCache(stats, published) {
-      try {
-        localStorage.setItem(GAMES_CACHE_KEY, JSON.stringify({ at: Date.now(), stats, published }));
-      } catch {}
+      try { localStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), stats, published })); } catch { /* quota */ }
     }
 
-    // Paints the catalog instantly from the bundled list — no Firestore wait.
     function paintCatalog() {
-      const topGames = games.slice().sort((a, b) => (b.visits || 0) - (a.visits || 0));
-      for (const g of shuffleAndTake(topGames, Math.min(6, games.length))) {
-        trendingGrid.appendChild(createGameCard(g));
-      }
-      for (const g of games.filter(g => g.official)) {
-        officialGrid.appendChild(createGameCard(g));
-      }
-      for (const g of games) {
-        grid.appendChild(createGameCard(g));
-      }
+      renderGameSections();
     }
 
-    // Fills in live stats in the background, then patches cards in place.
+    function showGameStatus(message, retry) {
+      gameStatusText.textContent = message;
+      gameStatus.hidden = false;
+      gameRetry.hidden = !retry;
+    }
+
     async function loadGames() {
       const { loadGameStats, getPublishedGames } = await import('./src/games.js');
       const [, published] = await Promise.all([loadGameStats(), getPublishedGames()]);
 
       const stats = {};
       for (const g of games) stats[g.id] = { visits: g.visits || 0, activePlayers: g.activePlayers || 0 };
-      writeGamesCache(stats, published.filter(g => !g.deleted));
+      writeGamesCache(stats, published);
 
-      for (const g of [...games, ...published]) {
-        updateCard(g);
+      const known = new Set(games.map((g) => g.id));
+      for (const g of published) {
+        if (g.deleted || known.has(g.id)) continue;
+        known.add(g.id);
+        games.push(g);
       }
-      const existingIds = new Set([...document.querySelectorAll('.game-card')].map(c => c.dataset.gameId));
-      for (const g of published.filter(g => !g.deleted && !existingIds.has(g.id))) {
-        grid.appendChild(createGameCard(g));
-        trendingGrid.appendChild(createGameCard(g));
-      }
+      // Re-sort: live player counts and newly published games change the order.
+      renderGameSections();
+      gameSections.setAttribute('aria-busy', 'false');
     }
 
-    // Apply cached live stats + published games instantly, then refresh.
-    {
-      const cachedStats = readGamesCache(10 * 60 * 1000);
-      if (cachedStats && cachedStats.stats) {
-        for (const g of games) {
-          const s = cachedStats.stats[g.id];
-          if (s) {
-            if (s.visits != null) g.visits = s.visits;
-            if (s.activePlayers != null) g.activePlayers = s.activePlayers;
-          }
-        }
-      }
-      const cachedPublished = readGamesCache();
-      if (cachedPublished && Array.isArray(cachedPublished.published)) {
-        for (const g of cachedPublished.published) {
-          if (games.some(h => h.id === g.id)) continue;
-          grid.appendChild(createGameCard(g));
-          trendingGrid.appendChild(createGameCard(g));
-        }
-      }
-      paintCatalog();
-      loadGames();
-    }
-
-    onSnapshot(collection(db, 'publishedGames'), (snap) => {
-        snap.docChanges().forEach(change => {
-          const data = change.doc.data();
-          const gameId = change.doc.id;
-          const isDeleted = data.deleted === true;
-          document.querySelectorAll('.game-card').forEach(card => {
-            if (card.dataset.gameId !== gameId) return;
-            if (isDeleted) {
-              card.style.opacity = '0.4';
-              card.style.pointerEvents = 'none';
-              const title = card.querySelector('h3');
-              if (title) title.textContent = '[ Content Deleted ]';
-              const visits = card.querySelector('[style*="font-size:11px"]');
-              if (visits) visits.textContent = '0 visits';
-              card.onclick = null;
-            } else {
-              // Recovered — restore card
-              card.style.opacity = '';
-              card.style.pointerEvents = '';
-              const title = card.querySelector('h3');
-              if (title) title.textContent = data.name || 'Untitled';
-              const visits = card.querySelector('[style*="font-size:11px"]');
-              // Fetch authoritative visit count from gameStats
-              getDoc(doc(db, 'gameStats', gameId)).then(snap => {
-                const v = snap.exists() ? (snap.data().visits || 0) : 0;
-                if (visits) visits.textContent = v.toLocaleString() + ' visits';
-              }).catch(() => {
-                if (visits) visits.textContent = (data.visits || 0).toLocaleString() + ' visits';
-              });
-              const img = card.querySelector('.game-thumbnail img');
-              if (img) img.src = data.icon || './assets/icons/demo.png';
-              card.onclick = () => window.location.href = '/bloxverse/game-detail?id=' + gameId;
-            }
-          });
-        });
+    gameRetry.addEventListener('click', () => {
+      gameStatus.hidden = true;
+      gameRetry.hidden = true;
+      gameSections.setAttribute('aria-busy', 'true');
+      loadGames().catch((err) => {
+        console.warn('Catalog refresh failed:', err);
+        showGameStatus('Could not load the latest catalog data. Check your connection and try again.', true);
       });
+    });
 
-    let currentUserId = null;
-    let sentRequests = new Set();
-    const friendIdSet = new Set();
-    let buxUnsub = null;
-    let presence = null;
-    let activeDropdown = null;
+    // Apply the cached live stats + published games instantly, then refresh.
+    function bootCatalog() {
+      const cached = readGamesCache(10 * 60 * 1000);
+      if (cached?.stats) {
+        for (const g of games) {
+          const s = cached.stats[g.id];
+          if (!s) continue;
+          if (s.visits != null) g.visits = s.visits;
+          if (s.activePlayers != null) g.activePlayers = s.activePlayers;
+        }
+      }
+      if (Array.isArray(cached?.published)) {
+        for (const g of cached.published) {
+          if (g.deleted || games.some((h) => h.id === g.id)) continue;
+          games.push(g);
+        }
+      }
 
-    function renderFriendSearch() {
-      return `
-        <div class="friend-search-wrapper">
-          <div class="friend-search-bar">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.35-4.35" />
-            </svg>
-            <input type="text" id="friendSearchInput" placeholder="Search players" autocomplete="off" />
-          </div>
-          <div id="friendSearchResults" class="friend-search-results"></div>
-        </div>
-      `;
+      paintCatalog();
+      gameSections.setAttribute('aria-busy', 'false');
+      loadGames().catch((err) => {
+        console.warn('Catalog refresh failed:', err);
+        showGameStatus('Could not load the latest catalog data. Check your connection and try again.', true);
+      });
     }
 
-    document.addEventListener('keydown', (e) => {
-      if (e.key === '/' && document.activeElement?.id !== 'friendSearchInput') {
-        e.preventDefault();
-        document.getElementById('friendSearchInput')?.focus();
-      }
-      if (e.key === 'Enter' && document.activeElement?.id === 'friendSearchInput') {
-        const val = document.getElementById('friendSearchInput').value.trim();
-        if (val.length > 0) {
-          window.location.href = `/bloxverse/search?q=${encodeURIComponent(val)}`;
+    // -- Friends -------------------------------------------------------
+    let friendIdSet = new Set();
+    const sentRequests = new Set();
+    const friendsStatus = $('friends-status');
+
+    // Same map and markup shape as the reference base.js friendCard(): a
+    // presence-badge with a dot for online/offline and a masked icon for
+    // in-game / in-studio.
+    const FRIEND_STATUS = {
+      'in-studio': ['In Studio', 'in-studio'],
+      'in-game': ['In Game', 'in-game'],
+      online: ['Online', 'online'],
+    };
+
+    function presenceBadge(status) {
+      const [label, state] = FRIEND_STATUS[status] || ['Offline', 'offline'];
+      const icon = (status === 'in-game' || status === 'in-studio')
+        ? '<span class="presence-icon" aria-hidden="true"></span>'
+        : '<span class="presence-dot" aria-hidden="true"></span>';
+      return `<span class="presence-badge friend-status ${state}">${icon}${escapeHtml(label)}</span>`;
+    }
+
+    function friendCard(f) {
+      const initial = escapeHtml((f.username || '?').charAt(0).toUpperCase());
+      return `
+        <a class="friend-card" href="${sitePath(`/profile?user=${encodeURIComponent(f.userIdNum || f.id)}`)}" title="${escapeHtml(f.username)}">
+          <span class="avatar-frame friend-avatar-wrap">
+            ${avatarMarkup(f, initial)}
+          </span>
+          <span class="friend-name">${escapeHtml(f.username)}</span>
+          ${presenceBadge(f.status)}
+        </a>`;
+    }
+
+    function renderFriends(list) {
+      currentFriends = list;
+      paintFriends();
+    }
+
+    let currentFriends = [];
+    let shownFriends = -1;
+
+    function paintFriends() {
+      const list = currentFriends;
+      const style = getComputedStyle(friendsRow);
+      const count = visibleFriends(
+        list.length,
+        friendsRow.clientWidth,
+        parseFloat(style.getPropertyValue('--home-friend-size')),
+        parseFloat(style.columnGap) || 0,
+        style.display === 'grid',
+      );
+      if (count === shownFriends) return;
+      shownFriends = count;
+      friendsRow.replaceChildren();
+
+      if (!list.length) {
+        const empty = document.createElement('p');
+        empty.className = 'ui-card home-friends-empty';
+        empty.textContent = 'No friends yet.';
+        friendsRow.append(empty);
+      } else {
+        const fragment = document.createDocumentFragment();
+        for (const friend of list.slice(0, count)) {
+          const holder = document.createElement('div');
+          holder.innerHTML = friendCard(friend);
+          fragment.append(holder.firstElementChild);
         }
+        const remaining = list.length - count;
+        if (remaining > 0) {
+          const more = document.createElement('a');
+          more.className = 'home-friends-more';
+          more.href = sitePath('/friends');
+          more.setAttribute('aria-label', `View all ${list.length} friends`);
+          more.innerHTML = `<strong>+${remaining}</strong><span class="home-friends-more-label">View all</span>`;
+          fragment.append(more);
+        }
+        friendsRow.append(fragment);
+        if (!friendsRow.dataset.revealed) {
+          BloxVerseMotion.reveal(friendsRow);
+          friendsRow.dataset.revealed = 'true';
+        }
+      }
+      friendsCount.textContent = String(list.length);
+      friendsCount.hidden = list.length === 0;
+      if (friendsStatus) friendsStatus.hidden = true;
+      friendsRow.setAttribute('aria-busy', 'false');
+    }
+
+    function statusFromPresenceSnap(snap) {
+      if (!snap.exists()) return 'offline';
+      const data = snap.data() || {};
+      const lastSeen = data.lastSeen?.toMillis?.() ?? data.lastSeen ?? null;
+      if (lastSeen && lastSeen < Date.now() - 120000) return 'offline';
+      const state = data.state;
+      if (data.inStudio || state === 'in-studio') return 'in-studio';
+      if (data.inGame || state === 'in-game') return 'in-game';
+      if (data.online || state === 'online') return 'online';
+      return 'offline';
+    }
+
+    async function refreshFriends(uid) {
+      const list = await getFriends(uid);
+      friendIdSet = new Set(list.map((f) => f.id));
+      const withStatus = await Promise.all(list.map(async (f) => ({
+        ...f,
+        status: statusFromPresenceSnap(await getDoc(doc(db, 'presence', f.id))),
+      })));
+      withStatus.sort((a, b) => {
+        const rank = { 'in-game': 0, 'in-studio': 1, online: 2, offline: 3 };
+        return rank[a.status] - rank[b.status];
+      });
+      renderFriends(withStatus);
+    }
+
+    // Presence may change while the homepage stays open, so re-read the friends'
+    // records on a short interval and when the tab becomes active again.
+    let friendsRefreshInFlight = false;
+    const refreshFriendPresence = async () => {
+      if (document.hidden || friendsRefreshInFlight || !auth.currentUser) return;
+      friendsRefreshInFlight = true;
+      try {
+        const withStatus = await Promise.all(currentFriends.map(async friend => ({
+          ...friend,
+          status: statusFromPresenceSnap(await getDoc(doc(db, 'presence', friend.id))),
+        })));
+        withStatus.sort((a, b) => {
+          const rank = { 'in-game': 0, 'in-studio': 1, online: 2, offline: 3 };
+          return rank[a.status] - rank[b.status];
+        });
+        currentFriends = withStatus;
+        shownFriends = -1;
+        paintFriends();
+      } catch (err) {
+        console.warn('Friend presence refresh failed:', err);
+      } finally {
+        friendsRefreshInFlight = false;
+      }
+    };
+    const friendPresenceTimer = setInterval(refreshFriendPresence, 15000);
+    document.addEventListener('visibilitychange', refreshFriendPresence);
+    window.addEventListener('beforeunload', () => {
+      clearInterval(friendPresenceTimer);
+      document.removeEventListener('visibilitychange', refreshFriendPresence);
+    }, { once: true });
+
+    function showFriendsSkeleton() {
+      shownFriends = -1;
+      currentFriends = [];
+      delete friendsRow.dataset.revealed;
+      friendsRow.setAttribute('aria-busy', 'true');
+      friendsRow.replaceChildren(...Array.from({ length: 6 }, () => {
+        const box = document.createElement('div');
+        box.className = 'home-friend-skeleton';
+        box.setAttribute('aria-hidden', 'true');
+        box.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div>';
+        return box;
+      }));
+    }
+
+    // Keep the number of visible tiles in step with the row width.
+    const friendsResize = new ResizeObserver(() => paintFriends());
+    friendsResize.observe(friendsRow);
+
+    // -- Account -------------------------------------------------------
+    function profileLink(userIdNum) {
+      return userIdNum ? sitePath(`/profile?user=${encodeURIComponent(userIdNum)}`) : sitePath('/profile');
+    }
+
+    function renderAccount(user, { username, bux, userNum, ownPreview } = {}) {
+      if (!user) {
+        accountEl.innerHTML = `${themeToggleMarkup()}
+          <a class="btn-primary btn-sm site-signin" href="${sitePath('/auth')}">Sign in</a>`;
+        wireThemeToggle();
+        return;
+      }
+
+      const initial = escapeHtml((username || '?').charAt(0).toUpperCase());
+      const avatar = ownPreview
+        ? `<img src="${escapeHtml(ownPreview)}${ownPreview.includes('?') ? '&' : '?'}_cb=${AVATAR_BUST}" alt=""
+             data-fallback-initial="${initial}" data-fallback-class="site-profile-initial" />`
+        : `<span class="site-profile-initial">${initial}</span>`;
+
+      accountEl.innerHTML = `
+        ${themeToggleMarkup()}
+
+        <details class="site-bux-menu" id="site-bux-menu">
+          <summary class="site-balance" aria-label="Your Bux balance" tooltip="${Number(bux || 0).toLocaleString()} Bux">
+            <img class="site-icon" src="assets/icons/bux.svg" alt="" width="24" height="24" draggable="false" /><span id="bux-count">${bux}</span>
+          </summary>
+          <div class="site-account-links">
+            <a href="${sitePath('/transactions')}">Transactions</a>
+            <button type="button" id="open-send-bux">Send Bux</button>
+          </div>
+        </details>
+
+        <a id="my-profile" class="site-profile" href="${profileLink(userNum)}" aria-label="Your profile">${avatar}</a>
+
+        <details class="site-account-menu" id="site-account-menu">
+          <summary aria-label="Account menu for ${escapeHtml(username)}">
+            <span>${escapeHtml(username)}</span>
+            <img class="site-icon" src="assets/icons/chevron-small.svg" alt="" width="12" height="12" />
+          </summary>
+          <div class="site-account-links">
+            <a href="${profileLink(userNum)}">Profile</a>
+            <a href="${sitePath('/avatar')}">Customize avatar</a>
+            <a href="${sitePath('/settings')}">Settings</a>
+            <button type="button" id="logout">Sign out</button>
+          </div>
+        </details>`;
+
+      wireThemeToggle();
+      $('open-send-bux').addEventListener('click', openSendBux);
+      // The Bux pill and the account menu only exist once the cluster above is
+      // in the DOM, so the animated-popup wiring runs on every re-render.
+      wireAccountMenus();
+      $('logout').addEventListener('click', async () => {
+        try { presence?.goOffline(); } catch { /* already offline */ }
+        await signOut(auth);
+        window.location.reload();
+      });
+    }
+
+    // -- Send Bux ------------------------------------------------------
+    const buxDialog = $('send-bux-dialog');
+    const buxSearch = $('send-bux-search');
+    const buxResults = $('send-bux-results');
+    const buxAmount = $('send-bux-amount');
+    const buxError = $('send-bux-error');
+    const buxConfirm = $('send-bux-confirm');
+    let buxTarget = null;
+    let buxTimer;
+    let buxToken = 0;
+
+    function openSendBux() {
+      buxTarget = null;
+      buxError.hidden = true;
+      buxResults.hidden = true;
+      buxResults.replaceChildren();
+      buxConfirm.disabled = true;
+      buxAmount.value = '1';
+      buxSearch.value = '';
+      // Static markup: keep the dialog around so it can be reopened.
+      openDialog(buxDialog, { initialFocus: buxSearch, removeOnClose: false });
+    }
+
+    buxSearch.addEventListener('input', () => {
+      clearTimeout(buxTimer);
+      const term = buxSearch.value.trim();
+      const token = ++buxToken;
+      buxTarget = null;
+      buxConfirm.disabled = true;
+      if (term.length === 0) { buxResults.hidden = true; return; }
+      buxTimer = setTimeout(async () => {
+        const users = (await searchUsers(term)).filter((u) => u.id !== auth.currentUser?.uid);
+        if (token !== buxToken) return;
+        if (!users.length) {
+          buxResults.innerHTML = '<p class="site-search-empty">No players found.</p>';
+        } else {
+          buxResults.innerHTML = users.map((u) => {
+            const initial = escapeHtml((u.username || '?').charAt(0).toUpperCase());
+            return `<button type="button" class="site-search-result" data-bux-user="${escapeHtml(u.id)}">
+              ${avatarMarkup(u, initial)}<span>${escapeHtml(u.username)}</span></button>`;
+          }).join('');
+        }
+        buxResults.hidden = false;
+      }, 200);
+    });
+
+    buxResults.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-bux-user]');
+      if (!btn) return;
+      buxTarget = btn.dataset.buxUser;
+      buxResults.querySelectorAll('[data-bux-user]').forEach((b) => {
+        b.classList.toggle('site-bux-target', b === btn);
+      });
+      buxError.hidden = true;
+      buxConfirm.disabled = false;
+    });
+
+    $('send-bux-close').addEventListener('click', () => closeDialog(buxDialog));
+    $('send-bux-cancel').addEventListener('click', () => closeDialog(buxDialog));
+
+    buxConfirm.addEventListener('click', async () => {
+      const amount = Math.floor(Number(buxAmount.value));
+      const me = auth.currentUser;
+      if (!me || !buxTarget) return;
+      if (!Number.isFinite(amount) || amount < 1) {
+        buxError.textContent = 'Enter an amount of at least 1.';
+        buxError.hidden = false;
+        return;
+      }
+
+      buxConfirm.disabled = true;
+      BloxVerseMotion.setPending(buxConfirm, true, 'Sending');
+      try {
+        const meSnap = await getDoc(doc(db, 'users', me.uid));
+        const balance = meSnap.data()?.bux || 0;
+        if (balance < amount) throw new Error('Not enough Bux.');
+
+        const targetSnap = await getDoc(doc(db, 'users', buxTarget));
+        if (!targetSnap.exists()) throw new Error('That player no longer exists.');
+
+        await logTransaction([
+          { op: 'update', ref: doc(db, 'users', me.uid), updates: { bux: increment(-amount) } },
+          { op: 'update', ref: doc(db, 'users', buxTarget), updates: { bux: increment(amount) } },
+        ]);
+        await Promise.all([
+          setDoc(doc(db, 'transactions', `${me.uid}_${buxTarget}_${Date.now()}`), {
+            from: me.uid, to: buxTarget, amount, type: 'send', at: Date.now(),
+          }),
+          setDoc(doc(db, 'transactions', `${buxTarget}_${me.uid}_${Date.now()}`), {
+            from: me.uid, to: buxTarget, amount, type: 'receive', at: Date.now(),
+          }),
+        ]);
+
+        showToast(`Sent ${amount} Bux`);
+        BloxVerseMotion.setPending(buxConfirm, false);
+        closeDialog(buxDialog);
+      } catch (err) {
+        BloxVerseMotion.setPending(buxConfirm, false);
+        buxError.textContent = err.message || 'Could not send Bux.';
+        buxError.hidden = false;
+        buxConfirm.disabled = false;
       }
     });
 
-    async function onFriendSearch(e) {
-      const val = e.target.value.trim();
-      const resultsEl = document.getElementById('friendSearchResults');
-      if (val.length === 0) { resultsEl.classList.remove('visible'); return; }
-
-      const users = await searchUsers(val);
-      if (users.length === 0) {
-        resultsEl.innerHTML = '<div style="padding:12px;color:var(--text-muted);font-size:13px;">No players found</div>';
-      } else {
-        resultsEl.innerHTML = users.map(u => `
-          <div class="search-result-item" data-uid="${u.id}">
-            <div class="search-user-info">
-              ${u.avatarPreviewHead || u.avatarPreview
-                ? `<img src="${(u.avatarPreviewHead || u.avatarPreview)}?_cb=${Date.now()}" alt="" class="search-avatar search-avatar-img" onerror="this.outerHTML='<div class=search-avatar>${u.username.charAt(0).toUpperCase()}</div>'"/>`
-                : `<div class="search-avatar">${u.username.charAt(0).toUpperCase()}</div>`}
-              <span class="search-username">${u.username}</span>
-            </div>
-            ${u.id === currentUserId ? '' : (friendIdSet.has(u.id) ? '<span class="add-friend-btn sent">Friends</span>' : sentRequests.has(u.id) ? '<span class="add-friend-btn sent">Sent</span>' : `<button class="add-friend-btn" onclick="window._addFriend('${u.id}','${u.username}',this)">+ Add</button>`)}
-          </div>
-        `).join('');
-      }
-      resultsEl.classList.add('visible');
+    // -- Toast ---------------------------------------------------------
+    let toastTimer;
+    function showToast(html) {
+      toast.innerHTML = html;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 4000);
     }
 
-    async function _addFriend(targetId, targetUsername, btn) {
-      if (!currentUserId) {
-        window.location.href = '/bloxverse/auth';
-        return;
-      }
-      try {
-        await sendFriendRequest(currentUserId, targetId, targetUsername);
-        sentRequests.add(targetId);
-        btn.textContent = 'Sent';
-        btn.classList.add('sent');
-        btn.onclick = null;
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    window._addFriend = _addFriend;
-
-    const friendStatusUnsubs = new Map();
-
-    function listenFriendStatus(friend) {
-      if (friendStatusUnsubs.has(friend.id)) {
-        friendStatusUnsubs.get(friend.id)();
-      }
-      const unsub = onSnapshot(doc(db, 'presence', friend.id), (snap) => {
-        const idx = _friendsWithStatus.findIndex(f => f.id === friend.id);
-        if (idx === -1) return;
-        let status = 'offline';
-        if (snap.exists()) {
-          const p = snap.data();
-          const lastSeen = p.lastSeen?.toMillis?.() ?? p.lastSeen;
-          const twoMinAgo = Date.now() - 120000;
-          if (lastSeen && lastSeen < twoMinAgo) status = 'offline';
-          else if (p.inStudio) status = 'in-studio';
-          else if (p.inGame) status = 'in-game';
-          else if (p.online) status = 'online';
-        }
-        _friendsWithStatus[idx].status = status;
-        renderFriends(_friendsWithStatus);
-      }, () => {});
-      friendStatusUnsubs.set(friend.id, unsub);
+    // -- Daily reward --------------------------------------------------
+    function initDailyReward(uid) {
+      const KEY = `bvDailyBux:${uid}`;
+      const today = new Date().toISOString().slice(0, 10);
+      if (localStorage.getItem(KEY) === today) return;
+      localStorage.setItem(KEY, today);
+      claimDailyBux(uid)
+        .then((amount) => { if (amount > 0) showToast(`<strong>+${amount} Bux</strong> Daily login reward`); })
+        .catch((err) => console.warn('Daily reward failed:', err));
     }
 
-    function getStatusFromDoc(snap) {
-      let status = 'offline';
-      if (snap.exists()) {
-        const p = snap.data();
-        const lastSeen = p.lastSeen?.toMillis?.() ?? p.lastSeen;
-        const twoMinAgo = Date.now() - 120000;
-        if (lastSeen && lastSeen < twoMinAgo) status = 'offline';
-        else if (p.inStudio) status = 'in-studio';
-        else if (p.inGame) status = 'in-game';
-        else if (p.online) status = 'online';
-      }
-      return status;
-    }
-
-    async function getFriendsWithStatus(friends) {
-      const statuses = await Promise.all(friends.map(async (f) => {
-        try {
-          const snap = await getDoc(doc(db, 'presence', f.id));
-          return getStatusFromDoc(snap);
-        } catch { return 'offline'; }
-      }));
-      return friends.map((f, i) => ({ ...f, status: statuses[i] }));
-    }
-
-    function getProfileLink(f) {
-      return `/bloxverse/profile?user=${f.userIdNum}`;
-    }
-
-    function statusLabel(status) {
-      if (status === 'in-studio') return 'In Studio';
-      if (status === 'in-game') return 'In Game';
-      if (status === 'online') return 'Online';
-      return 'Offline';
-    }
-
-    const _cb = Date.now();
-
-    window.__handleBrokenAvatar = async function(imgEl, uid) {
-      try {
-        const initial = imgEl.getAttribute('data-initial') || 'U';
-        const letter = document.createElement('div');
-        if (imgEl.className && imgEl.className.includes('avatar-circle-img')) {
-          letter.className = 'friend-thumb-avatar';
-        } else {
-          letter.className = 'friend-thumb-avatar';
-        }
-        letter.textContent = initial;
-        imgEl.replaceWith(letter);
-        // If broken avatar belongs to current user, clear so it can regenerate later
-        try {
-          if (auth && auth.currentUser && auth.currentUser.uid === uid) {
-            await setDoc(doc(db, 'users', uid), { avatarPreview: null, avatarPreviewHead: null }, { merge: true });
-            console.log('[Avatar] Cleared stale avatarPreview for current user to trigger regeneration');
-          }
-        } catch (e) { console.warn('Could not clear avatarPreview:', e); }
-      } catch (e) { console.warn('Broken avatar handler error:', e); }
-    };
-
-    function renderFriends(friendsWithStatus) {
-      const addBtn = `
-        <div class="friend-thumb" onclick="window.location.href='/bloxverse/friends'" style="cursor:pointer;">
-          <div class="friend-thumb-avatar add-friend-circle">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
-          </div>
-          <span class="friend-thumb-name" style="color:var(--accent);">Add Friends</span>
-        </div>
-      `;
-
-      if (friendsWithStatus.length === 0) {
-        friendsGrid.innerHTML = addBtn;
-        return;
-      }
-      friendsGrid.innerHTML = addBtn + friendsWithStatus.map(f => `
-        <div class="friend-thumb" onclick="window.location.href='${getProfileLink(f)}'" style="cursor:pointer;">
-          <div class="avatar-with-status">
-            ${f.avatarPreviewHead || f.avatarPreview ? `<div style="width:56px;height:56px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2px solid rgba(255,255,255,0.1);background:#e0e0e0;"><img src="${f.avatarPreviewHead || f.avatarPreview}?_cb=${_cb}" alt="" data-initial="${(f.username || 'U').charAt(0).toUpperCase()}" onerror="window.__handleBrokenAvatar(this, '${f.id}')" style="width:100%;height:100%;object-fit:cover;display:block;"/></div>` : `<div class="friend-thumb-avatar">${(f.username || 'U').charAt(0).toUpperCase()}</div>`}
-            <div class="status-dot ${f.status}"></div>
-          </div>
-          <span class="friend-thumb-name">${f.username}</span>
-        </div>
-      `).join('');
-    }
-
-    window._removeFriend = async (friendId) => {
-      if (confirm('Remove this friend?')) {
-        await removeFriend(currentUserId, friendId);
-        refreshFriends();
-      }
-    };
-
-    let _friendsWithStatus = [];
-
-    const FRIENDS_CACHE_KEY = 'bvHomeFriends';
-    function readFriendsCache() {
-      try {
-        const raw = localStorage.getItem(FRIENDS_CACHE_KEY);
-        if (!raw) return null;
-        const data = JSON.parse(raw);
-        if (!data || !Array.isArray(data.friends)) return null;
-        if (Date.now() - data.at > 60000) return null;
-        return data.friends;
-      } catch { return null; }
-    }
-    function writeFriendsCache(friendsWithStatus) {
-      try {
-        const slim = friendsWithStatus.map(f => ({
-          id: f.id,
-          userIdNum: f.userIdNum || null,
-          username: f.username || 'Unknown',
-          avatarPreview: f.avatarPreview || null,
-          avatarPreviewHead: f.avatarPreviewHead || null,
-          status: f.status || 'offline',
-        }));
-        localStorage.setItem(FRIENDS_CACHE_KEY, JSON.stringify({ at: Date.now(), friends: slim }));
-      } catch {}
-    }
-
-    async function refreshFriends() {
-      if (!currentUserId) return;
-
-      for (const unsub of friendStatusUnsubs.values()) unsub();
-      friendStatusUnsubs.clear();
-
-      // Paint last-known friends instantly so the section isn't blank, then
-      // refresh from Firestore and patch in live statuses.
-      const cached = readFriendsCache();
-      if (cached && cached.length > 0) {
-        _friendsWithStatus = cached;
-        friendIdSet.clear();
-        cached.forEach(f => friendIdSet.add(f.id));
-        renderFriends(cached);
-      }
-
-      const friends = await getFriends(currentUserId);
-      const friendsWithStatus = await getFriendsWithStatus(friends);
-      _friendsWithStatus = friendsWithStatus;
-      friendIdSet.clear();
-      friendsWithStatus.forEach(f => friendIdSet.add(f.id));
-
-      renderFriends(friendsWithStatus);
-      writeFriendsCache(friendsWithStatus);
-
-      for (const friend of friendsWithStatus) {
-        listenFriendStatus(friend);
-      }
-    }
-
-    function toggleDropdown(dropdown) {
-      if (activeDropdown && activeDropdown !== dropdown) {
-        activeDropdown.classList.remove('open');
-      }
-      dropdown.classList.toggle('open');
-      activeDropdown = dropdown.classList.contains('open') ? dropdown : null;
-    }
+    // -- Auth ----------------------------------------------------------
+    let presence = null;
+    let statsUnsub = null;
+    let publishedUnsub = null;
+    let banUnsub = null;
 
     onAuthStateChanged(auth, async (user) => {
-      if (buxUnsub) { buxUnsub(); buxUnsub = null; }
-      if (presence) { presence.goOffline(); presence = null; }
-      document.querySelectorAll('[data-needs-auth]').forEach(el => { el.style.display = user ? '' : 'none'; });
+      statsUnsub?.();
+      publishedUnsub?.();
+      banUnsub?.();
+      presence?.cleanup();
 
-      if (user) {
-        // ── Real-time ban listener ────────────────────────────────────────
-        onSnapshot(doc(db, 'bans', user.uid), (snap) => {
-          if (snap.exists() && snap.data().banned) {
-            window.location.href = '/bloxverse/ban';
-          }
-        });
-        // ────────────────────────────────────────────────────────────────────
+      document.querySelectorAll('[data-needs-auth]').forEach((el) => { el.hidden = !user; });
+      document.body.classList.toggle('site-page-guest', !user);
 
-        currentUserId = user.uid;
-
-        // Show the friend search bar + friends section immediately.
-        navCenter.innerHTML = renderFriendSearch();
-        document.getElementById('friendSearchInput').addEventListener('input', onFriendSearch);
-        friendsSection.style.display = 'block';
-
-        // ── Ban guard + user profile read run in parallel ────────────────
-        const [banData, userSnap] = await Promise.all([
-          checkBan(user.uid),
-          getDoc(doc(db, 'users', user.uid)),
-        ]);
-        if (banData) {
-          window.location.href = sitePath('ban.html');
-          return;
-        }
-
-        let username = 'Player';
-        let bux = 0;
-        let userNum = null;
-        let ownPreview = null;
-        if (userSnap.exists()) {
-          const data = userSnap.data();
-          username = data.username || username;
-          bux = data.bux || 0;
-          userNum = data.userIdNum;
-          ownPreview = data.avatarPreviewHead || data.avatarPreview || null;
-        }
-
-        // Ensure existing users get a sequential userIdNum
-        assignUserIdNum(user.uid).catch(() => {});
-
-        presence = trackPresence(user.uid, null, 'home');
-
-        // ── Daily login reward ────────────────────────────────────────────
-        claimDailyBux(user.uid).then(claimed => {
-          if (claimed) {
-            const toast = document.getElementById('dailyRewardToast');
-            if (toast) {
-              toast.classList.add('show');
-              setTimeout(() => toast.classList.remove('show'), 4000);
-            }
-          }
-        }).catch(() => {});
-
-        const initial = username.charAt(0).toUpperCase();
-        const ownProfileLink = userNum ? `/bloxverse/profile?user=${userNum}` : '/bloxverse/profile';
-
-        const buxElId = 'buxValue';
-        navRight.innerHTML = `
-          <div class="user-info">
-            <div class="bux-wrapper" id="buxWrapper">
-              <button class="bux-btn" id="buxBtn">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <text x="12" y="17" text-anchor="middle" font-size="14" font-weight="bold">B</text>
-                </svg>
-                <span id="${buxElId}">${bux.toLocaleString()}</span>
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="margin-left:4px;"><path d="M7 10l5 5 5-5z"/></svg>
-              </button>
-              <div class="bux-dropdown">
-                 <div class="bux-dropdown-header">
-                   <span class="bux-dropdown-label">Balance</span>
-                   <span class="bux-dropdown-balance" id="buxDropdownBalance">${bux.toLocaleString()}</span>
-                 </div>
-                 <button class="bux-dropdown-item" onclick="window.openSendBuxModal()">
-
-                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-                   Send Bux
-                 </button>
-                 <button class="bux-dropdown-item" onclick="window.location.href='/bloxverse/transactions'">
-                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                   Transactions
-                 </button>
-               </div>
-            </div>
-          <div class="settings-wrapper">
-            <button class="settings-nav-btn" id="navSettingsBtn" title="Settings">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="3"/>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-              </svg>
-            </button>
-            <div class="settings-dropdown" id="navSettingsDropdown">
-              <button onclick="window.location.href='/bloxverse/settings'">Settings</button>
-              <button onclick="window._logout()">Log Out</button>
-            </div>
-          </div>
-          ${ownPreview
-            ? `<img src="${ownPreview}?_cb=${_cb}" alt="" class="avatar-circle-img" onclick="window.location.href='${ownProfileLink}'" data-initial="${initial}" onerror="window.__handleBrokenAvatar(this, '${user.uid}')"/>`
-            : `<div class="avatar-circle" onclick="window.location.href='${ownProfileLink}'">${initial}</div>`}
-          </div>
-        `;
-
-      // Settings dropdown toggle
-      const closeSettings = () => {
-        document.querySelectorAll('.settings-dropdown').forEach(d => d.classList.remove('open'));
-      };
-      const navSettingsBtn = document.getElementById('navSettingsBtn');
-      if (navSettingsBtn) {
-        navSettingsBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          closeSettings();
-          const dd = document.getElementById('navSettingsDropdown');
-          if (dd) dd.classList.toggle('open');
-        });
+      if (!user) {
+        presence = null;
+        friendIdSet = new Set();
+        sentRequests.clear();
+        renderAccount(null);
+        $('home-avatar').hidden = true;
+        $('home-greeting').hidden = true;
+        $('home-guest').hidden = false;
+        friendsSection.hidden = true;
+        return;
       }
 
-      document.addEventListener('click', (e) => {
-        if (!e.target.closest('.settings-wrapper')) {
-          closeSettings();
-        }
+      try { await assignUserIdNum(user.uid); } catch (err) { console.warn('assignUserIdNum failed:', err); }
+
+      banUnsub = onSnapshot(doc(db, 'bans', user.uid), (snap) => {
+        if (snap.exists()) window.location.href = sitePath('/ban');
+      }, () => { /* rules may deny this read */ });
+
+      const userSnap = await getDoc(doc(db, 'users', user.uid));
+      const data = userSnap.data() || {};
+      const username = data.username || user.displayName || 'Player';
+      const userNum = data.userIdNum;
+
+      const ownPreview = data.avatarPreview
+        ? `${data.avatarPreview}${data.avatarPreview.includes('?') ? '&' : '?'}_cb=${AVATAR_BUST}`
+        : null;
+
+      renderAccount(user, { username, bux: data.bux || 0, userNum, ownPreview });
+
+      $('home-greeting').textContent = `Hello, ${username}!`;
+      $('home-greeting').hidden = false;
+      $('home-guest').hidden = true;
+
+      if (ownPreview) {
+        $('home-preview').src = ownPreview;
+        $('home-avatar').hidden = false;
+      }
+
+      friendsSection.hidden = false;
+      showFriendsSkeleton();
+      refreshFriends(user.uid).catch((err) => console.warn('Friend list failed:', err));
+
+      presence = trackPresence(user.uid);
+      listenBux(user.uid, (bux) => {
+        const el = $('bux-count');
+        if (el) el.textContent = bux;
       });
 
-        // Bux dropdown toggle
-        const buxWrapper = document.getElementById('buxWrapper');
-        const buxBtn = document.getElementById('buxBtn');
-        buxBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          toggleDropdown(buxWrapper);
-        });
-
-        // Use a persistent listener for Bux updates
-        buxUnsub = listenBux(user.uid, (buxAmount) => {
-          const buxEl = document.getElementById(buxElId);
-          if (buxEl) {
-            buxEl.textContent = buxAmount.toLocaleString();
-          }
-          const balEl = document.getElementById('buxDropdownBalance');
-          if (balEl) balEl.textContent = buxAmount.toLocaleString();
-        }, username, user.email);
-
-        refreshFriends();
-      } else {
-        currentUserId = null;
-        // Guests still get the player search bar (Add redirects to auth).
-        navCenter.innerHTML = renderFriendSearch();
-        document.getElementById('friendSearchInput').addEventListener('input', onFriendSearch);
-        navRight.innerHTML = `<button class="login-btn" 
-onclick="window.location.href='/bloxverse/auth'">Login / Sign Up</button>`;
-        friendsSection.style.display = 'none';
-        if (activeDropdown) { activeDropdown.classList.remove('open'); activeDropdown = null; }
-      }
+      initDailyReward(user.uid);
     });
 
-    // Hamburger menu toggle
-    const hamburger = document.getElementById('navHamburger');
-    const navLinks = document.getElementById('navLinks');
-    if (hamburger && navLinks) {
-      hamburger.addEventListener('click', () => {
-        navLinks.classList.toggle('open');
+    // -- Live catalog updates ------------------------------------------
+    publishedUnsub = onSnapshot(collection(db, 'publishedGames'), (snap) => {
+      snap.docChanges().forEach((change) => {
+        const game = { id: change.doc.id, ...change.doc.data() };
+        if (game.deleted) {
+          games = games.filter((g) => g.id !== game.id);
+        } else if (!games.some((g) => g.id === game.id)) {
+          games.push(game);
+        } else {
+          Object.assign(games.find((g) => g.id === game.id), game);
+        }
       });
-      document.addEventListener('click', (e) => {
-        if (!e.target.closest('.navbar')) navLinks.classList.remove('open');
-      });
-    }
+      // The section order depends on player counts, so a full repaint is the
+      // only correct way to reflect adds, edits and removals.
+      renderGameSections();
+    }, () => { /* rules may deny this read; the cached catalog stays on screen */ });
 
-    window._logout = async () => {
-      if (buxUnsub) { buxUnsub(); buxUnsub = null; }
-      if (presence) { presence.goOffline(); presence = null; }
-      await signOut(auth);
-      window.location.href = '/bloxverse/';
-    };
+    bootCatalog();
+  </script>
 
-    document.addEventListener('click', (e) => {
-      const results = document.getElementById('friendSearchResults');
-      if (results && !e.target.closest('.friend-search-wrapper')) {
-        results.classList.remove('visible');
-      }
-      if (!e.target.closest('.settings-wrapper')) {
-        document.querySelectorAll('.settings-dropdown').forEach(d => d.classList.remove('open'));
-      }
-      if (activeDropdown && !activeDropdown.contains(e.target)) {
-        activeDropdown.classList.remove('open');
-         activeDropdown = null;
-       }
-     });
-
-      // ── Send Bux ─────────────────────────────────────────────────────────
-      window.openSendBuxModal = () => {
-        if (!auth.currentUser) return;
-        const bux = Number(String(document.getElementById('buxDropdownBalance')?.textContent || '0').replace(/,/g, '')) || 0;
-        let selectedUserId = null;
-
-        const overlay = document.createElement('div');
-        overlay.className = 'modal-overlay';
-        overlay.innerHTML = `
-          <div class="modal-content" style="max-width:500px;">
-            <div class="modal-header">
-              <h2>Send Bux</h2>
-              <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
-            </div>
-            <div class="modal-body">
-              <div class="modal-field">
-                <label>Recipient</label>
-                <input type="text" id="sendBuxSearch" placeholder="Search username..." autocomplete="off" />
-                <div id="sendBuxResults" class="search-list" style="display:none;"></div>
-              </div>
-
-              <div id="sendBuxSelected" style="display:none;">
-                <div class="modal-field">
-                  <label>Selected User</label>
-                  <div class="selected-badge">
-                    <img id="sendBuxAvatar" src="" class="selected-avatar" />
-                    <span id="sendBuxName"></span>
-                  </div>
-                </div>
-              </div>
-
-              <div class="modal-field">
-                <label>Amount</label>
-                <div class="amount-row">
-                  <input type="number" id="sendBuxAmount" placeholder="Enter amount…" min="1" max="${bux}" />
-                  <span class="bux-label">BUX</span>
-                </div>
-              </div>
-
-              <div class="warning-box" style="margin:0;">
-                <strong>Warning:</strong> Bux transfers are final and cannot be undone.
-              </div>
-              <div id="sendBuxErr" class="error-msg" style="display:none;"></div>
-            </div>
-            <div class="modal-footer">
-              <button class="modal-btn cancel" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
-              <button class="modal-btn confirm" id="sendBuxSendBtn" disabled>Send</button>
-            </div>
-          </div>`;
-
-        overlay.querySelector('#sendBuxSendBtn').addEventListener('click', () => {
-          const amount = parseInt(overlay.querySelector('#sendBuxAmount').value, 10);
-          const username = overlay.querySelector('#sendBuxName').textContent;
-          const errEl = overlay.querySelector('#sendBuxErr');
-          if (!selectedUserId) return;
-          if (isNaN(amount) || amount < 1) {
-            errEl.textContent = 'Enter a valid positive amount.';
-            errEl.style.display = 'block';
-            return;
-          }
-          if (amount > bux) {
-            errEl.textContent = 'You don\'t have enough BUX to send this amount.';
-            errEl.style.display = 'block';
-            return;
-          }
-          errEl.style.display = 'none';
-
-          const confirmOverlay = document.createElement('div');
-          confirmOverlay.className = 'modal-overlay';
-          confirmOverlay.style.cssText = 'z-index:10000;background:rgba(0,0,0,0.8);';
-          confirmOverlay.innerHTML = `
-            <div class="modal-content" style="max-width:400px;">
-              <div class="modal-header">
-                <h3 style="font-size:16px;margin:0;">Confirm Transfer</h3>
-              </div>
-              <div class="modal-body">
-                <p style="color:var(--text-secondary);font-size:14px;line-height:1.5;margin:0 0 16px;">
-                  Are you sure you want to send <strong style="color:#4caf50;">${amount.toLocaleString()} BUX</strong>
-                  to <strong style="color:var(--text-primary);">${username}</strong>?
-                </p>
-                <div class="warning-box" style="margin:0;">
-                  This transfer is <strong>final</strong>. You will not be able to recover these BUX.
-                </div>
-              </div>
-              <div class="modal-footer">
-                <button class="modal-btn cancel" id="confirmCancelBtn">Cancel</button>
-                <button class="modal-btn confirm" id="confirmYesBtn" style="background:rgba(244,67,54,0.8);">Yes, Send</button>
-              </div>
-            </div>`;
-          document.body.appendChild(confirmOverlay);
-
-          confirmOverlay.querySelector('#confirmCancelBtn').addEventListener('click', () => confirmOverlay.remove());
-          confirmOverlay.querySelector('#confirmYesBtn').addEventListener('click', async () => {
-            try {
-              await updateDoc(doc(db, 'users', auth.currentUser.uid), { bux: increment(-amount) });
-              await updateDoc(doc(db, 'users', selectedUserId), { bux: increment(amount) });
-
-              const _sSnap = await getDoc(doc(db, 'users', auth.currentUser.uid));
-              const _sData = _sSnap.data();
-              const _rSnap = await getDoc(doc(db, 'users', selectedUserId));
-              const _rData = _rSnap.data();
-              await logTransaction(auth.currentUser.uid, -amount, _sData?.bux || 0, 'SendBux', `Sent ${amount.toLocaleString()} BUX to ${username}`);
-              await logTransaction(selectedUserId, amount, _rData?.bux || 0, 'SendBux', `Received ${amount.toLocaleString()} BUX from ${_sData?.username || 'Someone'}`);
-
-              confirmOverlay.remove();
-              overlay.remove();
-            } catch (err) {
-              console.error(err);
-              overlay.querySelector('#sendBuxErr').textContent = 'Transfer failed. Try again.';
-              overlay.querySelector('#sendBuxErr').style.display = 'block';
-              confirmOverlay.remove();
-            }
-          });
-        });
-
-        document.body.appendChild(overlay);
-
-        const searchInput = overlay.querySelector('#sendBuxSearch');
-        const resultsEl = overlay.querySelector('#sendBuxResults');
-        const selectedEl = overlay.querySelector('#sendBuxSelected');
-        const nameEl = overlay.querySelector('#sendBuxName');
-        const avatarEl = overlay.querySelector('#sendBuxAvatar');
-        const sendBtn = overlay.querySelector('#sendBuxSendBtn');
-
-        let _allUsersCache = null;
-        let searchTimer;
-        searchInput.addEventListener('input', () => {
-          clearTimeout(searchTimer);
-          const term = searchInput.value.trim().toLowerCase();
-          if (!term) { resultsEl.style.display = 'none'; return; }
-          searchTimer = setTimeout(async () => {
-            try {
-              if (!_allUsersCache) {
-                const all = await getDocs(collection(db, 'users'));
-                _allUsersCache = all.docs.map(d => ({ id: d.id, ...d.data() }));
-              }
-              const matches = _allUsersCache.filter(u => (u.username || '').toLowerCase().includes(term));
-              if (matches.length === 0) {
-                resultsEl.innerHTML = '<div class="empty-state">No users found</div>';
-              } else {
-                resultsEl.innerHTML = matches.slice(0, 50).map(f => `
-                  <div class="search-item" data-uid="${f.id}" data-name="${f.username || 'Unknown'}" data-avatar="${f.avatarPreviewHead || f.avatarPreview || ''}">
-                    ${f.avatarPreviewHead || f.avatarPreview ? `<img src="${f.avatarPreviewHead || f.avatarPreview}" alt="" />` : `<div class="init-circle">${(f.username || 'U').charAt(0).toUpperCase()}</div>`}
-                    <span>${f.username || 'Unknown'}</span>
-                  </div>`).join('');
-                resultsEl.querySelectorAll('.search-item').forEach(el => {
-                  el.addEventListener('click', () => {
-                    selectedUserId = el.dataset.uid;
-                    nameEl.textContent = el.dataset.name;
-                    avatarEl.src = el.dataset.avatar || '';
-                    selectedEl.style.display = 'block';
-                    resultsEl.style.display = 'none';
-                    searchInput.value = '';
-                    sendBtn.disabled = false;
-                    overlay.querySelector('#sendBuxErr').style.display = 'none';
-                    overlay.querySelector('#sendBuxAmount').focus();
-                  });
-                });
-              }
-              resultsEl.style.display = 'block';
-            } catch (err) {
-              console.error(err);
-              resultsEl.innerHTML = '<div class="empty-state">Search error</div>';
-            }
-          }, 200);
-        });
-
-        document.addEventListener('click', (e) => {
-          if (overlay.contains(e.target)) return;
-          if (resultsEl.style.display === 'block') resultsEl.style.display = 'none';
-        }, { once: true });
-      };
-    </script>
-
-  <footer class="site-footer">
-    <div class="footer-inner">
-      <div class="logo" onclick="window.location.href='/bloxverse/'">
-        <img src="assets/icons/bloxverseLogo.png" alt="" class="footer-logo-img" />
-        <span class="logo-text">BloxVerse</span>
-      </div>
-      <div class="footer-links">
-        <a href="/bloxverse/terms">Terms of Service</a>
-        <a href="/bloxverse/privacy">Privacy Policy</a>
-        <a class="footer-discord" href="https://discord.gg/Uh6WF5NDDK" target="_blank" rel="noopener" title="Join our Discord"><i class="fab fa-discord"></i></a>
-      </div>
-    </div>
-    <div class="footer-copyright">© 2026 BloxVerse. All rights reserved.</div>
-  </footer>
 </body>
 
 </html>

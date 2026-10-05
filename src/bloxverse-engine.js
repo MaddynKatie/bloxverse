@@ -11,13 +11,18 @@ import * as CANNON from 'cannon-es';
 const playerModelUrl = new URL('../assets/models/male.glb', import.meta.url).href;
 const studTextureUrl = new URL('../assets/textures/stud.jpeg', import.meta.url).href;
 const inletTextureUrl = new URL('../assets/textures/inlet.jpg', import.meta.url).href;
-import { findAccessory } from './accessories.js';
-import { findFace } from './faces.js';
-import { findClothing } from './clothing.js';
-import { findEmote } from './emotes.js';
+import {
+    loadCatalog,
+    findAccessoryStore,
+    findClothingStore,
+    findFaceStore,
+    findEmoteStore
+} from './catalogStore.js';
 import { Instance } from './instances.js';
 
-// ─── Constants ───────────────────────────────────────────────
+await loadCatalog();
+
+// --- Constants -----------------------------------------------
 const STUDS_PER_TILE = 4;
 const G_LEVEL = 0; // world ground Y (top of baseplate)
 const DEG2RAD = Math.PI / 180;
@@ -61,7 +66,7 @@ let _respawnTimer = 0;
 const _respawnCallbacks = [];
 const _deathCallbacks = [];
 
-// ─── Graphics Auto-Adjust ─────────────────────────────────────────────
+// --- Graphics Auto-Adjust ---------------------------------------------
 let _graphicsAuto = true;
 let _graphicsLevel = 5;
 const _fpsHistory = [];
@@ -71,7 +76,7 @@ let _qualityChangeCallback = null;
 let _targetFps = 0;
 let _nextRenderTime = performance.now();
 
-// ─── Chat Bubble Config ────────────────────────────────────────────────
+// --- Chat Bubble Config ------------------------------------------------
 const BUBBLE_WORLD_W = 4.0;
 const BUBBLE_CANVAS_W = 500;
 const BUBBLE_SCALE = BUBBLE_WORLD_W / BUBBLE_CANVAS_W;
@@ -238,7 +243,7 @@ function _updateBubblePositions() {
     }
 }
 
-// ─── Username Labels Config ────────────────────────────────────────────────
+// --- Username Labels Config ------------------------------------------------
 const USERNAME_FONT = 'bold 48px system-ui,sans-serif';
 const USERNAME_OFFSET_Y = -0.8; // Height above head (negative moves down)
 
@@ -307,7 +312,7 @@ function _createStreakSprite(streak) {
     ctx.font = 'bold 42px system-ui,sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    // No background — draw outlined text for readability
+    // No background -- draw outlined text for readability
     ctx.lineWidth = Math.max(3, Math.floor(canvas.width * 0.02));
     ctx.strokeStyle = 'rgba(0,0,0,0.7)';
     ctx.fillStyle = '#ff6a00';
@@ -461,13 +466,13 @@ function _updateNameLabelPositions() {
     }
 }
 
-// ─── Scene ───────────────────────────────────────────────────────────────────
+// --- Scene -------------------------------------------------------------------
 const scene = new THREE.Scene();
 window.scene = scene;
 scene.fog = new THREE.Fog(0xAAC9E8, 140, 350);
 scene.background = new THREE.Color(0xAAC9E8);
 
-// ─── Sky dome (skybox) ──────────────────────────────────────────────────────
+// --- Sky dome (skybox) ------------------------------------------------------
 // A huge inward-facing gradient dome behind everything. Because it's regular
 // geometry it is tone-mapped/color-managed exactly like the rest of the scene,
 // so the sky can never shift color when post-processing is toggled.
@@ -523,7 +528,7 @@ function _applySkyColor(color) {
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 3200);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-// Skip THREE's shader "Program Info Log" surfacing — the FXAA pass emits
+// Skip THREE's shader "Program Info Log" surfacing -- the FXAA pass emits
 // harmless D3D compiler warnings (X3595 gradient-in-loop, X4000 f_ApplyFXAA)
 // on every program link, which are just console noise.
 renderer.debug.checkShaderErrors = false;
@@ -541,12 +546,12 @@ window.addEventListener('resize', () => {
     if (_composer) _composer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// ─── Bloom post-processing (configurable) ───────────────────────────────────
+// --- Bloom post-processing (configurable) -----------------------------------
 let _bloomEnabled = true;
 let _bloomStrength = 0.5;
 let _bloomRadius = 0.4;
-// Above pure white (1.0) so only genuinely HDR-bright things bloom — the sun,
-// emissive stacking — while world-space UI (usernames, chat bubbles)
+// Above pure white (1.0) so only genuinely HDR-bright things bloom -- the sun,
+// emissive stacking -- while world-space UI (usernames, chat bubbles)
 // stays crisp instead of glowing.
 let _bloomThreshold = 1.05;
 let _composer = null;
@@ -567,7 +572,7 @@ function _ensureBloomComposer() {
 }
 
 function _refreshBloomEnabled() {
-    // Bloom only runs at a reasonable quality level — auto-off on weak machines
+    // Bloom only runs at a reasonable quality level -- auto-off on weak machines
     if (_bloomPass) _bloomPass.enabled = _bloomEnabled && _graphicsLevel >= 4;
 }
 
@@ -587,7 +592,7 @@ function _renderFrame() {
 
 _applyBloomConfig();
 
-// ─── Lights ──────────────────────────────────────────────────────────────────
+// --- Lights ------------------------------------------------------------------
 const ambient = new THREE.AmbientLight(0xffffff, 0.45);
 scene.add(ambient);
 
@@ -613,7 +618,7 @@ sun.shadow.autoUpdate = true;
 sun.shadow.camera.updateProjectionMatrix();
 scene.add(sun);
 
-// ─── Sun (warm yellow disc + soft glow, no rays) ────────────────────────────
+// --- Sun (warm yellow disc + soft glow, no rays) ----------------------------
 // A single procedural texture combining a hot yellow solar disc and a soft
 // atmospheric glow around it.
 
@@ -674,7 +679,7 @@ sunVisual.position.copy(sun.position.clone().normalize().multiplyScalar(900));
 sunVisual.add(sunSprite, sunHalo);
 scene.add(sunVisual);
 
-// ─── Clouds ──────────────────────────────────────────────────────────────────
+// --- Clouds ------------------------------------------------------------------
 // A soft drifting cloud layer wrapped around the sky dome, centered on the
 // camera each frame just like the sky. Cheap sprite billboards.
 
@@ -724,13 +729,29 @@ for (let i = 0; i < CLOUD_COUNT; i++) {
 
 _applyGraphicsLevel();
 
-// ─── Physics World ───────────────────────────────────────────────────────────
+// --- Physics World -----------------------------------------------------------
 const physicsWorld = new CANNON.World();
 physicsWorld.gravity.set(0, GRAVITY, 0);
 physicsWorld.defaultContactMaterial.friction = 0.4;
 // Let ragdoll limbs fall asleep once they settle instead of slowly
 // tumbling forever.
 physicsWorld.allowSleep = true;
+
+// SAP (sweep-and-prune) broadphase. The cannon-es default (NaiveBroadphase)
+// generates every body pair every step - O(n²) - which explodes the moment a
+// map has even a few hundred static parts. SAP sorts once per axis and is
+// near-constant-time for big worlds that are mostly static parts, so maps
+// with thousands of parts keep their fixed-stepping cost flat.
+const { SAPBroadphase } = CANNON;
+physicsWorld.broadphase = new SAPBroadphase(physicsWorld);
+
+// Static parts must never collide with EACH OTHER (they're already hit-tested
+// via the chunked AABB buckets and a world of touching part boxes would make
+// the broadphase emit near-n^2 static-static pairs every step). Give every
+// dynamic body group 4 and every static body group 2, with masks so pairs are
+// only passed on when one body is dynamic.
+const COLLISION_GROUP_STATIC = 2;
+const COLLISION_GROUP_DYNAMIC = 4;
 
 // Patch solver to use body._bounciness for restitution (bypasses broken material system)
 const origAddEq = physicsWorld.solver.addEquation.bind(physicsWorld.solver);
@@ -746,6 +767,21 @@ physicsWorld.solver.addEquation = function (eq) {
 
 // Track physics bodies synced with mesh
 const physicsBodies = new Map(); // mesh -> { body, anchored, mesh }
+
+// Separate list of NON-anchored (dynamic) physics entries only. The raw map
+// holds thousands of static parts, and iterating all of them has no way to be
+// fast: per-frame collision, ray, touch and sync passes would otherwise die in
+// O(parts) checks. Static parts are already hit-tested through the chunked
+// AABB buckets, so the dynamic list keeps every hot pass O(ragdolls + movers).
+const _dynamicPhysicsEntries = [];
+function _registerDynamic(entry) {
+    if (entry && !_dynamicPhysicsEntries.includes(entry)) _dynamicPhysicsEntries.push(entry);
+}
+function _unregisterDynamic(entry) {
+    if (!entry) return;
+    const i = _dynamicPhysicsEntries.indexOf(entry);
+    if (i >= 0) _dynamicPhysicsEntries.splice(i, 1);
+}
 
 function markLocalPhysicsOwner(mesh, durationMs = PHYSICS_OWNER_LEASE_MS) {
     if (!mesh || !currentUserId) return;
@@ -768,7 +804,7 @@ function shouldKeepLocalPhysicsOwner(mesh, remoteClaimId) {
     return !remoteClaimId || localClaimId >= remoteClaimId;
 }
 
-// ─── Geometry / Material caches ──────────────────────────────────────────────
+// --- Geometry / Material caches ----------------------------------------------
 const geoCache = new Map();
 const matCache = new Map();
 
@@ -786,9 +822,12 @@ function _refreshBlockTextures() {
     const oldMats = new Set();
     scene.traverse(child => {
         if (!child.isMesh) return;
+        // Mega-merged world meshes use capture-time vertex colors / shared
+        // singleton materials, not the per-color cached arrays - never touch.
+        if (child.userData.isMergedWorldMesh) return;
         const halfSize = child.userData.halfSize;
         if (!halfSize) return;
-        // Skip sphere meshes — they use a single material, not the 6-face block array
+        // Skip sphere meshes -- they use a single material, not the 6-face block array
         if (child.geometry && child.geometry.type === 'SphereGeometry') return;
         const { sw, sh, sd } = halfSize;
         const mats = Array.isArray(child.material) ? child.material : [child.material];
@@ -956,7 +995,7 @@ function applyMeshTransparency(mesh, transparency) {
     }
 }
 
-// ─── Collision spatial grid ───────────────────────────────────────────────────
+// --- Collision spatial grid ---------------------------------------------------
 const colliders = [];
 const chunkMap = new Map();
 
@@ -987,9 +1026,10 @@ function getNearbyColliders(px, py, pz) {
                 if (bucket) bucket.forEach(b => _nearbySet.add(b));
             }
 
-    // Add dynamic physics body colliders
-    physicsBodies.forEach(({ body, anchored, mesh }) => {
-        if (!anchored && body && body._obb && mesh.userData.canCollide !== false) {
+    // Add dynamic physics body colliders (only non-anchored bodies - the
+    // static part buckets above already cover every anchored collider).
+    for (const { body, mesh } of _dynamicPhysicsEntries) {
+        if (body && body._obb && mesh.userData.canCollide !== false) {
             // Check if dynamic body is within search radius
             const dx = Math.abs(body._obb.cx - px);
             const dy = Math.abs(body._obb.cy - py);
@@ -1003,12 +1043,12 @@ function getNearbyColliders(px, py, pz) {
                 _nearbySet.add(body._obb);
             }
         }
-    });
+    }
 
     return _nearbySet;
 }
 
-// ─── OBB helpers ─────────────────────────────────────────────────────────────
+// --- OBB helpers -------------------------------------------------------------
 function buildOBB(sw, sh, sd, cx, cy, cz, rx, ry, rz) {
     const m = new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(rx, ry, rz));
     const e = m.elements;
@@ -1025,7 +1065,7 @@ function buildOBB(sw, sh, sd, cx, cy, cz, rx, ry, rz) {
     };
 }
 
-// ─── Ray-vs-collider helpers (for camera collision) ──────────────────────────
+// --- Ray-vs-collider helpers (for camera collision) --------------------------
 function rayVsAABB(origin, dir, aabb) {
     const invDx = 1 / dir.x, invDy = 1 / dir.y, invDz = 1 / dir.z;
     let t1 = (aabb.minX - origin.x) * invDx;
@@ -1095,8 +1135,8 @@ function getCollidersAlongRay(x1, y1, z1, x2, y2, z2) {
                     _rayCache.add(b);
                 });
             }
-    for (const { body, anchored, mesh } of physicsBodies.values()) {
-        if (!anchored && body && body._obb && mesh.userData.canCollide !== false && (mesh.userData.transparency || 0) < 0.25) {
+    for (const { body, mesh } of _dynamicPhysicsEntries) {
+        if (body && body._obb && mesh.userData.canCollide !== false && (mesh.userData.transparency || 0) < 0.25) {
             const dx = body._obb.minX > maxX || body._obb.maxX < minX;
             const dy = body._obb.minY > maxY || body._obb.maxY < minY;
             const dz = body._obb.minZ > maxZ || body._obb.maxZ < minZ;
@@ -1107,11 +1147,11 @@ function getCollidersAlongRay(x1, y1, z1, x2, y2, z2) {
     return _rayCache;
 }
 
-// ─── Map mode ────────────────────────────────────────────────────────────────
+// --- Map mode ----------------------------------------------------------------
 const _urlParams = new URLSearchParams(window.location.search);
 const _gameMode = _urlParams.get('game') || 'demo';
 
-// ─── Mass helpers ─────────────────────────────────────────────────────────────
+// --- Mass helpers -------------------------------------------------------------
 const ROBLOX_DENSITY = 0.6;
 
 function computeMass(sw, sh, sd, shape) {
@@ -1128,7 +1168,7 @@ function computeMass(sw, sh, sd, shape) {
     return volume * ROBLOX_DENSITY;
 }
 
-// ─── World builder ───────────────────────────────────────────────────────────
+// --- World builder -----------------------------------------------------------
 function addStud(sw, sh, sd, color, x, y, z, rx = 0, ry = 0, rz = 0, anchored = true, shape = 'Block', bodyMass, canCollide = true) {
     if (bodyMass == null) bodyMass = computeMass(sw, sh, sd, shape);
     let mesh;
@@ -1150,6 +1190,7 @@ function addStud(sw, sh, sd, color, x, y, z, rx = 0, ry = 0, rz = 0, anchored = 
 
     mesh.userData.halfSize = { sw, sh, sd };
     mesh.userData.canCollide = canCollide;
+    mesh.userData.worldColor = color;
 
     // Create physics body
     let cannonShape;
@@ -1165,6 +1206,10 @@ function addStud(sw, sh, sd, color, x, y, z, rx = 0, ry = 0, rz = 0, anchored = 
     const cannonMass = anchored ? 0 : bodyMass;
     const body = new CANNON.Body({ mass: cannonMass, shape: cannonShape });
     body.position.set(x, cy, z);
+    // Static parts collide only with dynamic bodies - never each other - so
+    // the broadphase stays O(dynamic) even with thousands of anchored parts.
+    body.collisionFilterGroup = anchored ? COLLISION_GROUP_STATIC : COLLISION_GROUP_DYNAMIC;
+    body.collisionFilterMask = anchored ? COLLISION_GROUP_DYNAMIC : (COLLISION_GROUP_STATIC | COLLISION_GROUP_DYNAMIC);
 
     if (rx !== 0 || ry !== 0 || rz !== 0) {
         const quat = new CANNON.Quaternion();
@@ -1175,7 +1220,9 @@ function addStud(sw, sh, sd, color, x, y, z, rx = 0, ry = 0, rz = 0, anchored = 
     if (canCollide) {
         physicsWorld.addBody(body);
     }
-    physicsBodies.set(mesh, { body, anchored, mesh });
+    const _entry = { body, anchored, mesh };
+    physicsBodies.set(mesh, _entry);
+    if (!anchored) _registerDynamic(_entry);
 
     mesh.userData.initialPos = new THREE.Vector3(x, cy, z);
     mesh.userData.initialQuat = new THREE.Quaternion();
@@ -1197,7 +1244,7 @@ function addStud(sw, sh, sd, color, x, y, z, rx = 0, ry = 0, rz = 0, anchored = 
     return mesh;
 }
 
-// ─── Static geometry merging ──────────────────────────────────────────────────
+// --- Static geometry merging --------------------------------------------------
 
 function getMergedMats(color) {
     const key = `_merged:${color}`;
@@ -1283,49 +1330,279 @@ function _fixWorldUVs(geo) {
     uv.needsUpdate = true;
 }
 
-const MERGE_CELL = 64;
+// Static parts already folded into merged geometry. They're removed from the
+// scene once merged, but they must stay tracked so a later re-merge can fold
+// newly-placed runtime static parts into the same batched meshes.
+let _mergedSourceParts = [];
+let _reoptimizePending = false;
+let _reoptimizeTimer = null;
+
+// Re-run the merge after runtime-placed static parts (scripts/Instance.new).
+// Trailing, capped debounce: a burst of N parts coalesces into ONE rebuild once
+// placement goes quiet, while a long-running stream still folds new parts in at
+// a capped cadence. A plain leading-edge debounce (rebuild 60ms after the first
+// change) instead block-stalls ~14ms per 1000 parts every 60ms for the whole
+// duration of a spawn loop, which tanks frame rate exactly like the old
+// per-size merge.
+const _REOPTIMIZE_SETTLE_MS = 120;
+const _REOPTIMIZE_MAX_DELAY_MS = 600;
+let _reoptimizeFirstAt = 0;
+
+function _runReoptimize() {
+    if (_reoptimizeTimer) { clearTimeout(_reoptimizeTimer); _reoptimizeTimer = null; }
+    _reoptimizePending = false;
+    _optimizeScene();
+}
+
+function _scheduleReoptimize() {
+    const now = performance.now();
+    if (_reoptimizeTimer) {
+        if (now - _reoptimizeFirstAt >= _REOPTIMIZE_MAX_DELAY_MS) {
+            const t = _reoptimizeTimer;
+            _reoptimizeTimer = null;
+            _reoptimizePending = false;
+            clearTimeout(t);
+            _optimizeScene();
+        } else {
+            clearTimeout(_reoptimizeTimer);
+            _reoptimizeTimer = setTimeout(_runReoptimize, _REOPTIMIZE_SETTLE_MS);
+        }
+        return;
+    }
+    _reoptimizePending = true;
+    _reoptimizeFirstAt = now;
+    _reoptimizeTimer = setTimeout(_runReoptimize, _REOPTIMIZE_SETTLE_MS);
+}
+
+function _cancelReoptimize() {
+    if (_reoptimizeTimer) { clearTimeout(_reoptimizeTimer); _reoptimizeTimer = null; }
+    _reoptimizePending = false;
+    _reoptimizeFirstAt = 0;
+}
+
+// A static part's transform/appearance changed at runtime. Only merged-source
+// parts need a rebuild (standalone scene meshes render their own transform);
+// scheduling is debounced so a burst of updates rebuilds once.
+function _markPartVisualDirty(mesh) {
+    if (mesh && _mergedSourceParts.includes(mesh)) _scheduleReoptimize();
+}
+
+// --- Static geometry mega-merge -------------------------------------------------
+// Collapse ALL anchored parts into one merged mesh per shape type
+// (Block/Cylinder/Sphere) with per-VERTEX colors and world-space tiled UVs.
+// A thousand differently-sized/colored parts render as ~5 draw calls instead of
+// ~6000 solo 6-material meshes, and the shadow pass costs just 3 draws. The
+// shared materials are module-level singletons, so a rebuild only re-bakes
+// geometry -- GPU material/texture state is never recreated or disposed.
+
+let _worldBlockSide = null;
+let _worldBlockTop = null;
+let _worldBlockBottom = null;
+let _worldCylinder = null;
+let _worldSphere = null;
+
+function _ensureWorldMats() {
+    if (_worldBlockBottom) return;
+    _worldBlockSide = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0 });
+    _worldBlockTop = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0, map: studTex() });
+    _worldBlockBottom = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0, map: inletTex() });
+    _worldCylinder = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0 });
+    _worldSphere = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6, metalness: 0.1 });
+}
+
+function _partShapeOf(mesh) {
+    const t = mesh?.geometry?.type || '';
+    if (t === 'SphereGeometry') return 'sphere';
+    if (t === 'CylinderGeometry') return 'cylinder';
+    return 'block';
+}
+
+// Bake one merged BufferGeometry from world-matrix'd part clones. Target
+// material slots: 0 = plain sides, 1 = top cap (stud tex), 2 = bottom cap
+// (inlet tex). Box faces map right/left/front/back -> sides, top -> stud,
+// bottom -> inlet; cylinder + sphere go entirely to the plain slot.
+function _buildMegaGeometry(parts, isBlock) {
+    if (!parts.length) return null;
+    const SIDE = 0, TOP = 1, BOT = 2;
+    const faceTarget = isBlock ? [SIDE, SIDE, TOP, BOT, SIDE, SIDE] : null;
+    const geos = parts.map(p => p.mesh.geometry.clone().applyMatrix4(new THREE.Matrix4().copy(p.matrix)));
+    // Face groups are sized in INDEX-slot units (Box: 6 per face, Cylinder:
+    // three zones), and group.start is an index-space offset, NOT a vertex
+    // id. We output one vertex per index slot - no vertex sharing across
+    // faces - so the merged per-target index list is just base+i. This makes
+    // the bake correct by construction for indexed, non-indexed, grouped and
+    // ungrouped geometry alike (a previous version added `base` to the source
+    // vertex id, corrupting every face but the first set).
+    const facesOf = (g, idx0) => g.groups.length
+        ? g.groups.map(grp => ({ start: grp.start, count: grp.count, t: faceTarget ? (faceTarget[grp.materialIndex] ?? 0) : 0 }))
+        : [{ start: 0, count: idx0 ? idx0.count : g.getAttribute('position').count, t: 0 }];
+    const counts = [0, 0, 0];
+    for (const g of geos) {
+        const gi = g.getIndex();
+        for (const f of facesOf(g, gi)) counts[f.t] += f.count;
+    }
+    const total = counts[0] + counts[1] + counts[2];
+    if (!total) return null;
+    const posA = new Float32Array(total * 3);
+    const norA = new Float32Array(total * 3);
+    const uvA = new Float32Array(total * 2);
+    const colA = new Float32Array(total * 3);
+    const segStart = [0, counts[0], counts[0] + counts[1]];
+    const written = [0, 0, 0];
+    const idxArr = [[], [], []];
+    const tmpColor = new THREE.Color();
+    for (let pi = 0; pi < geos.length; pi++) {
+        const g = geos[pi];
+        const pos = g.getAttribute('position');
+        const nor = g.getAttribute('normal');
+        const idx0 = g.getIndex();
+        const faces = facesOf(g, idx0);
+        const hex = parts[pi].mesh.userData.worldColor;
+        tmpColor.setHex(hex == null ? 0xa3a3a3 : hex);
+        const fr = tmpColor.r, fg = tmpColor.g, fb = tmpColor.b;
+        for (const face of faces) {
+            const t = face.t;
+            const base = segStart[t] + written[t];
+            for (let i = 0; i < face.count; i++) {
+                const vi = idx0 ? idx0.getX(face.start + i) : face.start + i;
+                const di = (base + i) * 3;
+                posA[di] = pos.getX(vi);
+                posA[di + 1] = pos.getY(vi);
+                posA[di + 2] = pos.getZ(vi);
+                norA[di] = nor.getX(vi);
+                norA[di + 1] = nor.getY(vi);
+                norA[di + 2] = nor.getZ(vi);
+                if (isBlock && (t === TOP || t === BOT)) {
+                    const ui = (base + i) * 2;
+                    uvA[ui] = pos.getX(vi) / STUDS_PER_TILE;
+                    uvA[ui + 1] = pos.getZ(vi) / STUDS_PER_TILE;
+                }
+                colA[di] = fr; colA[di + 1] = fg; colA[di + 2] = fb;
+                idxArr[t].push(base + i);
+            }
+            written[t] += face.count;
+        }
+    }
+    let totalIdx = 0;
+    for (let t = 0; t < (isBlock ? 3 : 1); t++) totalIdx += idxArr[t].length;
+    if (!totalIdx) return null;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(posA, 3));
+    geo.setAttribute('normal', new THREE.BufferAttribute(norA, 3));
+    geo.setAttribute('uv', new THREE.BufferAttribute(uvA, 2));
+    geo.setAttribute('color', new THREE.BufferAttribute(colA, 3));
+    const finalIdx = new Uint32Array(totalIdx);
+    let off = 0;
+    for (let t = 0; t < (isBlock ? 3 : 1); t++) {
+        const len = idxArr[t].length;
+        if (!len) continue;
+        geo.addGroup(off, len, t);
+        for (let i = 0; i < len; i++) finalIdx[off + i] = idxArr[t][i];
+        off += len;
+    }
+    geo.setIndex(new THREE.BufferAttribute(finalIdx, 1));
+    return geo;
+}
+
+function _staticIsMergeable(m) {
+    return m && m.isMesh && m.userData.halfSize && (m.userData.transparency || 0) < 0.25;
+}
 
 function _optimizeScene() {
-    scene.updateMatrixWorld(true);
-    const groups = new Map();
+    const now = performance.now();
+    // Newly-placed static parts live directly in the scene...
+    const fresh = [];
     for (const child of scene.children) {
-        if (!child.isMesh || !child.userData.halfSize) continue;
-        if ((child.userData.transparency || 0) >= 0.25) continue;
+        if (!_staticIsMergeable(child)) continue;
         const entry = physicsBodies.get(child);
         if (!entry || !entry.anchored) continue;
-        const mat = child.material;
-        if (!Array.isArray(mat)) continue;
-        const hs = child.userData.halfSize;
-        const cx = Math.floor(child.position.x / MERGE_CELL);
-        const cz = Math.floor(child.position.z / MERGE_CELL);
-        const key = [hs.sw, hs.sh, hs.sd].map(v => v.toFixed(4)).join(',') + '|' + mat[0].color.getHex() + '|' + cx + '_' + cz;
-        if (!groups.has(key)) groups.set(key, []);
-        groups.get(key).push(child);
+        // Just-unmerged parts stay standalone briefly so a part that keeps
+        // moving (script animation) doesn't oscillate merge/unmerge.
+        if (child.userData._mergeHoldUntil && child.userData._mergeHoldUntil > now) continue;
+        fresh.push(child);
     }
-    for (const [, meshes] of groups) {
-        if (meshes.length < 2) continue;
-        const geos = meshes.map(m => {
-            const g = m.geometry.clone();
-            g.applyMatrix4(m.matrixWorld);
-            return g;
-        });
-        const merged = _mergeGeometries(geos);
-        if (!merged) continue;
-        const mergedMesh = new THREE.Mesh(merged, meshes[0].material);
-        mergedMesh.userData.halfSize = meshes[0].userData.halfSize;
-        mergedMesh.castShadow = true;
-        mergedMesh.receiveShadow = true;
-        scene.add(mergedMesh);
-        if (!window._mergedMapMeshes) window._mergedMapMeshes = [];
-        window._mergedMapMeshes.push(mergedMesh);
-        for (const m of meshes) scene.remove(m);
+    // ...plus everything already consumed into a previous merge. Those aren't
+    // scene children anymore (detached on the last build), but their local
+    // position/rotation still hold the world transform.
+    const rebake = [];
+    const unmerge = [];
+    for (const m of _mergedSourceParts) {
+        if (!m) continue;
+        if (!_staticIsMergeable(m)) { unmerge.push(m); continue; }
+        const entry = physicsBodies.get(m);
+        if (!entry || !entry.anchored) { unmerge.push(m); continue; }
+        m.updateMatrixWorld(true);
+        // Re-bake only parts whose baked snapshot still matches the live
+        // transform/color; anything that moved/changed since the last build
+        // drops back to a standalone scene mesh (it would look wrong baked in
+        // a stale position anyway). This keeps a scripted mover from forcing
+        // full-world rebakes every frame.
+        const snap = m.userData._bakeMatrixRef;
+        const unchanged = snap && m.matrixWorld.equals(snap) && m.userData.worldColor === m.userData._bakeWorldColor;
+        if (unchanged) rebake.push(m);
+        else unmerge.push(m);
+    }
+    // Nothing actually changed since the last build - keep the current merged
+    // world untouched instead of paying a full 13ms+ rebuild for no reason.
+    if (!fresh.length && !unmerge.length) return;
+
+    // Changed/dynamic/transparent sources render standalone from now on, and
+    // are held out of re-merges briefly so a moving part doesn't oscillate.
+    for (const m of unmerge) {
+        if (!m) continue;
+        m.userData._mergeHoldUntil = now + 1500;
+        if (!m.parent) scene.add(m);
+    }
+
+    const buckets = { block: [], cylinder: [], sphere: [] };
+    const merged = [];
+    for (const m of [...rebake, ...fresh]) {
+        m.updateMatrixWorld(true);
+        buckets[_partShapeOf(m)].push({ mesh: m, matrix: m.matrixWorld });
+        merged.push(m);
+    }
+    _mergedSourceParts = merged;
+    _ensureWorldMats();
+
+    // Rebuild from scratch - drop the mega meshes built last time. Geometries
+    // are unique per build and safe to dispose; materials are module-level
+    // singletons that persist across loads.
+    if (window._mergedMapMeshes) {
+        for (const m of window._mergedMapMeshes) {
+            scene.remove(m);
+            m.geometry?.dispose();
+        }
+        window._mergedMapMeshes = null;
+    }
+    const built = [];
+    for (const shape of ['block', 'cylinder', 'sphere']) {
+        const pts = buckets[shape];
+        if (!pts.length) continue;
+        const geo = _buildMegaGeometry(pts, shape === 'block');
+        if (!geo) continue;
+        const mat = shape === 'block' ? [_worldBlockSide, _worldBlockTop, _worldBlockBottom]
+            : shape === 'cylinder' ? _worldCylinder : _worldSphere;
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.userData.isMergedWorldMesh = true;
+        scene.add(mesh);
+        built.push(mesh);
+    }
+    window._mergedMapMeshes = built;
+    // Pull merged sources out of the scene - their vertices now live inside
+    // the mega geometry - and snapshot the bake for the no-op check.
+    for (const m of merged) {
+        if (m.parent) scene.remove(m);
+        m.userData._bakeMatrixRef = m.matrixWorld.clone();
+        m.userData._bakeWorldColor = m.userData.worldColor;
     }
 }
 
 // Baseplate (top surface at y=0)
 addStud(320, 3.2, 320, 0x4db84b, 0, -3.2, 0);
 
-// ─── Character / Physics state ───────────────────────────────────────────────
+// --- Character / Physics state -----------------------------------------------
 let CHAR_STAND_Y = 3.68;  // updated after model loads
 let CHAR_FOOT_OFFSET = 2.08;
 let CHAR_HEIGHT = 5;
@@ -1351,7 +1628,7 @@ let extraVelX = 0, extraVelZ = 0;
 let _charMoving = false;
 let _fakeMoving = false;
 
-// ─── Camera state ─────────────────────────────────────────────────────────────
+// --- Camera state -------------------------------------------------------------
 const cam = {
     yaw: 0, pitch: 0.35, distance: 25.6, targetDistance: 25.6,
     minPitch: -1.45, maxPitch: 1.35, minDist: 0.5, maxDist: 128
@@ -1363,7 +1640,7 @@ const FP_BLEND_SPEED = 8;
 let CAM_H_SENS = 0.002 * Math.PI;
 let CAM_V_SENS = 0.0015 * Math.PI;
 
-// ─── Debug visuals ────────────────────────────────────────────────────────────
+// --- Debug visuals ------------------------------------------------------------
 let debugMode = false;
 const debugMeshes = [];
 let charDebugMesh = null;
@@ -1426,7 +1703,7 @@ function updateDebugMeshes() {
     scene.add(chunkZoneMesh);
 }
 
-// ─── Input ───────────────────────────────────────────────────────────────────
+// --- Input -------------------------------------------------------------------
 const keys = {};
 let rmb = false;
 
@@ -1671,7 +1948,7 @@ document.addEventListener('keydown', () => {
     }
 });
 
-// Background script tick — keeps os.clock()-based timers advancing when tab is hidden
+// Background script tick -- keeps os.clock()-based timers advancing when tab is hidden
 let _bgScriptInterval = null;
 let _lastBgUpdateMs = 0;
 document.addEventListener('visibilitychange', () => {
@@ -1844,7 +2121,7 @@ renderer.domElement.addEventListener('wheel', e => {
     cam.targetDistance = Math.max(cam.minDist, Math.min(cam.maxDist, cam.targetDistance + e.deltaY * 0.04));
 }, { passive: true });
 
-// ─── Animation helpers ────────────────────────────────────────────────────────
+// --- Animation helpers --------------------------------------------------------
 const anim = { time: 0, bones: {}, rest: {}, offset: {}, posOffset: {}, emote: null };
 
 function clearEmoteOffsets(def) {
@@ -2208,7 +2485,7 @@ function finishClimbUpdate(dt, anyInput) {
     return true;
 }
 
-// ─── Character model load ─────────────────────────────────────────────────────
+// --- Character model load -----------------------------------------------------
 let character = null;
 let _masterVolume = 1;
 let _sfxVolume = 1;
@@ -2221,7 +2498,7 @@ let _sfxRunningGain = null;
 let _sfxSwoosh = null;
 let _sfxThud = null;
 let _spawnPoint = { x: 0, y: null, z: 0, ry: Math.PI };
-let _spawnPoints = []; // All registered spawn locations – one is chosen at random each spawn
+let _spawnPoints = []; // All registered spawn locations - one is chosen at random each spawn
 const otherPlayers = new Map();
 const _playerAvatarData = new Map(); // userId -> { colors, clothing, accessories, face }
 const _playerAccessoryInstances = new Map();
@@ -2272,7 +2549,7 @@ function _findHeadAttachment(avatarObj) {
     return null;
 }
 
-// ─── Remote player emote ─────────────────────────────────────────────────────
+// --- Remote player emote -----------------------------------------------------
 function _resetRemoteBonesToRest(p) {
     for (const name in p.bones) {
         const rest = p.rest[name];
@@ -2413,7 +2690,7 @@ function _applyRemoteEmote(p, emote, dt) {
         }
     }
 }
-// ─── End remote player emote ─────────────────────────────────────────────────
+// --- End remote player emote -------------------------------------------------
 
 function _findBone(obj, name) {
     let found = null;
@@ -2494,7 +2771,7 @@ function _recalcVisualTop(userId) {
 
 function _loadAccessoryForUser(userId, accessoryId, avatarObj) {
     if (!avatarObj) return;
-    const accDef = findAccessory(accessoryId);
+    const accDef = findAccessoryStore(accessoryId);
     if (!accDef) return;
 
     const path = accDef.meshPath;
@@ -2750,7 +3027,7 @@ function _updateSurfaceGuiProjections() {
         if (node.ClassName === 'SurfaceGui') {
             if (!node._surfaceGuiId) node._surfaceGuiId = 'sg-' + Math.random().toString(36).slice(2);
             window._surfaceGuis.set(node._surfaceGuiId, node);
-            // Clean up old _engineRef div (previous code) — hide it so it doesn't show
+            // Clean up old _engineRef div (previous code) -- hide it so it doesn't show
             if (node._engineRef && !node._sgContainer) {
                 node._engineRef.style.display = 'none';
             }
@@ -2887,7 +3164,7 @@ function _updateLeaderstats(game) {
 }
 
 // The player model (male.glb / female.glb) is a multi-part rig whose
-// body-part materials carry generic names (Material.001…Material.008),
+// body-part materials carry generic names (Material.001...Material.008),
 // NOT names like "Body"/"Legs"/"Arms"/"Head". The avatar editor maps those
 // material names to body-part slots; reuse the exact same mapping here so
 // the in-game avatar's colors match what the editor preview shows.
@@ -2928,7 +3205,7 @@ function _defaultAvatarColors() {
 }
 
 // Turns any stored color value into a safe '#rrggbb'. THREE's setStyle() falls
-// back to rgb(1,2,3) — effectively BLACK — for values it can't parse (numbers,
+// back to rgb(1,2,3) -- effectively BLACK -- for values it can't parse (numbers,
 // arrays/objects, odd strings), so never hand it raw doc data. Anything
 // unparseable falls back to the slot's default color instead of black.
 function _sanitizeSlotColor(value, fallbackHex) {
@@ -2964,13 +3241,13 @@ function _applyColorsToModel(model, colors) {
     const slotColors = _normalizeAvatarColors(colors);
     model.traverse(child => {
         if (child.isMesh) {
-            // Accessories and clothing overlays carry their own colors/textures —
+            // Accessories and clothing overlays carry their own colors/textures --
             // body/torso colors must never tint them.
             if (child.userData?.isAccessory || child.userData?.isClothingOverlay) return;
             const mats = Array.isArray(child.material) ? child.material : [child.material];
             for (const mat of mats) {
                 if (!mat) continue;
-                // Never tint the face/head texture slot — it's a decal with its
+                // Never tint the face/head texture slot -- it's a decal with its
                 // own texture and tinting it washes out or hides the face entirely.
                 if (mat.userData?.isFace) continue;
                 const matNameLower = (mat.name || child.name || '').toLowerCase();
@@ -3078,7 +3355,7 @@ const _clothingBlendShader = shader => {
 };
 
 // THREE.Material.clone()/copy() only copies serializable fields (color,
-// opacity, vertexColors, userData, etc.) — it does NOT copy onBeforeCompile,
+// opacity, vertexColors, userData, etc.) -- it does NOT copy onBeforeCompile,
 // since that's a plain function property rather than part of Material's
 // copy() list. Every place that clones a body material (e.g. spawning a
 // remote player) therefore ends up with a material that still has
@@ -3088,7 +3365,7 @@ const _clothingBlendShader = shader => {
 //     used ONLY by _headBlendShader to blend in the face decal. Without
 //     that shader, the standard pipeline multiplies the diffuse color by
 //     the mask directly, which is black everywhere except the front of the
-//     face — this is why remote players' heads rendered solid black.
+//     face -- this is why remote players' heads rendered solid black.
 //   - Shirt/pant materials: lose the blend shader that mixes the clothing
 //     texture over the body color, so remote players' clothing textures
 //     would apply incorrectly too.
@@ -3128,7 +3405,7 @@ function _applyTextureToMats(mats, itemId, label) {
         mat.needsUpdate = true;
     }
     if (!itemId) return;
-    const def = findClothing(itemId);
+    const def = findClothingStore(itemId);
     if (!def) return;
     const texLoader = new THREE.TextureLoader();
     texLoader.load(def.texturePath, (tex) => {
@@ -3136,7 +3413,7 @@ function _applyTextureToMats(mats, itemId, label) {
         tex.flipY = false;
         for (const mat of mats) {
             mat.map = tex;
-            // Clothing/pants textures carry their own full color — neutralize
+            // Clothing/pants textures carry their own full color -- neutralize
             // any body-slot color tint so they render exactly as designed.
             mat.color.setRGB(1, 1, 1, THREE.SRGBColorSpace);
             mat.needsUpdate = true;
@@ -3161,7 +3438,7 @@ function _applyFaceToModel(mesh, faceId) {
     });
 
     const id = faceId || 'smile';
-    const def = findFace(id);
+    const def = findFaceStore(id);
     if (!def) return;
 
     const texLoader = new THREE.TextureLoader();
@@ -3453,7 +3730,7 @@ gltfLoader.load(playerModelUrl, (gltf) => {
     renderer.shadowMap.needsUpdate = true;
 });
 
-// ─── Collision resolution helpers ─────────────────────────────────────────────
+// --- Collision resolution helpers ---------------------------------------------
 function obbOverlap(cx, cz, co, si, b) {
     const aco = Math.abs(co), asi = Math.abs(si);
     const bcx = (b.minX + b.maxX) * 0.5, bcz = (b.minZ + b.maxZ) * 0.5;
@@ -3596,9 +3873,8 @@ function checkDynamicTouched() {
     const footY = cy - CHAR_FOOT_OFFSET;
     const headY = footY + CHAR_HEIGHT;
 
-    physicsBodies.forEach(({ body, anchored, mesh }) => {
-        if (anchored) return;
-        if (!mesh._instRef || !mesh._instRef.Touched) return;
+    for (const { mesh } of _dynamicPhysicsEntries) {
+        if (!mesh._instRef || !mesh._instRef.Touched) continue;
 
         const bx = mesh.position.x, by = mesh.position.y, bz = mesh.position.z;
         const hs = mesh.userData.halfSize || { sw: 2, sh: 2, sd: 2 };
@@ -3610,7 +3886,7 @@ function checkDynamicTouched() {
         if (Math.abs(cx - bx) < hw && Math.abs(cz - bz) < hd && footY < bMaxY + 0.5 && headY > bMinY - 0.5) {
             mesh._instRef.Touched.Fire(window._bloxverse._charInstance);
         }
-    });
+    }
 }
 
 function resolveBlocksH(nearby) {
@@ -3637,7 +3913,7 @@ function resolveBlocksH(nearby) {
         // If BOTH horizontal overlaps exceed the character's full dimensions the player
         // is deeply inside a very large block (e.g. the 320×320 baseplate catching them
         // slightly underground, or a big map part at spawn). Pushing sideways would
-        // teleport them to the block's edge — skip and let resolveBlocksV snap them up.
+        // teleport them to the block's edge -- skip and let resolveBlocksV snap them up.
         if (ov0 > CHAR_HALF_W * 2 && ov1 > CHAR_HALF_D * 2) continue;
         if (ov0 <= ov1) character.position.x -= Math.sign(dx) * ov0;
         else character.position.z -= Math.sign(dz) * ov1;
@@ -3685,7 +3961,7 @@ function resolveBlocksV(nearby) {    const cx = character.position.x, cz = chara
     }
 }
 
-// ─── Climb helpers ────────────────────────────────────────────────────────────
+// --- Climb helpers ------------------------------------------------------------
 function findClimbableBlock(px, pz, footY, fwdX, fwdZ) {
     if (climbBlock && !climbBlock.isOBB) {
         const b = climbBlock;
@@ -3796,21 +4072,27 @@ function tryLedgeGrab(nearby) {
     velY = 0;
 }
 
-// ─── Main physics update ──────────────────────────────────────────────────────
+// --- Main physics update ------------------------------------------------------
 function lerpAngle(current, target, t) {
     let diff = target - current;
     diff = ((diff + Math.PI) % (2 * Math.PI)) - Math.PI;
     return current + diff * t;
 }
 
-// ─── Physics Update ────────────────────────────────────────────────────────────
+// --- Physics Update ------------------------------------------------------------
 function updatePhysics(dt) {
-    // Step the physics world
-    physicsWorld.step(1 / 60, dt, 3); // Fixed 60Hz timestep with max 3 iterations
+    // Step the physics world only when something can actually move. A fully
+    // static map (character physics runs on its own chunked AABB world, not
+    // cannon) skips the fixed-timestep solve that would otherwise burn CPU
+    // every frame for zero bodies.
+    if (_dynamicPhysicsEntries.length > 0) {
+        physicsWorld.step(1 / 60, dt, 3); // Fixed 60Hz timestep with max 3 iterations
+    }
 
-    // Sync mesh positions and rotations with physics bodies
-    physicsBodies.forEach(({ body, anchored, mesh, ragdollOffset }) => {
-        if (!anchored && body) {
+    // Sync mesh positions and rotations with physics bodies (dynamic bodies
+    // only - anchored/static parts never move and would be wasted work).
+    for (const { body, mesh, ragdollOffset } of _dynamicPhysicsEntries) {
+        if (body) {
             // Update mesh position from physics body
             if (body.position.y < -50) {
                 if (mesh.userData.initialPos) {
@@ -3839,7 +4121,7 @@ function updatePhysics(dt) {
             const cx = mesh.position.x, cy = mesh.position.y, cz = mesh.position.z;
 
             // Build full OBB for collision detection
-            const m = new THREE.Matrix4().makeRotationFromQuaternion(mesh.quaternion);
+            const m = _obbMatrix.makeRotationFromQuaternion(mesh.quaternion);
             const e = m.elements;
             const ux = e[0], uy = e[1], uz = e[2];
             const vx = e[4], vy = e[5], vz = e[6];
@@ -3856,7 +4138,7 @@ function updatePhysics(dt) {
                 _meshRef: mesh
             };
         }
-    });
+    }
 }
 
 
@@ -3895,7 +4177,7 @@ function update(dt) {
         return;
     }
 
-    // ── Climbing state ──────────────────────────────────────────────────────
+    // -- Climbing state ------------------------------------------------------
     if (climbState === 'hanging') {
         const px0 = character.position.x, pz0 = character.position.z;
         let footY = character.position.y - CHAR_FOOT_OFFSET;
@@ -3977,14 +4259,14 @@ function update(dt) {
         if (finishClimbUpdate(dt, anyInput)) return;
     }
 
-    // ── Normal movement ─────────────────────────────────────────────────────
+    // -- Normal movement -----------------------------------------------------
     const moveInput = new THREE.Vector3();
     if (keys['KeyW'] || keys['ArrowUp']) moveInput.z -= 1;
     if (keys['KeyS'] || keys['ArrowDown']) moveInput.z += 1;
     if (keys['KeyA']) moveInput.x -= 1;
     if (keys['KeyD']) moveInput.x += 1;
 
-    // ── Arrow key camera rotation ──────────────────────────────────────────
+    // -- Arrow key camera rotation ------------------------------------------
     if (keys['ArrowLeft']) cam.yaw += 0.05;
     if (keys['ArrowRight']) cam.yaw -= 0.05;
 
@@ -4214,7 +4496,7 @@ function update(dt) {
     }
 }
 
-// ─── Camera update ────────────────────────────────────────────────────────────
+// --- Camera update ------------------------------------------------------------
 let _camHeadOwner = null;
 let _camHeadBone = null;
 function _getCamHeadBone() {
@@ -4372,15 +4654,16 @@ function _die() {
 
 const _ragdollParts = [];
 const _ragdollSyncV = new THREE.Vector3();
+const _obbMatrix = new THREE.Matrix4();
 
 // Real rig bones that get physically detached on death, in the order R6
 // avatars name them. Each one already carries its actual mesh, its actual
 // material/color, and (for Torso/Legs/Head) any clothing overlay or face
-// decal parented onto it — nothing here is a fake stand-in shape.
+// decal parented onto it -- nothing here is a fake stand-in shape.
 const RAGDOLL_BONE_NAMES = ['Torso', 'Head', 'Left_Arm', 'Right_Arm', 'Left_Leg', 'Right_Leg'];
 
 // The body model is split into several skinned meshes (one per material), so
-// a detachable bone carries no geometry of its own — an empty
+// a detachable bone carries no geometry of its own -- an empty
 // Box3().setFromObject(bone) used to make every limb fall back to a tiny 0.6
 // cube, which is why limbs sank through objects. Instead, measure each bone's
 // real influence volume by aggregating the vertices it skims across every
@@ -4435,6 +4718,8 @@ function _clearRagdoll() {
         const { body, mesh: bone, originalParent, rest } = entry;
         if (body) {
             physicsWorld.removeBody(body);
+            const ent = physicsBodies.get(bone);
+            if (ent) _unregisterDynamic(ent);
             physicsBodies.delete(bone);
         }
         // Reattach the real limb back onto the character rig and reset it to
@@ -4451,7 +4736,7 @@ function _clearRagdoll() {
     if (character) character.updateMatrixWorld(true);
 }
 
-// Ragdoll death config — tuned to feel like Roblox's reset blow-up: parts
+// Ragdoll death config -- tuned to feel like Roblox's reset blow-up: parts
 // pop outward and fall, but they don't launch across the map.
 const RAGDOLL_VEL_XZ = 30;        // horizontal velocity
 const RAGDOLL_VEL_Y_BASE = 22;    // upward velocity base
@@ -4467,7 +4752,7 @@ function _dieRagdoll() {
     // nests bones under each other (e.g. Head/arms/legs parented under
     // Torso, which is common for this rig's swing/walk animation), detaching
     // Torso first would drag every other bone away with it before we ever
-    // got a chance to look them up individually — which is exactly what
+    // got a chance to look them up individually -- which is exactly what
     // made the whole body ragdoll as one stiff lump instead of separating.
     const resolved = [];
     for (const boneName of RAGDOLL_BONE_NAMES) {
@@ -4481,7 +4766,7 @@ function _dieRagdoll() {
     for (const { boneName, bone, originalParent } of resolved) {
         const rest = anim.rest[boneName] || null;
 
-        // Move the bone (and everything childed to it — its mesh, its
+        // Move the bone (and everything childed to it -- its mesh, its
         // clothing overlay, the face decal on Head, etc.) into the scene
         // root, preserving exactly where it visually is right now.
         scene.attach(bone);
@@ -4504,7 +4789,7 @@ function _dieRagdoll() {
         // cannon-es applies collision torque about body.position, NOT the
         // center of mass. With the body left at the hip/shoulder joint and an
         // offset collision shape, a resting limb pivoted around the joint and
-        // slowly swung itself up in a pendulum — defying gravity. Instead,
+        // slowly swung itself up in a pendulum -- defying gravity. Instead,
         // place the body at the limb's true center and keep the visible bone
         // offset from it when syncing back each frame.
         const boneQ = new THREE.Quaternion(bone.quaternion.x, bone.quaternion.y, bone.quaternion.z, bone.quaternion.w);
@@ -4512,7 +4797,12 @@ function _dieRagdoll() {
         body.position.set(bone.position.x + cWorld.x, bone.position.y + cWorld.y, bone.position.z + cWorld.z);
         body.quaternion.copy(boneQ);
 
-        // Independent random direction, speed and spin per part — this is
+        // Ragdoll limbs are dynamic: they collide with static geometry (ground/
+        // walls) and with each other, never with the other static part boxes.
+        body.collisionFilterGroup = COLLISION_GROUP_DYNAMIC;
+        body.collisionFilterMask = COLLISION_GROUP_STATIC | COLLISION_GROUP_DYNAMIC;
+
+        // Independent random direction, speed and spin per part -- this is
         // what makes limbs scatter individually instead of moving as one
         // rigid lump.
         const angle = Math.random() * Math.PI * 2;
@@ -4530,7 +4820,9 @@ function _dieRagdoll() {
 
         bone.userData.canCollide = false;
         physicsWorld.addBody(body);
-        physicsBodies.set(bone, { body, anchored: false, mesh: bone, ragdollOffset: shapeCenter });
+        const entry = { body, anchored: false, mesh: bone, ragdollOffset: shapeCenter };
+        physicsBodies.set(bone, entry);
+        _registerDynamic(entry);
         newParts.push({ mesh: bone, body, originalParent, boneName, rest });
     }
 
@@ -4553,7 +4845,7 @@ function _dieRagdoll() {
     for (const fn of _deathCallbacks) fn();
 }
 
-// ─── Remote player ragdoll death (mirror of the local _dieRagdoll) ────────────
+// --- Remote player ragdoll death (mirror of the local _dieRagdoll) ------------
 const _remoteRagdolls = new Map(); // userId -> { parts, p }
 
 function _startRemoteRagdoll(p, userId) {
@@ -4594,6 +4886,9 @@ function _startRemoteRagdoll(p, userId) {
         body.position.set(bone.position.x + cWorld.x, bone.position.y + cWorld.y, bone.position.z + cWorld.z);
         body.quaternion.copy(boneQ);
 
+        body.collisionFilterGroup = COLLISION_GROUP_DYNAMIC;
+        body.collisionFilterMask = COLLISION_GROUP_STATIC | COLLISION_GROUP_DYNAMIC;
+
         const angle = Math.random() * Math.PI * 2;
         const speed = RAGDOLL_VEL_XZ * (0.5 + Math.random());
         body.velocity.set(
@@ -4609,7 +4904,9 @@ function _startRemoteRagdoll(p, userId) {
 
         bone.userData.canCollide = false;
         physicsWorld.addBody(body);
-        physicsBodies.set(bone, { body, anchored: false, mesh: bone, ragdollOffset: shapeCenter });
+        const entry = { body, anchored: false, mesh: bone, ragdollOffset: shapeCenter };
+        physicsBodies.set(bone, entry);
+        _registerDynamic(entry);
         newParts.push({ mesh: bone, body, originalParent, boneName, rest });
     }
 
@@ -4624,6 +4921,8 @@ function _clearRemoteRagdoll(p, userId) {
     for (const { body, mesh: bone, originalParent, rest } of entry.parts) {
         if (body) {
             physicsWorld.removeBody(body);
+            const ent = physicsBodies.get(bone);
+            if (ent) _unregisterDynamic(ent);
             physicsBodies.delete(bone);
         }
         // Reattach the real limb back onto the clone rig and reset it to its
@@ -4641,7 +4940,7 @@ function _clearRemoteRagdoll(p, userId) {
     _remoteRagdolls.delete(userId);
 }
 
-// ─── Public API ───────────────────────────────────────────────────────────────
+// --- Public API ---------------------------------------------------------------
 window._mapParts = [];
 
 window._bloxverse = {
@@ -4746,7 +5045,7 @@ window._bloxverse = {
     getVelY: () => velY,
     getClimbState: () => climbState,
     playEmote(id) {
-        const def = findEmote(id);
+        const def = findEmoteStore(id);
         if (!def) return false;
         if (anim.emote) {
             clearEmoteOffsets(anim.emote.def);
@@ -4887,6 +5186,9 @@ window._bloxverse = {
         const mesh = addStud(sw, sh, sd, color, x, y, z, rx, ry, rz, anchored, shape, bodyMass);
         if (mesh) {
             window._mapParts.push({ name: '', mesh });
+            // Runtime-placed static parts join the merged batch meshes (via a
+            // debounced rebuild) instead of rendering as solo 6-material meshes.
+            if (anchored) _scheduleReoptimize();
         }
         return mesh;
     },
@@ -4898,6 +5200,7 @@ window._bloxverse = {
                 const phys = physicsBodies.get(mesh);
                 if (phys) {
                     physicsWorld.removeBody(phys.body);
+                    _unregisterDynamic(phys);
                     physicsBodies.delete(mesh);
                 }
                 // Remove collider from colliders array and chunkMap
@@ -4918,10 +5221,13 @@ window._bloxverse = {
                     }
                 }
                 scene.remove(mesh);
+                const srcIdx = _mergedSourceParts.indexOf(mesh);
+                if (srcIdx !== -1) _mergedSourceParts.splice(srcIdx, 1);
                 mesh.geometry?.dispose();
                 if (Array.isArray(mesh.material)) mesh.material.forEach(m => m.dispose());
                 else mesh.material?.dispose();
                 window._mapParts.splice(i, 1);
+                _scheduleReoptimize();
             }
         }
     },
@@ -4976,22 +5282,24 @@ window._bloxverse = {
             if (entry.mesh) {
                 scene.remove(entry.mesh);
                 const pb = physicsBodies.get(entry.mesh);
-                if (pb) { physicsWorld.removeBody(pb.body); physicsBodies.delete(entry.mesh); }
+                if (pb) { physicsWorld.removeBody(pb.body); _unregisterDynamic(pb); physicsBodies.delete(entry.mesh); }
                 if (Array.isArray(entry.mesh.material)) entry.mesh.material.forEach(m => m.dispose());
                 else entry.mesh.material?.dispose();
                 entry.mesh.geometry?.dispose();
             }
         }
-        // Remove merged meshes from previous load
+        // Remove merged meshes from previous load. Their geometries are unique
+        // per build; the mega materials are module-level singletons that could
+        // be disposed, so only the geometry is released here.
         if (window._mergedMapMeshes) {
             for (const m of window._mergedMapMeshes) {
                 scene.remove(m);
                 m.geometry?.dispose();
-                if (Array.isArray(m.material)) m.material.forEach(mat => mat.dispose());
-                else m.material?.dispose();
             }
             window._mergedMapMeshes = null;
         }
+        _mergedSourceParts = [];
+        _cancelReoptimize();
         // Clear caches so disposed materials/geometries aren't reused
         matCache.clear();
         geoCache.clear();
@@ -5027,7 +5335,7 @@ window._bloxverse = {
                 mesh._instRef = partInst;
                 partInst.setParent(workspaceInst);
             } else {
-                // _gameRef not set yet — defer wiring until it is
+                // _gameRef not set yet -- defer wiring until it is
                 mesh._pendingInstName = partName;
             }
 
@@ -5128,7 +5436,7 @@ window._bloxverse = {
         }
         if (!spawnFound) {
             // Spawn above the map so gravity drops the character cleanly onto the
-            // surface — avoids initial overlap with blocks whose minY = G_LEVEL.
+            // surface -- avoids initial overlap with blocks whose minY = G_LEVEL.
             _spawnPoint = { x: tx, y: G_LEVEL + CHAR_HEIGHT + 2, z: tz + 4, ry: Math.PI };
         }
         if (character) {
@@ -5358,6 +5666,7 @@ window._bloxverse = {
         const entry = physicsBodies.get(mesh);
         if (entry) entry.body.position.set(x, y, z);
         if (!skipCollision) this._activatePartCollider(mesh);
+        _markPartVisualDirty(mesh);
     },
     _setPartRotation(mesh, ry) {
         mesh.rotation.y = ry;
@@ -5368,6 +5677,7 @@ window._bloxverse = {
             entry.body.quaternion = quat;
         }
         this._activatePartCollider(mesh);
+        _markPartVisualDirty(mesh);
     },
     _setPartRotationOnly(mesh, ry) {
         mesh.rotation.y = ry;
@@ -5377,6 +5687,7 @@ window._bloxverse = {
             quat.setFromEuler(0, ry, 0);
             entry.body.quaternion = quat;
         }
+        _markPartVisualDirty(mesh);
     },
     _deactivatePartCollider(mesh) {
         for (let i = colliders.length - 1; i >= 0; i--) {
@@ -5454,15 +5765,18 @@ window._bloxverse = {
         return { x: 0, y: 0, z: 0 };
     },
     _setPartColor(mesh, hex) {
+        mesh.userData.worldColor = hex;
         if (Array.isArray(mesh.material)) {
             for (const mat of mesh.material) { mat.color.setHex(hex); mat.needsUpdate = true; }
         } else {
             mesh.material.color.setHex(hex);
             mesh.material.needsUpdate = true;
         }
+        _markPartVisualDirty(mesh);
     },
     _setPartTransparency(mesh, t) {
         applyMeshTransparency(mesh, t);
+        _markPartVisualDirty(mesh);
     },
     _setPartAnchored(mesh, anchored) {
         const entry = physicsBodies.get(mesh);
@@ -5476,10 +5790,15 @@ window._bloxverse = {
             );
             entry.body.updateMassProperties();
             entry.body.wakeUp();
-            if (anchored && mesh.userData.canCollide !== false) {
-                this._activatePartCollider(mesh);
+            if (anchored) {
+                if (mesh.userData.canCollide !== false) this._activatePartCollider(mesh);
+                _unregisterDynamic(entry);
+            } else {
+                _registerDynamic(entry);
             }
         }
+        if (anchored) _scheduleReoptimize();
+        else _markPartVisualDirty(mesh);
     },
     _setPartMass(mesh, mass) {
         const entry = physicsBodies.get(mesh);
@@ -5535,6 +5854,7 @@ window._bloxverse = {
             }
         }
         this._activatePartCollider(mesh);
+        _markPartVisualDirty(mesh);
     },
     _getPartAnchored(mesh) {
         const entry = physicsBodies.get(mesh);
@@ -5547,8 +5867,8 @@ window._bloxverse = {
     },
     getPhysicsState: () => {
         const bodies = [];
-        physicsBodies.forEach(({ body, anchored, mesh }) => {
-            if (!anchored && body && mesh.userData.physicsId) {
+        for (const { body, mesh } of _dynamicPhysicsEntries) {
+            if (body && mesh.userData.physicsId) {
                 const linearSpeed = Math.sqrt(body.velocity.x ** 2 + body.velocity.y ** 2 + body.velocity.z ** 2);
                 const angularSpeed = Math.sqrt(body.angularVelocity.x ** 2 + body.angularVelocity.y ** 2 + body.angularVelocity.z ** 2);
                 const isStationary = linearSpeed < 0.01 && angularSpeed < 0.01;
@@ -5566,10 +5886,10 @@ window._bloxverse = {
                         qz: body.quaternion.z, qw: body.quaternion.w,
                         wx: 0, wy: 0, wz: 0
                     });
-                    return;
+                    continue;
                 }
-                if (!isLocalPhysicsOwner(mesh)) return;
-                if (isStationary) return;
+                if (!isLocalPhysicsOwner(mesh)) continue;
+                if (isStationary) continue;
                 mesh.userData.physicsOwnerUntil = performance.now() + PHYSICS_OWNER_SEND_EXTEND_MS;
                 bodies.push({
                     id: mesh.userData.physicsId,
@@ -5589,7 +5909,7 @@ window._bloxverse = {
                     wz: body.angularVelocity.z
                 });
             }
-        });
+        }
         return bodies;
     },
     applyPhysicsState: (userId, bodies) => {
@@ -5597,8 +5917,8 @@ window._bloxverse = {
         if (userId === currentUserId) return;
         if (performance.now() < _skipPhysicsSyncUntil) return;
         const now = performance.now();
-        physicsBodies.forEach(({ body, anchored, mesh }) => {
-            if (anchored || !body || !mesh.userData.physicsId) return;
+        for (const { body, mesh } of _dynamicPhysicsEntries) {
+            if (!body || !mesh.userData.physicsId) continue;
             for (const s of bodies) {
                 if (s.id === mesh.userData.physicsId) {
                     if (s.snap) {
@@ -5638,7 +5958,7 @@ window._bloxverse = {
                     break;
                 }
             }
-        });
+        }
     },
     resetParts: () => {
         _skipPhysicsSyncUntil = performance.now() + 500;
@@ -5786,7 +6106,7 @@ window._bloxverse = {
             }
 
             clone.position.set(x, y, z);
-            // Always set rotation directly from the normalized received value —
+            // Always set rotation directly from the normalized received value --
             // never inherit from the local character's current pose, which would
             // cause the clone to start facing the wrong direction.
             if (qw !== undefined) {
@@ -5996,7 +6316,7 @@ window._bloxverse = {
     },
     setFpsLimit(fps) { _targetFps = Math.max(0, fps); },
     getFpsLimit() { return _targetFps; },
-    // Mobile key registry — scanned from script IsKeyDown calls
+    // Mobile key registry -- scanned from script IsKeyDown calls
     getJoystick: () => joystickVector,
     _registerMobileKey(key) { _pendingMobileKeys.add(key); },
     _getMobileKeys() { return [..._pendingMobileKeys]; },
@@ -6083,7 +6403,7 @@ function _applyGraphicsLevel() {
         renderer.shadowMap.type = THREE.PCFShadowMap;
     }
 
-    // Fog scales gently with quality but never becomes "in your face" — even
+    // Fog scales gently with quality but never becomes "in your face" -- even
     // the lowest preset keeps a clear view across the play area.
     const fogTables = { near: [140, 145, 150, 155, 160, 170, 180, 190, 195, 200], far: [340, 350, 360, 380, 400, 420, 440, 460, 475, 500] };
     scene.fog.near = fogTables.near[level - 1];
@@ -6101,7 +6421,7 @@ function _applyGraphicsLevel() {
     }
 }
 
-// ─── Game loop ────────────────────────────────────────────────────────────────
+// --- Game loop ----------------------------------------------------------------
 let lastTime = performance.now();
 let _physAccumulator = 0;
 const PHYS_DT = 1 / 60;
@@ -6110,7 +6430,7 @@ const MAX_PHYS_STEPS = 5;
 function loop(now) {
     requestAnimationFrame(loop);
 
-    // FPS limiter at top — skips the ENTIRE frame including physics
+    // FPS limiter at top -- skips the ENTIRE frame including physics
     if (_targetFps > 0) {
         if (now < _nextRenderTime) return;
         // Accumulate: carry overshoot forward so average stays accurate

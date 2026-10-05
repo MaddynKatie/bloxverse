@@ -72,7 +72,7 @@
       </div>
       <div class="nav-links" id="navLinks">
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse'">Home</button>
-        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/marketplace'">Marketplace</button>
+        <button class="nav-link-btn" onclick="window.location.href='/bloxverse/catalog'">Catalog</button>
         <button class="nav-link-btn" data-needs-auth onclick="window.location.href='/bloxverse/avatar'">Avatar</button>
         <button class="nav-link-btn" onclick="window.location.href='/bloxverse/download'">
           Download
@@ -125,13 +125,13 @@
         if (await banGuard(user.uid)) return;
         // Ensure existing users get a sequential userIdNum
         assignUserIdNum(user.uid).catch(() => {});
-        // ── Real-time ban listener ────────────────────────────────────
+        // -- Real-time ban listener ------------------------------------
         onSnapshot(doc(db, 'bans', user.uid), (snap) => {
           if (snap.exists() && snap.data().banned) {
             window.location.href = '/bloxverse/ban';
           }
         });
-        // ──────────────────────────────────────────────────────────────
+        // --------------------------------------------------------------
         let userDocData = {};
         try {
           const d = await getDoc(doc(db, 'users', user.uid));
@@ -155,7 +155,7 @@
           <div class="user-info">
             <div class="bux-wrapper" id="buxWrapper">
               <button class="bux-btn" id="buxBtn">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><text x="12" y="17" text-anchor="middle" font-size="14" font-weight="bold">B</text></svg>
+                <img src="assets/icons/bux.svg" width="16" height="16" alt="" draggable="false" />
                 <span id="ownBuxVal">${ownBux.toLocaleString()}</span>
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="margin-left:4px;"><path d="M7 10l5 5 5-5z"/></svg>
               </button>

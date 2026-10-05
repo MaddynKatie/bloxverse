@@ -59,7 +59,7 @@ try {
   cloudinary = null;
 }
 
-// ─── New default avatar ───────────────────────────────────────────────────────
+// --- New default avatar -------------------------------------------------------
 const NEW_DEFAULT_COLORS = {
   Head: '#ffffff',
   Torso: '#8350fb',
@@ -86,8 +86,8 @@ function parseArgInt(name) {
   return v ? parseInt(v, 10) : null;
 }
 
-// ─── Tiny static file server (serves the repo root so avatar-render.html and
-//     its imported assets/models load correctly over http for Chrome). ─────────
+// --- Tiny static file server (serves the repo root so avatar-render.html and
+//     its imported assets/models load correctly over http for Chrome). ---------
 const MIME = {
   '.html': 'text/html',
   '.js': 'text/javascript',

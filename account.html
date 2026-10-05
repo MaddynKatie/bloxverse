@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://esm.sh/three@0.184.0",
+      "three/": "https://esm.sh/three@0.184.0/",
+      "firebase/app": "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js",
+      "firebase/auth": "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js",
+      "firebase/firestore": "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js",
+      "cannon-es": "https://esm.sh/cannon-es@0.20.0",
+      "glin-profanity": "https://esm.sh/glin-profanity@3.3.0"
+    }
+  }
+  </script>
+  <base href="/bloxverse/">
+  <link rel="preconnect" href="https://esm.sh" crossorigin>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/png" href="assets/icons/bloxverseLogo.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Settings - BloxVerse</title>
+  <script>
+    // Resolve the stored theme and nav-rail state before first paint so the
+    // shell never flashes the wrong surface colours. Mirrors src/theme.js.
+    (function () {
+      try {
+        var NAMES = ['dark', 'light', 'system',
+          'valley', 'valley-light', 'valley-system',
+          'sky', 'sky-light', 'sky-system',
+          'lava', 'lava-light', 'lava-system',
+          'solar', 'solar-light', 'solar-system'];
+        // 'twilight' was merged into the default family; keep stored values working.
+        var ALIASES = { twilight: 'dark', 'twilight-light': 'light', 'twilight-system': 'system' };
+
+        var raw = localStorage.getItem('bloxverse_theme');
+        var name = ALIASES[raw] || (NAMES.indexOf(raw) > -1 ? raw : 'dark');
+        var mode = (name === 'light' || name.slice(-6) === '-light') ? 'light'
+          : (name === 'system' || name.slice(-7) === '-system') ? 'system'
+            : 'dark';
+
+        if (mode === 'system') {
+          var family = name === 'system' ? 'default' : name.split('-')[0];
+          var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          name = prefersDark ? family : (family === 'default' ? 'light' : family + '-light');
+        }
+        document.documentElement.setAttribute('data-theme', name);
+        document.documentElement.setAttribute(
+          'data-ui',
+          localStorage.getItem('bloxverse_ui_style') === 'compact' ? 'compact' : 'default'
+        );
+
+        // Without this the rail starts collapsed, and shell.js init then
+        // persists that collapsed state, so it would stay minimised here and
+        // on every page loaded afterwards.
+        if (localStorage.getItem('bloxverse_rail_expanded') !== 'false'
+          && window.matchMedia('(min-width: 801px)').matches) {
+          document.documentElement.classList.add('site-navigation-expanded');
+        }
+      } catch (e) { /* storage blocked - fall through to the defaults above */ }
+    })();
+  </script>
+  <link rel="stylesheet" href="src/theme.css" />
+  <link rel="stylesheet" href="src/auth.css" />
+  <link rel="stylesheet" href="src/main.css" />
+
+  <!-- Figtree is the site font (home.css --font-body); without this the page
+       falls back to the system font, which has a different line-height ratio
+       and changes every row/heading height next to the reference screenshots. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" />
+
+  <!-- Third-party origins the import map, font CSS and Firestore RPC all pull
+       from. Preconnecting starts DNS + TLS while the HTML is still parsing,
+       instead of serialising three handshakes into the critical path. -->
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://esm.sh" crossorigin />
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-solid-900.woff2" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-brands-400.woff2" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <script type="module" src="src/theme.js"></script>
+
+  <!-- New UI: home.css carries the tokens, primitives, the shared shell and the
+       .ui-dialog component the modals below use. account_page.css then layers
+       the settings layout on top of main.css, so the new look wins on source
+       order the way social_page.css and avatar_page.css do. -->
+  <link rel="stylesheet" href="src/home.css" />
+  <link rel="stylesheet" href="src/account_page.css" />
+
+  <!-- defer keeps the HTML parser unblocked. Deferred classic scripts and module
+       scripts share a single execution queue and run in document order, so these
+       still publish BloxVerseMotion / openDialog ahead of the module graph below. -->
+  <script src="src/motion.js" defer></script>
+  <script src="src/action-dialog.js" defer></script>
+  <script src="src/navigation-indicator.js" defer></script>
+  <script src="src/tooltips.js" defer></script>
+  <script src="js/sw-register.js" defer></script>
+</head>
+
+<body class="site-page account-page">
+  <a class="site-skip" href="#site-content">Skip to content</a>
+
+  <header class="site-topbar">
+    <div class="site-brand">
+      <button type="button" id="site-nav-toggle" class="site-icon-button" aria-label="Expand navigation" aria-expanded="false" aria-controls="site-navigation">
+        <i class="site-nav-toggle-icon site-nav-toggle-collapsed fa-solid fa-bars" aria-hidden="true"></i>
+        <i class="site-nav-toggle-icon site-nav-toggle-expanded fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
+      <a href="/bloxverse/" class="site-wordmark" aria-label="BloxVerse home">
+        <img class="site-wordmark-mark" src="assets/icons/bloxverseLogo.png" alt="" width="34" height="34" draggable="false" />
+        <span>BloxVerse</span>
+      </a>
+    </div>
+
+    <form action="/bloxverse/search" method="get" id="search-form" class="site-global-search" role="search" aria-label="Player search" autocomplete="off">
+      <img class="site-icon" src="assets/icons/search.svg" alt="" width="16" height="16" draggable="false" />
+      <input type="search" name="q" id="search-input" placeholder="Search players..." aria-label="Search players" />
+      <div class="site-search-results" id="search-results" hidden></div>
+    </form>
+
+    <div class="site-account" id="site-account">
+      <button type="button" id="site-theme-toggle" class="site-icon-button" aria-label="Switch to light mode" title="Switch to light mode">
+        <i class="site-font-icon fa-solid fa-sun" aria-hidden="true"></i>
+      </button>
+      <div id="navRight" class="site-account-slot"></div>
+    </div>
+  </header>
+
+  <div class="notice" id="notice" hidden>
+    <i class="fa-solid fa-triangle-exclamation" id="notice-icon"></i>
+    <span id="notice-text"></span>
+  </div>
+
+  <div class="site-shell">
+
+    <div class="site-nav-rail">
+      <nav class="site-navigation" id="site-navigation" aria-label="Main navigation">
+        <div class="site-navigation-upper">
+          <div class="site-navigation-top">
+            <a href="/bloxverse/" title="Home" aria-label="Home">
+              <i class="site-font-icon fa-solid fa-house" aria-hidden="true"></i>
+              <span class="site-nav-label">Home</span>
+            </a>
+            <a href="/bloxverse/profile" title="Profile" aria-label="Profile" data-needs-auth>
+              <i class="site-font-icon fa-solid fa-user" aria-hidden="true"></i>
+              <span class="site-nav-label">Profile</span>
+            </a>
+            <a href="/bloxverse/friends" title="Friends" aria-label="Friends">
+              <i class="site-font-icon fa-solid fa-user-group" aria-hidden="true"></i>
+              <span class="site-nav-label">Friends</span>
+            </a>
+            <a href="/bloxverse/catalog" title="Catalog" aria-label="Catalog">
+              <i class="site-font-icon fa-solid fa-store" aria-hidden="true"></i>
+              <span class="site-nav-label">Catalog</span>
+            </a>
+            <a href="/bloxverse/inventory" title="Inventory" aria-label="Inventory">
+              <i class="site-font-icon fa-solid fa-box-open" aria-hidden="true"></i>
+              <span class="site-nav-label">Inventory</span>
+            </a>
+            <a href="/bloxverse/avatar" title="Avatar" aria-label="Avatar">
+              <i class="site-font-icon fa-solid fa-shirt" aria-hidden="true"></i>
+              <span class="site-nav-label">Avatar</span>
+            </a>
+            <a href="/bloxverse/groups" title="Groups" aria-label="Groups">
+              <i class="site-font-icon fa-solid fa-users" aria-hidden="true"></i>
+              <span class="site-nav-label">Groups</span>
+            </a>
+            <a href="/bloxverse/account" title="Settings" aria-label="Settings" aria-current="page">
+              <i class="site-font-icon fa-solid fa-gear" aria-hidden="true"></i>
+              <span class="site-nav-label">Settings</span>
+            </a>
+          </div>
+
+          <div class="site-navigation-tools" role="group" aria-label="Tools">
+            <button type="button" class="site-nav-studio" data-open-studio title="Launch BloxVerse Studio" aria-label="Launch BloxVerse Studio">
+              <i class="site-font-icon fa-solid fa-hammer" aria-hidden="true"></i>
+              <span class="site-nav-label">Studio</span>
+            </button>
+            <a href="/bloxverse/download" title="Download" aria-label="Download" class="site-nav-download">
+              <i class="site-font-icon fa-solid fa-download" aria-hidden="true"></i>
+              <span class="site-nav-label">Download</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="site-navigation-bottom">
+          <a href="https://discord.gg/Uh6WF5NDDK" target="_blank" rel="noopener" title="Discord" aria-label="Discord">
+            <i class="site-font-icon fa-brands fa-discord" aria-hidden="true"></i>
+            <span class="site-nav-label">Discord</span>
+          </a>
+        </div>
+      </nav>
+    </div>
+
+    <nav class="ui-card site-mobile-bar" id="site-mobile-bar" aria-label="Mobile navigation">
+      <a href="/bloxverse/" data-nav-key="home" class="site-mobile-link btn-ghost">
+        <img class="site-icon" src="assets/icons/home.svg" alt="" width="24" height="24" draggable="false" /><span>Home</span>
+      </a>
+      <a href="/bloxverse/friends" data-nav-key="friends" class="site-mobile-link btn-ghost">
+        <img class="site-icon" src="assets/icons/friends.svg" alt="" width="24" height="24" draggable="false" /><span>Friends</span>
+      </a>
+      <a href="/bloxverse/catalog" data-nav-key="catalog" class="site-mobile-link btn-ghost">
+        <img class="site-icon" src="assets/icons/catalog.svg" alt="" width="24" height="24" draggable="false" /><span>Catalog</span>
+      </a>
+      <a href="/bloxverse/avatar" data-nav-key="avatar" class="site-mobile-link btn-ghost">
+        <img class="site-icon" src="assets/icons/avatar.svg" alt="" width="24" height="24" draggable="false" /><span>Avatar</span>
+      </a>
+      <button type="button" data-nav-key="more" class="site-mobile-link btn-primary" id="site-mobile-more" aria-label="More navigation" aria-haspopup="dialog" aria-expanded="false" aria-controls="site-mobile-menu">
+        <i class="site-font-icon fa-solid fa-bars" aria-hidden="true"></i><span>More</span>
+      </button>
+    </nav>
+
+    <dialog class="ui-dialog ui-bottom-sheet site-mobile-menu" id="site-mobile-menu" aria-label="More navigation">
+      <div class="ui-dialog-header">
+        <h2>More</h2>
+        <button type="button" class="btn-ghost btn-icon" id="site-mobile-menu-close" aria-label="Close">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </div>
+      <nav class="site-navigation" aria-label="More navigation">
+        <div class="site-navigation-upper">
+          <div class="site-navigation-top">
+            <a href="/bloxverse/profile" data-needs-auth>
+              <i class="site-font-icon fa-solid fa-user" aria-hidden="true"></i>
+              <span class="site-nav-label">Profile</span>
+            </a>
+            <a href="/bloxverse/account" data-needs-auth aria-current="page">
+              <i class="site-font-icon fa-solid fa-gear" aria-hidden="true"></i>
+              <span class="site-nav-label">Settings</span>
+            </a>
+            <a href="/bloxverse/inventory">
+              <i class="site-font-icon fa-solid fa-box-open" aria-hidden="true"></i>
+              <span class="site-nav-label">Inventory</span>
+            </a>
+            <a href="/bloxverse/groups">
+              <i class="site-font-icon fa-solid fa-users" aria-hidden="true"></i>
+              <span class="site-nav-label">Groups</span>
+            </a>
+            <a href="/bloxverse/download">
+              <i class="site-font-icon fa-solid fa-download" aria-hidden="true"></i>
+              <span class="site-nav-label">Download</span>
+            </a>
+          </div>
+          <div class="site-navigation-tools" role="group" aria-label="Tools">
+            <a href="/bloxverse/catalog">
+              <i class="site-font-icon fa-solid fa-store" aria-hidden="true"></i>
+              <span class="site-nav-label">Catalog</span>
+            </a>
+          </div>
+        </div>
+        <div class="site-navigation-bottom">
+          <a href="https://discord.gg/Uh6WF5NDDK" target="_blank" rel="noopener">
+            <i class="site-font-icon fa-brands fa-discord" aria-hidden="true"></i>
+            <span class="site-nav-label">Discord</span>
+          </a>
+        </div>
+      </nav>
+    </dialog>
+
+    <div class="site-main" id="site-main">
+      <main class="page-content" id="site-content" tabindex="-1">
+        <div class="settings-container">
+          <div class="settings-left-col">
+            <div class="profile-card">
+              <div class="profile-avatar-wrap" id="profile-avatar-wrap"></div>
+              <div class="profile-info">
+                <span id="sidebar-username" class="profile-username">Loading...</span>
+              </div>
+              <button id="sidebar-logout" class="sidebar-logout" title="Sign out" type="button" aria-label="Sign out">
+                <i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i>
+              </button>
+            </div>
+
+            <div class="settings-sidebar">
+              <button class="btn-ghost ui-disclosure-trigger settings-menu-toggle" id="settings-menu-toggle" type="button" aria-expanded="false" aria-controls="settings-menu-panel" aria-label="Show settings sections, Account">
+                <i class="fa-solid fa-user" id="settings-menu-icon" aria-hidden="true"></i>
+                <span id="settings-menu-label">Account</span>
+                <i class="fa-solid fa-chevron-down ui-disclosure-chevron" aria-hidden="true"></i>
+              </button>
+              <div class="ui-disclosure-panel" id="settings-menu-panel">
+                <div>
+                  <nav class="sidebar-tabs" aria-label="Settings sections">
+                    <button class="sidebar-tab active" data-tab="account" type="button" aria-current="page">
+                      <i class="fa-solid fa-user" aria-hidden="true"></i> <span>Account</span>
+                    </button>
+                    <button class="sidebar-tab" data-tab="security" type="button">
+                      <i class="fa-solid fa-eye-slash" aria-hidden="true"></i> <span>Security &amp; Privacy</span>
+                    </button>
+                    <button class="sidebar-tab" data-tab="sessions" type="button">
+                      <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> <span>Sessions</span>
+                    </button>
+                    <button class="sidebar-tab" data-tab="customization" type="button">
+                      <i class="fa-solid fa-paintbrush" aria-hidden="true"></i> <span>Customization</span>
+                    </button>
+                    <button class="sidebar-tab disabled" data-tab="apps" type="button" disabled>
+                      <i class="fa-solid fa-link" aria-hidden="true"></i> <span>Authorized Apps</span>
+                    </button>
+                  </nav>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-main-panel">
+            <div class="tab-content active" id="tab-account">
+              <div class="content-section">
+                <h2 class="section-title-main">Account Info</h2>
+
+                <div class="settings-row">
+                  <div class="row-info">
+                    <span class="row-label">Username</span>
+                    <span id="display-username" class="row-value">Loading...</span>
+                  </div>
+                  <button class="btn-secondary row-edit" id="username-edit" disabled title="Username changes are not available yet" type="button">
+                    <i class="fa-solid fa-pen" aria-hidden="true"></i> Edit
+                  </button>
+                </div>
+
+                <div class="settings-row">
+                  <div class="row-info">
+                    <div class="label-icon">
+                      <span class="row-label">Email</span>
+                      <span id="email-status-icon" class="status-icon" hidden></span>
+                    </div>
+                    <span id="current-email" class="row-value">Loading...</span>
+                  </div>
+                  <div class="row-actions">
+                    <button id="email-verify-open" class="btn-primary" type="button" hidden>Verify</button>
+                    <button id="email-change-open" class="btn-secondary row-edit" type="button">
+                      <i class="fa-solid fa-pen" aria-hidden="true"></i> Edit
+                    </button>
+                  </div>
+                </div>
+
+                <div class="settings-row">
+                  <div class="row-info">
+                    <span class="row-label">Phone Number</span>
+                    <span class="row-value text-muted">Not set</span>
+                  </div>
+                  <button class="btn-secondary row-edit" disabled title="Phone numbers are not available yet" type="button">
+                    <i class="fa-solid fa-pen" aria-hidden="true"></i> Edit
+                  </button>
+                </div>
+
+                <div class="settings-row">
+                  <div class="row-info">
+                    <span class="row-label">Date of Birth</span>
+                    <span id="current-dob" class="row-value">Loading...</span>
+                  </div>
+                  <div class="row-actions">
+                    <button id="dob-open" class="btn-secondary row-edit" type="button">
+                      <i class="fa-solid fa-pen" aria-hidden="true"></i> Edit
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="content-section">
+                <h2 class="section-title-main text-danger">Danger Zone</h2>
+
+                <div class="settings-row danger-row">
+                  <div class="row-info">
+                    <span class="row-label">Deactivate your Account</span>
+                    <p class="row-desc">Temporarily deactivate your account (you can reactivate it at any time)</p>
+                  </div>
+                  <button class="btn-danger-outline" id="deactivate-account" disabled type="button">
+                    Deactivate Account
+                  </button>
+                </div>
+
+                <div class="settings-row danger-row">
+                  <div class="row-info">
+                    <span class="row-label">Delete your Account</span>
+                    <p class="row-desc" id="account-deletion-desc">Permanently delete your BloxVerse account and all associated data.</p>
+                  </div>
+                  <button id="delete-account-open" class="btn-danger" type="button">
+                    Delete Account
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="tab-content" id="tab-security">
+              <div class="content-section">
+                <h2 class="section-title-main">Security</h2>
+
+                <div class="settings-row single-line">
+                  <div class="row-info">
+                    <span class="row-label">Password</span>
+                    <span id="password-state" class="row-value text-muted">Loading...</span>
+                  </div>
+                  <div class="row-actions">
+                    <button id="password-change-open" class="btn-secondary row-edit" type="button">
+                      <i class="fa-solid fa-pen" aria-hidden="true"></i> Edit
+                    </button>
+                  </div>
+                </div>
+
+                <div class="settings-row">
+                  <div class="row-info">
+                    <div class="label-icon">
+                      <span class="row-label">Multi-Factor Authentication</span>
+                      <span id="twofa-status-icon" class="status-icon" hidden></span>
+                    </div>
+                    <p class="modal-hint" id="twofa-codes-left" hidden></p>
+                  </div>
+                  <div class="row-actions">
+                    <button id="twofa-enable" class="btn-secondary row-edit" type="button">
+                      <i class="fa-solid fa-pen" aria-hidden="true"></i> Edit
+                    </button>
+                    <button id="twofa-disable-open" class="btn-secondary row-edit" type="button" hidden>
+                      <i class="fa-solid fa-pen" aria-hidden="true"></i> Edit
+                    </button>
+                    <button id="twofa-codes-open" class="btn-primary" type="button" hidden>
+                      Recovery Codes
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="content-section">
+                <h2 class="section-title-main">Privacy</h2>
+
+                <div class="settings-row">
+                  <div class="row-info">
+                    <span class="row-label">Profile Visibility</span>
+                    <p class="row-desc">Who can view your profile page</p>
+                  </div>
+                  <select class="settings-input" id="profile-privacy" aria-label="Profile visibility">
+                    <option value="public">Everyone</option>
+                    <option value="friends">Friends Only</option>
+                  </select>
+                </div>
+
+                <div class="settings-row">
+                  <div class="row-info">
+                    <span class="row-label">Voice Chat</span>
+                    <p class="row-desc" id="voice-chat-desc">Allow voice chat in experiences that support it</p>
+                  </div>
+                  <label class="settings-toggle">
+                    <input type="checkbox" id="voice-chat" aria-label="Voice chat">
+                    <span></span>
+                  </label>
+                </div>
+
+                <div class="settings-row ai-optout-row">
+                  <div class="row-info">
+                    <span class="row-label">AI &amp; Moderation Model Training</span>
+                    <p class="row-desc">We use content on the platform to improve our automated moderation and
+                      safety tools, as described in our <a href="/bloxverse/privacy">Privacy Policy</a>. You can
+                      opt out of your content being used for this training below, but this does not disable any
+                      real-time moderation.</p>
+                  </div>
+                  <label class="field-checkbox">
+                    <input type="checkbox" id="ai-optout">
+                    Opt out
+                  </label>
+                </div>
+
+                <div class="settings-row">
+                  <div class="row-info">
+                    <span class="row-label">Discord RPC</span>
+                    <p class="row-desc">Show what you are playing in your Discord status. Desktop app only.</p>
+                  </div>
+                  <label class="settings-toggle">
+                    <input type="checkbox" id="rpc-toggle" aria-label="Discord rich presence">
+                    <span></span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="tab-content" id="tab-sessions">
+              <div class="content-section">
+                <div class="settings-row single-line">
+                  <div class="row-info">
+                    <h2 class="section-title-main flush">Active Sessions</h2>
+                    <p class="row-desc">Devices currently signed in to your account.</p>
+                  </div>
+                  <button id="sessions-revoke-all" class="btn-danger-outline" type="button">
+                    Sign out of all other sessions
+                  </button>
+                </div>
+                <div id="sessions-list"></div>
+              </div>
+            </div>
+
+            <div class="tab-content" id="tab-customization">
+              <div class="content-section">
+                <h2 class="section-title-main">Appearance</h2>
+
+                <div class="settings-row">
+                  <div class="row-info">
+                    <span class="row-label">Mode</span>
+                    <p class="row-desc">Light, dark, or follow your system</p>
+                  </div>
+                  <select class="settings-input" id="theme-mode" aria-label="Theme mode">
+                    <option value="dark">Dark</option>
+                    <option value="light">Light</option>
+                    <option value="system">System</option>
+                  </select>
+                </div>
+
+                <div class="settings-row theme-row">
+                  <div class="row-info">
+                    <span class="row-label">Theme</span>
+                    <p class="row-desc">Pick a color for the whole site</p>
+                  </div>
+                  <div class="theme-options" id="theme-families" role="group" aria-label="Theme"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <footer class="footer" aria-label="Site information">
+        <div class="footer-inner">
+          <nav class="footer-links" aria-label="Resources and policies">
+            <a href="https://bloxverse.discourse.group/" target="_blank" rel="noopener">Forum</a>
+            <a href="/bloxverse/community-guidelines">Community Guidelines</a>
+            <a href="/bloxverse/terms">Terms of Service</a>
+            <a href="/bloxverse/privacy">Privacy Policy</a>
+            <a href="/bloxverse/support">Support</a>
+          </nav>
+          <p class="footer-copyright">&copy; 2026 BloxVerse. All rights reserved.</p>
+          <div class="footer-socials" role="group" aria-label="Follow BloxVerse">
+            <a class="btn-ghost btn-icon footer-icon" href="https://discord.gg/Uh6WF5NDDK" target="_blank" rel="noopener" aria-label="Discord">
+              <i class="fa-brands fa-discord" aria-hidden="true"></i>
+            </a>
+          </div>
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Modals. The shell's .ui-dialog gives each one focus trapping, Escape and
+       backdrop dismissal, so these only declare their own fields and actions. -->
+
+  <dialog class="ui-dialog" id="email-modal" aria-labelledby="email-modal-title">
+    <div class="ui-dialog-header">
+      <h2 id="email-modal-title">Change Email</h2>
+      <button type="button" class="btn-ghost btn-icon" data-close-dialog aria-label="Close">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
+    </div>
+    <p class="ui-dialog-description">We'll ask you to confirm your current password before changing the address on your account.</p>
+    <form id="email-form" class="ui-dialog-body" novalidate>
+      <p class="ui-dialog-error" id="email-err" hidden></p>
+      <div class="settings-field">
+        <label for="new-email">New Email Address</label>
+        <input id="new-email" name="email" type="email" placeholder="New email address" autocomplete="email" required>
+      </div>
+      <div class="settings-field">
+        <label for="email-password">Current Password</label>
+        <input id="email-password" name="password" type="password" placeholder="Confirm with your password" autocomplete="current-password" required>
+      </div>
+      <div class="ui-dialog-actions">
+        <button type="button" class="btn-ghost" data-close-dialog>Cancel</button>
+        <button type="submit" class="btn-primary">Change Email</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="ui-dialog" id="email-verify-modal" aria-labelledby="email-verify-modal-title">
+    <div class="ui-dialog-header">
+      <h2 id="email-verify-modal-title">Verify Email</h2>
+      <button type="button" class="btn-ghost btn-icon" data-close-dialog aria-label="Close">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
+    </div>
+    <p class="ui-dialog-description">Send a verification email to confirm your email address.</p>
+    <div class="ui-dialog-body">
+      <p class="ui-dialog-error" id="email-verify-err" hidden></p>
+      <p class="success" id="email-verify-success" hidden></p>
+      <div class="ui-dialog-actions">
+        <button type="button" class="btn-ghost" data-close-dialog>Close</button>
+        <button id="send-verify" class="btn-primary" type="button">Send Verification Email</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog class="ui-dialog" id="password-modal" aria-labelledby="password-modal-title">
+    <div class="ui-dialog-header">
+      <h2 id="password-modal-title">Change Password</h2>
+      <button type="button" class="btn-ghost btn-icon" data-close-dialog aria-label="Close">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="ui-dialog-body">
+      <p class="ui-dialog-error" id="password-err" hidden></p>
+      <p class="success" id="password-success" hidden></p>
+      <form id="password-form" novalidate>
+        <div class="settings-field">
+          <label for="current-password">Current Password</label>
+          <input id="current-password" name="current_password" type="password" autocomplete="current-password" required>
+        </div>
+        <div class="settings-field">
+          <label for="new-password">New Password</label>
+          <input id="new-password" name="new_password" type="password" autocomplete="new-password" required>
+        </div>
+        <div class="settings-field">
+          <label for="confirm-password">Confirm Password</label>
+          <input id="confirm-password" name="confirm_password" type="password" autocomplete="new-password" required>
+        </div>
+        <div class="ui-dialog-actions">
+          <button type="button" class="btn-ghost" data-close-dialog>Cancel</button>
+          <button type="submit" class="btn-primary">Update Password</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <dialog class="ui-dialog" id="dob-modal" aria-labelledby="dob-modal-title">
+    <div class="ui-dialog-header">
+      <h2 id="dob-modal-title">Date of Birth</h2>
+      <button type="button" class="btn-ghost btn-icon" data-close-dialog aria-label="Close">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
+    </div>
+    <p class="ui-dialog-description">We use your date of birth to gate age-restricted features such as voice chat.</p>
+    <form id="dob-form" class="ui-dialog-body" novalidate>
+      <p class="ui-dialog-error" id="dob-err" hidden></p>
+      <div class="settings-field">
+        <label for="dob-input">Date of birth</label>
+        <input id="dob-input" name="birthday" type="date" required>
+      </div>
+      <div class="ui-dialog-actions">
+        <button type="button" class="btn-ghost" data-close-dialog>Cancel</button>
+        <button type="submit" class="btn-primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="ui-dialog" id="twofa-modal" aria-labelledby="twofa-modal-title">
+    <div class="ui-dialog-header">
+      <h2 id="twofa-modal-title">Enable Two-Factor Authentication</h2>
+      <button type="button" class="btn-ghost btn-icon" data-close-dialog aria-label="Close">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
+    </div>
+    <p class="ui-dialog-error" id="twofa-err" hidden></p>
+
+    <div class="ui-dialog-body" id="twofa-step-password">
+      <p class="ui-dialog-description">Step 1 of 3 - confirm your password to start setup.</p>
+      <form id="twofa-setup-form" novalidate>
+        <div class="settings-field">
+          <label for="twofa-setup-password">Current Password</label>
+          <input id="twofa-setup-password" name="current_password" type="password" placeholder="Enter your password" autocomplete="current-password" required>
+        </div>
+        <div class="ui-dialog-actions">
+          <button type="submit" class="btn-primary">Continue</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="ui-dialog-body" id="twofa-step-qr" hidden>
+      <p class="ui-dialog-description">Step 2 of 3 - scan this QR code with an authenticator app, then enter the code it shows.</p>
+      <img id="twofa-qr" alt="2FA QR code" class="account-qr-img">
+      <p class="modal-hint">Can't scan it? Enter this key manually instead:</p>
+      <p class="account-secret" id="twofa-secret"></p>
+      <form id="twofa-confirm-form" novalidate>
+        <div class="settings-field">
+          <label for="twofa-confirm-code">6-digit code from your app</label>
+          <input id="twofa-confirm-code" name="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="000000" required>
+        </div>
+        <div class="ui-dialog-actions">
+          <button type="submit" class="btn-primary">Confirm &amp; Enable</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="ui-dialog-body" id="twofa-step-codes" hidden>
+      <p class="ui-dialog-description">Step 3 of 3 - save your recovery codes. If you ever lose your authenticator app, each of these can be used once in place of a 6-digit code. This is the only time they will be shown.</p>
+      <ul class="account-codes" id="twofa-codes-list"></ul>
+      <div class="ui-dialog-actions">
+        <button type="button" class="btn-secondary" id="twofa-codes-copy">Copy Codes</button>
+        <button type="button" class="btn-primary" id="twofa-codes-done">I've Saved Them</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog class="ui-dialog" id="twofa-regen-modal" aria-labelledby="twofa-regen-modal-title">
+    <div class="ui-dialog-header">
+      <h2 id="twofa-regen-modal-title">Generate New Recovery Codes</h2>
+      <button type="button" class="btn-ghost btn-icon" data-close-dialog aria-label="Close">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
+    </div>
+    <p class="ui-dialog-error" id="twofa-regen-err" hidden></p>
+    <div class="ui-dialog-body">
+      <p class="ui-dialog-description">Confirm your password and a code from your authenticator app, or one of your unused recovery codes. Your existing recovery codes will stop working.</p>
+      <form id="twofa-regen-form" novalidate>
+        <div class="settings-field">
+          <label for="twofa-regen-password">Current Password</label>
+          <input id="twofa-regen-password" name="current_password" type="password" placeholder="Enter your password" autocomplete="current-password" required>
+        </div>
+        <div class="settings-field">
+          <label for="twofa-regen-code">Verification or Recovery Code</label>
+          <input id="twofa-regen-code" name="code" autocomplete="one-time-code" placeholder="000000 or XXXXX-XXXXX" required>
+        </div>
+        <div class="ui-dialog-actions">
+          <button type="submit" class="btn-primary">Generate</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <dialog class="ui-dialog" id="twofa-disable-modal" aria-labelledby="twofa-disable-modal-title">
+    <div class="ui-dialog-header">
+      <h2 id="twofa-disable-modal-title">Disable Two-Factor Authentication</h2>
+      <button type="button" class="btn-ghost btn-icon" data-close-dialog aria-label="Close">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
+    </div>
+    <p class="ui-dialog-error" id="twofa-disable-err" hidden></p>
+    <div class="ui-dialog-body">
+      <p class="ui-dialog-description">Confirm your password and a current code from your authenticator app, or one of your unused recovery codes.</p>
+      <form id="twofa-disable-form" novalidate>
+        <div class="settings-field">
+          <label for="twofa-disable-password">Current Password</label>
+          <input id="twofa-disable-password" name="current_password" type="password" autocomplete="current-password" required>
+        </div>
+        <div class="settings-field">
+          <label for="twofa-disable-code">Verification or Recovery Code</label>
+          <input id="twofa-disable-code" name="code" autocomplete="one-time-code" placeholder="000000 or XXXXX-XXXXX" required>
+        </div>
+        <div class="ui-dialog-actions">
+          <button type="submit" class="btn-danger">Disable</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <dialog class="ui-dialog" id="delete-account-modal" aria-labelledby="delete-account-modal-title">
+    <div class="ui-dialog-header">
+      <h2 id="delete-account-modal-title">Delete Account</h2>
+      <button type="button" class="btn-ghost btn-icon" data-close-dialog aria-label="Close">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
+    </div>
+    <p class="ui-dialog-description">Your account will be permanently deleted in 7 days. You can cancel any time before then by logging in. After 7 days, this cannot be undone.</p>
+    <div class="ui-dialog-body">
+      <p class="ui-dialog-error" id="delete-account-err" hidden></p>
+      <div class="ui-dialog-actions">
+        <button type="button" class="btn-ghost" data-close-dialog>Cancel</button>
+        <button id="delete-account-confirm" class="btn-danger" type="button">Delete My Account</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script type="module" src="src/studio.js"></script>
+  <script type="module">
+    import { initShell } from './src/shell.js';
+    // initShell() also calls initNotice(), so the announcement bar is started.
+    initShell();
+  </script>
+  <script type="module" src="src/account_page.js"></script>
+</body>
+
+</html>

@@ -57,7 +57,7 @@ export function luaToJS(lua) {
                     return `for (let ${_v}=${_start.trim()}; ${_v}${_cmp}${_stop.trim()}; ${_v}+=(${_st})) {`;
                 });
         },
-        // Convert bare Lua do...end to { ... } — must run AFTER for-loop conversions above
+        // Convert bare Lua do...end to { ... } -- must run AFTER for-loop conversions above
         (_s) => _s.replace(/\bdo\b(?!\s*\{)/g, '{'),
         // Convert repeat...until to do...while
         (_s) => _s.replace(/\brepeat\b/g, 'do {'),
@@ -94,7 +94,7 @@ export function luaToJS(lua) {
         (_s) => _s.replace(/\bgame\.PurchaseDeveloperProduct\s*\(/g, 'await game.PurchaseDeveloperProduct('),
         (_s) => _s.replace(/\bgame\.PromptDeveloperProduct\s*\(/g, 'await game.PromptDeveloperProduct('),
         // Compound assignment operators: += -= *= /= //= %= ^= ..=
-        // Placed after table-key transforms to avoid {x = …} → {x: …} conflict
+        // Placed after table-key transforms to avoid {x = ...} → {x: ...} conflict
         (_s) => _s.replace(
             /(\w+(?:\s*\.\s*\w+)*(?:\s*\[[^\]]+\])*)\s*([+\-*/%]|\.\.)=\s*/g,
             (_m, _v, _op) => {
@@ -106,7 +106,7 @@ export function luaToJS(lua) {
         (_s) => _s.replace(/\^=(?=\s|$)/g, '**='),
         // ^  →  **  (exponentiation, must run AFTER ^= is already converted)
         (_s) => _s.replace(/\^/g, '**'),
-        // //=  →  Math.floor(x / rhs) — capture RHS up to ; or newline
+        // //=  →  Math.floor(x / rhs) -- capture RHS up to ; or newline
         (_s) => _s.replace(
             /(\w+(?:\s*\.\s*\w+)*(?:\s*\[[^\]]+\])*)\s*\/\/=\s*([^;\n]+)/g,
             (_m, _v, _rhs) => `${_v} = Math.floor(${_v} / ${_rhs})`
@@ -128,7 +128,7 @@ function _v3ToObj(v) {
     return { x: arr[0], y: arr[1], z: arr[2] };
 }
 
-// ── GUI element wrapper ────────────────────────────────────────────────────────
+// -- GUI element wrapper --------------------------------------------------------
 function createGuiElement(type, props, screenEl) {
     const el = document.createElement(type === 'Frame' ? 'div' : type === 'TextLabel' ? 'div' : 'button');
     el.dataset.guiType = type;
@@ -258,7 +258,7 @@ function cssColorToRgb(color) {
     return null;
 }
 
-// ── ScreenGui wrapper ──────────────────────────────────────────────────────────
+// -- ScreenGui wrapper ----------------------------------------------------------
 function createScreenGuiContainer(name) {
     const container = document.createElement('div');
     container.dataset.screenGui = name;
@@ -289,7 +289,7 @@ function createScreenGuiContainer(name) {
     return api;
 }
 
-// ── Metatables (Lua OOP support) ──────────────────────────────────────────────
+// -- Metatables (Lua OOP support) ----------------------------------------------
 function createMetatable(obj, mt) {
     if (!mt) return obj;
     return new Proxy(obj, {
@@ -427,7 +427,7 @@ export function createInstanceProxy(inst) {
             }
             if (prop === 'ClassName') return false;
 
-            // GUI Text setter — calls setProperty which triggers _applyDOM on the instance
+            // GUI Text setter -- calls setProperty which triggers _applyDOM on the instance
             if ((isGui || target.ClassName === 'TextLabel' || target.ClassName === 'TextButton') && prop === 'Text') {
                 if (target.setProperty) target.setProperty('Text', value);
                 else target.Text = value;
@@ -520,7 +520,7 @@ export function createInstanceProxy(inst) {
     });
 }
 
-// ── sprintf ────────────────────────────────────────────────────────────────────
+// -- sprintf --------------------------------------------------------------------
 function sprintf(fmt, ...args) {
     let i = 0;
     return fmt.replace(/%(-?)(\d*)(\.?\d*)([xXdsf%])/g, (m, minus, width, prec, type) => {
@@ -546,7 +546,7 @@ function sprintf(fmt, ...args) {
     });
 }
 
-// ── Color3 / Vector3 ───────────────────────────────────────────────────────────
+// -- Color3 / Vector3 -----------------------------------------------------------
 function Color3(r, g, b) {
     if (r === undefined) return { r: 0, g: 0, b: 0 };
     if (typeof r === 'number' && g === undefined) return { r: r, g: r, b: r };
@@ -570,13 +570,13 @@ Color3.fromHSV = (h, s, v) => {
 function Vector3(x, y, z) { return { x: x ?? 0, y: y ?? 0, z: z ?? 0 }; }
 Vector3.new = (x, y, z) => ({ x: x ?? 0, y: y ?? 0, z: z ?? 0 });
 
-// ── UDim2 / UDim (Roblox-style, accepted but simplified) ─────────────────────
+// -- UDim2 / UDim (Roblox-style, accepted but simplified) ---------------------
 function UDim2(sx, ox, sy, oy) { return { ScaleX: sx ?? 0, OffsetX: ox ?? 0, ScaleY: sy ?? 0, OffsetY: oy ?? 0 }; }
 UDim2.new = UDim2;
 function UDim(s, o) { return { Scale: s ?? 0, Offset: o ?? 0 }; }
 UDim.new = UDim;
 
-// ── Lua type helper ───────────────────────────────────────────────────────────
+// -- Lua type helper -----------------------------------------------------------
 function _luaType(v) {
     if (v === null) return 'nil';
     if (typeof v === 'boolean') return 'boolean';
@@ -588,7 +588,7 @@ function _luaType(v) {
     return 'userdata';
 }
 
-// ── Math extras ───────────────────────────────────────────────────────────────
+// -- Math extras ---------------------------------------------------------------
 const LuaMath = {
     ...Math,
     clamp: (v, min, max) => Math.min(Math.max(v, min), max),
@@ -616,7 +616,7 @@ const LuaMath = {
     modf: (a) => [Math.trunc(a), a % 1],
 };
 
-// ── String extras ─────────────────────────────────────────────────────────────
+// -- String extras -------------------------------------------------------------
 const LuaString = {
     format: sprintf,
     sub: (s, start, last) => {
@@ -666,7 +666,7 @@ const LuaString = {
     },
 };
 
-// ── Table extras ──────────────────────────────────────────────────────────────
+// -- Table extras --------------------------------------------------------------
 const _toArray = (t) => { if (!t) return []; if (Array.isArray(t)) return t; const a = Object.values(t); Object.keys(t).forEach((k, i) => { delete t[k]; t[i] = a[i]; }); t.length = a.length; Object.setPrototypeOf(t, Array.prototype); return t; };
 const LuaTable = {
     insert: (t, pos, val) => {
@@ -693,7 +693,7 @@ const LuaTable = {
     },
 };
 
-// ── Script context factory ────────────────────────────────────────────────────
+// -- Script context factory ----------------------------------------------------
 export function createScriptContext(api) {
     const _guiScreens = [];
     const _eventHandlers = {};
@@ -900,7 +900,7 @@ export function createScriptContext(api) {
     ctx.Color3.fromRGB = Color3.fromRGB;
     ctx.Color3.fromHSV = Color3.fromHSV;
 
-    // `require` stub — returns exports of a named script if available via api
+    // `require` stub -- returns exports of a named script if available via api
     ctx.require = (name) => {
         if (api.require) return api.require(name);
         console.warn('[Script] require("' + name + '") not supported in this context');

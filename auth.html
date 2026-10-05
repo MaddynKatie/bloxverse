@@ -19,7 +19,15 @@
   <link rel="preconnect" href="https://esm.sh" crossorigin>
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 
-  <meta charset="UTF-8" />
+  <script>
+    const authPath = window.location.pathname.replace(/\/+$/, '');
+    const loginPath = authPath.replace(/\/auth(?:\.html)?$/i, '/login');
+    if (loginPath !== authPath) {
+      window.location.replace(`${loginPath}${window.location.search}${window.location.hash}`);
+    }
+  </script>
+
+    <meta charset="UTF-8" />
   <link rel="icon" type="image/png" href="assets/icons/bloxverseLogo.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BloxVerse - Login</title>

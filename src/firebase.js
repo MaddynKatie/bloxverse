@@ -78,7 +78,7 @@ export { getDoc, doc, setDoc, deleteDoc, onSnapshot, collection, query, where, o
 /**
  * Get a user's roles. Returns an array e.g. ['admin', 'developer'] or [].
  *
- * Firestore structure — collection: 'roles', document id: userId
+ * Firestore structure -- collection: 'roles', document id: userId
  * { roles: ['admin', 'developer'] }
  */
 export async function getRoles(userId) {
@@ -99,7 +99,7 @@ export async function getRoles(userId) {
  * Check if a user is currently banned.
  * Returns the ban document data if banned, or null if not banned.
  *
- * Firestore structure — collection: 'bans', document id: userId
+ * Firestore structure -- collection: 'bans', document id: userId
  * {
  *   banned:        true,
  *   reason:        "Exploiting",           // shown in the reason box
@@ -194,7 +194,14 @@ export function trackPresence(userId, gameId, page) {
 
   function updatePresence(data) {
     if (!active) return;
-    return setDoc(presenceRef, { ...data, lastSeen: serverTimestamp() }, { merge: true });
+    const presence = { ...data };
+    // Retain the legacy state field until every page reads the boolean fields.
+    if (presence.online === true) {
+      presence.state = presence.inStudio ? 'in-studio' : presence.inGame ? 'in-game' : 'online';
+    } else if (presence.online === false) {
+      presence.state = 'offline';
+    }
+    return setDoc(presenceRef, { ...presence, lastSeen: serverTimestamp() }, { merge: true });
   }
 
   updatePresence({ online: true, inGame: currentInGame, gameId: currentInGame ? gameId : null, inStudio: currentInStudio, page: page || null });
@@ -218,26 +225,33 @@ export function trackPresence(userId, gameId, page) {
     }
   };
 
+  // Refresh lastSeen while active so presence readers don't age an ongoing
+  // session into Offline after their two-minute stale threshold.
+  const heartbeat = setInterval(() => {
+    if (!document.hidden) goOnline();
+  }, 45000);
+
   window.addEventListener('beforeunload', goOffline);
   document.addEventListener('visibilitychange', onVisibilityChange);
 
   return {
     setInGame(val) {
       currentInGame = val;
-      updatePresence({ online: true, inGame: val, gameId: val ? gameId : null, inStudio: currentInStudio });
+      updatePresence({ online: true, inGame: val, gameId: val ? gameId : null, inStudio: currentInStudio, page: page || null });
     },
     setInStudio(val) {
       currentInStudio = val;
-      updatePresence({ online: true, inGame: currentInGame, gameId: currentInGame ? gameId : null, inStudio: val });
+      updatePresence({ online: true, inGame: currentInGame, gameId: currentInGame ? gameId : null, inStudio: val, page: page || null });
     },
     goOffline() {
       goOffline();
     },
     cleanup() {
+      goOffline();
       active = false;
+      clearInterval(heartbeat);
       window.removeEventListener('beforeunload', goOffline);
       document.removeEventListener('visibilitychange', onVisibilityChange);
-      updatePresence({ online: false, inGame: false, gameId: null, inStudio: false, page: null });
     }
   };
 }
@@ -698,7 +712,7 @@ export async function isUsernameTaken(username) {
   }
 }
 
-// ─── Session management (sign out of all other sessions) ──────────────────
+// --- Session management (sign out of all other sessions) ------------------
 // Every device stores the user's current "session epoch" it authenticated at.
 // "Sign out of all other sessions" bumps the epoch on the user doc; any other
 // device whose stored epoch is lower signs out (via the global watcher below).
@@ -762,7 +776,7 @@ export async function revokeOtherSessions(uid) {
 // before redirecting, so a fresh sign-in is never instantly signed out.
 export function isAuthPage() {
   const p = (window.location.pathname || '').replace(/\/+$/, '').toLowerCase();
-  return /(^|\/)auth(\.html)?$/.test(p);
+  return /(^|\/)(?:auth|login)(\.html)?$/.test(p);
 }
 
 onAuthStateChanged(auth, async (user) => {
