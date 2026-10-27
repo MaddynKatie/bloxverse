@@ -28,7 +28,8 @@ function storageConfigured() {
 }
 
 function storageClient() {
-  const endpoint = process.env.B2_ENDPOINT;
+  // Accept the endpoint with or without a scheme and with a trailing slash.
+  const endpoint = 'https://' + process.env.B2_ENDPOINT.trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
   const region = (endpoint.match(/s3\.([a-z0-9-]+)\.backblazeb2\.com/) || [])[1] || 'us-west-004';
   return new S3Client({
     endpoint,
