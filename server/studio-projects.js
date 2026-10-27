@@ -34,6 +34,9 @@ function storageClient() {
     endpoint,
     region,
     forcePathStyle: false,
+    // Newer SDKs add default checksums that Backblaze's S3 API may reject.
+    requestChecksumCalculation: 'WHEN_REQUIRED',
+    responseChecksumValidation: 'WHEN_REQUIRED',
     credentials: { accessKeyId: process.env.B2_KEY_ID, secretAccessKey: process.env.B2_APPLICATION_KEY },
   });
 }
@@ -96,7 +99,7 @@ async function handleStudioProjects(admin, req, res, pathname) {
     if ((existing.exists ? existing.data().revision : 0) !== expected) throw fail(409, 'This project was changed elsewhere. Reopen it before saving.');
     // Each save gets a unique object key; the bucket must stay private.
     const newKey = `projects/${uid}/${match[1]}/${saveId}.bvp`;
-    try { await writeObject(s3, newKey, bytes); } catch { throw fail(502, 'Cloud upload failed.'); }
+    try { await writeObject(s3, newKey, bytes); } catch (err) { console.warn('[Studio] B2 upload failed:', err.name, err.message); throw fail(502, 'Cloud upload failed.'); }
     let result;
     try {
       result = await admin.firestore().runTransaction(async tx => {
