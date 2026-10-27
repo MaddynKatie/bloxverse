@@ -361,7 +361,8 @@ const server = http.createServer(async (req, res) => {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Purge-Secret');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Purge-Secret, X-Project-Revision, X-Project-Name, X-Save-Id');
+  res.setHeader('Access-Control-Expose-Headers', 'X-Project-Revision, X-Project-Name');
 
   if (req.method === 'OPTIONS') {
     res.writeHead(200);
@@ -372,6 +373,12 @@ const server = http.createServer(async (req, res) => {
   // Parse URL
   const parsedUrl = url.parse(req.url, true);
   const pathname = parsedUrl.pathname;
+
+  if (pathname === '/api/studio/projects' || pathname.startsWith('/api/studio/projects/')) {
+    const { handleStudioProjects } = require('./studio-projects.js');
+    await handleStudioProjects(admin, req, res, pathname);
+    return;
+  }
 
   // Handle script API endpoints
   if (pathname.startsWith('/api/game-scripts/') && req.method === 'GET') {
