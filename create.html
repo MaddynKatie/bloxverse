@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <script type="importmap">
+  {
+    "imports": {
+      "firebase/app": "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js",
+      "firebase/auth": "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js",
+      "firebase/firestore": "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js"
+    }
+  }
+  </script>
+
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Create and manage your Vortex games." />
+  <link rel="icon" type="image/png" href="assets/icons/bloxverseLogo.png" />
+  <title>Vortex Create</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="src/create_page.css" />
+</head>
+
+<body>
+  <header class="topbar">
+    <a href="/bloxverse/" class="site-wordmark" aria-label="BloxVerse home">
+      <img class="site-wordmark-mark" src="assets/icons/bloxverseLogo.png" alt="" width="34" height="34" draggable="false" />
+      <span>BloxVerse</span>
+    </a>
+    <nav class="topnav" aria-label="Main">
+      <a href="index.html" aria-current="page">Dashboard</a>
+      <a href="catalog.html">Clothing</a>
+      <a href="/bloxverse/create/guides/intro/">Docs</a>
+    </nav>
+    <div class="account" id="account"></div>
+  </header>
+
+  <div class="shell">
+    <main class="page">
+      <div class="page-head">
+        <h1>Your games</h1>
+        <button type="button" class="btn btn-primary" id="create-game" data-open-studio hidden>Create game</button>
+      </div>
+
+      <div id="content">
+        <div class="grid">
+          <div class="skeleton"></div>
+          <div class="skeleton"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="src/studio.js"></script>
+  <script type="module" src="src/create_page.js"></script>
+</body>
+
+</html>
