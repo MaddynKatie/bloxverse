@@ -360,7 +360,7 @@ const gameServers = new Map();
 const server = http.createServer(async (req, res) => {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Purge-Secret, X-Project-Revision, X-Project-Name, X-Save-Id');
   res.setHeader('Access-Control-Expose-Headers', 'X-Project-Revision, X-Project-Name');
 
@@ -409,6 +409,20 @@ const server = http.createServer(async (req, res) => {
   if (pathname.startsWith('/api/catalog/resale/') || pathname === '/api/catalog/purchase') {
     const { handleResale } = require('./catalog-trading.js');
     await handleResale(admin, cloudinary, req, res, pathname, req.method);
+    return;
+  }
+
+  // Creator games: the web Create page's form posts here to create a game record.
+  if (pathname === '/api/creator/games') {
+    const { handleCreatorGames } = require('./creator-games.js');
+    await handleCreatorGames(admin, req, res, pathname);
+    return;
+  }
+
+  // Creator clothing: the Clothing page lists a creator's items and submits new ones for review.
+  if (pathname === '/api/creator/clothing' || pathname.startsWith('/api/creator/clothing/')) {
+    const { handleCreatorClothing } = require('./creator-clothing.js');
+    await handleCreatorClothing(admin, req, res, pathname);
     return;
   }
 

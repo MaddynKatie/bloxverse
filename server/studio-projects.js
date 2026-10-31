@@ -1,8 +1,9 @@
 const { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
-const { requireUid, send } = require('./http-util.js');
+const { requireUid, send, readJsonBody } = require('./http-util.js');
 
 const MAX_PROJECT_BYTES = 10 * 1024 * 1024;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const PROJECT_ID = /^[1-9]\d*$/;
 
 function fail(status, message) {
   return Object.assign(new Error(message), { status });
@@ -63,12 +64,35 @@ async function handleStudioProjects(admin, req, res, pathname) {
   res.setHeader('Cache-Control', 'private, no-store');
   try {
     const uid = await requireUid(admin, req);
-    const match = pathname.match(/^\/api\/studio\/projects(?:\/([0-9a-f-]+))?$/i);
-    if (!match || (match[1] && !UUID.test(match[1]))) throw fail(404, 'Project not found.');
-    const projects = admin.firestore().collection('studioProjectOwners').doc(uid).collection('projects');
+    const match = pathname.match(/^\/api\/studio\/projects(?:\/(\d+))?$/);
+    if (!match || (match[1] && !PROJECT_ID.test(match[1]))) throw fail(404, 'Project not found.');
+    // Project IDs come from one global sequence (1, 2, 3...) shared by all users.
+    // Each project lives in studioProjects/{id} and records its ownerId.
+    const db = admin.firestore();
+    const counterRef = db.collection('studioCounters').doc('projects');
+    const projects = db.collection('studioProjects');
+    if (!match[1] && req.method === 'POST') {
+      let body;
+      try { body = await readJsonBody(req); } catch (error) { throw fail(400, error.message); }
+      const name = String(body.name || '').trim();
+      if (!name) throw fail(400, 'Enter a game name.');
+      if (name.length > 120) throw fail(400, 'Game names can be at most 120 characters.');
+      const description = String(body.description == null ? '' : body.description).trim().slice(0, 1000);
+      const visibility = body.visibility === 'public' ? 'public' : 'private';
+      const id = await db.runTransaction(async tx => {
+        const counter = await tx.get(counterRef);
+        const next = (Number(counter.exists ? counter.data().last : 0) || 0) + 1;
+        tx.set(counterRef, { last: next }, { merge: true });
+        tx.set(projects.doc(String(next)), { ownerId: uid, name, description, visibility, revision: 0, updatedAt: new Date().toISOString() });
+        return next;
+      });
+      return send(res, 201, { id: String(id), name, description, visibility, revision: 0 });
+    }
     if (!match[1] && req.method === 'GET') {
-      const snapshot = await projects.orderBy('updatedAt', 'desc').get();
-      return send(res, 200, { projects: snapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name, revision: doc.data().revision, updatedAt: doc.data().updatedAt })) });
+      const snapshot = await projects.where('ownerId', '==', uid).get();
+      const list = snapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name, description: doc.data().description || '', visibility: doc.data().visibility === 'public' ? 'public' : 'private', revision: doc.data().revision, updatedAt: doc.data().updatedAt }));
+      list.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+      return send(res, 200, { projects: list });
     }
     if (!match[1]) throw fail(405, 'Method not allowed.');
     if (!storageConfigured()) throw fail(503, 'Cloud storage is not configured on the server.');
@@ -76,8 +100,9 @@ async function handleStudioProjects(admin, req, res, pathname) {
     const ref = projects.doc(match[1]);
     if (req.method === 'GET') {
       const doc = await ref.get();
-      if (!doc.exists) throw fail(404, 'Project not found.');
+      if (!doc.exists || doc.data().ownerId !== uid) throw fail(404, 'Project not found.');
       const data = doc.data();
+      if (!data.fileKey) throw fail(409, 'This project has not been saved yet.');
       let bytes;
       try { bytes = await readObject(s3, data.fileKey); } catch { throw fail(502, 'Could not retrieve the project file.'); }
       // A concurrent save may have replaced the file while it was being fetched.
@@ -94,8 +119,13 @@ async function handleStudioProjects(admin, req, res, pathname) {
     let name;
     try { name = decodeURIComponent(String(req.headers['x-project-name'] || 'Untitled')); } catch { throw fail(400, 'Invalid project name.'); }
     name = name.trim().slice(0, 120) || 'Untitled';
+    let description = '';
+    try { description = decodeURIComponent(String(req.headers['x-project-description'] || '')); } catch { throw fail(400, 'Invalid project description.'); }
+    description = description.trim().slice(0, 1000);
+    const visibility = req.headers['x-project-visibility'] === 'public' ? 'public' : 'private';
     const bytes = await readProject(req);
     const existing = await ref.get();
+    if (existing.exists && existing.data().ownerId !== uid) throw fail(404, 'Project not found.');
     if (existing.exists && existing.data().saveId === saveId) return send(res, 200, { revision: existing.data().revision });
     if ((existing.exists ? existing.data().revision : 0) !== expected) throw fail(409, 'This project was changed elsewhere. Reopen it before saving.');
     // Each save gets a unique object key; the bucket must stay private.
@@ -109,7 +139,8 @@ async function handleStudioProjects(admin, req, res, pathname) {
         if (current?.saveId === saveId) return { revision: current.revision, duplicate: true };
         if ((current?.revision || 0) !== expected) throw fail(409, 'This project was changed elsewhere. Reopen it before saving.');
         const revision = expected + 1;
-        tx.set(ref, { name, revision, fileKey: newKey, saveId, updatedAt: new Date().toISOString() });
+        if (current && current.ownerId !== uid) throw fail(404, 'Project not found.');
+        tx.set(ref, { ownerId: uid, name, description, visibility, revision, fileKey: newKey, saveId, updatedAt: new Date().toISOString() }, { merge: true });
         return { revision, oldKey: current?.fileKey };
       });
     } catch (err) {
